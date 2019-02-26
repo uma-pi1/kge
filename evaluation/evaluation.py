@@ -1,7 +1,7 @@
 from typing import List
 
 
-class BaseEvaluator:
+class BaseEvaluation:
     """
     Interface
     """
@@ -18,9 +18,9 @@ class BaseEvaluator:
         raise NotImplemented
 
 
-class OneToNEvaluator(BaseEvaluator):
+class OneToNEvaluation(BaseEvaluation):
     """ Entity ranking protocol """
 
 
-class NToNEvaluator(BaseEvaluator):
+class NToNEvaluation(BaseEvaluation):
     """ Entity-pair ranking protocol """
