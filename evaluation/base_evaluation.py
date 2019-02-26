@@ -15,12 +15,4 @@ class BaseEvaluation:
         :return: list of metrics (floats)
         """
 
-        raise NotImplemented
-
-
-class OneToNEvaluation(BaseEvaluation):
-    """ Entity ranking protocol """
-
-
-class NToNEvaluation(BaseEvaluation):
-    """ Entity-pair ranking protocol """
+        raise NotImplementedError

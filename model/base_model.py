@@ -13,21 +13,16 @@ class BaseModel:
     pass
 
   def forward_one_to_one(self, s, r, o):
-    raise NotImplemented
+    raise NotImplementedError
 
   def forward_one_to_n_sr(self, s, r):
-    raise NotImplemented
+    raise NotImplementedError
 
   def forward_one_to_n_ro(self, r, o):
-    raise NotImplemented
+    raise NotImplementedError
 
   def forward_n_to_n(self, r):
-    raise NotImplemented
+    raise NotImplementedError
 
-
-class DistMult(BaseModel):
-  """
-  Implements the 1:1, 1:N, N:N forward functions
-  """
 
 
