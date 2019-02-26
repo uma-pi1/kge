@@ -8,16 +8,16 @@ class BaseDataView(torch.utils.data.Dataset):
     """
 
     def __len__(self):
-        raise NotImplemented
+        raise NotImplementedError
 
     def __getitem__(self):
-        raise NotImplemented
+        raise NotImplementedError
 
     def get_number_entities(self):
-        raise NotImplemented
+        raise NotImplementedError
 
     def get_number_relations(self):
-        raise NotImplemented
+        raise NotImplementedError
 
 
 class NegSamplingDataView(BaseDataView):
