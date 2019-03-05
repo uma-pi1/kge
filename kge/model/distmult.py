@@ -1,4 +1,4 @@
-from model.base_model import BaseModel
+from kge.model.base_model import BaseModel
 
 
 class DistMult(BaseModel):

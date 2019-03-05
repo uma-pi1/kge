@@ -1,4 +1,4 @@
-from experiment.base_experiment import BaseExperiment
+from kge.experiment.base_experiment import BaseExperiment
 
 
 class GridSearchExperiment(BaseExperiment):
