@@ -4,7 +4,7 @@ dataset:
   valid: valid.del            # entries: s<tab>p<tab>o<tab>metadata
   test: test.del              # entries: s<tab>p<tab>o<tab>metadata
   entity_map: entity.del      # entries: s<tab>metadata
-  relation_map: entity.del    # entries: p<tab>metadata
+  relation_map: relation.del    # entries: p<tab>metadata
 
 model:
   name: complex               # distmult, complex, transe, conve
