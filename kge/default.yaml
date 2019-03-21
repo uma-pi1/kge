@@ -12,7 +12,7 @@ model:
 
 output:
   folder: ''                  # '' means: local/experiments/<date>-<dataset>-<model>
-  subfolder: ''               # '' means none; overwritten e.g. by grid search
+  # subfolder: ''               # '' means none; overwritten e.g. by grid search
   logfile: 'kge.log'
   resume: false
 

@@ -1,12 +1,13 @@
 import datetime
 import yaml
+import os
 import argparse
 from kge import job
+from kge.config import Config
 
 if __name__ == '__main__':
-  # load default config file
-  with open('kge/default.yaml', 'r') as file:
-    config = yaml.load(file)
+  # default config
+  config = Config()
 
   # parse arguments
   parser = argparse.ArgumentParser()
@@ -16,22 +17,30 @@ if __name__ == '__main__':
 
   # load user config file (overwrites defaults)
   if args.config is not None:
-    with open(args.config, 'r') as file:
-      user_config = yaml.load(file)
-      # TODO deep merge into configs
+    config.load(args.config)
 
   # TODO override with command line arguments
 
   # validate arguments and set defaults
-  if config['output']['folder'] == '':
-    config['output']['folder'] = \
-      datetime.datetime.now().strftime("%Y%m%d-%H%M") \
-      + "-" + config['dataset']['name'] \
-      + "-" + config['model']['name']
+  if config.folder() == '':
+    config.raw['output']['folder'] = \
+      'local/experiments/' \
+      + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") \
+      + "-" + config.raw['dataset']['name'] \
+      + "-" + config.raw['model']['name']
+
+  # create output folder
+  if os.path.exists(config.folder()):
+    # TODO
+    raise NotImplementedError("resume")
+  else:
+    os.makedirs(config.folder())
+
+  # store configuration in output folder
+  config.dump(config.folder() + "/config.yaml")
 
   # print status information
-  # TODO nicer
-  print(yaml.dump(config))
+  config.log( yaml.dump(config.raw) )
 
   # create job
   # if config['job']['type'] == 'grid':
