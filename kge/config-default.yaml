@@ -9,6 +9,8 @@ dataset:
 model:
   name: complex               # distmult, complex, transe, conve
   dim: 200                    # entity dimensionality
+  entity_embedder: lookup
+  relation_embedder: lookup
 
 output:
   folder: ''                  # '' means: local/experiments/<date>-<dataset>-<model>

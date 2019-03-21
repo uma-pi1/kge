@@ -4,7 +4,7 @@ import datetime
 class Config:
     def __init__(self):
         # load default config file
-        with open('kge/default.yaml', 'r') as file:
+        with open('kge/config-default.yaml', 'r') as file:
             self.raw = yaml.load(file)
 
     def load(self, filename):

@@ -1,8 +1,8 @@
 import torch
-from kge import model
+from kge.model import KgeModel
 
 
-class ComplexRelationScorer(model.KgeModel):
+class ComplEx(KgeModel):
   """
   ComplEx
   """

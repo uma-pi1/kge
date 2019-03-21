@@ -3,7 +3,6 @@ import yaml
 import os
 import argparse
 from kge.data import Dataset
-from kge import job
 from kge import Config
 from kge.train import TrainingJob
 
