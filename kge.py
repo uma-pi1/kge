@@ -40,12 +40,12 @@ if __name__ == '__main__':
     # print status information
     config.log( yaml.dump(config.raw) )
 
-    # create job
-    # if config['job']['type'] == 'grid':
-    #   job.grid_search_job.GridSearchExperiment(config)
-    # elif config['job']['type'] == 'bayesian':
-    #   job.bayesian_optimization_job.BayesianOptimizationExperiment(config)
-    # else:
-    #   raise ValueError('Unknown experiment type')
+    # TODO load data
 
-    # Run/evaluate job
+    # let's go
+    if config.raw['experiment']['type'] == 'train':
+        ## train model with specified hyperparmeters
+        ## TODO create job
+        pass
+    else:
+        raise NotImplementedError("experiment")
