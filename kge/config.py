@@ -1,4 +1,5 @@
 import yaml
+import datetime
 
 class Config:
     def __init__(self):
@@ -20,7 +21,11 @@ class Config:
         if echo:
             print(msg)
         with open(self.logfile(), 'a') as file:
-            file.writelines(msg)
+            for line in msg.splitlines():
+                file.write(str(datetime.datetime.now()))
+                file.write(" ")
+                file.write(line)
+                file.write("\n")
 
     def dump(self, filename):
         with open(filename, "w+") as file:
