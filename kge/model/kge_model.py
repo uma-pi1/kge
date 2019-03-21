@@ -1,28 +1,37 @@
-class BaseModel:
+import torch
+
+
+class KgeBase(torch.nn.Module):
   """
-  Implements basic embedding layer
+  Base class for all relational models and embedders
   """
 
-  def encode_subject(self, s):
-    pass
+  is_cuda = False
+  rel_obj_cache = None
+  subj_rel_cache = None
 
-  def encode_relation(self, r):
-    pass
+  def cuda(self, device=None):
+    super().cuda(device=device)
+    self.is_cuda = True
 
-  def encode_object(self, o):
-    pass
+  def cpu(self):
+    super().cpu()
+    self.is_cuda = False
 
-  def forward_one_to_one(self, s, r, o):
+
+class KgeModel(KgeBase):
+  """
+  Base class for all relational models
+  """
+
+  def score_spo(self, s, p, o):
     raise NotImplementedError
 
-  def forward_one_to_n_sr(self, s, r):
+  def score_sp(self, s, p):
     raise NotImplementedError
 
-  def forward_one_to_n_ro(self, r, o):
+  def score_po(self, p, o):
     raise NotImplementedError
 
-  def forward_n_to_n(self, r):
+  def score_p(self, p):
     raise NotImplementedError
-
-
-
