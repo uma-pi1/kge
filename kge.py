@@ -9,7 +9,8 @@ if __name__ == '__main__':
   parser.add_argument('--config_file', type=str)
   args = parser.parse_args()
 
-  # TODO: load default settings (from config class?)
+  # TODO: parse other arugments to override default settings
+  # - use argument of form "--key=value", where key is the name of a setting
 
   # load settings from config file
   with open(args.config_file, 'r') as file:
