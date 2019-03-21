@@ -3,7 +3,7 @@ import yaml
 import os
 import argparse
 from kge import job
-from kge.config import Config
+from kge import Config
 
 if __name__ == '__main__':
     # default config
