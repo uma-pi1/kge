@@ -5,7 +5,7 @@ experiment:
 dataset: fb15k                # fb15k, fb15k-237, wn18, wnrr, yago3-10
 
 model:
-  name: distmult              # distmult, complex, transe, conve
+  name: complex               # distmult, complex, transe, conve
   dim: 200
   lr: 0.1
   l2_reg: 0.0001
