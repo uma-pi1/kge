@@ -2,6 +2,7 @@ import datetime
 import yaml
 import os
 import argparse
+from kge.data import Dataset
 from kge import job
 from kge import Config
 
@@ -40,7 +41,8 @@ if __name__ == '__main__':
     # print status information
     config.log( yaml.dump(config.raw) )
 
-    # TODO load data
+    # load data
+    dataset = Dataset.load(config)
 
     # let's go
     if config.raw['experiment']['type'] == 'train':
