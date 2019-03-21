@@ -3,6 +3,9 @@ from kge import model
 
 
 class ComplexRelationScorer(model.KgeModel):
+  """
+  ComplEx
+  """
 
   def triple_score(self, subj, rel, obj, drop_relation=False):
     return self._score(subj, rel, obj,)
