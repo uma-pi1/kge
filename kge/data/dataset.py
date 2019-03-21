@@ -1,35 +1,20 @@
+import csv
 import torch
 
 class Dataset:
-    def __init__(self):
-       pass
+    def __init__(self,
+                 config,
+                 num_entities, entities):
+        self.config = config
+        self.num_entities = num_entities
+        self.entities = entities
 
-# class BaseDataView(torch.utils.data.Dataset):
-#     """
-#     Prepares data so user-chosen loss function can be used in training
-#     Data manipulations shared by all goes here, e.g. reciprocal trick
-#     """
+    def load(config):
+        name = config.raw['dataset']['name']
+        config.log('Loading ' + name)
+        basedir = "data/" + name + "/"
 
-#     def __len__(self):
-#         raise NotImplementedError
-
-#     def __getitem__(self):
-#         raise NotImplementedError
-
-#     def get_number_entities(self):
-#         raise NotImplementedError
-
-#     def get_number_relations(self):
-#         raise NotImplementedError
-
-
-# class NegSamplingDataView(BaseDataView):
-#     """  """
-
-
-# class OneToNDataView(BaseDataView):
-#     """  """
-
-
-# class NToNDataView(BaseDataView):
-#     """  """
+        num_entities, entities = _load_map( basedir + config.raw['dataset']['entity_map'] )
+        config.log(str(num_entities) + " entities")
+        num_relations, relations = _load_map( basedir + config.raw['dataset']['relation_map'] )
+        config.log(str(num_relations) + " relations")
