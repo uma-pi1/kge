@@ -5,6 +5,7 @@ import argparse
 from kge.data import Dataset
 from kge import job
 from kge import Config
+from kge.train import TrainingJob
 
 if __name__ == '__main__':
     # default config
@@ -48,6 +49,7 @@ if __name__ == '__main__':
     if config.raw['experiment']['type'] == 'train':
         ## train model with specified hyperparmeters
         ## TODO create job
-        pass
+        job = TrainingJob.create(config, dataset)
+        job.run()
     else:
         raise NotImplementedError("experiment")

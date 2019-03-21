@@ -11,15 +11,16 @@ class Dataset:
                  test, test_meta):
         self.config = config
         self.num_entities = num_entities
-        self.entities = entities
+        self.entities = entities              # array: entity index -> metadata array of strings
         self.num_relations = num_relations
-        self.relations = relations
-        self.train = train
-        self.train_meta = train_meta
-        self.valid = valid
-        self.valid_meta = valid_meta
-        self.test = test
-        self.test_meta = test_meta
+        self.relations = relations            # array: relation index -> metadata array of strings
+        self.train = train                    # (n,3) int32 tensor
+        self.train_meta = train_meta          # array: triple row number -> metadata array of strings
+        self.valid = valid                    # (n,3) int32 tensor
+        self.valid_meta = valid_meta          # array: triple row number -> metadata array of strings
+        self.test = test                      # (n,3) int32 tensor
+        self.test_meta = test_meta            # array: triple row number -> metadata array of strings
+        self.indexes = { }                    # map: name of index -> index (used mainly by training jobs)
 
     def load(config):
         name = config.raw['dataset']['name']
