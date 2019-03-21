@@ -1,5 +1,5 @@
 dataset:
-  name: ''
+  name: 'toy'
   train: train.del            # entries: s<tab>p<tab>o<tab>metadata
   valid: valid.del            # entries: s<tab>p<tab>o<tab>metadata
   test: test.del              # entries: s<tab>p<tab>o<tab>metadata
