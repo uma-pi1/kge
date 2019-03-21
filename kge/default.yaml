@@ -12,7 +12,7 @@ model:
 
 output:
   folder: ''                  # '' means: local/experiments/<date>-<dataset>-<model>
-  subfolder: ''               # '' means none; overwritten e.g. by grid search
+  # subfolder: ''               # '' means none; overwritten e.g. by grid search
   logfile: 'kge.log'
   resume: false
 
@@ -33,11 +33,13 @@ evaluate:
   type: entity_ranking        # or pair-ranking
   k: 10                       # maximum k for hits@k
 
+experiment:
+  type: train                 # train, test, grid_search, ...
+
 # TODO grid-search here? -> changes other configuration paramters in some
 # systmatic way (including output fold)
-# search:
-#   type: grid train.lr
-#   lr: = [ 0.01, 0.001 ]
+#   type: grid
+#   train.lr: = [ 0.01, 0.001 ]
 
 # TODO checkpointing
 # checkpoint:
