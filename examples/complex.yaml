@@ -1,23 +1,9 @@
-experiment:
-  name: test                  # used for embeddings folder and logs
-  type: grid                  # grid, bayesian
+job:
+  type: train
 
-dataset: fb15k                # fb15k, fb15k-237, wn18, wnrr, yago3-10
+dataset:
+  name: fb15k
 
 model:
-  name: complex               # distmult, complex, transe, conve
+  type: complex               # distmult, complex, transe, conve
   dim: 200
-  lr: 0.1
-  l2_reg: 0.0001
-  init: uniform               # uniform, xavier, he
-
-trainer:
-  num_epochs: 10
-  eval_freq: 5
-  batch_size: 100
-  optimizer: adagrad          # sgd, adagrad, adam
-
-evaluation:
-  type: 1toN                  # 1toN, NtoN
-  k: 10
-

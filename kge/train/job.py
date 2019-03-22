@@ -31,7 +31,7 @@ class TrainingJob1toN(TrainingJob):
     def __init__(self, config, dataset):
         super(TrainingJob1toN,self).__init__(config, dataset)
 
-        config.log("Initilizing 1-to-N training job")
+        config.log("Initializing 1-to-N training job")
 
         # create sp and po indexes (if not done before)
         self.train_sp = dataset.indexes.get('train_sp')

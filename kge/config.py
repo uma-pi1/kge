@@ -2,22 +2,27 @@ import yaml
 import datetime
 
 class Config:
+    """Configuration options."""
+
     def __init__(self):
         # load default config file
         with open('kge/config-default.yaml', 'r') as file:
             self.options = yaml.load(file)
 
-    def load(self, filename):
-        # user_config = yaml.load(file)
-        raise NotImplementedError
+    def load(self, filename, create=False):
+        """Update configuration options from the specified YAML file."""
+        with open(filename, 'r') as file:
+            new_options = yaml.load(file)
+        self.set_all(new_options, create)
 
     def folder(self):
-        return self.options['output']['folder']
+        return self.get('output.folder')
 
     def logfile(self):
-        return self.folder() + "/" + self.options['output']['logfile']
+        return self.folder() + "/" + self.get('output.logfile')
 
     def log(self, msg, echo=True):
+        """Add an entry to the default log file. Optionally also print on console."""
         if echo:
             print(msg)
         with open(self.logfile(), 'a') as file:
@@ -28,6 +33,7 @@ class Config:
                 file.write("\n")
 
     def dump(self, filename):
+        """Dump this dictionary to the given file."""
         with open(filename, "w+") as file:
             file.write( yaml.dump(self.options) )
 
@@ -54,3 +60,20 @@ class Config:
 
         data[splits[-1]] = value
         return value
+
+    def flatten(options):
+        result = {}
+        Config.__flatten(options, result)
+        return result
+
+    def __flatten(options, result, prefix=''):
+        for key, value in options.items():
+            fullkey = key if prefix=='' else prefix+'.'+key
+            if type(value) is dict:
+                Config.__flatten(value, result, prefix=fullkey)
+            else:
+                result[fullkey]=value
+
+    def set_all(self, new_options, create=False):
+        for key,value in Config.flatten(new_options).items():
+            self.set(key, value, create)

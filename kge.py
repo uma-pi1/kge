@@ -10,15 +10,34 @@ if __name__ == '__main__':
     # default config
     config = Config()
 
+    # define short option names
+    short_options = {'dataset.name':'-d',
+                     'job.type':'-j',
+                     'model.type':'-m',
+                     'output.folder':'-o'}
+
     # parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str)
-    # TODO add all entries of config as arguments to parser
+    parser.add_argument('--config', '-c', type=str)
+    for key, value in Config.flatten(config.options).items():
+        short = short_options.get(key)
+        if short:
+            parser.add_argument('--'+key, short, type=type(value))
+        else:
+            parser.add_argument('--'+key, type=type(value))
     args = parser.parse_args()
 
     # load user config file (overwrites defaults)
     if args.config is not None:
+        print('Loading configuration {}...'.format(args.config))
         config.load(args.config)
+
+    # overwrite with command line arugments
+    for key, value in vars(args).items():
+        if key=='config':
+            continue
+        if value is not None:
+            config.set(key, value)
 
     # validate arguments and set defaults
     if config.folder() == '':
@@ -31,15 +50,13 @@ if __name__ == '__main__':
     # create output folder
     if os.path.exists(config.folder()):
         # TODO
-        raise NotImplementedError("resume")
+        raise NotImplementedError("resume/overwrite")
     else:
         os.makedirs(config.folder())
 
-    # store configuration in output folder
+    # store full configuration in output folder
     config.dump(config.folder() + "/config.yaml")
-
-    # print status information
-    config.log( yaml.dump(config.options) )
+    config.log( yaml.dump(config.options) ) # also show on screen
 
     # load data
     dataset = Dataset.load(config)
@@ -51,4 +68,4 @@ if __name__ == '__main__':
         job = TrainingJob.create(config, dataset)
         job.run()
     else:
-        raise NotImplementedError("experiment")
+        raise ValueError("unknown job type")

@@ -1,6 +1,8 @@
 import csv
 import torch
 
+# TODO add support to pickle dataset (and indexes) and reload from there
+
 class Dataset:
     def __init__(self,
                  config,
