@@ -2,8 +2,8 @@ import torch
 from kge.model import KgeModel
 
 class TrainingJob:
-    """Job to train a single model with a fixed set of hyperparemeters. Used by experiments
-such as grid search or Bayesian optimization."""
+    """Job to train a single model with a fixed set of hyperparameters. Used by
+experiments such as grid search or Bayesian optimization."""
 
     def __init__(self, config, dataset):
         self.config = config
@@ -20,7 +20,7 @@ dataset (if not present)."""
             raise ValueError("train.type")
 
     def run(self):
-        self.config.log('Starting epoch')
+        self.config.log('Starting epoch...')
         self.epoch()
 
     # TODO methods for checkpointing, logging, ...
@@ -31,18 +31,20 @@ class TrainingJob1toN(TrainingJob):
     def __init__(self, config, dataset):
         super(TrainingJob1toN,self).__init__(config, dataset)
 
-        config.log("Initializing 1-to-N training job")
+        config.log("Initializing 1-to-N training job...")
 
         # create sp and po indexes (if not done before)
         self.train_sp = dataset.indexes.get('train_sp')
         if not self.train_sp:
             self.train_sp = TrainingJob1toN._index(dataset.train[:,[0,1]], dataset.train[:,2])
-            config.log("{} distinct sp pairs in train".format(len(self.train_sp)))
+            config.log("{} distinct sp pairs in train".format(len(self.train_sp)),
+                       prefix='  ')
             dataset.indexes['train_sp'] = self.train_sp
         self.train_po = dataset.indexes.get('train_po')
         if not self.train_po:
             self.train_po = TrainingJob1toN._index(dataset.train[:,[1,2]], dataset.train[:,0])
-            config.log("{} distinct po pairs in train".format(len(self.train_po)))
+            config.log("{} distinct po pairs in train".format(len(self.train_po)),
+                       prefix='  ')
             dataset.indexes['train_po'] = self.train_po
 
         # TODO index dataset

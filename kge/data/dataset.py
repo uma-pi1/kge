@@ -26,22 +26,22 @@ class Dataset:
 
     def load(config):
         name = config.get('dataset.name')
-        config.log('Loading dataset ' + name)
+        config.log('Loading dataset ' + name + '...')
         basedir = "data/" + name + "/"
 
         num_entities, entities = Dataset._load_map( basedir + config.get('dataset.entity_map') )
-        config.log(str(num_entities) + " entities")
+        config.log(str(num_entities) + " entities", prefix='  ')
         num_relations, relations = Dataset._load_map( basedir + config.get('dataset.relation_map') )
-        config.log(str(num_relations) + " relations")
+        config.log(str(num_relations) + " relations", prefix='  ')
 
         train, train_meta = Dataset._load_triples( basedir + config.get('dataset.train') )
-        config.log(str(len(train)) + " training triples")
+        config.log(str(len(train)) + " training triples", prefix='  ')
 
         valid, valid_meta = Dataset._load_triples( basedir + config.get('dataset.valid') )
-        config.log(str(len(valid)) + " validation triples")
+        config.log(str(len(valid)) + " validation triples", prefix='  ')
 
         test, test_meta = Dataset._load_triples( basedir + config.get('dataset.test') )
-        config.log(str(len(test)) + " test triples")
+        config.log(str(len(test)) + " test triples", prefix='  ')
 
         return Dataset(config, num_entities, entities, num_relations, relations,
                        train, train_meta, valid, valid_meta, test, test_meta)

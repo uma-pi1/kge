@@ -32,7 +32,7 @@ if __name__ == '__main__':
         print('Loading configuration {}...'.format(args.config))
         config.load(args.config)
 
-    # overwrite with command line arugments
+    # overwrite with command line arguments
     for key, value in vars(args).items():
         if key=='config':
             continue
@@ -56,7 +56,10 @@ if __name__ == '__main__':
 
     # store full configuration in output folder
     config.dump(config.folder() + "/config.yaml")
-    config.log( yaml.dump(config.options) ) # also show on screen
+    config.log("Configuration:")
+
+    # also show on screen (perhaps: non-default options only?)
+    config.log( yaml.dump(config.options), prefix='  ')
 
     # load data
     dataset = Dataset.load(config)

@@ -7,12 +7,12 @@ class Config:
     def __init__(self):
         # load default config file
         with open('kge/config-default.yaml', 'r') as file:
-            self.options = yaml.load(file)
+            self.options = yaml.load(file, Loader=yaml.SafeLoader)
 
     def load(self, filename, create=False):
         """Update configuration options from the specified YAML file."""
         with open(filename, 'r') as file:
-            new_options = yaml.load(file)
+            new_options = yaml.load(file, Loader=yaml.SafeLoader)
         self.set_all(new_options, create)
 
     def folder(self):
@@ -21,12 +21,14 @@ class Config:
     def logfile(self):
         return self.folder() + "/" + self.get('output.logfile')
 
-    def log(self, msg, echo=True):
+    def log(self, msg, echo=True, prefix=''):
         """Add an entry to the default log file. Optionally also print on console."""
-        if echo:
-            print(msg)
         with open(self.logfile(), 'a') as file:
             for line in msg.splitlines():
+                if prefix:
+                    line = prefix + line
+                if echo:
+                    print(line)
                 file.write(str(datetime.datetime.now()))
                 file.write(" ")
                 file.write(line)
