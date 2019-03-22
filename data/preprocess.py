@@ -40,8 +40,8 @@ if __name__ == '__main__':
   print(str(len(relations)) + ' distinct relations')
   print(str(len(entities)) + ' distinct entities')
   print('Writing indexes...')
-  index(relations, args.folder + "/relation.del")
-  index(entities, args.folder + "/entity.del")
+  index(relations, args.folder + "/relation_map.del")
+  index(entities, args.folder + "/entity_map.del")
 
   # write out
   print('Writing triples...')

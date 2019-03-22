@@ -1,52 +1,84 @@
+job:
+  type: train                 # train, evaluate, grid_search, ...
+
+## INPUT/OUTPUT ################################################################
+
 dataset:
   name: 'toy'
-  train: train.del            # entries: s<tab>p<tab>o<tab>metadata
-  valid: valid.del            # entries: s<tab>p<tab>o<tab>metadata
-  test: test.del              # entries: s<tab>p<tab>o<tab>metadata
-  entity_map: entity.del      # entries: s<tab>metadata
-  relation_map: relation.del  # entries: p<tab>metadata
+
+  # training, validation, and test data files have the following fields, all
+  # tab-separated:
+  # - 0: subject index
+  # - 1: relation index
+  # - 2: object index
+  # - 3-...: arbitrary metadata fields
+  # Indexes are assumed to be dense throughout.
+  train: train.del
+  valid: valid.del
+  test: test.del
+
+  # entity and relation maps store auxiliary information about each
+  # entity/predicate. Fields are tab-separated:
+  # - 0: entity/predicate index (as in train/valid/test)
+  # - 1...: arbitrary metadata fields
+  entity_map: entity_map.del
+  relation_map: relation_map.del
+
+output:
+  # Main folder where logs, checkpoints, traces, and model output are stored.
+  # If left unspecified, defaults to local/experiments/<date>-<dataset>-<model>
+  folder: ''
+  logfile: 'kge.log'
+
+  # TODO what to do when folder exists? Default: error. Can be changed with:
+  # TODO overwrite: false   # overwrite existing folder
+  # TODO resume: false      # resume when folder exisits
+
+## MODEL #######################################################################
+## Model and its hyperparameters. Used for all jobs.
 
 model:
-  name: complex               # distmult, complex, transe, conve
+  type: complex               # distmult, complex, transe, conve
   dim: 200                    # entity dimensionality
   entity_embedder: lookup
   relation_embedder: lookup
 
-output:
-  folder: ''                  # '' means: local/experiments/<date>-<dataset>-<model>
-  # subfolder: ''               # '' means none; overwritten e.g. by grid search
-  logfile: 'kge.log'
-  resume: false
+# TODO model-specific parametrs
+# SRT:
+#   relatoin_dim: 200
+
+
+## TRAINING ####################################################################
+## Used for training jobs.
 
 train:
-  max_epochs: 20
   type: 1toN                  # 1toN, negative_sampling
+  max_epochs: 20
   optimizer: adagrad          # sgd, adagrad, adam
   batch_size: 100
   lr: 0.01
   l2_reg: 0.0001
   init: uniform               # uniform, xavier, he
 
+# configuration options for model validation during training
 validate:
   every: 5                    # epochs (disable with 0)
   early_abort: False
-
-evaluate:
-  type: entity_ranking        # or pair-ranking
-  k: 10                       # maximum k for hits@k
-
-experiment:
-  type: train                 # train, test, grid_search, ...
-
-# TODO grid-search here? -> changes other configuration paramters in some
-# systmatic way (including output fold)
-#   type: grid
-#   train.lr: = [ 0.01, 0.001 ]
 
 # TODO checkpointing
 # checkpoint:
 #   every: 0                    # epochs (disable with 0)
 
-# TODO model-specific parametrs
-# SRT:
-#   rel_dim: 200
+## EVALUATION ##################################################################
+## Used for evaluation jobs.
+
+evaluate:
+  type: entity_ranking
+  k: 10                       # maximum k for HITS@k
+
+## HYPERPARAMETER TUNING #######################################################
+
+# TODO grid-search here? -> changes other configuration paramters in some
+# systmatic way (including output fold)
+# grid_search:
+#   train.lr: = [ 0.01, 0.001 ]

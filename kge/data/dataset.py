@@ -23,22 +23,22 @@ class Dataset:
         self.indexes = { }                    # map: name of index -> index (used mainly by training jobs)
 
     def load(config):
-        name = config.raw['dataset']['name']
+        name = config.get('dataset.name')
         config.log('Loading dataset ' + name)
         basedir = "data/" + name + "/"
 
-        num_entities, entities = Dataset._load_map( basedir + config.raw['dataset']['entity_map'] )
+        num_entities, entities = Dataset._load_map( basedir + config.get('dataset.entity_map') )
         config.log(str(num_entities) + " entities")
-        num_relations, relations = Dataset._load_map( basedir + config.raw['dataset']['relation_map'] )
+        num_relations, relations = Dataset._load_map( basedir + config.get('dataset.relation_map') )
         config.log(str(num_relations) + " relations")
 
-        train, train_meta = Dataset._load_triples( basedir + config.raw['dataset']['train'] )
+        train, train_meta = Dataset._load_triples( basedir + config.get('dataset.train') )
         config.log(str(len(train)) + " training triples")
 
-        valid, valid_meta = Dataset._load_triples( basedir + config.raw['dataset']['valid'] )
+        valid, valid_meta = Dataset._load_triples( basedir + config.get('dataset.valid') )
         config.log(str(len(valid)) + " validation triples")
 
-        test, test_meta = Dataset._load_triples( basedir + config.raw['dataset']['test'] )
+        test, test_meta = Dataset._load_triples( basedir + config.get('dataset.test') )
         config.log(str(len(test)) + " test triples")
 
         return Dataset(config, num_entities, entities, num_relations, relations,

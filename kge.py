@@ -22,11 +22,11 @@ if __name__ == '__main__':
 
     # validate arguments and set defaults
     if config.folder() == '':
-        config.raw['output']['folder'] = \
+        config.set('output.folder', \
             'local/experiments/' \
             + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") \
-            + "-" + config.raw['dataset']['name'] \
-            + "-" + config.raw['model']['name']
+            + "-" + config.get('dataset.name') \
+            + "-" + config.get('model.type'))
 
     # create output folder
     if os.path.exists(config.folder()):
@@ -39,13 +39,13 @@ if __name__ == '__main__':
     config.dump(config.folder() + "/config.yaml")
 
     # print status information
-    config.log( yaml.dump(config.raw) )
+    config.log( yaml.dump(config.options) )
 
     # load data
     dataset = Dataset.load(config)
 
     # let's go
-    if config.raw['experiment']['type'] == 'train':
+    if config.get('job.type') == 'train':
         ## train model with specified hyperparmeters
         ## TODO create job
         job = TrainingJob.create(config, dataset)

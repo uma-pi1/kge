@@ -13,7 +13,7 @@ such as grid search or Bayesian optimization."""
     def create(config, dataset):
         """Factory method to create a training job and add necessary indexes to the
 dataset (if not present)."""
-        if config.raw['train']['type'] == '1toN':
+        if config.get('train.type') == '1toN':
             return TrainingJob1toN(config, dataset)
         else:
             # perhaps TODO: try class with specified name -> extensibility
