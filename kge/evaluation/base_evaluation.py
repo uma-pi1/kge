@@ -2,17 +2,17 @@ from typing import List
 
 
 class BaseEvaluation:
-    """
-    Interface
-    """
+	"""
+	Interface
+	"""
 
-    def compute_metrics(self, predictions, labels, filters) -> List[float]:
-        """
+	def compute_metrics(self, predictions, labels, filters) -> List[float]:
+		"""
 
-        :param predictions:
-        :param labels:
-        :param filters:
-        :return: list of metrics (floats)
-        """
+		:param predictions:
+		:param labels:
+		:param filters:
+		:return: list of metrics (floats)
+		"""
 
-        raise NotImplementedError
+		raise NotImplementedError

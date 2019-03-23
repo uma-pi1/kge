@@ -32,7 +32,7 @@ output:
 
   # TODO what to do when folder exists? Default: error. Can be changed with:
   # TODO overwrite: false   # overwrite existing folder
-  # TODO resume: false      # resume when folder exisits
+  # TODO resume: false      # resume when folder exists
 
 ## MODEL #######################################################################
 ## Model and its hyperparameters. Used for all jobs.
@@ -42,11 +42,18 @@ model:
   dim: 200                    # entity dimensionality
   entity_embedder: lookup
   relation_embedder: lookup
+  normalize_entities: True
+  normalize_relations: True
+  sparse: False
+  init_std: 0.1
+  batch_norm: True
+  dropout: 0.0
+  input_dropout: 0.0
+  l2_reg: 0.0
 
 # TODO model-specific parametrs
 # SRT:
-#   relatoin_dim: 200
-
+#   relation_dim: 200
 
 ## TRAINING ####################################################################
 ## Used for training jobs.
