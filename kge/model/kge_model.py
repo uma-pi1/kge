@@ -1,93 +1,108 @@
 import torch
-from kge.model import ComplEx
-
 
 class KgeBase(torch.nn.Module):
-	"""
-	Base class for all relational models and embedders
-	"""
-	is_cuda = False
+    """
+    Base class for all relational models and embedders
+    """
 
-	def __init__(self, config, dataset):
-		self.config = config
-		self.dataset = dataset
+    def __init__(self, config, dataset):
+        super().__init__()
+        self.config = config
+        self.dataset = dataset
+        self.is_cuda = False
+        if config.get('job.type') == 'train':
+            self.is_training = True
+        else:
+            self.is_training = False
 
-	def cuda(self, device=None):
-		super().cuda(device=device)
-		self.is_cuda = True
+    def cuda(self, device=None):
+        super().cuda(device=device)
+        self.is_cuda = True
 
-	def cpu(self):
-		super().cpu()
-		self.is_cuda = False
+    def cpu(self):
+        super().cpu()
+        self.is_cuda = False
+
+    def initialize(self, what, initialize, initialize_arg):
+        if initialize == 'normal':
+            torch.nn.init.normal_(what, std=initialize_arg)
+        else:
+            raise ValueError("initialize")
 
 
 class KgeModel(KgeBase):
-	"""
-	Base class for all relational models
-	"""
+    """
+    Base class for all relational models
+    """
 
-	def __init__(self, config, dataset):
-		super().__init__(config, dataset)
+    def __init__(self, config, dataset):
+        super().__init__(config, dataset)
 
-	def score_spo(self, s, p, o):
-		raise NotImplementedError
+    def score_spo(self, s, p, o):
+        raise NotImplementedError
 
-	def score_sp(self, s, p):
-		raise NotImplementedError
+    def score_sp(self, s, p):
+        raise NotImplementedError
 
-	def score_po(self, p, o):
-		raise NotImplementedError
+    def score_po(self, p, o):
+        raise NotImplementedError
 
-	def score_p(self, p):
-		raise NotImplementedError
+    def score_p(self, p):
+        raise NotImplementedError
 
-	def create(config, dataset):
-		"""Factory method for model creation."""
-		if config.get('model.type') == 'complex':
-			return ComplEx(config, dataset)
-		else:
-			# perhaps TODO: try class with specified name -> extensibility
-			raise ValueError('model.type')
+    def create(config, dataset):
+        """Factory method for model creation."""
+        from kge.model import ComplEx
 
-			# TODO I/O
+        ## create the embedders
+        if config.get('model.type') == 'complex':
+            return ComplEx(config, dataset)
+        else:
+            # perhaps TODO: try class with specified name -> extensibility
+            raise ValueError('model.type')
+
+            # TODO I/O
 
 
 class KgeEmbedder(KgeBase):
-	"""
-	Base class for all relational model embedders
-	"""
+    """
+    Base class for all relational model embedders
+    """
 
-	def __init__(self, config, dataset):
-		super().__init__(config, dataset)
+    def __init__(self, config, dataset, is_entity_embedder):
+        super().__init__(config, dataset)
+        self.is_entity_embedder = is_entity_embedder
 
-	def create(config, dataset, for_entities):
-		"""Factory method for embedder creation."""
-		# entity embedder
-		if config.get('model.entity_embedder') == 'lookup':
-			entity_embedder = LookupEmbedder(config, dataset)
-		else:
-			# perhaps TODO: try class with specified name -> extensibility
-			raise ValueError('model.entity_embedder')
+    def create(config, dataset, is_entity_embedder):
+        """Factory method for embedder creation."""
+        from kge.model import LookupEmbedder
 
-		# relation embedder
-		if config.get('model.relation_embedder') == 'lookup':
-			relation_embedder = LookupEmbedder(config, dataset)
-		else:
-			# perhaps TODO: try class with specified name -> extensibility
-			raise ValueError('model.relation_embedder')
+        embedder_type = KgeEmbedder._get_option(config, 'model.embedder', is_entity_embedder)
+        if embedder_type == 'lookup':
+            return LookupEmbedder(config, dataset, is_entity_embedder)
+        else:
+            raise ValueError('embedder')
 
-		return entity_embedder, relation_embedder
+    def embed(self, indexes) -> torch.Tensor:
+        """
+        Computes the embedding.
+        """
+        raise NotImplementedError
 
-	def embed(self, i) -> torch.Tensor:
-		"""
-		Computes the embedding.
-		"""
-		raise NotImplementedError
+    def embed_all(self) -> torch.Tensor:
+        """
+        Returns all embeddings.
+        """
+        raise NotImplementedError
 
-	def get_all(self) -> torch.Tensor:
-		"""
-		Returns all embeddings.
-		"""
-		raise NotImplementedError
+        # TODO I/O
 
-		# TODO I/O
+    def get_option(self, name):
+        return KgeEmbedder._get_option(self.config, name, self.is_entity_embedder)
+
+    def _get_option(config, name, is_entity_embedder):
+        value = config.get(name)
+        if type(value) == list:
+            return value[0 if self.is_entity_embedder else 1]
+        else:
+            return value

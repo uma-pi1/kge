@@ -3,78 +3,50 @@ from kge.model import KgeEmbedder
 
 
 class LookupEmbedder(KgeEmbedder):
-	def __init__(self, config, dataset, embed_entities=True):
-		super().__init__(config, dataset)
+    def __init__(self, config, dataset, is_entity_embedder):
+        super().__init__(config, dataset, is_entity_embedder)
 
-		if config.get('job.type') == 'train':
-			self.training = True
-		else:
-			self.training = False
-		self.batch_norm = batch_norm
-		self.dropout = dropout
-		self.input_dropout = input_dropout
-		self.l2_reg = l2_reg
-		self._l2_reg_hook = None
+        ## read config
+        self.dropout = self.get_option('lookup_embedder.dropout')
+        # self.l2_reg = self.get_option('lookup_embedder.l2_reg')
+        self.dim = self.get_option('model.dim')
+        self.sparse = self.get_option('lookup_embedder.sparse')
+        self.config.check('lookup_embedder.normalize', [ '', 'L2' ])
+        self.normalize = self.get_option('lookup_embedder.normalize')
+        self.size = dataset.num_entities if self.is_entity_embedder else dataset.num_relations
 
-		# TODO: what is this?
-		self.register_buffer('eye',
-												 torch.eye(self.relation_embedding.weight.size(0), self.relation_embedding.weight.size(0)), )
+        ## setup embedder
+        self.embeddings = torch.nn.Embedding(self.size, self.dim, sparse=self.sparse)
+        self.initialize(self.embeddings.weight.data,
+                        self.get_option('lookup_embedder.initialize'),
+                        self.get_option('lookup_embedder.initialize_arg'))
 
-		if embed_entities:
-			self.embeddings = torch.nn.Embedding(dataset.num_entities, config.get('model.dim'),
-																					 sparse=config.get('model.sparse'))
-			self.normalize = config.get('model.normalize_entities')
-			if self.batch_norm:
-				self.bn = torch.nn.BatchNorm1d(dataset.num_entities)
-		else:
-			self.embeddings = torch.nn.Embedding(dataset.num_relations, config.get('model.dim'),
-																					 sparse=config.get('model.sparse'))
-			self.normalize = config.get('model.normalize_relations')
-			if self.batch_norm:
-				self.bn = torch.nn.BatchNorm1d(dataset.num_relations)
+        ## TODO L2
 
-		# Initialize parameters
-		torch.nn.init.normal_(self.embeddings.weight.data, std=config.get('model.init_std'))
 
-		def after_batch_loss_hook(self, epoch):
-			if self.training:
-				if self.l2_reg > 0:
-					result = self._l2_reg_hook
-					self._l2_reg_hook = None
-					return result
-			return None
+    def _embed(self, embeddings):
+        if self.dropout > 0:
+            embeddings = torch.nn.functional.dropout(
+                embeddings, p=self.dropout, isTraining=self.is_training)
+        if self.normalize == 'L2':
+            embeddings = torch.nn.functional.normalize(embeddings)
+        if dropout > 0:
+            embeddings = torch.nn.functional.dropout(
+                embeddings, p=dropout, isTraining=self.is_training)
+        # TODO l2
+        # if self.is_training and self.l2_reg > 0:
+        #     _l2_reg_hook = embeddings
+        #     if self.dropout > 0:
+        #         _l2_reg_hook = _l2_reg_hook / self.dropout
+        #     _l2_reg_hook = self.l2_reg * _l2_reg_hook.abs().pow(3).sum()
+        #     if self._l2_reg_hook is None:
+        #         self._l2_reg_hook = _l2_reg_hook
+        #     else:
+        #         self._l2_reg_hook = self._l2_reg_hook + _l2_reg_hook
+        return embeddings
 
-	def _encode(self, embeddings, input_dropout, dropout, batch_norm=None):
-		if input_dropout > 0:
-			embeddings = torch.nn.functional.dropout(embeddings, p=input_dropout, training=self.training)
-		if self.batch_norm:
-			embeddings = batch_norm(embeddings)
-		if self.normalize == 'norm':
-			embeddings = torch.nn.functional.normalize(embeddings)
-		if dropout > 0:
-			embeddings = torch.nn.functional.dropout(embeddings, p=dropout, training=self.training)
-		if self.training and self.l2_reg > 0:
-			_l2_reg_hook = embeddings
-			if self.dropout > 0:
-				_l2_reg_hook = _l2_reg_hook / self.dropout
-			_l2_reg_hook = self.l2_reg * _l2_reg_hook.abs().pow(3).sum()
-			if self._l2_reg_hook is None:
-				self._l2_reg_hook = _l2_reg_hook
-			else:
-				self._l2_reg_hook = self._l2_reg_hook + _l2_reg_hook
-		return embeddings
+    def embed(self, indexes):
+        return _embed(self.embeddings(indexes))
 
-	def embed(self, embeddings):
-		return self._encode(embeddings,
-												self.input_dropout,
-												self.dropout,
-												self.bn if self.batch_norm else None)
-
-	def _get_all_(self, encode_func, embedding, as_variable=False):
-		result = encode_func(embedding.weight[min_offset:].contiguous(), lookup=False)
-		if not as_variable:
-			result = result.data
-		return result
-
-	def get_all(self, as_variable=False):
-		return self._get_all_(self.embed, self.embeddings, as_variable)
+    def embed_all(self):
+        return _embded(self.embeddings.weights)

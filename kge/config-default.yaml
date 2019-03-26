@@ -39,21 +39,24 @@ output:
 
 model:
   type: complex               # distmult, complex, transe, conve
-  dim: 200                    # entity dimensionality
-  entity_embedder: lookup
-  relation_embedder: lookup
-  normalize_entities: True
-  normalize_relations: True
-  sparse: False
-  init_std: 0.1
-  batch_norm: True
+  dim: 200                    # entity dimensionality or [ entity, relation ] dimensionality
+  embedder: lookup            # lookup, single or pair as above
   dropout: 0.0
-  input_dropout: 0.0
-  l2_reg: 0.0
+  batch_norm: True
+
+## Parameters used for embeddings. If a single value is specified, it's used for
+## both entites and relations. If an array is specified, first entry is used for
+## entity embeddings, second for relation embeddings.
+lookup_embedder:
+  initialize: normal          # xavier, uniform, normal
+  initialize_arg: 0.1         # gain for Xavier, range for uniform, stddev for Normal
+  dropout: 0                  # dropout used for embeddings
+  # TODO l2_reg: 0.01                # use L2 regularization
+  sparse: False               # ??
+  normalize: ''               # alternatively: normalize '', L2
 
 # TODO model-specific parametrs
 # SRT:
-#   relation_dim: 200
 
 ## TRAINING ####################################################################
 ## Used for training jobs.
