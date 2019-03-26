@@ -41,8 +41,6 @@ model:
   type: complex               # distmult, complex, transe, conve
   dim: 200                    # entity dimensionality or [ entity, relation ] dimensionality
   embedder: lookup            # lookup, single or pair as above
-  dropout: 0.0
-  batch_norm: True
 
 ## Parameters used for embeddings. If a single value is specified, it's used for
 ## both entites and relations. If an array is specified, first entry is used for
@@ -66,13 +64,13 @@ train:
   max_epochs: 20
   optimizer: adagrad          # sgd, adagrad, adam
   batch_size: 100
-  lr: 0.01
-  l2_reg: 0.0001
-  init: uniform               # uniform, xavier, he
+  lr: 0.01                    # learning rate; TODO: schedule
+  loss: bce                   # bce, TODO
 
-# configuration options for model validation during training
+# configuration options for model validation/selection during training
 validate:
   every: 5                    # epochs (disable with 0)
+  metric: mrr                 # mrr or hits@k; k specified under evaluate
   early_abort: False
 
 # TODO checkpointing
@@ -82,6 +80,7 @@ validate:
 ## EVALUATION ##################################################################
 ## Used for evaluation jobs.
 
+# fixed metrics: compute MRR and HITS@1, ..., HITS@k
 evaluate:
   type: entity_ranking
   k: 10                       # maximum k for HITS@k
