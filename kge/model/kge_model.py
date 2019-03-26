@@ -10,10 +10,6 @@ class KgeBase(torch.nn.Module):
         self.config = config
         self.dataset = dataset
         self.is_cuda = False
-        if config.get('job.type') == 'train':
-            self.is_training = True
-        else:
-            self.is_training = False
 
     def cuda(self, device=None):
         super().cuda(device=device)
@@ -38,16 +34,16 @@ class KgeModel(KgeBase):
     def __init__(self, config, dataset):
         super().__init__(config, dataset)
 
-    def score_spo(self, s, p, o):
+    def score_spo(self, s, p, o, is_training=False):
         raise NotImplementedError
 
-    def score_sp(self, s, p):
+    def score_sp(self, s, p, is_training=False):
         raise NotImplementedError
 
-    def score_po(self, p, o):
+    def score_po(self, p, o, is_training=False):
         raise NotImplementedError
 
-    def score_p(self, p):
+    def score_p(self, p, is_training=False):
         raise NotImplementedError
 
     def create(config, dataset):
@@ -83,13 +79,13 @@ class KgeEmbedder(KgeBase):
         else:
             raise ValueError('embedder')
 
-    def embed(self, indexes) -> torch.Tensor:
+    def embed(self, indexes, is_training=False) -> torch.Tensor:
         """
         Computes the embedding.
         """
         raise NotImplementedError
 
-    def embed_all(self) -> torch.Tensor:
+    def embed_all(self, is_training=False) -> torch.Tensor:
         """
         Returns all embeddings.
         """

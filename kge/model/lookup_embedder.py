@@ -24,17 +24,17 @@ class LookupEmbedder(KgeEmbedder):
         ## TODO L2
 
 
-    def _embed(self, embeddings):
+    def _embed(self, embeddings, is_training=False):
         if self.dropout > 0:
             embeddings = torch.nn.functional.dropout(
-                embeddings, p=self.dropout, isTraining=self.is_training)
+                embeddings, p=self.dropout, isTraining=is_training)
         if self.normalize == 'L2':
             embeddings = torch.nn.functional.normalize(embeddings)
         if dropout > 0:
             embeddings = torch.nn.functional.dropout(
-                embeddings, p=dropout, isTraining=self.is_training)
+                embeddings, p=dropout, isTraining=is_training)
         # TODO l2
-        # if self.is_training and self.l2_reg > 0:
+        # if is_training and self.l2_reg > 0:
         #     _l2_reg_hook = embeddings
         #     if self.dropout > 0:
         #         _l2_reg_hook = _l2_reg_hook / self.dropout
@@ -45,8 +45,8 @@ class LookupEmbedder(KgeEmbedder):
         #         self._l2_reg_hook = self._l2_reg_hook + _l2_reg_hook
         return embeddings
 
-    def embed(self, indexes):
-        return _embed(self.embeddings(indexes))
+    def embed(self, indexes, is_training=False):
+        return _embed(self.embeddings(indexes, is_training))
 
-    def embed_all(self):
-        return _embded(self.embeddings.weights)
+    def embed_all(self, is_training=False):
+        return _embded(self.embeddings.weights, is_training)
