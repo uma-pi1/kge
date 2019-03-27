@@ -41,6 +41,8 @@ dataset (if not present)."""
 class TrainingJob1toN(TrainingJob):
     def __init__(self, config, dataset):
         super().__init__(config, dataset)
+        self.batch_size = config.get('train.batch_size')
+        self.num_entities = dataset.num_entities
 
         config.log("Initializing 1-to-N training job...")
 
@@ -62,7 +64,7 @@ class TrainingJob1toN(TrainingJob):
         self.loader = torch.utils.data.DataLoader(dataset.train,
                                                   # collate_fn=self._collate,
                                                   shuffle=True,
-                                                  batch_size=config.get('train.batch_size'),
+                                                  batch_size=self.batch_size,
                                                   num_workers=config.get('train.num_workers'),
                                                   pin_memory=config.get('train.pin_memory'))
 
@@ -83,7 +85,9 @@ class TrainingJob1toN(TrainingJob):
         return result
 
     def _collate(self, batch):
-        """ Produces batch as well as corresponding label matrix """
+        batch1ToN = batch
+
+        return batch1ToN
 
     # TODO devices
     def epoch(self, current_epoch):
@@ -92,10 +96,20 @@ class TrainingJob1toN(TrainingJob):
         forward_time = 0
         backward_time = 0
         optimizer_time = 0
-        for i, batch in enumerate(self.loader):
+        for i, batch, in enumerate(self.loader):
+            # get labels
+            labels = torch.zeros([self.batch_size, 2*self.num_entities], dtype=torch.int)
+            # naive
+            for num_triple, triple in enumerate(batch):
+                for obj in self.train_sp[(triple[0].item(), triple[1].item())]:
+                    labels[num_triple, obj] = 1
+                for sub in self.train_po[(triple[1].item(), triple[2].item())]:
+                    labels[num_triple, sub + self.num_entities] = 1
+
             # forward pass
             forward_time -= time.time()
             scores = self.model.score_sp_and_po(batch[:, 0], batch[:, 1], batch[:, 2], is_training=True)
+            # TODO separate per prediction task!
             loss = self.loss(scores, labels)
             sum_loss += loss.item()
             forward_time += time.time()
