@@ -85,8 +85,7 @@ class TrainingJob1toN(TrainingJob):
         return result
 
     def _collate(self, batch):
-        "Returns batch and labels as batch_size x 2num_entities sparse tensor"
-        # TODO device
+        "Returns batch and label indexes (position of ones in a batch_size x 2num_entities tensor)"
         n_E = self.dataset.num_entities
         num_indexes = 0
         for i, triple in enumerate(batch):
@@ -109,10 +108,7 @@ class TrainingJob1toN(TrainingJob):
             indexes[current_index:(current_index+len(subjects)), 1] = subjects
             current_index += len(subjects)
         batch = torch.cat(batch).reshape((-1,3))
-        labels = torch.sparse.FloatTensor(indexes.t(),
-                                          torch.ones([num_indexes], dtype=torch.float),
-                                          torch.Size([len(batch), 2*n_E]))
-        return batch, labels
+        return batch, indexes
 
     # TODO devices
     def epoch(self, current_epoch):
@@ -122,8 +118,20 @@ class TrainingJob1toN(TrainingJob):
         backward_time = 0
         optimizer_time = 0
         for i, batch_labels in enumerate(self.loader):
+            print(i)
             batch = batch_labels[0].to(self.device)
-            labels = batch_labels[1].to(self.device)
+            indexes = batch_labels[1].to(self.device)
+            if self.device == 'cpu':
+                labels = torch.sparse.FloatTensor(
+                    indexes.t(),
+                    torch.ones([len(indexes)], dtype=torch.float, device=self.device),
+                    torch.Size([len(batch),2*self.dataset.num_entities]))
+            else:
+                labels = torch.cuda.sparse.FloatTensor(
+                    indexes.t(),
+                    torch.ones([len(indexes)], dtype=torch.float, device=self.device),
+                    torch.Size([len(batch),2*self.dataset.num_entities]),
+                    device=self.device)
 
             # forward pass
             forward_time -= time.time()
