@@ -10,15 +10,6 @@ class KgeBase(torch.nn.Module):
         super().__init__()
         self.config = config
         self.dataset = dataset
-        self.is_cuda = False
-
-    def cuda(self, device=None):
-        super().cuda(device=device)
-        self.is_cuda = True
-
-    def cpu(self):
-        super().cpu()
-        self.is_cuda = False
 
     def initialize(self, what, initialize, initialize_arg):
         if initialize == 'normal':
@@ -35,17 +26,29 @@ class KgeModel(KgeBase):
     def __init__(self, config, dataset):
         super().__init__(config, dataset)
 
-    def score_spo(self, s, p, o):
-        raise NotImplementedError
+    def score_spo(self, s, p, o, is_training=False):
+        return self._score(s, p, o, is_training=is_training)
 
     def score_sp(self, s, p, is_training=False):
-        raise NotImplementedError
+        s = self.entity_embedder.embed(s, is_training)
+        p = self.relation_embedder.embed(rel)
+        all_objects = self.entity_embedder.embed_all(is_training)
+        return self._score(s, p, all_objects, prefix='sp', is_training=is_training)
 
     def score_po(self, p, o, is_training=False):
-        raise NotImplementedError
+        all_subjects = self.entity_embedder.embed_all(is_training)
+        p = self.relation_embedder.embed(p, is_training)
+        o = self.entity_embedder.embed(o, is_training)
+        return self._score(all_subjects, p, o, prefix='po', is_training=is_training)
 
-    def score_sp_and_po(self, s, p, o, is_training=False):
-        raise NotImplementedError
+    def score_sp_po(self, s, p, o, is_training=False):
+        s = self.entity_embedder.embed(s, is_training)
+        p = self.relation_embedder.embed(p, is_training)
+        o = self.entity_embedder.embed(o, is_training)
+        all_entities = self.entity_embedder.embed_all(is_training)
+        sp_scores = self._score(s, p, all_entities, prefix='sp', is_training=is_training)
+        po_scores = self._score(all_entities, p, o, prefix='po', is_training=is_training)
+        return torch.cat((sp_scores, po_scores), dim=1)
 
     def score_p(self, p, is_training=False):
         raise NotImplementedError
@@ -55,13 +58,25 @@ class KgeModel(KgeBase):
         from kge.model import ComplEx
 
         ## create the embedders
+        model = None
         if config.get('model.type') == 'complex':
-            return ComplEx(config, dataset)
+            model = ComplEx(config, dataset)
         else:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError('model.type')
 
-            # TODO I/O
+        # TODO I/O (resume model)
+        model.to(config.get('job.device'))
+        return model
+
+
+    # TODO document this method and in particular: prefix
+    def _score(self, s, p, o, prefix=None, is_training=False):
+        r"""
+        :param s: tensor of size [batch_size, embedding_size]
+        :param p: tensor of size [batch_size, embedding_size]
+        :param o:: tensor of size [batch_size, embedding_size]
+        :return: score tensor of size [batch_size, 1]"""
 
 
 class KgeEmbedder(KgeBase):

@@ -12,31 +12,8 @@ class ComplEx(KgeModel):
         self.entity_embedder = KgeEmbedder.create(config, dataset, True)
         self.relation_embedder = KgeEmbedder.create(config, dataset, False)
 
-    def score_spo(self, s, p, o):
-        return self._score(s, p, o)
 
-    def score_sp(self, s, p, is_training):
-        s = self.entity_embedder.embed(s, is_training)
-        p = self.relation_embedder.embed(rel)
-        all_objects = self.entity_embedder.embed_all(is_training)
-        return self._score(s, p, all_objects, prefix='sp')
-
-    def score_po(self, p, o, is_training):
-        all_subjects = self.entity_embedder.embed_all(is_training)
-        p = self.relation_embedder.embed(p, is_training)
-        o = self.entity_embedder.embed(o, is_training)
-        return self._score(all_subjects, p, o, prefix='po')
-
-    def score_sp_and_po(self, s, p, o, is_training):
-        s = self.entity_embedder.embed(s, is_training)
-        p = self.relation_embedder.embed(p, is_training)
-        o = self.entity_embedder.embed(o, is_training)
-        all_entities = self.entity_embedder.embed_all(is_training)
-        sp_scores = self._score(s, p, all_entities, prefix='sp')
-        po_scores = self._score(all_entities, p, o, prefix='po')
-        return torch.cat((sp_scores, po_scores), dim=1)
-
-    def _score(self, s, p, o, prefix=None):
+    def _score(self, s, p, o, prefix=None, is_training=False):
         r"""
         :param s: tensor of size [batch_size, embedding_size]
         :param p: tensor of size [batch_size, embedding_size]

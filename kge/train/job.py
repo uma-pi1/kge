@@ -12,10 +12,12 @@ experiments such as grid search or Bayesian optimization."""
 
     def __init__(self, config, dataset):
         self.config = config
-        self.dataset = config
+        self.dataset = dataset
         self.model = KgeModel.create(config, dataset)
         self.optimizer = KgeOptimizer.create(config, self.model)
         self.loss = KgeLoss.create(config)
+        self.batch_size = config.get('train.batch_size')
+        self.device = self.config.get('job.device')
 
     def create(config, dataset):
         """Factory method to create a training job and add necessary indexes to the
@@ -41,8 +43,6 @@ dataset (if not present)."""
 class TrainingJob1toN(TrainingJob):
     def __init__(self, config, dataset):
         super().__init__(config, dataset)
-        self.batch_size = config.get('train.batch_size')
-        self.num_entities = dataset.num_entities
 
         config.log("Initializing 1-to-N training job...")
 
@@ -62,14 +62,14 @@ class TrainingJob1toN(TrainingJob):
 
         # create dataloader
         self.loader = torch.utils.data.DataLoader(dataset.train,
-                                                  # collate_fn=self._collate,
+                                                  collate_fn=self._collate,
                                                   shuffle=True,
                                                   batch_size=self.batch_size,
                                                   num_workers=config.get('train.num_workers'),
                                                   pin_memory=config.get('train.pin_memory'))
 
-        # TODO index dataset
-        # create optimizers, losses, ... (partly in super?)
+        # TODO currently assuming BCE loss
+        self.config.check('train.loss', [ 'bce' ])
 
     def _index(key, value):
         result = {}
@@ -81,13 +81,38 @@ class TrainingJob1toN(TrainingJob):
                 result[k] = values
             values.append(value[i])
         for key in result:
-            result[key] = torch.IntTensor(sorted(result[key]))
+            result[key] = torch.LongTensor(sorted(result[key]))
         return result
 
     def _collate(self, batch):
-        batch1ToN = batch
+        "Returns batch and labels as batch_size x 2num_entities sparse tensor"
+        # TODO device
+        n_E = self.dataset.num_entities
+        num_indexes = 0
+        for i, triple in enumerate(batch):
+            s,p,o = triple[0].item(), triple[1].item(), triple[2].item()
+            num_indexes += len(self.train_sp[(s,p)])
+            num_indexes += len(self.train_po[(p,o)])
 
-        return batch1ToN
+        indexes = torch.zeros([num_indexes, 2], dtype=torch.long)
+        current_index = 0
+        for i, triple in enumerate(batch):
+            s,p,o = triple[0].item(), triple[1].item(), triple[2].item()
+
+            objects = self.train_sp[(s,p)]
+            indexes[current_index:(current_index+len(objects)), 0] = i
+            indexes[current_index:(current_index+len(objects)), 1] = objects
+            current_index += len(objects)
+
+            subjects = self.train_po[(p,o)] + n_E
+            indexes[current_index:(current_index+len(subjects)), 0] = i
+            indexes[current_index:(current_index+len(subjects)), 1] = subjects
+            current_index += len(subjects)
+        batch = torch.cat(batch).reshape((-1,3))
+        labels = torch.sparse.FloatTensor(indexes.t(),
+                                          torch.ones([num_indexes], dtype=torch.float),
+                                          torch.Size([len(batch), 2*n_E]))
+        return batch, labels
 
     # TODO devices
     def epoch(self, current_epoch):
@@ -96,28 +121,21 @@ class TrainingJob1toN(TrainingJob):
         forward_time = 0
         backward_time = 0
         optimizer_time = 0
-        for i, batch, in enumerate(self.loader):
-            # get labels
-            labels = torch.zeros([self.batch_size, 2*self.num_entities], dtype=torch.int)
-            # naive
-            for num_triple, triple in enumerate(batch):
-                for obj in self.train_sp[(triple[0].item(), triple[1].item())]:
-                    labels[num_triple, obj] = 1
-                for sub in self.train_po[(triple[1].item(), triple[2].item())]:
-                    labels[num_triple, sub + self.num_entities] = 1
+        for i, batch_labels in enumerate(self.loader):
+            batch = batch_labels[0].to(self.device)
+            labels = batch_labels[1].to(self.device)
 
             # forward pass
             forward_time -= time.time()
-            scores = self.model.score_sp_and_po(batch[:, 0], batch[:, 1], batch[:, 2], is_training=True)
-            # TODO separate per prediction task!
-            loss = self.loss(scores, labels)
-            sum_loss += loss.item()
+            scores = self.model.score_sp_po(batch[:, 0], batch[:, 1], batch[:, 2], is_training=True)
+            loss_value = self.loss(scores.view(-1), labels.to_dense().view(-1))
+            sum_loss += loss_value.item()
             forward_time += time.time()
 
             # backward pass
             backward_time -= time.time()
             self.optimizer.zero_grad()
-            self.loss.backward()
+            loss_value.backward()
             backward_time += time.time()
 
             # upgrades
@@ -126,11 +144,7 @@ class TrainingJob1toN(TrainingJob):
             optimizer_time += time.time()
         epoch_time += time.time()
 
-        print("epoch={} avg_loss={:.2f} forward={:.3f}s backward={:.3f}s opt={:.3f}s other={:.3f}s total={:.3f}s".format(
+        self.config.log("epoch={} avg_loss={:.2f} forward={:.3f}s backward={:.3f}s opt={:.3f}s other={:.3f}s total={:.3f}s".format(
             current_epoch, sum_loss / i, forward_time, backward_time, optimizer_time,
             epoch_time - forward_time - backward_time - optimizer_time, epoch_time))
-
-
-
-
-
+        # TODO tracing -> create CSV with progress information

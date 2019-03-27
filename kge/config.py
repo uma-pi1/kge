@@ -1,7 +1,6 @@
 import yaml
 import datetime
 
-
 class Config:
     """Configuration options."""
 

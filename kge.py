@@ -13,6 +13,7 @@ if __name__ == '__main__':
     # define short option names
     short_options = {'dataset.name':'-d',
                      'job.type':'-j',
+                     'job.device':'-r',
                      'model.type':'-m',
                      'output.folder':'-o'}
 

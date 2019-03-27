@@ -1,5 +1,6 @@
 job:
   type: train                 # train, evaluate, grid_search, ...
+  device: 'cuda'
 
 ## INPUT/OUTPUT ################################################################
 
