@@ -1,5 +1,7 @@
 import torch
-from kge.model import KgeModel, ComplEx
+from kge.model import KgeModel
+from kge.util import KgeLoss
+from kge.util import KgeOptimizer
 
 
 class TrainingJob:
@@ -10,6 +12,8 @@ experiments such as grid search or Bayesian optimization."""
         self.config = config
         self.dataset = config
         self.model = KgeModel.create(config, dataset)
+        self.optimizer = KgeOptimizer.create(config, self.model)
+        self.loss = KgeLoss.create(config)
 
     def create(config, dataset):
         """Factory method to create a training job and add necessary indexes to the
