@@ -26,7 +26,7 @@ dataset (if not present)."""
         #     self.config.log('Starting epoch {}...'.format(n))
         #     self.epoch()
 
-            # TODO methods for checkpointing, logging, ...
+    # TODO methods for checkpointing, logging, ...
 
 
 class TrainingJob1toN(TrainingJob):

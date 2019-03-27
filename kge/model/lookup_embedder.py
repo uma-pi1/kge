@@ -23,7 +23,6 @@ class LookupEmbedder(KgeEmbedder):
 
         ## TODO L2
 
-
     def _embed(self, embeddings, is_training=False):
         if self.dropout > 0:
             embeddings = torch.nn.functional.dropout(
