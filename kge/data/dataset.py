@@ -6,12 +6,12 @@ import torch
 
 class Dataset:
     def __init__(self,
-                             config,
-                             num_entities, entities,
-                             num_relations, relations,
-                             train, train_meta,
-                             valid, valid_meta,
-                             test, test_meta):
+                 config,
+                 num_entities, entities,
+                 num_relations, relations,
+                 train, train_meta,
+                 valid, valid_meta,
+                 test, test_meta):
         self.config = config
         self.num_entities = num_entities
         self.entities = entities  # array: entity index -> metadata array of strings
