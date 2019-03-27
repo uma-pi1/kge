@@ -7,7 +7,7 @@ class KgeOptimizer:
     def create(config, model):
         """ Factory method for optimizer creation """
         if config.get('train.optimizer') == 'adagrad':
-            return torch.optim.AdaGrad(model.parameters(), config.get('train.lr'))
+            return torch.optim.Adagrad(model.parameters(), config.get('train.lr'))
         elif config.get('train.optimizer') == 'adam':
             if config.get('model.sparse'):
                 return torch.optim.SparseAdam(model.parameters(), config.get('train.lr'))
