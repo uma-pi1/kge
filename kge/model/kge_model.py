@@ -1,5 +1,6 @@
 import torch
 
+
 class KgeBase(torch.nn.Module):
     """
     Base class for all relational models and embedders
@@ -34,7 +35,7 @@ class KgeModel(KgeBase):
     def __init__(self, config, dataset):
         super().__init__(config, dataset)
 
-    def score_spo(self, s, p, o, is_training=False):
+    def score_spo(self, s, p, o):
         raise NotImplementedError
 
     def score_sp(self, s, p, is_training=False):
