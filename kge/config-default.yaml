@@ -66,6 +66,8 @@ train:
   batch_size: 100
   lr: 0.01                    # learning rate; TODO: schedule
   loss: bce                   # bce, TODO
+  num_workers: 3              
+  pin_memory: True            
 
 # configuration options for model validation/selection during training
 validate:

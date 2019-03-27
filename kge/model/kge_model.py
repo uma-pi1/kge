@@ -44,6 +44,9 @@ class KgeModel(KgeBase):
     def score_po(self, p, o, is_training=False):
         raise NotImplementedError
 
+    def score_sp_and_po(self, s, p, o, is_training=False):
+        raise NotImplementedError
+
     def score_p(self, p, is_training=False):
         raise NotImplementedError
 

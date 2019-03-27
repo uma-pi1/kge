@@ -1,4 +1,6 @@
 import torch
+import torch.utils.data
+import time
 from kge.model import KgeModel
 from kge.util import KgeLoss
 from kge.util import KgeOptimizer
@@ -24,11 +26,14 @@ dataset (if not present)."""
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError("train.type")
 
+    def epoch(self, current_epoch):
+        raise NotImplementedError
+
     def run(self):
         self.config.log('Starting training...')
-        # for n in range(self.config.get('train.max_epochs')):
-        #     self.config.log('Starting epoch {}...'.format(n))
-        #     self.epoch()
+        for n in range(self.config.get('train.max_epochs')):
+            self.config.log('Starting epoch {}...'.format(n))
+            self.epoch(n)
 
     # TODO methods for checkpointing, logging, ...
 
@@ -53,8 +58,16 @@ class TrainingJob1toN(TrainingJob):
                                  prefix='  ')
             dataset.indexes['train_po'] = self.train_po
 
-            # TODO index dataset
-            # create optimizers, losses, ... (partly in super?)
+        # create dataloader
+        self.loader = torch.utils.data.DataLoader(dataset.train,
+                                                  # collate_fn=self._collate,
+                                                  shuffle=True,
+                                                  batch_size=config.get('train.batch_size'),
+                                                  num_workers=config.get('train.num_workers'),
+                                                  pin_memory=config.get('train.pin_memory'))
+
+        # TODO index dataset
+        # create optimizers, losses, ... (partly in super?)
 
     def _index(key, value):
         result = {}
@@ -69,5 +82,41 @@ class TrainingJob1toN(TrainingJob):
             result[key] = torch.IntTensor(sorted(result[key]))
         return result
 
-    def epoch(self):
-        pass
+    def _collate(self, batch):
+        """ Produces batch as well as corresponding label matrix """
+
+    # TODO devices
+    def epoch(self, current_epoch):
+        sum_loss = 0
+        epoch_time = -time.time()
+        forward_time = 0
+        backward_time = 0
+        optimizer_time = 0
+        for i, batch in enumerate(self.loader):
+            # forward pass
+            forward_time -= time.time()
+            scores = self.model.score_sp_and_po(batch[:, 0], batch[:, 1], batch[:, 2], is_training=True)
+            loss = self.loss(scores, labels)
+            sum_loss += loss.item()
+            forward_time += time.time()
+
+            # backward pass
+            backward_time -= time.time()
+            self.optimizer.zero_grad()
+            self.loss.backward()
+            backward_time += time.time()
+
+            # upgrades
+            optimizer_time -= time.time()
+            self.optimizer.step()
+            optimizer_time += time.time()
+        epoch_time += time.time()
+
+        print("epoch={} avg_loss={:.2f} forward={:.3f}s backward={:.3f}s opt={:.3f}s other={:.3f}s total={:.3f}s".format(
+            current_epoch, sum_loss / i, forward_time, backward_time, optimizer_time,
+            epoch_time - forward_time - backward_time - optimizer_time, epoch_time))
+
+
+
+
+
