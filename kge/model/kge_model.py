@@ -26,31 +26,31 @@ class KgeModel(KgeBase):
     def __init__(self, config, dataset):
         super().__init__(config, dataset)
 
-    def score_spo(self, s, p, o, is_training=False):
-        return self._score(s, p, o, is_training=is_training)
+    def score_spo(self, s, p, o):
+        return self._score(s, p, o)
 
-    def score_sp(self, s, p, is_training=False):
-        s = self.entity_embedder.embed(s, is_training)
+    def score_sp(self, s, p):
+        s = self.entity_embedder.embed(s)
         p = self.relation_embedder.embed(rel)
-        all_objects = self.entity_embedder.embed_all(is_training)
-        return self._score(s, p, all_objects, prefix='sp', is_training=is_training)
+        all_objects = self.entity_embedder.embed_all()
+        return self._score(s, p, all_objects, prefix='sp')
 
-    def score_po(self, p, o, is_training=False):
-        all_subjects = self.entity_embedder.embed_all(is_training)
-        p = self.relation_embedder.embed(p, is_training)
-        o = self.entity_embedder.embed(o, is_training)
-        return self._score(all_subjects, p, o, prefix='po', is_training=is_training)
+    def score_po(self, p, o):
+        all_subjects = self.entity_embedder.embed_all()
+        p = self.relation_embedder.embed(p)
+        o = self.entity_embedder.embed(o)
+        return self._score(all_subjects, p, o, prefix='po')
 
-    def score_sp_po(self, s, p, o, is_training=False):
-        s = self.entity_embedder.embed(s, is_training)
-        p = self.relation_embedder.embed(p, is_training)
-        o = self.entity_embedder.embed(o, is_training)
-        all_entities = self.entity_embedder.embed_all(is_training)
-        sp_scores = self._score(s, p, all_entities, prefix='sp', is_training=is_training)
-        po_scores = self._score(all_entities, p, o, prefix='po', is_training=is_training)
+    def score_sp_po(self, s, p, o):
+        s = self.entity_embedder.embed(s)
+        p = self.relation_embedder.embed(p)
+        o = self.entity_embedder.embed(o)
+        all_entities = self.entity_embedder.embed_all()
+        sp_scores = self._score(s, p, all_entities, prefix='sp')
+        po_scores = self._score(all_entities, p, o, prefix='po')
         return torch.cat((sp_scores, po_scores), dim=1)
 
-    def score_p(self, p, is_training=False):
+    def score_p(self, p):
         raise NotImplementedError
 
     def create(config, dataset):
@@ -71,7 +71,7 @@ class KgeModel(KgeBase):
 
 
     # TODO document this method and in particular: prefix
-    def _score(self, s, p, o, prefix=None, is_training=False):
+    def _score(self, s, p, o, prefix=None):
         r"""
         :param s: tensor of size [batch_size, embedding_size]
         :param p: tensor of size [batch_size, embedding_size]
@@ -98,13 +98,13 @@ class KgeEmbedder(KgeBase):
         else:
             raise ValueError('embedder')
 
-    def embed(self, indexes, is_training=False) -> torch.Tensor:
+    def embed(self, indexes) -> torch.Tensor:
         """
         Computes the embedding.
         """
         raise NotImplementedError
 
-    def embed_all(self, is_training=False) -> torch.Tensor:
+    def embed_all(self) -> torch.Tensor:
         """
         Returns all embeddings.
         """

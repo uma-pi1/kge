@@ -169,7 +169,7 @@ class TrainingJob1toN(TrainingJob):
 
             # forward pass
             batch_forward_time = -time.time()
-            scores = self.model.score_sp_po(batch[:, 0], batch[:, 1], batch[:, 2], is_training=True)
+            scores = self.model.score_sp_po(batch[:, 0], batch[:, 1], batch[:, 2])
             loss_value = self.loss(scores.view(-1), labels.to_dense().view(-1))
             sum_loss += loss_value.item()
             batch_forward_time += time.time()

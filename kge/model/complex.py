@@ -13,7 +13,7 @@ class ComplEx(KgeModel):
         self.relation_embedder = KgeEmbedder.create(config, dataset, False)
 
 
-    def _score(self, s, p, o, prefix=None, is_training=False):
+    def _score(self, s, p, o, prefix=None):
         r"""
         :param s: tensor of size [batch_size, embedding_size]
         :param p: tensor of size [batch_size, embedding_size]
