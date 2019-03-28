@@ -30,6 +30,7 @@ output:
   # If left unspecified, defaults to local/experiments/<date>-<dataset>-<model>
   folder: ''
   logfile: 'kge.log'
+  tracefile: 'trace.yaml'   # one yaml entry per line
 
   # TODO what to do when folder exists? Default: error. Can be changed with:
   # TODO overwrite: false   # overwrite existing folder

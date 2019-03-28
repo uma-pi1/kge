@@ -36,6 +36,7 @@ dataset (if not present)."""
         for n in range(self.config.get('train.max_epochs')):
             self.config.log('Starting epoch {}...'.format(n))
             self.epoch(n)
+            self.config.log('Finished epoch {}.'.format(n))
 
     # TODO methods for checkpointing, logging, ...
 
@@ -114,10 +115,12 @@ class TrainingJob1toN(TrainingJob):
     def epoch(self, current_epoch):
         sum_loss = 0
         epoch_time = -time.time()
+        prepare_time = 0
         forward_time = 0
         backward_time = 0
         optimizer_time = 0
         for i, batch_labels in enumerate(self.loader):
+            batch_prepare_time = -time.time()
             batch = batch_labels[0].to(self.device)
             indexes = batch_labels[1].to(self.device)
             if self.device == 'cpu':
@@ -131,31 +134,51 @@ class TrainingJob1toN(TrainingJob):
                     torch.ones([len(indexes)], dtype=torch.float, device=self.device),
                     torch.Size([len(batch),2*self.dataset.num_entities]),
                     device=self.device)
+            batch_prepare_time += time.time()
+            prepare_time += batch_prepare_time
 
             # forward pass
-            forward_time -= time.time()
+            batch_forward_time = -time.time()
             scores = self.model.score_sp_po(batch[:, 0], batch[:, 1], batch[:, 2], is_training=True)
             loss_value = self.loss(scores.view(-1), labels.to_dense().view(-1))
             sum_loss += loss_value.item()
-            forward_time += time.time()
+            batch_forward_time += time.time()
+            forward_time += batch_forward_time
 
             # backward pass
-            backward_time -= time.time()
+            batch_backward_time = -time.time()
             self.optimizer.zero_grad()
             loss_value.backward()
-            backward_time += time.time()
+            batch_backward_time += time.time()
+            backward_time += batch_backward_time
 
             # upgrades
-            optimizer_time -= time.time()
+            batch_optimizer_time = -time.time()
             self.optimizer.step()
-            optimizer_time += time.time()
+            batch_optimizer_time += time.time()
+            optimizer_time += batch_optimizer_time
 
-            print("\033[K", end="") # clear line
-            print("\r  Batch {}/{}, loss_value {}".format(i+1, len(self.loader), loss_value), end="")
+            self.config.trace(
+                type='batch',
+                epoch=current_epoch, batch=i, batches=len(self.loader),
+                batch_loss=loss_value.item(),
+                prepare_time=batch_prepare_time,
+                forward_time=batch_forward_time, backward_time=batch_backward_time,
+                optimizer_time=batch_optimizer_time
+            )
+            print('\033[K\r', end="") # clear line and go back
+            print('  batch {}/{}, loss {}, time {}'.format(
+                i, len(self.loader)-1, loss_value.item(),
+                batch_prepare_time+batch_forward_time+batch_backward_time
+                +batch_optimizer_time), end='')
 
         epoch_time += time.time()
-        print("\033[K\r", end="") # clear line
-        self.config.log("epoch={} avg_loss={:.2f} forward={:.3f}s backward={:.3f}s opt={:.3f}s other={:.3f}s total={:.3f}s".format(
-            current_epoch, sum_loss / i, forward_time, backward_time, optimizer_time,
-            epoch_time - forward_time - backward_time - optimizer_time, epoch_time))
-        # TODO tracing -> create CSV with progress information
+        print("\033[K\r", end="") # clear line and go back
+        self.config.trace(
+            echo=True, log=True,
+            type='epoch', epoch=current_epoch, batches=len(self.loader),
+            sum_loss = sum_loss,
+            epoch_time = epoch_time, prepare_time=prepare_time,
+            forward_time=forward_time, backward_time=backward_time,
+            optimizer_time=optimizer_time,
+            other_time=epoch_time-prepare_time-forward_time-backward_time-optimizer_time)

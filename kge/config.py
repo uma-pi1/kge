@@ -21,6 +21,9 @@ class Config:
     def logfile(self):
         return self.folder() + "/" + self.get('output.logfile')
 
+    def tracefile(self):
+        return self.folder() + "/" + self.get('output.tracefile')
+
     def log(self, msg, echo=True, prefix=''):
         """Add an entry to the default log file. Optionally also print on console."""
         with open(self.logfile(), 'a') as file:
@@ -33,6 +36,19 @@ class Config:
                 file.write(" ")
                 file.write(line)
                 file.write("\n")
+
+    def trace(self, echo=False, echo_end="\n", echo_prefix='', log=False, **kwargs):
+        """Write a set of key value pairs to the trace file (in single YAML line).
+        Optionally, also print on console and/or write in log file."""
+        with open(self.tracefile(), 'a') as file:
+            line = yaml.dump(kwargs, width=float('inf')).strip()
+            if echo:
+                print(echo_prefix, end="")
+                print(line, end=echo_end)
+            file.write(line)
+            file.write("\n")
+            if log:
+                self.log(line, echo=False)
 
     def dump(self, filename):
         """Dump this dictionary to the given file."""
