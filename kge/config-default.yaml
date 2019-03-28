@@ -32,10 +32,6 @@ output:
   logfile: 'kge.log'
   tracefile: 'trace.yaml'   # one yaml entry per line
 
-  # TODO what to do when folder exists? Default: error. Can be changed with:
-  # TODO overwrite: false   # overwrite existing folder
-  # TODO resume: false      # resume when folder exists
-
 ## MODEL #######################################################################
 ## Model and its hyperparameters. Used for all jobs.
 
@@ -77,9 +73,9 @@ validate:
   metric: mrr                 # mrr or hits@k; k specified under evaluate
   early_abort: False
 
-# TODO checkpointing
-# checkpoint:
-#   every: 0                    # epochs (disable with 0)
+checkpoint:
+  every: 0                    # epochs (disable with 0)
+  basefile: 'checkpoint'      # add _epoch.pt
 
 ## EVALUATION ##################################################################
 ## Used for evaluation jobs.

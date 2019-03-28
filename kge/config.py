@@ -1,5 +1,6 @@
 import yaml
 import datetime
+import time
 
 class Config:
     """Configuration options."""
@@ -24,6 +25,12 @@ class Config:
     def tracefile(self):
         return self.folder() + "/" + self.get('output.tracefile')
 
+    def checkpointfile(self, epoch):
+        "Return path of checkpoint file for given epoch"
+        return "{}/{}_{:05d}.pt".format(
+            self.folder(), self.get('checkpoint.basefile'), epoch)
+
+
     def log(self, msg, echo=True, prefix=''):
         """Add an entry to the default log file. Optionally also print on console."""
         with open(self.logfile(), 'a') as file:
@@ -41,6 +48,7 @@ class Config:
         """Write a set of key value pairs to the trace file (in single YAML line).
         Optionally, also print on console and/or write in log file."""
         with open(self.tracefile(), 'a') as file:
+            kwargs['time']=time.time()
             line = yaml.dump(kwargs, width=float('inf')).strip()
             if echo:
                 print(echo_prefix, end="")

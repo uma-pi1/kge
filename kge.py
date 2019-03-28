@@ -1,6 +1,7 @@
 import datetime
 import yaml
 import os
+import glob
 import argparse
 from kge.data import Dataset
 from kge import Config
@@ -13,13 +14,14 @@ if __name__ == '__main__':
     # define short option names
     short_options = {'dataset.name':'-d',
                      'job.type':'-j',
-                     'job.device':'-r',
+                     'train.max_epochs':'-e',
                      'model.type':'-m',
                      'output.folder':'-o'}
 
     # parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', '-c', type=str)
+    parser.add_argument('--resume', '-r', type=str)
     for key, value in Config.flatten(config.options).items():
         short = short_options.get(key)
         if short:
@@ -30,12 +32,21 @@ if __name__ == '__main__':
 
     # load user config file (overwrites defaults)
     if args.config is not None:
+        if args.resume is not None:
+            raise ValueError("config and resume")
         print('Loading configuration {}...'.format(args.config))
         config.load(args.config)
 
+    # resume previous model
+    if args.resume is not None:
+        print('Resuming from configuration {}...'.format(args.resume))
+        config.load(args.resume)
+        if config.folder() == '' or not os.path.exists(config.folder()):
+            raise ValueError("{} is not a valid config file for resuming".format(args.resume))
+
     # overwrite with command line arguments
     for key, value in vars(args).items():
-        if key=='config':
+        if key=='config' or key=='resume':
             continue
         if value is not None:
             config.set(key, value)
@@ -50,13 +61,14 @@ if __name__ == '__main__':
 
     # create output folder
     if os.path.exists(config.folder()):
-        # TODO
-        raise NotImplementedError("resume/overwrite")
+        if args.resume is None:
+            raise NotImplementedError("output folder exists")
     else:
         os.makedirs(config.folder())
 
     # store full configuration in output folder
-    config.dump(config.folder() + "/config.yaml")
+    if args.resume is None:
+        config.dump(config.folder() + "/config.yaml")
     config.log("Configuration:")
 
     # also show on screen (perhaps: non-default options only?)
@@ -70,6 +82,18 @@ if __name__ == '__main__':
         ## train model with specified hyperparmeters
         ## TODO create job
         job = TrainingJob.create(config, dataset)
+        if args.resume:
+            # find last checkpoint file (stupid but works)
+            tried_epoch = 0
+            found_epoch = 0
+            while tried_epoch < found_epoch + 100:
+                tried_epoch += 1
+                if os.path.exists(config.checkpointfile(tried_epoch)):
+                    found_epoch = tried_epoch
+            if found_epoch>0:
+                job.resume(config.checkpointfile(found_epoch))
+            else:
+                config.log("No checkpoint found, starting from scratch...")
         job.run()
     else:
         raise ValueError("unknown job type")

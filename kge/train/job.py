@@ -18,6 +18,8 @@ experiments such as grid search or Bayesian optimization."""
         self.loss = KgeLoss.create(config)
         self.batch_size = config.get('train.batch_size')
         self.device = self.config.get('job.device')
+        self.epoch = 0
+        self.model.train()
 
     def create(config, dataset):
         """Factory method to create a training job and add necessary indexes to the
@@ -28,15 +30,36 @@ dataset (if not present)."""
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError("train.type")
 
-    def epoch(self, current_epoch):
+    def run_epoch(self):
         raise NotImplementedError
 
     def run(self):
         self.config.log('Starting training...')
-        for n in range(self.config.get('train.max_epochs')):
-            self.config.log('Starting epoch {}...'.format(n))
-            self.epoch(n)
-            self.config.log('Finished epoch {}.'.format(n))
+        checkpoint = self.config.get('checkpoint.every')
+        while self.epoch < self.config.get('train.max_epochs'):
+            self.epoch += 1
+            self.config.log('Starting epoch {}...'.format(self.epoch))
+            self.run_epoch()
+            self.config.log('Finished epoch {}.'.format(self.epoch))
+            if checkpoint > 0 and (self.epoch % checkpoint == 0):
+                self.checkpoint(self.config.checkpointfile(self.epoch))
+        self.config.log('Maximum number of epochs reached.')
+
+    def checkpoint(self, filename):
+        self.config.log('Checkpointing to "{}"...'.format(filename))
+        torch.save({
+            'epoch': self.epoch,
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            }, filename)
+
+    def resume(self, filename):
+        self.config.log('Loading checkpoint from "{}"...'.format(filename))
+        checkpoint = torch.load(filename)
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.epoch = checkpoint['epoch']
+        self.model.train()
 
     # TODO methods for checkpointing, logging, ...
 
@@ -112,7 +135,7 @@ class TrainingJob1toN(TrainingJob):
         return batch, indexes
 
     # TODO devices
-    def epoch(self, current_epoch):
+    def run_epoch(self):
         sum_loss = 0
         epoch_time = -time.time()
         prepare_time = 0
@@ -160,7 +183,7 @@ class TrainingJob1toN(TrainingJob):
 
             self.config.trace(
                 type='batch',
-                epoch=current_epoch, batch=i, batches=len(self.loader),
+                epoch=self.epoch, batch=i, batches=len(self.loader),
                 batch_loss=loss_value.item(),
                 prepare_time=batch_prepare_time,
                 forward_time=batch_forward_time, backward_time=batch_backward_time,
@@ -176,7 +199,7 @@ class TrainingJob1toN(TrainingJob):
         print("\033[K\r", end="") # clear line and go back
         self.config.trace(
             echo=True, log=True,
-            type='epoch', epoch=current_epoch, batches=len(self.loader),
+            type='epoch', epoch=self.epoch, batches=len(self.loader),
             sum_loss = sum_loss,
             epoch_time = epoch_time, prepare_time=prepare_time,
             forward_time=forward_time, backward_time=backward_time,
