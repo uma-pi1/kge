@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.utils.data
 import time
@@ -41,8 +42,14 @@ dataset (if not present)."""
             self.config.log('Starting epoch {}...'.format(self.epoch))
             self.run_epoch()
             self.config.log('Finished epoch {}.'.format(self.epoch))
-            if checkpoint > 0 and (self.epoch % checkpoint == 0):
-                self.checkpoint(self.config.checkpointfile(self.epoch))
+
+            # create checkpoint and delete old one, if necessary
+            self.checkpoint(self.config.checkpointfile(self.epoch))
+            if self.epoch>1:
+                if not (checkpoint > 0 and ((self.epoch-1) % checkpoint == 0)):
+                    self.config.log('Removing old checkpoint {}...'.format(
+                        self.config.checkpointfile(self.epoch-1)))
+                    os.remove(self.config.checkpointfile(self.epoch-1))
         self.config.log('Maximum number of epochs reached.')
 
     def checkpoint(self, filename):
