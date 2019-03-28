@@ -83,15 +83,9 @@ if __name__ == '__main__':
         ## TODO create job
         job = TrainingJob.create(config, dataset)
         if args.resume:
-            # find last checkpoint file (stupid but works)
-            tried_epoch = 0
-            found_epoch = 0
-            while tried_epoch < found_epoch + 100:
-                tried_epoch += 1
-                if os.path.exists(config.checkpointfile(tried_epoch)):
-                    found_epoch = tried_epoch
-            if found_epoch>0:
-                job.resume(config.checkpointfile(found_epoch))
+            checkpointfile = config.last_checkpointfile()
+            if checkpointfile is not None:
+                job.resume(checkpointfile)
             else:
                 config.log("No checkpoint found, starting from scratch...")
         job.run()

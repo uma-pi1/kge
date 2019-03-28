@@ -1,6 +1,7 @@
 import yaml
 import datetime
 import time
+import os
 
 class Config:
     """Configuration options."""
@@ -29,6 +30,19 @@ class Config:
         "Return path of checkpoint file for given epoch"
         return "{}/{}_{:05d}.pt".format(
             self.folder(), self.get('checkpoint.basefile'), epoch)
+
+    def last_checkpointfile(self):
+        # find last checkpoint file (stupid but works)
+        tried_epoch = 0
+        found_epoch = 0
+        while tried_epoch < found_epoch + 100:
+            tried_epoch += 1
+            if os.path.exists(self.checkpointfile(tried_epoch)):
+                found_epoch = tried_epoch
+        if found_epoch>0:
+            return self.checkpointfile(found_epoch)
+        else:
+            return None
 
 
     def log(self, msg, echo=True, prefix=''):
