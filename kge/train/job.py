@@ -118,7 +118,6 @@ class TrainingJob1toN(TrainingJob):
         backward_time = 0
         optimizer_time = 0
         for i, batch_labels in enumerate(self.loader):
-            print(i)
             batch = batch_labels[0].to(self.device)
             indexes = batch_labels[1].to(self.device)
             if self.device == 'cpu':
@@ -150,8 +149,12 @@ class TrainingJob1toN(TrainingJob):
             optimizer_time -= time.time()
             self.optimizer.step()
             optimizer_time += time.time()
-        epoch_time += time.time()
 
+            print("\033[K", end="") # clear line
+            print("\r  Batch {}/{}, loss_value {}".format(i+1, len(self.loader), loss_value), end="")
+
+        epoch_time += time.time()
+        print("\033[K\r", end="") # clear line
         self.config.log("epoch={} avg_loss={:.2f} forward={:.3f}s backward={:.3f}s opt={:.3f}s other={:.3f}s total={:.3f}s".format(
             current_epoch, sum_loss / i, forward_time, backward_time, optimizer_time,
             epoch_time - forward_time - backward_time - optimizer_time, epoch_time))
