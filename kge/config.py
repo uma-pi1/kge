@@ -20,6 +20,13 @@ class Config:
     def folder(self):
         return self.get('output.folder')
 
+    def init_folder(self):
+        if not os.path.exists(self.folder()):
+            os.makedirs(self.folder())
+            self.dump(self.folder() + "/config.yaml")
+            return True
+        return False
+
     def logfile(self):
         return self.folder() + "/" + self.get('output.logfile')
 

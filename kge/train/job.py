@@ -74,7 +74,7 @@ dataset (if not present)."""
         if checkpointfile is not None:
             self.load(checkpointfile)
         else:
-            config.log("No checkpoint found, starting from scratch...")
+            self.config.log("No checkpoint found, starting from scratch...")
 
     # TODO methods for checkpointing, logging, ...
 
