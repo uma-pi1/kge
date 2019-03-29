@@ -1,7 +1,6 @@
 import datetime
 import yaml
 import os
-import glob
 import argparse
 from kge.data import Dataset
 from kge import Config
@@ -12,11 +11,11 @@ if __name__ == '__main__':
     config = Config()
 
     # define short option names
-    short_options = {'dataset.name':'-d',
-                     'job.type':'-j',
-                     'train.max_epochs':'-e',
-                     'model.type':'-m',
-                     'output.folder':'-o'}
+    short_options = {'dataset.name': '-d',
+                     'job.type': '-j',
+                     'train.max_epochs': '-e',
+                     'model.type': '-m',
+                     'output.folder': '-o'}
 
     # create parser and parse arguments
     parser = argparse.ArgumentParser()
@@ -42,35 +41,35 @@ if __name__ == '__main__':
         print('Resuming from configuration {}...'.format(args.resume))
         config.load(args.resume)
         if config.folder() == '' or not os.path.exists(config.folder()):
-            raise ValueError("{} is not a valid config file for resuming".format(args.resume))
+            raise ValueError("{} is not a valid config file for resuming"
+                             .format(args.resume))
 
     # overwrite configuration with command line arguments
     for key, value in vars(args).items():
-        if key=='config' or key=='resume':
+        if key in ['config', 'resume']:
             continue
         if value is not None:
             config.set(key, value)
 
     # initialize output folder
     if config.folder() == '':  # means: set default
-        config.set('output.folder', \
-            'local/experiments/' \
-            + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") \
-            + "-" + config.get('dataset.name') \
-            + "-" + config.get('model.type'))
+        config.set('output.folder',
+                   'local/experiments/'
+                   + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+                   + "-" + config.get('dataset.name')
+                   + "-" + config.get('model.type'))
     if not args.resume and not config.init_folder():
         raise ValueError("output folder exists")
 
     # log configuration
     config.log("Configuration:")
-    config.log( yaml.dump(config.options), prefix='  ')
+    config.log(yaml.dump(config.options), prefix='  ')
 
     # load data
     dataset = Dataset.load(config)
-
     # let's go
     if config.get('job.type') == 'train':
-        ## train model with specified hyperparmeters
+        # train model with specified hyperparmeters
         job = TrainingJob.create(config, dataset)
         if args.resume:
             job.resume()
