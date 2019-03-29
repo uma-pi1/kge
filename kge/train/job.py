@@ -190,24 +190,27 @@ class TrainingJob1toN(TrainingJob):
 
             self.config.trace(
                 type='batch',
-                epoch=self.epoch, batch=i, batches=len(self.loader),
-                batch_loss=loss_value.item(),
+                epoch=self.epoch,
+                batch=i, size=len(batch), batches=len(self.loader),
+                avg_loss=loss_value.item()/len(batch),
                 prepare_time=batch_prepare_time,
-                forward_time=batch_forward_time, backward_time=batch_backward_time,
+                forward_time=batch_forward_time,
+                backward_time=batch_backward_time,
                 optimizer_time=batch_optimizer_time
             )
             print('\033[K\r', end="") # clear line and go back
-            print('  batch {}/{}, loss {}, time {}'.format(
-                i, len(self.loader)-1, loss_value.item(),
+            print('  batch {: 5d}/{}, avg_loss {:10.2f}, time {:2.4f}s'.format(
+                i, len(self.loader)-1, loss_value.item()/len(batch),
                 batch_prepare_time+batch_forward_time+batch_backward_time
                 +batch_optimizer_time), end='')
 
         epoch_time += time.time()
         print("\033[K\r", end="") # clear line and go back
         self.config.trace(
-            echo=True, log=True,
+            echo=True, echo_prefix="  ", log=True,
             type='epoch', epoch=self.epoch, batches=len(self.loader),
-            sum_loss = sum_loss,
+            size = len(self.dataset.train),
+            avg_loss = sum_loss/len(self.dataset.train),
             epoch_time = epoch_time, prepare_time=prepare_time,
             forward_time=forward_time, backward_time=backward_time,
             optimizer_time=optimizer_time,

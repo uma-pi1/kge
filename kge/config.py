@@ -58,19 +58,25 @@ class Config:
                 file.write(line)
                 file.write("\n")
 
-    def trace(self, echo=False, echo_end="\n", echo_prefix='', log=False, **kwargs):
+    def trace(self, echo=False, echo_prefix='', echo_flow=False,
+              log=False, **kwargs):
         """Write a set of key value pairs to the trace file (in single YAML line).
         Optionally, also print on console and/or write in log file."""
         with open(self.tracefile(), 'a') as file:
-            kwargs['time']=time.time()
-            line = yaml.dump(kwargs, width=float('inf')).strip()
-            if echo:
-                print(echo_prefix, end="")
-                print(line, end=echo_end)
+            kwargs['timestamp']=time.time()
+            line = yaml.dump(kwargs, width=float('inf'), default_flow_style=True).strip()
+            if echo or log:
+                msg = yaml.dump(kwargs, default_flow_style=echo_flow)
+                if log:
+                    self.log(msg, echo, echo_prefix)
+                else:
+                    for line in msg.splitlines():
+                        if prefix:
+                            line = prefix + line
+                            print(line)
             file.write(line)
             file.write("\n")
-            if log:
-                self.log(line, echo=False)
+            return line
 
     def dump(self, filename):
         """Dump this dictionary to the given file."""
