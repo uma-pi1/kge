@@ -45,7 +45,7 @@ dataset (if not present)."""
             self.config.log('Finished epoch {}.'.format(self.epoch))
 
             # create checkpoint and delete old one, if necessary
-            self.checkpoint(self.config.checkpointfile(self.epoch))
+            self.save(self.config.checkpointfile(self.epoch))
             if self.epoch>1:
                 if not (checkpoint > 0 and ((self.epoch-1) % checkpoint == 0)):
                     self.config.log('Removing old checkpoint {}...'.format(
@@ -53,21 +53,28 @@ dataset (if not present)."""
                     os.remove(self.config.checkpointfile(self.epoch-1))
         self.config.log('Maximum number of epochs reached.')
 
-    def checkpoint(self, filename):
-        self.config.log('Checkpointing to "{}"...'.format(filename))
+    def save(self, filename):
+        self.config.log('Saving checkpoint to "{}"...'.format(filename))
         torch.save({
             'epoch': self.epoch,
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             }, filename)
 
-    def resume(self, filename):
+    def load(self, filename):
         self.config.log('Loading checkpoint from "{}"...'.format(filename))
         checkpoint = torch.load(filename)
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.epoch = checkpoint['epoch']
         self.model.train()
+
+    def resume(self):
+        checkpointfile = self.config.last_checkpointfile()
+        if checkpointfile is not None:
+            self.load(checkpointfile)
+        else:
+            config.log("No checkpoint found, starting from scratch...")
 
     # TODO methods for checkpointing, logging, ...
 

@@ -80,14 +80,9 @@ if __name__ == '__main__':
     # let's go
     if config.get('job.type') == 'train':
         ## train model with specified hyperparmeters
-        ## TODO create job
         job = TrainingJob.create(config, dataset)
         if args.resume:
-            checkpointfile = config.last_checkpointfile()
-            if checkpointfile is not None:
-                job.resume(checkpointfile)
-            else:
-                config.log("No checkpoint found, starting from scratch...")
+            job.resume()
         job.run()
     else:
         raise ValueError("unknown job type")
