@@ -89,10 +89,12 @@ eval:
 ## GRID SEARCH #################################################################
 
 # array of pairs of parameter name (flattened) and possible values
-grid: [
-  [ 'train.lr', [ 1E-3, 1E-2, 1E-1 ] ],
-  [ 'train.dim', [ 100, 200 ] ]
-]
+grid:
+  run: True                    # if false, only creates folders and configurations
+  options: [
+    [ 'train.lr', [ 0.001, 0.01, 0.1 ] ],
+    [ 'model.dim', [ 100, 200 ] ]
+  ]
 
 ## Used for evaluation jobs.
 

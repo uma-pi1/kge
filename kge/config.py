@@ -1,3 +1,4 @@
+import copy
 import datetime
 import os
 import time
@@ -93,6 +94,13 @@ class Config:
             else:
                 result[fullkey] = value
 
+    def clone(self, subfolder=None):
+        """Return a deep copy"""
+        new_config = copy.deepcopy(self)
+        if subfolder is not None:
+            new_config.set("output.folder", self.folder() + subfolder + '/')
+        return new_config
+
     # -- LOGGING AND TRACING --------------------------------------------------
 
     def log(self, msg, echo=True, prefix=''):
@@ -183,10 +191,13 @@ class Config:
 
     def folder(self):
         """Return output folder"""
-        return self.get('output.folder')
+        folder = self.get('output.folder')
+        if len(folder) > 0 and not folder.endswith('/'):
+            folder += '/'
+        return folder
 
     def logfile(self):
-        return self.folder() + "/" + self.get('output.logfile')
+        return self.folder() + self.get('output.logfile')
 
     def tracefile(self):
-        return self.folder() + "/" + self.get('output.tracefile')
+        return self.folder() + self.get('output.tracefile')
