@@ -5,7 +5,7 @@ job:
 ## INPUT/OUTPUT ################################################################
 
 dataset:
-  name: 'toy'
+  name: 'fb1k'
 
   # training, validation, and test data files have the following fields, all
   # tab-separated:

@@ -6,6 +6,19 @@ if [ ! -d "$BASEDIR" ]; then
     mkdir "$BASEDIR"
 fi
 
+
+# FB1K (testing dataset)
+if [ ! -d "$BASEDIR/fb1k" ]; then
+    echo Downloading FB1K
+    cd $BASEDIR
+    curl -O https://www.wim.uni-mannheim.de/fileadmin/lehrstuehle/pi1/pi1/BK-EMB/FB1K.tar.gz
+    tar xvf FB1K.tar.gz
+    python preprocess.py --folder FB1K
+else
+    echo FB1K already present
+fi
+
+
 # FB15K
 if [ ! -d "$BASEDIR/FB15k" ]; then
   echo Downloading FB15k
@@ -136,15 +149,3 @@ if [ ! -d "$BASEDIR/YAGO3-10" ]; then
 else
     echo YAGO3-10 already present
 fi
-
-# FB1K (testing dataset)
-if [ ! -d "$BASEDIR/FB1K" ]; then
-  echo Downloading FB1K
-  cd $BASEDIR
-  curl -O https://www.wim.uni-mannheim.de/fileadmin/lehrstuehle/pi1/pi1/BK-EMB/FB1K.tar.gz
-  tar xvf FB1K.tar.gz
-  python preprocess.py --folder FB1K
-else
-    echo FB1K already present
-fi
-
