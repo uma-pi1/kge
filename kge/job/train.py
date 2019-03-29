@@ -3,18 +3,22 @@ import math
 import torch
 import torch.utils.data
 import time
+from kge.job import Job
 from kge.model import KgeModel
 from kge.util import KgeLoss
 from kge.util import KgeOptimizer
 
 
-class TrainingJob:
-    """Job to train a single model with a fixed set of hyperparameters. Used by
-experiments such as grid search or Bayesian optimization."""
+class TrainingJob(Job):
+    """Job to train a single model with a fixed set of hyperparameters.
+
+    Also used by jobs such as grid search (:class:`GridJob`) or Bayesian
+    optimization.
+
+    """
 
     def __init__(self, config, dataset):
-        self.config = config
-        self.dataset = dataset
+        super().__init__(config, dataset)
         self.model = KgeModel.create(config, dataset)
         self.optimizer = KgeOptimizer.create(config, self.model)
         self.loss = KgeLoss.create(config)
