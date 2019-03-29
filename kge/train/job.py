@@ -1,4 +1,5 @@
 import os
+import math
 import torch
 import torch.utils.data
 import time
@@ -199,13 +200,14 @@ class TrainingJob1toN(TrainingJob):
                 optimizer_time=batch_optimizer_time
             )
             print('\033[K\r', end="") # clear line and go back
-            print('  batch {: 5d}/{}, avg_loss {:10.2f}, time {:2.4f}s'.format(
+            print(('  batch:{: ' + str(1+int(math.ceil(math.log10(len(self.loader)))))
+                   + 'd}/{}, avg_loss: {:14.4f}, time: {:8.4f}s').format(
                 i, len(self.loader)-1, loss_value.item()/len(batch),
                 batch_prepare_time+batch_forward_time+batch_backward_time
                 +batch_optimizer_time), end='')
 
         epoch_time += time.time()
-        print("\033[K\r", end="") # clear line and go back
+        print("\033[2K\r", end="") # clear line and go back
         self.config.trace(
             echo=True, echo_prefix="  ", log=True,
             type='epoch', epoch=self.epoch, batches=len(self.loader),
