@@ -5,3 +5,4 @@ local/*
 data/
 !data/*.sh
 !data/preprocess.py
+/trace.csv
