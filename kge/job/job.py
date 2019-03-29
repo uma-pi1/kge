@@ -23,5 +23,7 @@ class Job:
             return TrainingJob.create(config, dataset)
         elif config.get('job.type') == 'grid':
             return GridJob(config, dataset)
+        elif config.get('job.type') == 'eval':
+            return EvalJob(config, dataset)
         else:
             raise ValueError("unknown job type")
