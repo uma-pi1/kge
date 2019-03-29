@@ -1,5 +1,8 @@
-from kge.evaluation.base_evaluation import BaseEvaluation
+from kge.evaluation import EvaluationJob
 
 
-class OneToNEvaluation(BaseEvaluation):
-    """ Entity ranking protocol """
+class EntityPairRanking(EvaluationJob):
+    """ Entity-pair ranking evaluation protocol """
+
+    def __init__(self, config, dataset, model):
+        super().__init__(config, dataset, model)
