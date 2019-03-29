@@ -39,6 +39,7 @@ dataset (if not present)."""
     def run_epoch(self):
         raise NotImplementedError
 
+    # TODO add evaluation according to config.get('valid.every')
     def run(self):
         self.config.log('Starting training...')
         checkpoint = self.config.get('checkpoint.every')
@@ -153,7 +154,6 @@ class TrainingJob1toN(TrainingJob):
         batch = torch.cat(batch).reshape((-1,3))
         return batch, indexes
 
-    # TODO devices
     def run_epoch(self):
         sum_loss = 0
         epoch_time = -time.time()

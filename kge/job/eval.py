@@ -1,37 +1,26 @@
-import torch
-from typing import List
-import EntityRanking, EntityPairRanking
+from kge.job import EntityRanking, EntityPairRanking
 
 
-class EvalJob:
+class EvalJob(Job):
 
-    def __init__(self, config, data, model=None):
+    def __init__(self, config, dataset):
         self.config = config
-        self.dataset = data
+        self.dataset = dataset
+        self.batch_size = config.get('train.batch_size')
         self.device = self.config.get('job.device')
-
-        if not model:
-            self.model = model
-        else:
-            # TODO load model from folder given in config file
 
     def create(config, dataset):
         """Factory method to create an evaluation job """
         if config.get('evaluation.type') == 'entity_ranking':
-            return EntityRanking(config, dataset, model)
+            return EntityRanking(config, dataset)
         elif config.get('evaluation.type') == 'entity_pair_ranking':
-            return EntityPairRanking(config, dataset, model)
+            return EntityPairRanking(config, dataset)
         else:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError("evaluation.type")
 
-    def compute_metrics(self, predictions, labels, filters) -> List[float]:
-        """
+    def run(self):
+        """ Compute evaluation metrics, output results to trace file """
+        pass
 
-        :param predictions:
-        :param labels:
-        :param filters:
-        :return: list of metrics (floats)
-        """
-
-        raise NotImplementedError
+    # TODO needs resume method because of inheritance, used for what here?
