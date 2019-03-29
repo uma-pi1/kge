@@ -7,25 +7,25 @@ if [ ! -d "$BASEDIR" ]; then
 fi
 
 
-# FB1K (testing dataset)
-if [ ! -d "$BASEDIR/fb1k" ]; then
-    echo Downloading FB1K
+# toy (testing dataset)
+if [ ! -d "$BASEDIR/toy" ]; then
+    echo Downloading toy
     cd $BASEDIR
-    curl -O https://www.wim.uni-mannheim.de/fileadmin/lehrstuehle/pi1/pi1/BK-EMB/FB1K.tar.gz
-    tar xvf FB1K.tar.gz
-    python preprocess.py --folder FB1K
+    curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/toy.tar.gz
+    tar xvf toy.tar.gz
+    python preprocess.py --folder toy
 else
-    echo FB1K already present
+    echo toy already present
 fi
 
 
-# FB15K
-if [ ! -d "$BASEDIR/FB15k" ]; then
-  echo Downloading FB15k
+# fb15k
+if [ ! -d "$BASEDIR/fb15k" ]; then
+  echo Downloading fb15k
   cd $BASEDIR
-  curl -O https://www.wim.uni-mannheim.de/fileadmin/lehrstuehle/pi1/pi1/BK-EMB/FB15k.zip
-  unzip FB15k.zip
-  cd FB15k
+  curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/fb15k.tar.gz
+  tar xvf fb15k.tar.gz
+  cd fb15k
   case "$(uname -s)" in
       CYGWIN*|MINGW32*|MSYS*)
           cmd.exe /c mklink train.txt freebase_mtr100_mte100-train.txt
@@ -39,29 +39,29 @@ if [ ! -d "$BASEDIR/FB15k" ]; then
           ;;
   esac
   cd ..
-  python preprocess.py --folder FB15k
+  python preprocess.py --folder fb15k
 else
-    echo FB15k already present
+    echo fb15k already present
 fi
 
-# FB15K-237
-if [ ! -d "$BASEDIR/FB15k-237" ]; then
-  echo Downloading FB15k-237
+# fb15k-237
+if [ ! -d "$BASEDIR/fb15k-237" ]; then
+  echo Downloading fb15k-237
   cd $BASEDIR
-  curl -O https://www.wim.uni-mannheim.de/fileadmin/lehrstuehle/pi1/pi1/BK-EMB/FB15k-237.zip
-  unzip FB15k-237.zip
-  python preprocess.py --folder FB15k-237
+  curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/fb15k-237.tar.gz
+  tar xvf fb15k-237.tar.gz
+  python preprocess.py --folder fb15k-237
 else
-    echo FB15k-237 already present
+    echo fb15k-237 already present
 fi
 
-# WN18
-if [ ! -d "$BASEDIR/WN18" ]; then
-  echo Downloading WN18
+# wn18
+if [ ! -d "$BASEDIR/wn18" ]; then
+  echo Downloading wn18
   cd $BASEDIR
-  curl -O https://www.wim.uni-mannheim.de/fileadmin/lehrstuehle/pi1/pi1/BK-EMB/WN18.zip
-  unzip WN18.zip
-  cd WN18
+  curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/wn18.tar.gz
+  tar xvf wn18.tar.gz
+  cd wn18
   case "$(uname -s)" in
       CYGWIN*|MINGW32*|MSYS*)
           cmd.exe /c mklink train.txt wordnet-mlj12-train.txt
@@ -75,52 +75,52 @@ if [ ! -d "$BASEDIR/WN18" ]; then
           ;;
   esac
   cd ..
-  python preprocess.py --folder WN18
+  python preprocess.py --folder wn18
 else
-    echo WN18 already present
+    echo wn18 already present
 fi
 
-# WN18RR
-if [ ! -d "$BASEDIR/WN18RR" ]; then
-  echo Downloading WN18RR
+# wnrr
+if [ ! -d "$BASEDIR/wnrr" ]; then
+  echo Downloading wnrr
   cd $BASEDIR
-  curl -O https://www.wim.uni-mannheim.de/fileadmin/lehrstuehle/pi1/pi1/BK-EMB/WN18RR.tar.gz
-  tar xvf WN18RR.tar.gz
-  python preprocess.py --folder WN18RR
+  curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/wnrr.tar.gz
+  tar xvf wnrr.tar.gz
+  python preprocess.py --folder wnrr
 else
-    echo WN18RR already present
+    echo wnrr already present
 fi
 
 
-# DBpedia50
+# dbpedia50
 if [ ! -d "$BASEDIR/dbpedia50" ]; then
   echo Downloading dbpedia50
   cd $BASEDIR
-  curl -O https://www.wim.uni-mannheim.de/fileadmin/lehrstuehle/pi1/pi1/BK-EMB/dbpedia50.tar.gz 
+  curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/dbpedia50.tar.gz
   tar xvf dbpedia50.tar.gz
   python preprocess.py --folder dbpedia50
 else
     echo dbpedia50 already present
 fi
 
-# DBpedia500
+# dbpedia500
 if [ ! -d "$BASEDIR/dbpedia500" ]; then
   echo Downloading dbpedia500
   cd $BASEDIR
-  curl -O https://www.wim.uni-mannheim.de/fileadmin/lehrstuehle/pi1/pi1/BK-EMB/dbpedia500.tar.gz 
+  curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/dbpedia500.tar.gz
   tar xvf dbpedia500.tar.gz
   python preprocess.py --folder dbpedia500
 else
     echo dbpedia500 already present
 fi
 
-# DBpedia100
-if [ ! -d "$BASEDIR/DB100K" ]; then
-  echo Downloading DB100K
+# db100k
+if [ ! -d "$BASEDIR/db100k" ]; then
+  echo Downloading db100k
   cd $BASEDIR
-  curl -O https://www.wim.uni-mannheim.de/fileadmin/lehrstuehle/pi1/pi1/BK-EMB/DB100K.tar.gz 
-  tar xvf DB100K.tar.gz
-  cd DB100K
+  curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/db100k.tar.gz
+  tar xvf db100k.tar.gz
+  cd db100k
   case "$(uname -s)" in
       CYGWIN*|MINGW32*|MSYS*)
           cmd.exe /c mklink train.txt _train.txt
@@ -134,18 +134,18 @@ if [ ! -d "$BASEDIR/DB100K" ]; then
           ;;
   esac
   cd ..
-  python preprocess.py --folder DB100K
+  python preprocess.py --folder db100k
 else
-    echo DB100K already present
+    echo db100k already present
 fi
 
-# YAGO3-10
-if [ ! -d "$BASEDIR/YAGO3-10" ]; then
-  echo Downloading YAGO3-10
+# yago3-10
+if [ ! -d "$BASEDIR/yago3-10" ]; then
+  echo Downloading yago3-10
   cd $BASEDIR
-  curl -O https://www.wim.uni-mannheim.de/fileadmin/lehrstuehle/pi1/pi1/BK-EMB/YAGO3-10.tar.gz
-  tar xvf YAGO3-10.tar.gz
-  python preprocess.py --folder YAGO3-10
+  curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/yago3-10.tar.gz
+  tar xvf yago3-10.tar.gz
+  python preprocess.py --folder yago3-10
 else
-    echo YAGO3-10 already present
+    echo yago3-10 already present
 fi

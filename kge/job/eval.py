@@ -1,4 +1,4 @@
-from kge.job import EntityRanking, EntityPairRanking
+from kge.job import Job
 
 
 class EvalJob(Job):
@@ -11,6 +11,9 @@ class EvalJob(Job):
 
     def create(config, dataset):
         """Factory method to create an evaluation job """
+
+        from kge.job import EntityRanking, EntityPairRanking
+
         if config.get('evaluation.type') == 'entity_ranking':
             return EntityRanking(config, dataset)
         elif config.get('evaluation.type') == 'entity_pair_ranking':
