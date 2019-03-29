@@ -4,7 +4,7 @@ import os
 import argparse
 from kge.data import Dataset
 from kge import Config
-from kge.train import TrainingJob
+from kge.job import TrainingJob
 
 if __name__ == '__main__':
     # default config
@@ -74,5 +74,7 @@ if __name__ == '__main__':
         if args.resume:
             job.resume()
         job.run()
+    elif config.get('job.type') == 'grid':
+        job = GridJob.create(config, dataset)
     else:
         raise ValueError("unknown job type")
