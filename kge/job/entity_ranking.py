@@ -103,7 +103,7 @@ class EntityRankingJob(EvaluationJob):
                         rank=o_ranks[i].item()+1,
                         rank_filtered=o_ranks_filtered[i].item()+1)
                     self.config.trace(
-                        type='eval_er_example' if self.what == 'test' else 'valid',
+                        type='eval_er_example', data=self.what,
                         epoch=self.epoch,
                         batch=i, size=len(batch), batches=len(self.loader),
                         s=s[i].item(), p=p[i].item(), o=o[i].item(), task='po',
