@@ -11,6 +11,7 @@ class EvalJob(Job):
         self.dataset = dataset
         self.batch_size = config.get('train.batch_size')
         self.device = self.config.get('job.device')
+        self.k = self.config.get('eval.k')
         if model:
             self.model = model
         else:

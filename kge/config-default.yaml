@@ -69,7 +69,7 @@ train:
 
 # configuration options for model validation/selection during training
 valid:
-  every: 5                    # epochs (disable with 0)
+  every: 2                    # epochs (disable with 0)
   metric: mrr                 # mrr or hits@k; k specified under evaluate
   early_abort: False
 
