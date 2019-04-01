@@ -61,8 +61,8 @@ dataset (if not present)."""
                     os.remove(self.config.checkpointfile(self.epoch-1))
 
             # evaluate
-            if not self.epoch % self.config.get('valid.every'):
-                self.evaluation.run()
+            # if not self.epoch % self.config.get('valid.every'):
+            #     self.evaluation.run()
         self.config.log('Maximum number of epochs reached.')
 
     def save(self, filename):
