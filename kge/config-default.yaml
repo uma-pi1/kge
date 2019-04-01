@@ -84,6 +84,8 @@ checkpoint:
 eval:
   type: entity_ranking
   k: 10                       # maximum k for HITS@k
+  num_workers: 0
+  pin_memory: False
 
 
 ## GRID SEARCH #################################################################

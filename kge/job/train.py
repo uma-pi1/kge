@@ -54,7 +54,7 @@ dataset (if not present)."""
 
             # create checkpoint and delete old one, if necessary
             self.save(self.config.checkpointfile(self.epoch))
-            if self.epoch>1:
+            if self.epoch > 1:
                 if not (checkpoint > 0 and ((self.epoch-1) % checkpoint == 0)):
                     self.config.log('Removing old checkpoint {}...'.format(
                         self.config.checkpointfile(self.epoch-1)))
@@ -96,70 +96,51 @@ class TrainingJob1toN(TrainingJob):
         config.log("Initializing 1-to-N training job...")
 
         # create sp and po indexes (if not done before)
-        self.train_sp = dataset.indexes.get('train_sp')
-        if not self.train_sp:
-            self.train_sp = TrainingJob1toN._index(dataset.train[:, [0, 1]], dataset.train[:, 2])
-            config.log("{} distinct sp pairs in train".format(len(self.train_sp)),
-                                 prefix='  ')
-            dataset.indexes['train_sp'] = self.train_sp
-        self.train_po = dataset.indexes.get('train_po')
-        if not self.train_po:
-            self.train_po = TrainingJob1toN._index(dataset.train[:, [1, 2]], dataset.train[:, 0])
-            config.log("{} distinct po pairs in train".format(len(self.train_po)),
-                                 prefix='  ')
-            dataset.indexes['train_po'] = self.train_po
+        self.train_sp = dataset.index_1toN('train', 'sp')
+        self.train_po = dataset.index_1toN('train', 'po')
 
         # create dataloader
-        self.loader = torch.utils.data.DataLoader(dataset.train,
-                                                  collate_fn=self._collate,
-                                                  shuffle=True,
-                                                  batch_size=self.batch_size,
-                                                  num_workers=config.get('train.num_workers'),
-                                                  pin_memory=config.get('train.pin_memory'))
+        self.loader = torch.utils.data.DataLoader(
+            dataset.train,
+            collate_fn=self._collate,
+            shuffle=True,
+            batch_size=self.batch_size,
+            num_workers=config.get('train.num_workers'),
+            pin_memory=config.get('train.pin_memory')
+        )
 
         # TODO currently assuming BCE loss
-        self.config.check('train.loss', [ 'bce' ])
-
-    # TODO move to dataset
-    # TODO utility method to index train, valid, test -> high-level method: create_index_1toN, argument: 'train', 'sp'
-    def _index(key, value):
-        result = {}
-        for i in range(len(key)):
-            k = (key[i, 0].item(), key[i, 1].item())
-            values = result.get(k)
-            if values is None:
-                values = []
-                result[k] = values
-            values.append(value[i])
-        for key in result:
-            result[key] = torch.LongTensor(sorted(result[key]))
-        return result
+        self.config.check('train.loss', ['bce'])
 
     def _collate(self, batch):
-        """" Returns batch and label indexes (position of ones in a batch_size x 2num_entities tensor) """
+        """Return batch and label indexes (position of ones in a batch_size x
+2num_entities tensor)
+
+        """
+
         n_E = self.dataset.num_entities
         num_indexes = 0
         for i, triple in enumerate(batch):
-            s,p,o = triple[0].item(), triple[1].item(), triple[2].item()
-            num_indexes += len(self.train_sp[(s,p)])
-            num_indexes += len(self.train_po[(p,o)])
+            s, p, o = triple[0].item(), triple[1].item(), triple[2].item()
+            num_indexes += len(self.train_sp[(s, p)])
+            num_indexes += len(self.train_po[(p, o)])
 
         # factor out -> lookup_index_1toN
         indexes = torch.zeros([num_indexes, 2], dtype=torch.long)
         current_index = 0
         for i, triple in enumerate(batch):
-            s,p,o = triple[0].item(), triple[1].item(), triple[2].item()
+            s, p, o = triple[0].item(), triple[1].item(), triple[2].item()
 
-            objects = self.train_sp[(s,p)]
+            objects = self.train_sp[(s, p)]
             indexes[current_index:(current_index+len(objects)), 0] = i
             indexes[current_index:(current_index+len(objects)), 1] = objects
             current_index += len(objects)
 
-            subjects = self.train_po[(p,o)] + n_E
+            subjects = self.train_po[(p, o)] + n_E
             indexes[current_index:(current_index+len(subjects)), 0] = i
             indexes[current_index:(current_index+len(subjects)), 1] = subjects
             current_index += len(subjects)
-        batch = torch.cat(batch).reshape((-1,3))
+        batch = torch.cat(batch).reshape((-1, 3))
         return batch, indexes
 
     def run_epoch(self):
@@ -176,20 +157,23 @@ class TrainingJob1toN(TrainingJob):
             if self.device == 'cpu':
                 labels = torch.sparse.FloatTensor(
                     indexes.t(),
-                    torch.ones([len(indexes)], dtype=torch.float, device=self.device),
-                    torch.Size([len(batch),2*self.dataset.num_entities]))
+                    torch.ones([len(indexes)], dtype=torch.float,
+                               device=self.device),
+                    torch.Size([len(batch), 2*self.dataset.num_entities]))
             else:
                 labels = torch.cuda.sparse.FloatTensor(
                     indexes.t(),
-                    torch.ones([len(indexes)], dtype=torch.float, device=self.device),
-                    torch.Size([len(batch),2*self.dataset.num_entities]),
+                    torch.ones([len(indexes)], dtype=torch.float,
+                               device=self.device),
+                    torch.Size([len(batch), 2*self.dataset.num_entities]),
                     device=self.device)
             batch_prepare_time += time.time()
             prepare_time += batch_prepare_time
 
             # forward pass
             batch_forward_time = -time.time()
-            scores = self.model.score_sp_po(batch[:, 0], batch[:, 1], batch[:, 2])
+            scores = self.model.score_sp_po(
+                batch[:, 0], batch[:, 1], batch[:, 2])
             loss_value = self.loss(scores.view(-1), labels.to_dense().view(-1))
             sum_loss += loss_value.item()
             batch_forward_time += time.time()
@@ -218,21 +202,24 @@ class TrainingJob1toN(TrainingJob):
                 backward_time=batch_backward_time,
                 optimizer_time=batch_optimizer_time
             )
-            print('\033[K\r', end="") # clear line and go back
-            print(('  batch:{: ' + str(1+int(math.ceil(math.log10(len(self.loader)))))
+            print('\033[K\r', end="")  # clear line and go back
+            print(('  batch:{: '
+                   + str(1+int(math.ceil(math.log10(len(self.loader)))))
                    + 'd}/{}, avg_loss: {:14.4f}, time: {:8.4f}s').format(
                 i, len(self.loader)-1, loss_value.item()/len(batch),
-                batch_prepare_time+batch_forward_time+batch_backward_time
-                +batch_optimizer_time), end='')
+                batch_prepare_time + batch_forward_time + batch_backward_time
+                + batch_optimizer_time), end='')
 
         epoch_time += time.time()
-        print("\033[2K\r", end="") # clear line and go back
+        print("\033[2K\r", end="")  # clear line and go back
+        other_time = epoch_time - prepare_time - forward_time \
+            - backward_time - optimizer_time
         self.config.trace(
             echo=True, echo_prefix="  ", log=True,
             type='epoch', epoch=self.epoch, batches=len(self.loader),
-            size = len(self.dataset.train),
-            avg_loss = sum_loss/len(self.dataset.train),
-            epoch_time = epoch_time, prepare_time=prepare_time,
+            size=len(self.dataset.train),
+            avg_loss=sum_loss/len(self.dataset.train),
+            epoch_time=epoch_time, prepare_time=prepare_time,
             forward_time=forward_time, backward_time=backward_time,
             optimizer_time=optimizer_time,
-            other_time=epoch_time-prepare_time-forward_time-backward_time-optimizer_time)
+            other_time=other_time)

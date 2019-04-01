@@ -1,9 +1,9 @@
 import csv
 import torch
+from kge import Config
 
 
 # TODO add support to pickle dataset (and indexes) and reload from there
-
 class Dataset:
     def __init__(self,
                  config,
@@ -80,3 +80,55 @@ class Dataset:
             triples[index, :] = value[0]
             meta[index] = value[1]
         return triples, meta
+
+    def index_1toN(self, what: str, key: str):
+        """Return an index for the triples in what (''train'', ''valid'', ''test'')
+from the specified constituents (''sp'' or ''po'') to the indexes of the
+remaining constituent (''o'' or ''s'', respectively.)
+
+        The index maps from `tuple' to `torch.LongTensor`.
+
+        The index is cached in the provided dataset under name ''what_key''. If
+        this index is already present, does not recompute it.
+
+        """
+        if what == 'train':
+            triples = self.train
+        elif what == 'valid':
+            triples = self.valid
+        elif what == 'test':
+            triples = self.test
+        else:
+            raise ValueError()
+
+        if key == 'sp':
+            key_columns = [0, 1]
+            value_column = 2
+        elif key == 'po':
+            key_columns = [1, 2]
+            value_column = 0
+        else:
+            raise ValueError()
+
+        name = what + '_' + key
+        if not self.indexes.get(name):
+            index = Dataset._create_index_1toN(
+                triples[:, key_columns], triples[:, value_column])
+            self.indexes[name] = index
+            self.config.log("{} distinct {} pairs in {}".format(
+                len(index), key, what), prefix='  ')
+
+        return self.indexes.get(name)
+
+    def _create_index_1toN(key, value) -> dict:
+        result = {}
+        for i in range(len(key)):
+            k = (key[i, 0].item(), key[i, 1].item())
+            values = result.get(k)
+            if values is None:
+                values = []
+                result[k] = values
+            values.append(value[i])
+        for key in result:
+            result[key] = torch.LongTensor(sorted(result[key]))
+        return result
