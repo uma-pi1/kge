@@ -20,7 +20,7 @@ class TrainingJob(Job):
 
     def __init__(self, config, dataset):
 
-        from kge.job import EvalJob
+        from kge.job import EvaluationJob
 
         super().__init__(config, dataset)
         self.model = KgeModel.create(config, dataset)
@@ -28,7 +28,7 @@ class TrainingJob(Job):
         self.loss = KgeLoss.create(config)
         self.batch_size = config.get('train.batch_size')
         self.device = self.config.get('job.device')
-        self.evaluation = EvalJob.create(config, dataset, self.model)
+        self.evaluation = EvaluationJob.create(config, dataset, self.model)
         self.epoch = 0
         self.model.train()
 

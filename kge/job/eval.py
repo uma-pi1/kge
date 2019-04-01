@@ -1,8 +1,7 @@
 from kge.job import Job
 
 
-# TODO rename to EvaluationJob
-class EvalJob(Job):
+class EvaluationJob(Job):
 
     def __init__(self, config, dataset, model=None):
 

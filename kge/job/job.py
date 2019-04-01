@@ -17,13 +17,13 @@ class Job:
     def create(config, dataset):
         """Creates a job for a given configuration."""
 
-        from kge.job import TrainingJob, GridJob, EvalJob
+        from kge.job import TrainingJob, GridJob, EvaluationJob
 
         if config.get('job.type') == 'train':
             return TrainingJob.create(config, dataset)
         elif config.get('job.type') == 'grid':
             return GridJob(config, dataset)
         elif config.get('job.type') == 'eval':
-            return EvalJob.create(config, dataset)
+            return EvaluationJob.create(config, dataset)
         else:
             raise ValueError("unknown job type")

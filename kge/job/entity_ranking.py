@@ -1,9 +1,9 @@
 import torch
 import numpy
-from kge.job import EvalJob
+from kge.job import EvaluationJob
 
 
-class EntityRanking(EvalJob):
+class EntityRanking(EvaluationJob):
     """ Entity ranking evaluation protocol """
 
     def __init__(self, config, dataset, model):

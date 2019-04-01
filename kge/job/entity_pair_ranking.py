@@ -1,7 +1,7 @@
-from kge.job import EvalJob
+from kge.job import EvaluationJob
 
 
-class EntityPairRanking(EvalJob):
+class EntityPairRanking(EvaluationJob):
     """ Entity-pair ranking evaluation protocol """
 
     def __init__(self, config, dataset, model):
