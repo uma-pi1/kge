@@ -2,8 +2,12 @@ import argparse
 import sys
 import yaml
 
-# Example: grep -e "type: epoch" local/experiments/traintest/trace.yaml \
-#          | python trace_to_csv.py epoch timestamp avg_loss
+# Example:
+# grep -e "type: train_epoch" local/experiments/toy/trace.yaml \
+# | python trace_to_csv.py epoch timestamp avg_loss
+# or:
+# grep -e "type: eval_er_epoch" local/experiments/toy/trace.yaml \
+# | python trace_to_csv.py epoch timestamp mean_reciprocal_rank mean_reciprocal_rank_filtered
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Convert trace file to CSV (reads stdin, writes stdout)")

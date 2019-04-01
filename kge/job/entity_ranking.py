@@ -48,10 +48,10 @@ class EntityRankingJob(EvaluationJob):
         return batch, train_label_coords, valid_label_coords, test_label_coords
 
     # TODO devices! All on selected device? Better if something on CPU?
-    def run(self):
+    def run(self) -> dict:
         was_training = self.model.training
         self.model.eval()
-        self.config.log("Evaluating " + self.what + "...")
+        self.config.log("Evaluating " + self.what + " data (epoch {})...".format(self.epoch))
         num_entities = self.dataset.num_entities
         hist = torch.zeros([num_entities], device=self.device, dtype=torch.float)
         hist_filtered = torch.zeros([num_entities], device=self.device, dtype=torch.float)
@@ -101,14 +101,14 @@ class EntityRankingJob(EvaluationJob):
                         batch=i, size=len(batch), batches=len(self.loader),
                         s=s[i].item(), p=p[i].item(), o=o[i].item(), task='sp',
                         rank=o_ranks[i].item()+1,
-                        filtered_rank=o_ranks_filtered[i].item()+1)
+                        rank_filtered=o_ranks_filtered[i].item()+1)
                     self.config.trace(
                         type='eval_er_example' if self.what == 'test' else 'valid',
                         epoch=self.epoch,
                         batch=i, size=len(batch), batches=len(self.loader),
                         s=s[i].item(), p=p[i].item(), o=o[i].item(), task='po',
                         rank=s_ranks[i].item()+1,
-                        filtered_rank=s_ranks_filtered[i].item()+1)
+                        rank_filtered=s_ranks_filtered[i].item()+1)
 
             # compute histogram of ranks
             batch_hist = torch.zeros([num_entities], device=self.device, dtype=torch.float)
@@ -149,7 +149,8 @@ class EntityRankingJob(EvaluationJob):
             **metrics)
 
         if was_training: self.model.train()
-        self.config.log("Finished evaluating " + self.what + "...")
+        self.config.log("Finished evaluating " + self.what + " data.")
+        return metrics
 
     def _get_rank(self, scores, answers):
         order = torch.argsort(scores, dim=1, descending=True)
@@ -166,5 +167,7 @@ class EntityRankingJob(EvaluationJob):
 
         reciprocal_ranks = 1.0 / ranks
         metrics["mean_reciprocal_rank" + suffix] = torch.sum(rank_hist * reciprocal_ranks).item()/n
+
+        # TODO hits@k -> field: "hits_at_k: [ array with k elements ]", use prefix sum (cumsum)
 
         return metrics

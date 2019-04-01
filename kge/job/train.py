@@ -27,7 +27,8 @@ class TrainingJob(Job):
         self.loss = KgeLoss.create(config)
         self.batch_size = config.get('train.batch_size')
         self.device = self.config.get('job.device')
-        self.evaluation = EvaluationJob.create(config, dataset, self.model)
+        self.valid_job = EvaluationJob.create(config.clone(), dataset, self.model, 'valid')
+        self.valid_job.config.set('eval.trace_examples', False)
         self.epoch = 0
         self.model.train()
 
@@ -60,9 +61,12 @@ dataset (if not present)."""
                         self.config.checkpointfile(self.epoch-1)))
                     os.remove(self.config.checkpointfile(self.epoch-1))
 
-            # evaluate
-            # if not self.epoch % self.config.get('valid.every'):
-            #     self.evaluation.run()
+            # validate
+            if self.config.get('valid.every') > 0 \
+               and self.epoch % self.config.get('valid.every') == 0:
+                self.valid_job.epoch = self.epoch
+                metrics = self.valid_job.run()
+
         self.config.log('Maximum number of epochs reached.')
 
     def save(self, filename):
