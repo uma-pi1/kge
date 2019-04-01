@@ -18,12 +18,16 @@ class TrainingJob(Job):
     """
 
     def __init__(self, config, dataset):
+
+        from kge.job import EvalJob
+
         super().__init__(config, dataset)
         self.model = KgeModel.create(config, dataset)
         self.optimizer = KgeOptimizer.create(config, self.model)
         self.loss = KgeLoss.create(config)
         self.batch_size = config.get('train.batch_size')
         self.device = self.config.get('job.device')
+        self.evaluation = EvalJob.create(config, dataset, self.model)
         self.epoch = 0
         self.model.train()
 
@@ -39,7 +43,6 @@ dataset (if not present)."""
     def run_epoch(self):
         raise NotImplementedError
 
-    # TODO add evaluation according to config.get('valid.every')
     def run(self):
         self.config.log('Starting training...')
         checkpoint = self.config.get('checkpoint.every')
@@ -56,6 +59,10 @@ dataset (if not present)."""
                     self.config.log('Removing old checkpoint {}...'.format(
                         self.config.checkpointfile(self.epoch-1)))
                     os.remove(self.config.checkpointfile(self.epoch-1))
+
+            # evaluate
+            if not self.epoch % self.config.get('valid.every'):
+                self.evaluation.run()
         self.config.log('Maximum number of epochs reached.')
 
     def save(self, filename):
@@ -80,8 +87,6 @@ dataset (if not present)."""
             self.load(checkpointfile)
         else:
             self.config.log("No checkpoint found, starting from scratch...")
-
-    # TODO methods for checkpointing, logging, ...
 
 
 class TrainingJob1toN(TrainingJob):
@@ -129,7 +134,7 @@ class TrainingJob1toN(TrainingJob):
         return result
 
     def _collate(self, batch):
-        "Returns batch and label indexes (position of ones in a batch_size x 2num_entities tensor)"
+        """" Returns batch and label indexes (position of ones in a batch_size x 2num_entities tensor) """
         n_E = self.dataset.num_entities
         num_indexes = 0
         for i, triple in enumerate(batch):
