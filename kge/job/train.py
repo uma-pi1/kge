@@ -120,6 +120,8 @@ class TrainingJob1toN(TrainingJob):
         # TODO currently assuming BCE loss
         self.config.check('train.loss', [ 'bce' ])
 
+    # TODO move to dataset
+    # TODO utility method to index train, valid, test -> high-level method: create_index_1toN, argument: 'train', 'sp'
     def _index(key, value):
         result = {}
         for i in range(len(key)):
@@ -142,6 +144,7 @@ class TrainingJob1toN(TrainingJob):
             num_indexes += len(self.train_sp[(s,p)])
             num_indexes += len(self.train_po[(p,o)])
 
+        # factor out -> lookup_index_1toN
         indexes = torch.zeros([num_indexes, 2], dtype=torch.long)
         current_index = 0
         for i, triple in enumerate(batch):

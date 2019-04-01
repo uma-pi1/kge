@@ -1,6 +1,7 @@
 from kge.job import Job
 
 
+# TODO rename to EvaluationJob
 class EvalJob(Job):
 
     def __init__(self, config, dataset, model=None):
@@ -37,3 +38,4 @@ class EvalJob(Job):
         raise NotImplementedError
 
     # TODO needs resume method because of inheritance, used for what here?
+    # -> mark as invalid

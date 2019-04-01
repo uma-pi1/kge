@@ -10,6 +10,8 @@ class EntityRanking(EvalJob):
         super().__init__(config, dataset, model)
 
         # create dataloader
+        # TODO job type must be 'eval'
+        # but have config field eval.dataset
         if config.get('job.type') == 'train':
             data = dataset.valid
         else:
@@ -18,8 +20,9 @@ class EntityRanking(EvalJob):
                                                   collate_fn=self._collate,
                                                   shuffle=False,
                                                   batch_size=self.batch_size,
-                                                  num_workers=config.get('train.num_workers'),
+                                                  num_workers=config.get('train.num_workers'), # TODO move to load.num_workers...
                                                   pin_memory=config.get('train.pin_memory'))
+
 
     def _collate(self, batch):
         # TODO returns batch and filters for train, valid, test data
@@ -48,17 +51,28 @@ class EntityRanking(EvalJob):
             scores_sp = scores[:, :num_entities]
             scores_po = scores[:, num_entities:]
 
-            # TODO filtering
+            # TODO filtering -> add -infinity
 
             # Sort scores TODO quick select first better?
             sorted_sp = torch.argsort(scores_sp, dim=1, descending=True)
             sorted_po = torch.argsort(scores_po, dim=1, descending=True)
 
             # Get position of correct answer
+            # row of position_sp: entity at this rank
+            # row of answers_o: correct entity (repeated num_entity times)
+            # TODO comment this
             answers_o = o.reshape((-1, 1)).expand(-1, num_entities).long()
             answers_s = s.reshape((-1, 1)).expand(-1, num_entities).long()
-            positions_sp = torch.argmax(sorted_sp == answers_o, dim=1)
+            positions_sp = torch.argmax(sorted_sp == answers_o, dim=1) # position of correct answer
             positions_po = torch.argmax(sorted_po == answers_s, dim=1)
+
+            # now have rank and filtered rank of s, and of o -> trace it
+            # for i in positions_sp:
+            #     hist[i] += 1
+            #     n += 1
+            # now crfeate histogram of ranks for batch -> trace MRR/HITS from that
+
+            # add to histogram of entire dataset -> trace MRR HITS after for loop
 
             # Compute metrics
             self._compute_metrics(positions_sp)
