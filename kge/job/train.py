@@ -7,6 +7,7 @@ from kge.job import Job
 from kge.model import KgeModel
 from kge.util import KgeLoss
 from kge.util import KgeOptimizer
+import kge.job.util
 
 
 class TrainingJob(Job):
@@ -32,7 +33,7 @@ class TrainingJob(Job):
         self.model.train()
 
     def create(config, dataset):
-        """Factory method to create a training job and add necessary indexes to the
+        """Factory method to create a training job and add necessary label_coords to the
 dataset (if not present)."""
         if config.get('train.type') == '1toN':
             return TrainingJob1toN(config, dataset)
@@ -95,7 +96,7 @@ class TrainingJob1toN(TrainingJob):
 
         config.log("Initializing 1-to-N training job...")
 
-        # create sp and po indexes (if not done before)
+        # create sp and po label_coords (if not done before)
         self.train_sp = dataset.index_1toN('train', 'sp')
         self.train_po = dataset.index_1toN('train', 'po')
 
@@ -113,57 +114,37 @@ class TrainingJob1toN(TrainingJob):
         self.config.check('train.loss', ['bce'])
 
     def _collate(self, batch):
-        """Return batch and label indexes (position of ones in a batch_size x
+        """Return batch and label coordinates (position of ones in a batch_size x
 2num_entities tensor)
 
         """
-
-        n_E = self.dataset.num_entities
-        num_indexes = 0
-        for i, triple in enumerate(batch):
-            s, p, o = triple[0].item(), triple[1].item(), triple[2].item()
-            num_indexes += len(self.train_sp[(s, p)])
-            num_indexes += len(self.train_po[(p, o)])
-
-        # factor out -> lookup_index_1toN
-        indexes = torch.zeros([num_indexes, 2], dtype=torch.long)
-        current_index = 0
-        for i, triple in enumerate(batch):
-            s, p, o = triple[0].item(), triple[1].item(), triple[2].item()
-
-            objects = self.train_sp[(s, p)]
-            indexes[current_index:(current_index+len(objects)), 0] = i
-            indexes[current_index:(current_index+len(objects)), 1] = objects
-            current_index += len(objects)
-
-            subjects = self.train_po[(p, o)] + n_E
-            indexes[current_index:(current_index+len(subjects)), 0] = i
-            indexes[current_index:(current_index+len(subjects)), 1] = subjects
-            current_index += len(subjects)
+        label_coords = kge.job.util.get_batch_sp_po_coords(
+            batch, self.dataset.num_entities, self.train_sp, self.train_po)
         batch = torch.cat(batch).reshape((-1, 3))
-        return batch, indexes
+        return batch, label_coords
 
     def run_epoch(self):
+        # TODO refactor: much of this can go to TrainingJob
         sum_loss = 0
         epoch_time = -time.time()
         prepare_time = 0
         forward_time = 0
         backward_time = 0
         optimizer_time = 0
-        for i, batch_labels in enumerate(self.loader):
+        for i, batch_coords in enumerate(self.loader):
             batch_prepare_time = -time.time()
-            batch = batch_labels[0].to(self.device)
-            indexes = batch_labels[1].to(self.device)
+            batch = batch_coords[0].to(self.device)
+            label_coords = batch_coords[1].to(self.device)
             if self.device == 'cpu':
                 labels = torch.sparse.FloatTensor(
-                    indexes.t(),
-                    torch.ones([len(indexes)], dtype=torch.float,
+                    label_coords.t(),
+                    torch.ones([len(label_coords)], dtype=torch.float,
                                device=self.device),
                     torch.Size([len(batch), 2*self.dataset.num_entities]))
             else:
                 labels = torch.cuda.sparse.FloatTensor(
-                    indexes.t(),
-                    torch.ones([len(indexes)], dtype=torch.float,
+                    label_coords.t(),
+                    torch.ones([len(label_coords)], dtype=torch.float,
                                device=self.device),
                     torch.Size([len(batch), 2*self.dataset.num_entities]),
                     device=self.device)
