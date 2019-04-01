@@ -2,39 +2,36 @@ from kge.job import Job
 
 
 class EvaluationJob(Job):
-
-    def __init__(self, config, dataset, model=None):
-
-        from kge.job import TrainingJob
+    def __init__(self, config, dataset, model):
+        super().__init__(config, dataset)
 
         self.config = config
         self.dataset = dataset
-        self.batch_size = config.get('train.batch_size')
+        self.model = model
+        self.batch_size = config.get('eval.batch_size')
         self.device = self.config.get('job.device')
-        self.k = self.config.get('eval.k')
-        if model:
-            self.model = model
-        else:
-            training_job = TrainingJob.create(config, dataset)
-            training_job.resume()
-            self.model = training_job.model
+        self.max_k = self.config.get('eval.max_k')
 
     def create(config, dataset, model=None):
         """Factory method to create an evaluation job """
+        from kge.job import EntityRankingJob, EntityPairRankingJob
 
-        from kge.job import EntityRanking, EntityPairRanking
-
+        # create the job
         if config.get('eval.type') == 'entity_ranking':
-            return EntityRanking(config, dataset, model)
+            return EntityRankingJob(config, dataset, model)
         elif config.get('eval.type') == 'entity_pair_ranking':
-            return EntityPairRanking(config, dataset, model)
+            return EntityPairRankingJob(config, dataset, model)
         else:
-            # perhaps TODO: try class with specified name -> extensibility
             raise ValueError("eval.type")
 
     def run(self):
         """ Compute evaluation metrics, output results to trace file """
         raise NotImplementedError
 
-    # TODO needs resume method because of inheritance, used for what here?
-    # -> mark as invalid
+    def resume(self):
+        # load model
+        from kge.job import TrainingJob
+        training_job = TrainingJob.create(self.config, self.dataset)
+        training_job.resume()
+        self.model = training_job.model
+        self.epoch = training_job.epoch

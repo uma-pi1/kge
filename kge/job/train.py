@@ -19,7 +19,6 @@ class TrainingJob(Job):
     """
 
     def __init__(self, config, dataset):
-
         from kge.job import EvaluationJob
 
         super().__init__(config, dataset)
@@ -135,19 +134,9 @@ class TrainingJob1toN(TrainingJob):
             batch_prepare_time = -time.time()
             batch = batch_coords[0].to(self.device)
             label_coords = batch_coords[1].to(self.device)
-            if self.device == 'cpu':
-                labels = torch.sparse.FloatTensor(
-                    label_coords.t(),
-                    torch.ones([len(label_coords)], dtype=torch.float,
-                               device=self.device),
-                    torch.Size([len(batch), 2*self.dataset.num_entities]))
-            else:
-                labels = torch.cuda.sparse.FloatTensor(
-                    label_coords.t(),
-                    torch.ones([len(label_coords)], dtype=torch.float,
-                               device=self.device),
-                    torch.Size([len(batch), 2*self.dataset.num_entities]),
-                    device=self.device)
+            labels = kge.job.util.coord_to_sparse_tensor(
+                len(batch), 2*self.dataset.num_entities, label_coords,
+                self.device)
             batch_prepare_time += time.time()
             prepare_time += batch_prepare_time
 

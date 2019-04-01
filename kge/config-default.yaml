@@ -83,7 +83,9 @@ checkpoint:
 # fixed metrics: compute MRR and HITS@1, ..., HITS@k
 eval:
   type: entity_ranking
-  k: 10                       # maximum k for HITS@k
+  max_k: 10                       # maximum k for HITS@k
+  trace_examples: True            # trace rank/filtered rank of each example
+  batch_size: 100
   num_workers: 0
   pin_memory: False
 
