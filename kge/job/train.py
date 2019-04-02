@@ -243,7 +243,7 @@ class TrainingJob1toN(TrainingJob):
             optimizer_time += batch_optimizer_time
 
             self.config.trace(
-                type='train_batch',
+                type='train', scope='batch',
                 epoch=self.epoch,
                 batch=batch_index, size=batch_size, batches=len(self.loader),
                 avg_loss=loss_value.item()/batch_size,
@@ -266,7 +266,8 @@ class TrainingJob1toN(TrainingJob):
             - backward_time - optimizer_time
         self.config.trace(
             echo=True, echo_prefix="  ", log=True,
-            type='train_epoch', epoch=self.epoch, batches=len(self.loader),
+            type='train', scope='epoch',
+            epoch=self.epoch, batches=len(self.loader),
             size=len(self.dataset.train),
             avg_loss=sum_loss/len(self.dataset.train),
             epoch_time=epoch_time, prepare_time=prepare_time,
