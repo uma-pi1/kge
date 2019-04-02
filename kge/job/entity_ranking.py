@@ -153,10 +153,11 @@ class EntityRankingJob(EvaluationJob):
         return metrics
 
     def _get_rank(self, scores, answers):
-        # TODO: use selection
-        order = torch.argsort(scores, dim=1, descending=True)
+        # scores is tensor [batch size, num_entities]
+        # answers is tensor [batch size]
         answers = answers.reshape((-1, 1)).expand(-1, self.dataset.num_entities).long()
-        ranks = torch.argmax(order == answers, dim=1)  # position of correct answer
+        true_scores = torch.gather(scores, 1, answers)
+        ranks = torch.sum(scores > true_scores, dim=1)
         return ranks
 
     def _get_metrics(self, rank_hist, suffix=''):
