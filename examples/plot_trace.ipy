@@ -8,8 +8,8 @@ tracefile = 'local/experiments/toy/trace.yaml'
 tracefile = sys.argv[1] # to be able to run with plot_trace.ipy <tracefile>
 trace = Trace(tracefile, regex_filter='epoch')
 
-train = trace.to_dataframe({'type': 'train', 'scope': 'epoch'})
-valid = trace.to_dataframe({'type': 'eval_er', 'scope': 'epoch'})
+train = trace.to_dataframe({'job': 'train', 'scope': 'epoch'})
+valid = trace.to_dataframe({'job': 'eval', 'scope': 'epoch'})
 
 # plot train loss and validation mrr
 fig, axs = plt.subplots(2, 1, sharex=True)

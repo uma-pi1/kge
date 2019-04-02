@@ -3,10 +3,10 @@ import sys
 import yaml
 
 # Example:
-# grep -e "type: train_epoch" local/experiments/toy/trace.yaml \
+# grep -e "job: train.*scope: epoch" local/experiments/toy/trace.yaml \
 # | python trace_to_csv.py epoch timestamp avg_loss
 # or:
-# grep -e eval_er_epoch local/experiments/toy/trace.yaml \
+# grep -e "job: eval.*scope: epoch" local/experiments/toy/trace.yaml \
 # | python trace_to_csv.py
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(

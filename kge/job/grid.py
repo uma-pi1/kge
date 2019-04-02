@@ -81,7 +81,7 @@ class GridJob(Job):
             config = run['config']
             trace = Trace(config.tracefile(), 'epoch')
             data = trace.filter(
-                { 'type': 'eval_er', 'scope': 'epoch', 'data': 'valid'})
+                {'job': 'eval', 'scope': 'epoch', 'data': 'valid'})
             for row in data:
                 for i, key in enumerate(all_keys):
                     row[key] = run['values'][i]
