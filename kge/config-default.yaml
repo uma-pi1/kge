@@ -46,7 +46,7 @@ model:
 lookup_embedder:
   initialize: normal          # xavier, uniform, normal
   initialize_arg: 0.1         # gain for Xavier, range for uniform, stddev for Normal
-  dropout: 0                  # dropout used for embeddings
+  dropout: 0.                 # dropout used for embeddings
   # TODO l2_reg: 0.01                # use L2 regularization
   sparse: False               # ??
   normalize: ''               # alternatively: normalize '', L2
