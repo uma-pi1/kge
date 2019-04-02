@@ -38,8 +38,12 @@ if __name__ == '__main__':
 
     # optionally: load configuration of resumed job
     if args.resume is not None:
-        print('Resuming from configuration {}...'.format(args.resume))
-        config.load(args.resume)
+        configfile = args.resume
+        if os.path.isdir(configfile) \
+           and os.path.isfile(configfile + '/config.yaml'):
+            configfile += '/config.yaml'
+        print('Resuming from configuration {}...'.format(configfile))
+        config.load(configfile)
         if config.folder() == '' or not os.path.exists(config.folder()):
             raise ValueError("{} is not a valid config file for resuming"
                              .format(args.resume))
