@@ -31,7 +31,7 @@ class KgeModel(KgeBase):
 
     def score_sp(self, s, p):
         s = self.entity_embedder.embed(s)
-        p = self.relation_embedder.embed(rel)
+        p = self.relation_embedder.embed(p)
         all_objects = self.entity_embedder.embed_all()
         return self._score(s, p, all_objects, prefix='sp')
 
