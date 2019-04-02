@@ -6,7 +6,7 @@ get_ipython().magic("matplotlib")
 
 tracefile = 'local/experiments/toy/trace.yaml'
 tracefile = sys.argv[1] # to be able to run with plot_trace.ipy <tracefile>
-trace = Trace(tracefile)
+trace = Trace(tracefile, regex_filter='epoch')
 
 train = trace.to_dataframe({'type': 'train', 'scope': 'epoch'})
 valid = trace.to_dataframe({'type': 'eval_er', 'scope': 'epoch'})
@@ -15,7 +15,6 @@ valid = trace.to_dataframe({'type': 'eval_er', 'scope': 'epoch'})
 fig, axs = plt.subplots(2, 1, sharex=True)
 axs[0].plot(train.epoch, train.avg_loss)
 axs[0].set_ylabel("avg loss (train)")
-axs[0].set_yscale('log')
 axs[1].plot(valid.epoch, valid.mean_reciprocal_rank, label='MRR')
 axs[1].plot(valid.epoch, valid.mean_reciprocal_rank_filtered,
             label='MRR (filtered)')

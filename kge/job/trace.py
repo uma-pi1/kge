@@ -1,18 +1,22 @@
 import yaml
 import pandas as pd
-
+import re
 
 class Trace:
     """Utility class for handling traces."""
-    def __init__(self, tracefile=None):
+    def __init__(self, tracefile=None, regex_filter=None):
         self.entries = []
         if tracefile:
-            self.load(tracefile)
+            self.load(tracefile, regex_filter)
 
-    def load(self, tracefile):
+    def load(self, tracefile, regex_filter=None):
+        if regex_filter:
+            matcher = re.compile(regex_filter)
         with open(tracefile, 'r') as file:
             self.kv_pairs = []
             for line in file:
+                if regex_filter and not matcher.search(line):
+                    continue
                 entry = yaml.load(line, Loader=yaml.SafeLoader)
                 self.entries.append(entry)
 
