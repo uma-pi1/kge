@@ -60,9 +60,9 @@ lookup_embedder:
 train:
   type: 1toN                  # 1toN, negative_sampling
   max_epochs: 20
-  optimizer: adagrad          # sgd, adagrad, adam
+  optimizer: Adagrad          # sgd, adagrad, adam
+  optimizer_args: +++         # +++ signals that this option expects a sublevel
   batch_size: 100
-  lr: 0.01                    # learning rate; TODO: schedule
   loss: bce                   # bce, TODO
   num_workers: 0
   pin_memory: False

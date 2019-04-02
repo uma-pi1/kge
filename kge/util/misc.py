@@ -15,3 +15,11 @@ class KgeLoss:
         else:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError('train.loss')
+
+def is_number(s, number_type):
+    """ Returns True is string is a number. """
+    try:
+        number_type(s)
+        return True
+    except ValueError:
+        return False

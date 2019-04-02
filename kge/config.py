@@ -4,6 +4,8 @@ import os
 import time
 import yaml
 
+from kge.util.misc import is_number
+
 
 class Config:
     """Configuration options.
@@ -16,6 +18,7 @@ class Config:
         """Initialize with the default configuration"""
         with open('kge/config-default.yaml', 'r') as file:
             self.options = yaml.load(file, Loader=yaml.SafeLoader)
+        self.unchecked_option_paths = set()
 
     # -- ACCESS METHODS -------------------------------------------------------
 
@@ -44,8 +47,20 @@ class Config:
         """
         splits = key.split('.')
         data = self.options
+
+        path = []
         for i in range(len(splits) - 1):
-            data = data[splits[i]]
+            path.append(splits[i])
+            # print(path, self.unchecked_option_paths)
+            if data[splits[i]] == '+++':
+                self.unchecked_option_paths.add(tuple(path))
+                data[splits[i]] = dict()
+            if tuple(path) in self.unchecked_option_paths:
+                data = data[splits[i]]
+                create = True
+                break
+            else:
+                data = data[splits[i]]
 
         current_value = data.get(splits[-1])
         if current_value is None:
@@ -53,6 +68,11 @@ class Config:
                 raise ValueError("key {} not present".format(key))
         elif type(value) != type(current_value):
             raise ValueError("key {} has incorrect type".format(key))
+
+        if isinstance(value, str) and is_number(value, float):
+            value = float(value)
+        elif isinstance(value, str) and is_number(value, int):
+            value = int(value)
 
         data[splits[-1]] = value
         return value
@@ -80,12 +100,14 @@ class Config:
         with open(filename, "w+") as file:
             file.write(yaml.dump(self.options))
 
+    @staticmethod
     def flatten(options):
         """Returns a dictionary of flattened configuration options."""
         result = {}
         Config.__flatten(options, result)
         return result
 
+    @staticmethod
     def __flatten(options, result, prefix=''):
         for key, value in options.items():
             fullkey = key if prefix == '' else prefix + '.' + key
