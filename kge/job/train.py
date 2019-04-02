@@ -133,6 +133,8 @@ class TrainingJob1toN(TrainingJob):
             pin_memory=config.get('train.pin_memory')
            )
 
+        self.num_examples = len(train_sp)+len(train_po)
+
         # TODO currently assuming BCE loss
         self.config.check('train.loss', ['bce'])
 
@@ -225,7 +227,7 @@ class TrainingJob1toN(TrainingJob):
             loss_value += self.loss(scores_po.view(-1),
                                     labels[po_indexes, ].view(-1))
             loss_value = loss_value
-            sum_loss += loss_value.item()
+            sum_loss += loss_value.item()*batch_size
             batch_forward_time += time.time()
             forward_time += batch_forward_time
 
@@ -268,8 +270,8 @@ class TrainingJob1toN(TrainingJob):
             echo=True, echo_prefix="  ", log=True,
             type='train', scope='epoch',
             epoch=self.epoch, batches=len(self.loader),
-            size=len(self.dataset.train),
-            avg_loss=sum_loss/len(self.dataset.train),
+            size=self.num_examples,
+            avg_loss=sum_loss/self.num_examples,
             epoch_time=epoch_time, prepare_time=prepare_time,
             forward_time=forward_time, backward_time=backward_time,
             optimizer_time=optimizer_time,
