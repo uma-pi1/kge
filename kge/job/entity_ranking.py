@@ -153,6 +153,7 @@ class EntityRankingJob(EvaluationJob):
         return metrics
 
     def _get_rank(self, scores, answers):
+        # TODO: use selection
         order = torch.argsort(scores, dim=1, descending=True)
         answers = answers.reshape((-1, 1)).expand(-1, self.dataset.num_entities).long()
         ranks = torch.argmax(order == answers, dim=1)  # position of correct answer

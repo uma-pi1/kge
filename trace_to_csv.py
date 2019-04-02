@@ -6,18 +6,21 @@ import yaml
 # grep -e "type: train_epoch" local/experiments/toy/trace.yaml \
 # | python trace_to_csv.py epoch timestamp avg_loss
 # or:
-# grep -e "type: eval_er_epoch" local/experiments/toy/trace.yaml \
-# | python trace_to_csv.py epoch timestamp mean_reciprocal_rank mean_reciprocal_rank_filtered
+# grep -e eval_er_epoch local/experiments/toy/trace.yaml \
+# | python trace_to_csv.py
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Convert trace file to CSV (reads stdin, writes stdout)")
-    parser.add_argument('fields', type=str, nargs='+',
+    parser.add_argument('fields', type=str, nargs='*',
                         help="field names to include")
     args = parser.parse_args()
-
-    print(",".join(args.fields))  # header line
+    if len(args.fields) > 0:
+        print(",".join(args.fields))  # header line
     for line in sys.stdin:
         kv_pairs = yaml.load(line, Loader=yaml.SafeLoader)
+        if len(args.fields) == 0:
+            args.fields = list(kv_pairs.keys())
+            print(",".join(args.fields))  # header line
         sep = ''
         for field in args.fields:
             print(sep, end='')

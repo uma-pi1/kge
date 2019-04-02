@@ -71,7 +71,7 @@ train:
 valid:
   every: 5                    # epochs (disable with 0)
   metric: mrr                 # mrr or hits@k; k specified under evaluate
-  early_abort: False
+  early_stopping: 0           # 0=disable, else:
 
 checkpoint:
   every: 0                    # epochs (disable with 0)
