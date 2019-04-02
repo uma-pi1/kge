@@ -1,4 +1,4 @@
-import torch
+import torch.nn
 
 
 class KgeBase(torch.nn.Module):

@@ -1,4 +1,5 @@
-import torch
+import torch.nn
+import torch.nn.functional
 from kge.model import KgeEmbedder
 
 
@@ -26,7 +27,7 @@ class LookupEmbedder(KgeEmbedder):
     def _embed(self, embeddings):
         if self.dropout > 0:
             embeddings = torch.nn.functional.dropout(
-                embeddings, p=self.dropout, isTraining=self.training)
+                embeddings, p=self.dropout, training=self.training)
         if self.normalize == 'L2':
             embeddings = torch.nn.functional.normalize(embeddings)
         # TODO l2
