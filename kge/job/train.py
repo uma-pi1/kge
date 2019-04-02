@@ -224,9 +224,8 @@ class TrainingJob1toN(TrainingJob):
                                    labels[sp_indexes, ].view(-1))
             scores_po = self.model.score_po(pairs[po_indexes, 0],
                                             pairs[po_indexes, 1])
-            loss_value += self.loss(scores_po.view(-1),
+            loss_value = loss_value + self.loss(scores_po.view(-1),
                                     labels[po_indexes, ].view(-1))
-            loss_value = loss_value
             sum_loss += loss_value.item()*batch_size
             batch_forward_time += time.time()
             forward_time += batch_forward_time
