@@ -1,4 +1,6 @@
 import math
+import time
+
 import torch
 import kge.job
 from kge.job import EvaluationJob
@@ -55,6 +57,8 @@ class EntityRankingJob(EvaluationJob):
         num_entities = self.dataset.num_entities
         hist = torch.zeros([num_entities], device=self.device, dtype=torch.float)
         hist_filtered = torch.zeros([num_entities], device=self.device, dtype=torch.float)
+
+        epoch_time = -time.time()
         for batch_number, batch_coords in enumerate(self.loader):
             # TODO add timing information
             batch = batch_coords[0].to(self.device)
@@ -141,11 +145,12 @@ class EntityRankingJob(EvaluationJob):
         print("\033[2K\r", end="")  # clear line and go back
         metrics = self._get_metrics(hist)
         metrics.update(self._get_metrics(hist_filtered, suffix='_filtered'))
+        epoch_time += time.time()
         self.config.trace(
             echo=True, echo_prefix="  ", log=True,
             type='eval_er', scope='epoch', data=self.what,
             epoch=self.epoch, batches=len(self.loader),
-            size=len(self.triples),
+            size=len(self.triples), epoch_time=epoch_time,
             **metrics)
 
         if was_training: self.model.train()
