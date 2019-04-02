@@ -2,8 +2,20 @@ job:
   type: train
 
 dataset:
-  name: fb15k
+  name: fb15k-237
 
 model:
-  type: complex               # distmult, complex, transe, conve
+  type: complex
   dim: 200
+
+train:
+  type: 1toN
+  max_epochs: 20
+  optimizer: Adagrad
+  optimizer_args:
+    lr: 0.1
+    weight_decay: 1e-8
+  batch_size: 200
+  loss: bce
+  num_workers: 4
+  pin_memory: False
