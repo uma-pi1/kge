@@ -96,14 +96,14 @@ class EntityRankingJob(EvaluationJob):
             if self.config.get('eval.trace_examples'):
                 for i in range(len(batch)):
                     self.config.trace(
-                        type='eval_er_example', data=self.what,
+                        type='eval_er', scope='example', data=self.what,
                         epoch=self.epoch,
                         batch=i, size=len(batch), batches=len(self.loader),
                         s=s[i].item(), p=p[i].item(), o=o[i].item(), task='sp',
                         rank=o_ranks[i].item()+1,
                         rank_filtered=o_ranks_filtered[i].item()+1)
                     self.config.trace(
-                        type='eval_er_example', data=self.what,
+                        type='eval_er', scope='example', data=self.what,
                         epoch=self.epoch,
                         batch=i, size=len(batch), batches=len(self.loader),
                         s=s[i].item(), p=p[i].item(), o=o[i].item(), task='po',
@@ -123,7 +123,7 @@ class EntityRankingJob(EvaluationJob):
             # now get the metrics
             metrics = self._get_metrics(batch_hist)
             metrics.update(self._get_metrics(batch_hist_filtered, suffix='_filtered'))
-            self.config.trace(type='eval_er_batch', data=self.what,
+            self.config.trace(type='eval_er', scope='batch', data=self.what,
                               epoch=self.epoch,
                               batch=i, size=len(batch), batches=len(self.loader),
                               **metrics)
@@ -143,7 +143,7 @@ class EntityRankingJob(EvaluationJob):
         metrics.update(self._get_metrics(hist_filtered, suffix='_filtered'))
         self.config.trace(
             echo=True, echo_prefix="  ", log=True,
-            type='eval_er_epoch', data=self.what,
+            type='eval_er', scope='epoch', data=self.what,
             epoch=self.epoch, batches=len(self.loader),
             size=len(self.triples),
             **metrics)

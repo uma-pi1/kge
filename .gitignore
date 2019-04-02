@@ -2,8 +2,9 @@
 .idea/
 local/*
 !local/README
-data/
+/data/
 !data/*.sh
 !data/preprocess.py
 /trace.csv
 *.csv
+*.pyc

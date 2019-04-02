@@ -31,7 +31,7 @@ class KgeModel(KgeBase):
 
     def score_sp(self, s, p):
         s = self.entity_embedder.embed(s)
-        p = self.relation_embedder.embed(rel)
+        p = self.relation_embedder.embed(p)
         all_objects = self.entity_embedder.embed_all()
         return self._score(s, p, all_objects, prefix='sp')
 
@@ -88,6 +88,7 @@ class KgeEmbedder(KgeBase):
         super().__init__(config, dataset)
         self.is_entity_embedder = is_entity_embedder
 
+    @staticmethod
     def create(config, dataset, is_entity_embedder):
         """Factory method for embedder creation."""
         from kge.model import LookupEmbedder
@@ -115,9 +116,10 @@ class KgeEmbedder(KgeBase):
     def get_option(self, name):
         return KgeEmbedder._get_option(self.config, name, self.is_entity_embedder)
 
+    @staticmethod
     def _get_option(config, name, is_entity_embedder):
         value = config.get(name)
         if type(value) == list:
-            return value[0 if self.is_entity_embedder else 1]
+            return value[0 if is_entity_embedder else 1]
         else:
             return value
