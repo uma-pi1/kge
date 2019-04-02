@@ -128,7 +128,7 @@ remaining constituent (''o'' or ''s'', respectively.)
             if values is None:
                 values = []
                 result[k] = values
-            values.append(value[i])
+            values.append(value[i].item())
         for key in result:
             result[key] = torch.LongTensor(sorted(result[key]))
         return result

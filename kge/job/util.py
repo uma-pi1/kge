@@ -34,7 +34,6 @@ def get_batch_sp_po_coords(batch, num_entities, sp_index: dict, po_index: dict) 
 
     return coords
 
-
 def coord_to_sparse_tensor(nrows, ncols, coords, device, value=1.0):
     if device == 'cpu':
         labels = torch.sparse.FloatTensor(
