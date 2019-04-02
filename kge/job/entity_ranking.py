@@ -160,7 +160,9 @@ class EntityRankingJob(EvaluationJob):
     def _get_rank(self, scores, answers):
         answers = answers.reshape((-1, 1)).expand(-1, self.dataset.num_entities).long()
         true_scores = torch.gather(scores, 1, answers)
+        scores = scores + 1e-40
         ranks = torch.sum((scores > true_scores).long(), dim=1)
+        ranks = ranks - (ranks == self.dataset.num_entities).long()
         return ranks
 
     def _get_metrics(self, rank_hist, suffix=''):
