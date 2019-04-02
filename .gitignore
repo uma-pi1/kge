@@ -7,3 +7,4 @@ local/*
 !data/preprocess.py
 /trace.csv
 *.csv
+*.pyc

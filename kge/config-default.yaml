@@ -100,11 +100,3 @@ grid:
     [ 'model.dim', [ 100, 200 ] ]
   ]
 
-## Used for evaluation jobs.
-
-## HYPERPARAMETER TUNING #######################################################
-
-# TODO grid-search here? -> changes other configuration paramters in some
-# systmatic way (including output fold)
-# grid_search:
-#   train.lr: = [ 0.01, 0.001 ]
