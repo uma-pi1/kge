@@ -70,7 +70,7 @@ train:
 # configuration options for model validation/selection during training
 valid:
   every: 5                    # epochs (disable with 0)
-  metric: mrr                 # mrr or hits@k; k specified under evaluate
+  metric: mean_reciprocal_rank_filtered  # mean_rank(_filtered), mean_reciprocal_rank_(filtered)
   early_stopping: 0           # 0=disable, else:
 
 checkpoint:

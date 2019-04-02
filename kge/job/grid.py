@@ -1,4 +1,5 @@
 from kge.job import Job
+from kge.job import Trace
 import itertools
 
 
@@ -71,4 +72,23 @@ class GridJob(Job):
             self.config.log(
                 "Skipping running of training jobs as requested by user...")
 
-        # TODO read each runs trace file and produce a summary
+        # read each runs trace file and produce a summary
+        self.config.log("Reading results...")
+        summary = []
+        best = None
+        metric = self.config.get('valid.metric')
+        for i, run in enumerate(runs):
+            config = run['config']
+            trace = Trace(config.tracefile(), 'epoch')
+            data = trace.filter(
+                { 'type': 'eval_er', 'scope': 'epoch', 'data': 'valid'})
+            for row in data:
+                for i, key in enumerate(all_keys):
+                    row[key] = run['values'][i]
+                    if not best or best[metric] < row[metric]:
+                        best = row
+                    self.config.trace(**row)
+            summary.append(data)
+        self.config.log("And the winner is...")
+        best['type'] = 'grid'
+        self.config.trace(echo=True, echo_prefix='  ', log=True, **best)
