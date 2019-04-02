@@ -7,11 +7,11 @@ class KgeLoss:
     def create(config):
         """ Factory method for loss creation """
         if config.get('train.loss') == 'ce':
-            return torch.nn.CrossEntropyLoss(reduction='sum')
+            return torch.nn.CrossEntropyLoss(reduction='average')
         elif config.get('train.loss') == 'bce':
-            return torch.nn.BCEWithLogitsLoss(reduction='sum')
+            return torch.nn.BCEWithLogitsLoss(reduction='average')
         elif config.get('train.loss') == 'kl':
-            return torch.nn.KLDivLoss(reduction='sum')
+            return torch.nn.KLDivLoss(reduction='average')
         else:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError('train.loss')

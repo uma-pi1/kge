@@ -116,8 +116,7 @@ class TrainingJob1toN(TrainingJob):
             values = torch.cat(list(index.values()))
             offsets = torch.cumsum(
                 torch.tensor([0] + list(map(len, index.values())),
-                             dtype=torch.int),
-                0)
+                             dtype=torch.int), 0)
             return keys, values, offsets
         self.train_sp_keys, self.train_sp_values, self.train_sp_offsets = \
             prepare_index(train_sp)
@@ -225,6 +224,7 @@ class TrainingJob1toN(TrainingJob):
                                             pairs[po_indexes, 1])
             loss_value += self.loss(scores_po.view(-1),
                                     labels[po_indexes, ].view(-1))
+            loss_value = loss_value
             sum_loss += loss_value.item()
             batch_forward_time += time.time()
             forward_time += batch_forward_time
@@ -246,7 +246,7 @@ class TrainingJob1toN(TrainingJob):
                 type='train', scope='batch',
                 epoch=self.epoch,
                 batch=batch_index, size=batch_size, batches=len(self.loader),
-                avg_loss=loss_value.item()/batch_size,
+                avg_loss=loss_value.item(),
                 prepare_time=batch_prepare_time,
                 forward_time=batch_forward_time,
                 backward_time=batch_backward_time,
