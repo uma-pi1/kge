@@ -103,7 +103,7 @@ class EntityRankingJob(EvaluationJob):
             s_ranks_filtered = self._get_rank(scores_po_filtered, s)
 
             # output ranks of each triple
-            if self.config.get('eval.trace_examples'):
+            if self.trace_examples:
                 for i in range(len(batch)):
                     self.config.trace(
                         job='eval', type='entity_ranking', scope='example',
@@ -144,12 +144,13 @@ class EntityRankingJob(EvaluationJob):
             metrics = self._get_metrics(batch_hist)
             metrics.update(
                 self._get_metrics(batch_hist_filtered, suffix='_filtered'))
-            self.config.trace(job='eval', type='entity_ranking', scope='batch',
-                              data=self.what,
-                              epoch=self.epoch,
-                              batch=i, size=len(batch),
-                              batches=len(self.loader),
-                              **metrics)
+            if self.trace_batch:
+                self.config.trace(
+                    job='eval', type='entity_ranking', scope='batch',
+                    data=self.what,
+                    epoch=self.epoch,
+                    batch=i, size=len(batch), batches=len(self.loader),
+                    **metrics)
 
             # output information
             print('\033[K\r', end="")  # clear line and go back

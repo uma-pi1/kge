@@ -66,15 +66,17 @@ train:
   loss: bce                   # bce, TODO
   num_workers: 0
   pin_memory: False
+  trace_level: epoch          # batch or epoch
 
 # configuration options for model validation/selection during training
 valid:
   every: 5                    # epochs (disable with 0)
   metric: mean_reciprocal_rank_filtered  # mean_rank(_filtered), mean_reciprocal_rank_(filtered)
   early_stopping: 0           # 0=disable, else:
+  trace_level: epoch          # example or batch or epoch
 
 checkpoint:
-  every: 0                    # epochs (disable with 0)
+  every: 5                    # epochs (disable with 0)
   basefile: 'checkpoint'      # add _epoch.pt
 
 ## EVALUATION ##################################################################
@@ -84,11 +86,10 @@ checkpoint:
 eval:
   type: entity_ranking
   max_k: 10                       # maximum k for HITS@k
-  trace_examples: True            # trace rank/filtered rank of each example
   batch_size: 100
   num_workers: 0
   pin_memory: False
-
+  trace_level: example            # example or batch or epoch
 
 ## GRID SEARCH #################################################################
 
