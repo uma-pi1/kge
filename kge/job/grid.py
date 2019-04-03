@@ -76,7 +76,8 @@ class GridJob(Job):
         self.config.log("Reading results...")
         summary = []
         best = None
-        metric = self.config.get('valid.metric')
+        best_metric = None
+        metric_name = self.config.get('valid.metric')
         for i, run in enumerate(runs):
             config = run['config']
             trace = Trace(config.tracefile(), 'epoch')
@@ -85,10 +86,15 @@ class GridJob(Job):
             for row in data:
                 for i, key in enumerate(all_keys):
                     row[key] = run['values'][i]
-                    if not best or best[metric] < row[metric]:
+                    metric = Trace.get_metric(row, metric_name)
+                    if not best or best_metric < metric:
                         best = row
+                        best_metric = metric
                     self.config.trace(**row)
             summary.append(data)
-        self.config.log("And the winner is...")
+        self.config.log("And the winner is ({}={:.3f})..."
+                        .format(metric_name, best_metric))
         best['type'] = 'grid'
-        self.config.trace(echo=True, echo_prefix='  ', log=True, **best)
+        self.config.trace(echo=True, echo_prefix='  ', log=True,
+                          metric_name=metric_name, metric_value=best_metric,
+                          **best)

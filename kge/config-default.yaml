@@ -71,7 +71,7 @@ train:
 # configuration options for model validation/selection during training
 valid:
   every: 5                    # epochs (disable with 0)
-  metric: mean_reciprocal_rank_filtered  # mean_rank(_filtered), mean_reciprocal_rank_(filtered)
+  metric: mean_reciprocal_rank_filtered  # mean_rank(_filtered), mean_reciprocal_rank_(filtered), hits@k(_filtered) for some integer k <= eval.max_k
   early_stopping: 0           # 0=disable, else:
   trace_level: epoch          # example or batch or epoch
 
@@ -97,7 +97,5 @@ eval:
 grid:
   run: True                    # if false, only creates folders and configurations
   options: [
-    [ 'train.lr', [ 0.001, 0.01, 0.1 ] ],
-    [ 'model.dim', [ 100, 200 ] ]
+    [ 'train.optimizer_args.lr', [ 0.001, 0.01, 0.1 ] ],
   ]
-
