@@ -53,10 +53,13 @@ class EntityRankingJob(EvaluationJob):
     def run(self) -> dict:
         was_training = self.model.training
         self.model.eval()
-        self.config.log("Evaluating " + self.what + " data (epoch {})...".format(self.epoch))
+        self.config.log("Evaluating " + self.what + " data (epoch {})..."
+                        .format(self.epoch))
         num_entities = self.dataset.num_entities
-        hist = torch.zeros([num_entities], device=self.device, dtype=torch.float)
-        hist_filtered = torch.zeros([num_entities], device=self.device, dtype=torch.float)
+        hist = torch.zeros([num_entities],
+                           device=self.device, dtype=torch.float)
+        hist_filtered = torch.zeros([num_entities],
+                                    device=self.device, dtype=torch.float)
 
         epoch_time = -time.time()
         for batch_number, batch_coords in enumerate(self.loader):
@@ -65,9 +68,12 @@ class EntityRankingJob(EvaluationJob):
             train_label_coords = batch_coords[1].to(self.device)
             valid_label_coords = batch_coords[2].to(self.device)
             test_label_coords = batch_coords[3].to(self.device)
-            label_coords = torch.cat([train_label_coords, valid_label_coords, test_label_coords])
+            label_coords = torch.cat([train_label_coords,
+                                      valid_label_coords,
+                                      test_label_coords])
             labels = kge.job.util.coord_to_sparse_tensor(
-                len(batch), 2*num_entities, label_coords, self.device, float('Inf')).to_dense()
+                len(batch), 2*num_entities, label_coords,
+                self.device, float('Inf')).to_dense()
 
             # get scores
             s = batch[:, 0]
@@ -100,14 +106,16 @@ class EntityRankingJob(EvaluationJob):
             if self.config.get('eval.trace_examples'):
                 for i in range(len(batch)):
                     self.config.trace(
-                        job='eval', type='entity_ranking', scope='example', data=self.what,
+                        job='eval', type='entity_ranking', scope='example',
+                        data=self.what,
                         epoch=self.epoch,
                         batch=i, size=len(batch), batches=len(self.loader),
                         s=s[i].item(), p=p[i].item(), o=o[i].item(), task='sp',
                         rank=o_ranks[i].item()+1,
                         rank_filtered=o_ranks_filtered[i].item()+1)
                     self.config.trace(
-                        job='eval', type='entity_ranking', scope='example', data=self.what,
+                        job='eval', type='entity_ranking', scope='example',
+                        data=self.what,
                         epoch=self.epoch,
                         batch=i, size=len(batch), batches=len(self.loader),
                         s=s[i].item(), p=p[i].item(), o=o[i].item(), task='po',
@@ -115,32 +123,46 @@ class EntityRankingJob(EvaluationJob):
                         rank_filtered=s_ranks_filtered[i].item()+1)
 
             # compute histogram of ranks
-            batch_hist = torch.zeros([num_entities], device=self.device, dtype=torch.float)
-            batch_hist_filtered = torch.zeros([num_entities], device=self.device, dtype=torch.float)
-            for r in o_ranks: batch_hist[r] += 1
-            for r in s_ranks: batch_hist[r] += 1
-            for r in o_ranks_filtered: batch_hist_filtered[r] += 1
-            for r in s_ranks_filtered: batch_hist_filtered[r] += 1
+            batch_hist = torch.zeros(
+                [num_entities], device=self.device, dtype=torch.float)
+            batch_hist_filtered = torch.zeros(
+                [num_entities], device=self.device, dtype=torch.float)
+            # need for loop because batch_hist[o_ranks]+=1 ignores repeated
+            # entries in o_ranks
+            for r in o_ranks:
+                batch_hist[r] += 1
+            for r in s_ranks:
+                batch_hist[r] += 1
+            for r in o_ranks_filtered:
+                batch_hist_filtered[r] += 1
+            for r in s_ranks_filtered:
+                batch_hist_filtered[r] += 1
             hist += batch_hist
             hist_filtered += batch_hist_filtered
 
             # now get the metrics
             metrics = self._get_metrics(batch_hist)
-            metrics.update(self._get_metrics(batch_hist_filtered, suffix='_filtered'))
-            self.config.trace(job='eval', type='entity_ranking', scope='batch', data=self.what,
+            metrics.update(
+                self._get_metrics(batch_hist_filtered, suffix='_filtered'))
+            self.config.trace(job='eval', type='entity_ranking', scope='batch',
+                              data=self.what,
                               epoch=self.epoch,
-                              batch=i, size=len(batch), batches=len(self.loader),
+                              batch=i, size=len(batch),
+                              batches=len(self.loader),
                               **metrics)
 
             # output information
             print('\033[K\r', end="")  # clear line and go back
             print(('  batch:{: '
                    + str(1+int(math.ceil(math.log10(len(self.loader)))))
-                   + 'd}/{}, mrr (filtered): {:5.4f} ({:5.4f}), '
-                   + 'hits@{} (filtered): {:5.4f} ({:5.4f})')
+                   + 'd}/{}, mrr (filt.): {:4.3f} ({:4.3f}), '
+                   + 'hits@1: {:4.3f} ({:4.3f}), '
+                   + 'hits@{}: {:4.3f} ({:4.3f})')
                   .format(batch_number, len(self.loader)-1,
                           metrics['mean_reciprocal_rank'],
                           metrics['mean_reciprocal_rank_filtered'],
+                          metrics['hits_at_k'][0],
+                          metrics['hits_at_k_filtered'][0],
                           self.max_k,
                           metrics['hits_at_k'][self.max_k - 1],
                           metrics['hits_at_k_filtered'][self.max_k - 1]),
@@ -157,12 +179,15 @@ class EntityRankingJob(EvaluationJob):
             size=len(self.triples), epoch_time=epoch_time,
             **metrics)
 
-        if was_training: self.model.train()
+        if was_training:
+            self.model.train()
         self.config.log("Finished evaluating " + self.what + " data.")
         return metrics
 
     def _get_rank(self, scores, answers):
-        answers = answers.reshape((-1, 1)).expand(-1, self.dataset.num_entities).long()
+        answers = answers.reshape((-1, 1)) \
+                         .expand(-1, self.dataset.num_entities) \
+                         .long()
         true_scores = torch.gather(scores, 1, answers)
         scores = scores + 1e-40
         ranks = torch.sum((scores > true_scores).long(), dim=1)
@@ -173,14 +198,15 @@ class EntityRankingJob(EvaluationJob):
         metrics = {}
         n = torch.sum(rank_hist).item()
 
-        ranks = torch.tensor(range(self.dataset.num_entities), device=self.device).float() + 1.0
+        ranks = torch.tensor(range(self.dataset.num_entities),
+                             device=self.device).float() + 1.0
         metrics["mean_rank" + suffix] = torch.sum(rank_hist * ranks).item()/n
 
         reciprocal_ranks = 1.0 / ranks
-        metrics["mean_reciprocal_rank" + suffix] = torch.sum(rank_hist * reciprocal_ranks).item()/n
+        metrics["mean_reciprocal_rank" + suffix] = \
+            torch.sum(rank_hist * reciprocal_ranks).item()/n
 
-        # TODO something like tolist is necessary to print the array in the end
-        # but tolist first moves the tensor to the CPU if necessary!!!
-        metrics["hits_at_k" + suffix] = (torch.cumsum(rank_hist[:self.max_k], dim=0) * 1/n).tolist()
+        metrics["hits_at_k" + suffix] = \
+            (torch.cumsum(rank_hist[:self.max_k], dim=0) * 1/n).tolist()
 
         return metrics
