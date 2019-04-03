@@ -136,10 +136,14 @@ class EntityRankingJob(EvaluationJob):
             print('\033[K\r', end="")  # clear line and go back
             print(('  batch:{: '
                    + str(1+int(math.ceil(math.log10(len(self.loader)))))
-                   + 'd}/{}, mrr (filtered): {:5.4f} ({:5.4f})')
+                   + 'd}/{}, mrr (filtered): {:5.4f} ({:5.4f}), '
+                   + 'hits@{} (filtered): {:5.4f} ({:5.4f})')
                   .format(batch_number, len(self.loader)-1,
                           metrics['mean_reciprocal_rank'],
-                          metrics['mean_reciprocal_rank_filtered']),
+                          metrics['mean_reciprocal_rank_filtered'],
+                          self.max_k,
+                          metrics['hits_at_k'][self.max_k - 1],
+                          metrics['hits_at_k_filtered'][self.max_k - 1]),
                   end='')
 
         print("\033[2K\r", end="")  # clear line and go back
@@ -175,6 +179,8 @@ class EntityRankingJob(EvaluationJob):
         reciprocal_ranks = 1.0 / ranks
         metrics["mean_reciprocal_rank" + suffix] = torch.sum(rank_hist * reciprocal_ranks).item()/n
 
-        # TODO hits@k -> field: "hits_at_k: [ array with k elements ]", use prefix sum (cumsum)
+        # TODO something like tolist is necessary to print the array in the end
+        # but tolist first moves the tensor to the CPU if necessary!!!
+        metrics["hits_at_k" + suffix] = (torch.cumsum(rank_hist[:self.max_k], dim=0) * 1/n).tolist()
 
         return metrics
