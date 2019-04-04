@@ -109,7 +109,7 @@ if [ ! -d "$BASEDIR/dbpedia500" ]; then
   cd $BASEDIR
   curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/dbpedia500.tar.gz
   tar xvf dbpedia500.tar.gz
-  python preprocess.py --folder dbpedia500
+  python preprocess.py --folder dbpedia500 --fix_spo
 else
     echo dbpedia500 already present
 fi

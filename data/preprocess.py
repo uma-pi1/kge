@@ -10,11 +10,19 @@ def index(symbols, file):
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument('--folder', type=str)
+  parser.add_argument('--fix_spo', action='store_true')
   args = parser.parse_args()
 
   print('Preprocessing ' + args.folder)
   raw_split_files = {'train': 'train.txt', 'valid': 'valid.txt', 'test': 'test.txt'}
   split_files = {'train': 'train.del', 'valid': 'valid.del', 'test': 'test.del'}
+
+  sub = 0
+  rel = 1
+  obj = 2
+  if args.fix_spo:
+      obj = 1
+      rel = 2
 
   # read data and collect entity and relation names
   raw = {}
@@ -26,14 +34,14 @@ if __name__ == '__main__':
       with open(args.folder + '/' + file, 'r') as f:
           raw[k] = list(map(lambda s: s.strip().split('\t'), f.readlines()))
           for t in raw[k]:
-              if t[0] not in entities:
-                  entities[t[0]] = ent_id
+              if t[sub] not in entities:
+                  entities[t[sub]] = ent_id
                   ent_id += 1
-              if t[1] not in relations:
-                  relations[t[1]] = rel_id
+              if t[rel] not in relations:
+                  relations[t[rel]] = rel_id
                   rel_id += 1
-              if t[2] not in entities:
-                  entities[t[2]] = ent_id
+              if t[obj] not in entities:
+                  entities[t[obj]] = ent_id
                   ent_id += 1
           print(str(len(raw[k])) + ' triples in ' + file)
 
@@ -48,10 +56,10 @@ if __name__ == '__main__':
   for k, file in split_files.items():
       with open(args.folder + '/' + file, 'w') as f:
           for t in raw[k]:
-              f.write(str(entities[t[0]]))
+              f.write(str(entities[t[sub]]))
               f.write('\t')
-              f.write(str(relations[t[1]]))
+              f.write(str(relations[t[rel]]))
               f.write('\t')
-              f.write(str(entities[t[2]]))
+              f.write(str(entities[t[obj]]))
               f.write('\n')
   print('Done')

@@ -51,15 +51,25 @@ train:
   loss: bce                   # bce, TODO
   num_workers: 0
   pin_memory: False
+  trace_level: epoch          # batch or epoch
 
 # configuration options for model validation/selection during training
 valid:
   every: 5                    # epochs (disable with 0)
-  metric: mean_reciprocal_rank_filtered  # mean_rank(_filtered), mean_reciprocal_rank_(filtered)
+  metric: mean_reciprocal_rank_filtered  # mean_rank(_filtered), mean_reciprocal_rank_(filtered), hits@k(_filtered) for some integer k <= eval.max_k
   early_stopping: 0           # 0=disable, else:
+  trace_level: epoch          # example or batch or epoch
+
+  # Whether test data should be leaked into validation (seriously!). Filtered
+  # metrics by default only use train and validation data. When this is set to
+  # True, additionally produces "filtered_with_test" validation metrics (such as
+  # MRR or HITS@k). Apparrently, many existing models have been trained with
+  # this set to True during model selection and using a metric such as
+  # mean_reciprocal_rank_filtered_with_test.
+  filter_with_test: False
 
 checkpoint:
-  every: 0                    # epochs (disable with 0)
+  every: 5                    # epochs (disable with 0)
   basefile: 'checkpoint'      # add _epoch.pt
 
 ## EVALUATION ##################################################################
@@ -67,13 +77,13 @@ checkpoint:
 
 # fixed metrics: compute MRR and HITS@1, ..., HITS@k
 eval:
+  data: valid
   type: entity_ranking
   max_k: 10                       # maximum k for HITS@k
-  trace_examples: True            # trace rank/filtered rank of each example
   batch_size: 100
   num_workers: 0
   pin_memory: False
-
+  trace_level: example            # example or batch or epoch
 
 ## GRID SEARCH #################################################################
 
@@ -81,7 +91,5 @@ eval:
 grid:
   run: True                    # if false, only creates folders and configurations
   options: [
-    [ 'train.lr', [ 0.001, 0.01, 0.1 ] ],
-    [ 'model.dim', [ 100, 200 ] ]
+    [ 'train.optimizer_args.lr', [ 0.001, 0.01, 0.1 ] ],
   ]
-
