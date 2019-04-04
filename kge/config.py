@@ -208,8 +208,9 @@ class Config:
     def check(self, key, allowed_values):
         """Raise an error if value of key is not in allowed"""
         if not self.get(key) in allowed_values:
-            raise ValueError("illegal value {} for key {}".format(
-                self.get(key), key))
+            raise ValueError(
+                "Illegal value {} for key {}; allowed values are {}"
+                .format(self.get(key), key, allowed_values))
 
     def folder(self):
         """Return output folder"""

@@ -28,14 +28,21 @@ class TrainingJob(Job):
         self.loss = KgeLoss.create(config)
         self.batch_size = config.get('train.batch_size')
         self.device = self.config.get('job.device')
-        self.valid_job = EvaluationJob.create(config.clone(), dataset, self.model, 'valid')
-        self.valid_job.config.set('eval.trace_examples', False)
+        self.valid_job = EvaluationJob.create(
+            config.clone(), dataset, self.model, 'valid')
+        self.valid_job.config.set('eval.trace_level',
+                                  self.config.get('valid.trace_level'))
+        self.config.check('train.trace_level', ['batch', 'epoch'])
+        self.trace_batch = self.config.get('train.trace_level') == 'batch'
+        print(self.trace_batch)
         self.epoch = 0
         self.model.train()
 
     def create(config, dataset):
-        """Factory method to create a training job and add necessary label_coords to the
-dataset (if not present)."""
+        """Factory method to create a training job and add necessary label_coords to
+the dataset (if not present).
+
+        """
         if config.get('train.type') == '1toN':
             return TrainingJob1toN(config, dataset)
         else:
@@ -67,6 +74,7 @@ dataset (if not present)."""
                and self.epoch % self.config.get('valid.every') == 0:
                 self.valid_job.epoch = self.epoch
                 metrics = self.valid_job.run()
+                # TODO early_stopping here
 
         self.config.log('Maximum number of epochs reached.')
 
@@ -243,23 +251,28 @@ class TrainingJob1toN(TrainingJob):
             batch_optimizer_time += time.time()
             optimizer_time += batch_optimizer_time
 
-            self.config.trace(
-                job='train', type='1toN', scope='batch',
-                epoch=self.epoch,
-                batch=batch_index, size=batch_size, batches=len(self.loader),
-                avg_loss=loss_value.item(),
-                prepare_time=batch_prepare_time,
-                forward_time=batch_forward_time,
-                backward_time=batch_backward_time,
-                optimizer_time=batch_optimizer_time
-            )
+            if self.trace_batch:
+                self.config.trace(
+                    job='train', type='1toN', scope='batch',
+                    epoch=self.epoch,
+                    batch=batch_index, size=batch_size,
+                    batches=len(self.loader),
+                    avg_loss=loss_value.item(),
+                    prepare_time=batch_prepare_time,
+                    forward_time=batch_forward_time,
+                    backward_time=batch_backward_time,
+                    optimizer_time=batch_optimizer_time
+                )
             print('\033[K\r', end="")  # clear line and go back
             print(('  batch:{: '
                    + str(1+int(math.ceil(math.log10(len(self.loader)))))
-                   + 'd}/{}, avg_loss: {:14.4f}, time: {:8.4f}s').format(
-                       batch_index, len(self.loader)-1, loss_value.item()/batch_size,
-                       batch_prepare_time + batch_forward_time + batch_backward_time
-                   + batch_optimizer_time), end='')
+                   + 'd}/{}, avg_loss: {:14.4f}, time: {:8.4f}s')
+                  .format(
+                      batch_index, len(self.loader)-1,
+                      loss_value.item()/batch_size,
+                      batch_prepare_time + batch_forward_time
+                      + batch_backward_time + batch_optimizer_time),
+                  end='')
 
         epoch_time += time.time()
         print("\033[2K\r", end="")  # clear line and go back

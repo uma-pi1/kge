@@ -11,6 +11,10 @@ class EvaluationJob(Job):
         self.batch_size = config.get('eval.batch_size')
         self.device = self.config.get('job.device')
         self.max_k = self.config.get('eval.max_k')
+        self.config.check('train.trace_level', ['example', 'batch', 'epoch'])
+        self.trace_examples = self.config.get('train.trace_level') == 'example'
+        self.trace_batch = self.trace_examples or \
+            self.config.get('train.trace_level') == 'batch'
         self.epoch = -1
 
     def create(config, dataset, model=None, what='test'):
