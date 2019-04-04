@@ -28,10 +28,12 @@ class TrainingJob(Job):
         self.loss = KgeLoss.create(config)
         self.batch_size = config.get('train.batch_size')
         self.device = self.config.get('job.device')
+        valid_conf = config.clone()
+        valid_conf.set('eval.data', 'valid')
+        valid_conf.set('eval.trace_level',
+                       self.config.get('valid.trace_level'))
         self.valid_job = EvaluationJob.create(
-            config.clone(), dataset, self.model, 'valid')
-        self.valid_job.config.set('eval.trace_level',
-                                  self.config.get('valid.trace_level'))
+            valid_conf, dataset, self.model)
         self.config.check('train.trace_level', ['batch', 'epoch'])
         self.trace_batch = self.config.get('train.trace_level') == 'batch'
         print(self.trace_batch)

@@ -75,6 +75,14 @@ valid:
   early_stopping: 0           # 0=disable, else:
   trace_level: epoch          # example or batch or epoch
 
+  # Whether test data should be leaked into validation (seriously!). Filtered
+  # metrics by default only use train and validation data. When this is set to
+  # True, additionally produces "filtered_with_test" validation metrics (such as
+  # MRR or HITS@k). Apparrently, many existing models have been trained with
+  # this set to True during model selection and using a metric such as
+  # mean_reciprocal_rank_filtered_with_test.
+  filter_with_test: False
+
 checkpoint:
   every: 5                    # epochs (disable with 0)
   basefile: 'checkpoint'      # add _epoch.pt
@@ -84,6 +92,7 @@ checkpoint:
 
 # fixed metrics: compute MRR and HITS@1, ..., HITS@k
 eval:
+  data: valid
   type: entity_ranking
   max_k: 10                       # maximum k for HITS@k
   batch_size: 100
