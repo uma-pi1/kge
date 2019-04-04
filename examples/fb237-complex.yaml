@@ -6,7 +6,6 @@ dataset:
 
 model:
   type: complex
-  dim: 200
 
 train:
   type: 1toN
