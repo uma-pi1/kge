@@ -59,13 +59,18 @@ class KgeModel(KgeBase):
 
         ## create the embedders
         model = None
-        # try:
-        module = importlib.import_module('kge.model.{}'.format(
-            config.get('model.type')))
-        model = getattr(module, config.get('model.class_name'))(config, dataset)
-        # except ImportError:
-        #     # perhaps TODO: try class with specified name -> extensibility
-        #     raise ValueError('Can\'t find class {} in kge/model/ for type {}'.format(config.get('model.class_name'), config.get('model.type')))
+        try:
+            module = importlib.import_module('kge.model.{}'.format(
+                config.get('model.type')))
+            model = getattr(module, config.get('model.class_name'))(
+                config, dataset)
+        except ImportError:
+            # perhaps TODO: try class with specified name -> extensibility
+            raise ValueError('Can\'t find class {} in kge/model/ for type {}'.
+                             format(
+                config.get('model.class_name'),
+                config.get('model.type'))
+            )
 
         # TODO I/O (resume model)
         model.to(config.get('job.device'))
