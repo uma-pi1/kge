@@ -1,5 +1,5 @@
 import torch.nn
-
+import importlib
 
 class KgeBase(torch.nn.Module):
     """
@@ -53,17 +53,19 @@ class KgeModel(KgeBase):
     def score_p(self, p):
         raise NotImplementedError
 
+    @staticmethod
     def create(config, dataset):
         """Factory method for model creation."""
-        from kge.model import ComplEx
 
         ## create the embedders
         model = None
-        if config.get('model.type') == 'complex':
-            model = ComplEx(config, dataset)
-        else:
-            # perhaps TODO: try class with specified name -> extensibility
-            raise ValueError('model.type')
+        # try:
+        module = importlib.import_module('kge.model.{}'.format(
+            config.get('model.type')))
+        model = getattr(module, config.get('model.class_name'))(config, dataset)
+        # except ImportError:
+        #     # perhaps TODO: try class with specified name -> extensibility
+        #     raise ValueError('Can\'t find class {} in kge/model/ for type {}'.format(config.get('model.class_name'), config.get('model.type')))
 
         # TODO I/O (resume model)
         model.to(config.get('job.device'))

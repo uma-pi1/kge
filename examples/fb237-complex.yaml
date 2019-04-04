@@ -13,7 +13,7 @@ train:
   max_epochs: 20
   optimizer: Adagrad
   optimizer_args:
-    lr: 0.1
+    lr: 0.5
     weight_decay: 1e-8
   batch_size: 200
   loss: bce

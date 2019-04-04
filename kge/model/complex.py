@@ -19,9 +19,6 @@ class ComplEx(KgeModel):
         :param p: tensor of size [batch_size, embedding_size]
         :param o:: tensor of size [batch_size, embedding_size]
         :return: score tensor of size [batch_size, 1]
-
-        Because the backward is more expensive for n^2 we use the Hadamard form during training
-
         """
         sub = s.view(-1, s.size(-1))
         rel = p.view(-1, p.size(-1))

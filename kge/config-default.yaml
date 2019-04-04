@@ -37,22 +37,6 @@ output:
 
 model:
   type: complex               # distmult, complex, transe, conve
-  dim: 100                    # entity dimensionality or [ entity, relation ] dimensionality
-  embedder: lookup            # lookup, single or pair as above
-
-## Parameters used for embeddings. If a single value is specified, it's used for
-## both entites and relations. If an array is specified, first entry is used for
-## entity embeddings, second for relation embeddings.
-lookup_embedder:
-  initialize: normal          # xavier, uniform, normal
-  initialize_arg: 0.1         # gain for Xavier, range for uniform, stddev for Normal
-  dropout: 0.                 # dropout used for embeddings
-  # TODO l2_reg: 0.01                # use L2 regularization
-  sparse: False               # ??
-  normalize: ''               # alternatively: normalize '', L2
-
-# TODO model-specific parametrs
-# SRT:
 
 ## TRAINING ####################################################################
 ## Used for training jobs.
@@ -61,7 +45,8 @@ train:
   type: 1toN                  # 1toN, negative_sampling
   max_epochs: 20
   optimizer: Adagrad          # sgd, adagrad, adam
-  optimizer_args: +++         # +++ signals that this option expects a sublevel
+  optimizer_args:
+    +++:  +++                    # +++ signals that this option expects arbitrary options in a sublevel
   batch_size: 100
   loss: bce                   # bce, TODO
   num_workers: 0

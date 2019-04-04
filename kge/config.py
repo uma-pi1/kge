@@ -50,9 +50,10 @@ class Config:
 
         path = []
         for i in range(len(splits) - 1):
+            if create and splits[i] not in data:
+                data[splits[i]] = dict()
             path.append(splits[i])
-            # print(path, self.unchecked_option_paths)
-            if data[splits[i]] == '+++':
+            if '+++' in data[splits[i]]:
                 self.unchecked_option_paths.add(tuple(path))
                 data[splits[i]] = dict()
             if tuple(path) in self.unchecked_option_paths:
@@ -77,11 +78,19 @@ class Config:
         data[splits[-1]] = value
         return value
 
-    def set_all(self, new_options, create=False):
+    def set_all(self, new_options, create=False, detect_model_config=False):
+        found_model_config = False
         for key, value in Config.flatten(new_options).items():
+            if detect_model_config and key == 'model.type':
+                self.load('kge/model/{}.yaml'.format(value), create=True,
+                          detect_model_config=False)
+                found_model_config = True
             self.set(key, value, create)
+        if detect_model_config and not found_model_config:
+            self.load('kge/model/{}.yaml'.format(self.get('model.type')),
+                      create=True, detect_model_config=False)
 
-    def load(self, filename, create=False):
+    def load(self, filename, create=False, detect_model_config=True):
         """Update configuration options from the specified YAML file.
 
         All options that do not occur in the specified file are retained.
@@ -93,7 +102,7 @@ class Config:
         """
         with open(filename, 'r') as file:
             new_options = yaml.load(file, Loader=yaml.SafeLoader)
-        self.set_all(new_options, create)
+        self.set_all(new_options, create, detect_model_config)
 
     def save(self, filename):
         """Save this configuration to the given file"""
