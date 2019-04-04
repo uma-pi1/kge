@@ -1,4 +1,6 @@
 import datetime
+import sys
+
 import yaml
 import os
 import argparse
@@ -28,6 +30,9 @@ if __name__ == '__main__':
         else:
             parser.add_argument('--'+key, type=type(value))
     args = parser.parse_args()
+
+    if not len(sys.argv) > 1:
+        args.config = 'examples/toy.yaml'
 
     # optionally: load user config file (overwrites some defaults)
     if args.config is not None:
