@@ -9,9 +9,6 @@ class ComplEx(KgeModel):
 
     def __init__(self, config, dataset):
         super().__init__(config, dataset)
-        self.entity_embedder = KgeEmbedder.create(config, dataset, True)
-        self.relation_embedder = KgeEmbedder.create(config, dataset, False)
-
 
     def _score(self, s, p, o, prefix=None):
         r"""

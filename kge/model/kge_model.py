@@ -25,29 +25,37 @@ class KgeModel(KgeBase):
 
     def __init__(self, config, dataset):
         super().__init__(config, dataset)
+        self._entity_embedder = KgeEmbedder.create(config, dataset, True)
+        self._relation_embedder = KgeEmbedder.create(config, dataset, False)
 
     def score_spo(self, s, p, o):
         return self._score(s, p, o)
 
     def score_sp(self, s, p):
-        s = self.entity_embedder.embed(s)
-        p = self.relation_embedder.embed(p)
-        all_objects = self.entity_embedder.embed_all()
+        s = self.get_s_embedder().embed(s)
+        p = self.get_r_embedder().embed(p)
+        all_objects = self.get_o_embedder().embed_all()
         return self._score(s, p, all_objects, prefix='sp')
 
     def score_po(self, p, o):
-        all_subjects = self.entity_embedder.embed_all()
-        p = self.relation_embedder.embed(p)
-        o = self.entity_embedder.embed(o)
+        all_subjects = self.get_s_embedder().embed_all()
+        p = self.get_r_embedder().embed(p)
+        o = self.get_o_embedder().embed(o)
         return self._score(all_subjects, p, o, prefix='po')
 
     def score_sp_po(self, s, p, o):
-        s = self.entity_embedder.embed(s)
-        p = self.relation_embedder.embed(p)
-        o = self.entity_embedder.embed(o)
-        all_entities = self.entity_embedder.embed_all()
-        sp_scores = self._score(s, p, all_entities, prefix='sp')
-        po_scores = self._score(all_entities, p, o, prefix='po')
+        s = self.get_s_embedder().embed(s)
+        p = self.get_r_embedder().embed(p)
+        o = self.get_o_embedder().embed(o)
+        if self.get_s_embedder() is self.get_o_embedder():
+            all_entities = self.get_s_embedder().embed_all()
+            sp_scores = self._score(s, p, all_entities, prefix='sp')
+            po_scores = self._score(all_entities, p, o, prefix='po')
+        else:
+            all_objects = self.get_o_embedder().embed_all()
+            sp_scores = self._score(s, p, all_objects, prefix='sp')
+            all_subjects = self.get_s_embedder().embed_all()
+            po_scores = self._score(all_subjects, p, o, prefix='po')
         return torch.cat((sp_scores, po_scores), dim=1)
 
     def score_p(self, p):
@@ -67,10 +75,8 @@ class KgeModel(KgeBase):
         except ImportError:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError('Can\'t find class {} in kge/model/ for type {}'.
-                             format(
-                config.get('model.class_name'),
-                config.get('model.type'))
-            )
+                             format(config.get('model.class_name'),
+                                    config.get('model.type')))
 
         # TODO I/O (resume model)
         model.to(config.get('job.device'))
@@ -84,6 +90,16 @@ class KgeModel(KgeBase):
         :param p: tensor of size [batch_size, embedding_size]
         :param o:: tensor of size [batch_size, embedding_size]
         :return: score tensor of size [batch_size, 1]"""
+        raise NotImplementedError
+
+    def get_s_embedder(self):
+        return self._entity_embedder
+
+    def get_o_embedder(self):
+        return self._entity_embedder
+
+    def get_r_embedder(self):
+        return self._relation_embedder
 
 
 class KgeEmbedder(KgeBase):

@@ -8,9 +8,6 @@ class DistMult(KgeModel):
 
     def __init__(self, config, dataset):
         super().__init__(config, dataset)
-        self.entity_embedder = KgeEmbedder.create(config, dataset, True)
-        self.relation_embedder = KgeEmbedder.create(config, dataset, False)
-
 
     def _score(self, s, p, o, prefix=None):
         r"""
@@ -27,12 +24,12 @@ class DistMult(KgeModel):
         feat_dim = 1
 
         if prefix:
-          if prefix == 'sp':
-              out = (sub * rel).mm(obj.transpose(0, 1))
-          elif prefix == 'po':
-              out = (rel * obj).mm(sub.transpose(0, 1))
-          else:
-              raise Exception
+            if prefix == 'sp':
+                out = (sub * rel).mm(obj.transpose(0, 1))
+            elif prefix == 'po':
+                out = (rel * obj).mm(sub.transpose(0, 1))
+            else:
+                raise Exception
         else:
             out = (sub * obj * rel).sum(dim=feat_dim)
 
