@@ -33,19 +33,19 @@ class KgeModel(KgeBase):
 
     def score_sp(self, s, p):
         s = self.get_s_embedder().embed(s)
-        p = self.get_r_embedder().embed(p)
+        p = self.get_p_embedder().embed(p)
         all_objects = self.get_o_embedder().embed_all()
         return self._score(s, p, all_objects, prefix='sp')
 
     def score_po(self, p, o):
         all_subjects = self.get_s_embedder().embed_all()
-        p = self.get_r_embedder().embed(p)
+        p = self.get_p_embedder().embed(p)
         o = self.get_o_embedder().embed(o)
         return self._score(all_subjects, p, o, prefix='po')
 
     def score_sp_po(self, s, p, o):
         s = self.get_s_embedder().embed(s)
-        p = self.get_r_embedder().embed(p)
+        p = self.get_p_embedder().embed(p)
         o = self.get_o_embedder().embed(o)
         if self.get_s_embedder() is self.get_o_embedder():
             all_entities = self.get_s_embedder().embed_all()
@@ -98,7 +98,7 @@ class KgeModel(KgeBase):
     def get_o_embedder(self):
         return self._entity_embedder
 
-    def get_r_embedder(self):
+    def get_p_embedder(self):
         return self._relation_embedder
 
 
