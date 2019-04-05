@@ -10,7 +10,7 @@ def index(symbols, file):
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument('--folder', type=str)
-  parser.add_argument('--fix_spo', action='store_true')
+  parser.add_argument('--order_sop', action='store_true')
   args = parser.parse_args()
 
   print('Preprocessing ' + args.folder)
@@ -20,7 +20,7 @@ if __name__ == '__main__':
   sub = 0
   rel = 1
   obj = 2
-  if args.fix_spo:
+  if args.order_sop:
       obj = 1
       rel = 2
 
