@@ -1,6 +1,5 @@
 import csv
 import torch
-from kge import Config
 
 
 # TODO add support to pickle dataset (and indexes) and reload from there

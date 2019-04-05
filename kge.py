@@ -4,7 +4,7 @@ import sys
 import yaml
 import os
 import argparse
-from kge.data import Dataset
+from kge import Dataset
 from kge import Config
 from kge.job import Job
 from kge.util.misc import get_git_revision_short_hash
