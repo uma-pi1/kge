@@ -7,6 +7,7 @@ import argparse
 from kge.data import Dataset
 from kge import Config
 from kge.job import Job
+from kge.util.misc import get_git_revision_short_hash
 
 if __name__ == '__main__':
     # default config
@@ -73,6 +74,8 @@ if __name__ == '__main__':
     # log configuration
     config.log("Configuration:")
     config.log(yaml.dump(config.options), prefix='  ')
+
+    config.log('git commit: {}'.format(get_git_revision_short_hash()), prefix='  ')
 
     # load data
     dataset = Dataset.load(config)
