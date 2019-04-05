@@ -32,8 +32,11 @@ if __name__ == '__main__':
             parser.add_argument('--'+key, type=type(value))
     args = parser.parse_args()
 
-    if not len(sys.argv) > 1:
+    # load toy config file if no config guven
+    if args.config is None and args.resume is None:
         args.config = 'examples/toy.yaml'
+        print('WARNING: No configuration specified; using '
+              + args.config)
 
     # optionally: load user config file (overwrites some defaults)
     if args.config is not None:
