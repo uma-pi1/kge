@@ -1,5 +1,4 @@
 import os
-import functools
 import math
 import torch
 import torch.utils.data
@@ -19,34 +18,34 @@ class TrainingJob(Job):
 
     """
 
-    def __init__(self, config, dataset):
+    def __init__(self, config, dataset, parent_job=None):
         from kge.job import EvaluationJob
 
-        super().__init__(config, dataset)
+        super().__init__(config, dataset, parent_job)
         self.model = KgeModel.create(config, dataset)
         self.optimizer = KgeOptimizer.create(config, self.model)
         self.loss = KgeLoss.create(config)
         self.batch_size = config.get('train.batch_size')
         self.device = self.config.get('job.device')
         valid_conf = config.clone()
+        valid_conf.set('job.type', 'eval')
         valid_conf.set('eval.data', 'valid')
         valid_conf.set('eval.trace_level',
                        self.config.get('valid.trace_level'))
         self.valid_job = EvaluationJob.create(
-            valid_conf, dataset, self.model)
+            valid_conf, dataset, parent_job=self, model=self.model)
         self.config.check('train.trace_level', ['batch', 'epoch'])
         self.trace_batch = self.config.get('train.trace_level') == 'batch'
-        print(self.trace_batch)
         self.epoch = 0
         self.model.train()
 
-    def create(config, dataset):
+    def create(config, dataset, parent_job=None):
         """Factory method to create a training job and add necessary label_coords to
 the dataset (if not present).
 
         """
         if config.get('train.type') == '1toN':
-            return TrainingJob1toN(config, dataset)
+            return TrainingJob1toN(config, dataset, parent_job)
         else:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError("train.type")
@@ -105,8 +104,8 @@ the dataset (if not present).
 
 
 class TrainingJob1toN(TrainingJob):
-    def __init__(self, config, dataset):
-        super().__init__(config, dataset)
+    def __init__(self, config, dataset, parent_job=None):
+        super().__init__(config, dataset, parent_job)
 
         config.log("Initializing 1-to-N training job...")
 
@@ -254,8 +253,8 @@ class TrainingJob1toN(TrainingJob):
             optimizer_time += batch_optimizer_time
 
             if self.trace_batch:
-                self.config.trace(
-                    job='train', type='1toN', scope='batch',
+                self.trace(
+                    type='1toN', scope='batch',
                     epoch=self.epoch,
                     batch=batch_index, size=batch_size,
                     batches=len(self.loader),
@@ -280,9 +279,9 @@ class TrainingJob1toN(TrainingJob):
         print("\033[2K\r", end="")  # clear line and go back
         other_time = epoch_time - prepare_time - forward_time \
             - backward_time - optimizer_time
-        self.config.trace(
+        self.trace(
             echo=True, echo_prefix="  ", log=True,
-            job='train', type='1toN', scope='epoch',
+            type='1toN', scope='epoch',
             epoch=self.epoch, batches=len(self.loader),
             size=self.num_examples,
             avg_loss=sum_loss/self.num_examples,

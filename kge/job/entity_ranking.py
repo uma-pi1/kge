@@ -9,8 +9,8 @@ from kge.job import EvaluationJob
 class EntityRankingJob(EvaluationJob):
     """ Entity ranking evaluation protocol """
 
-    def __init__(self, config, dataset, model):
-        super().__init__(config, dataset, model)
+    def __init__(self, config, dataset, parent_job, model):
+        super().__init__(config, dataset, parent_job, model)
 
         # create indexes
         self.train_sp = dataset.index_1toN('train', 'sp')
@@ -121,7 +121,7 @@ class EntityRankingJob(EvaluationJob):
             # optionally: trace ranks of each example
             if self.trace_examples:
                 entry = {
-                    'job': 'eval', 'type': 'entity_ranking',
+                    'type': 'entity_ranking',
                     'scope': 'example', 'data': self.eval_data,
                     'size': len(batch), 'batches': len(self.loader),
                     'epoch': self.epoch
@@ -133,13 +133,13 @@ class EntityRankingJob(EvaluationJob):
                     if evil:
                         entry['rank_filtered_with_test'] = \
                             o_ranks_filt_test[i].item()+1
-                    self.config.trace(
+                    self.trace(
                         task='sp', rank=o_ranks[i].item()+1,
                         rank_filtered=o_ranks_filt[i].item()+1, **entry)
                     if evil:
                         entry['rank_filtered_with_test'] = \
                             s_ranks_filt_test[i].item()+1
-                    self.config.trace(
+                    self.trace(
                         task='po', rank=s_ranks[i].item()+1,
                         rank_filtered=s_ranks_filt[i].item()+1, **entry)
 
@@ -153,8 +153,8 @@ class EntityRankingJob(EvaluationJob):
 
             # optionally: trace batch metrics
             if self.trace_batch:
-                self.config.trace(
-                    job='eval', type='entity_ranking', scope='batch',
+                self.trace(
+                    type='entity_ranking', scope='batch',
                     data=self.eval_data,
                     epoch=self.epoch,
                     batch=i, size=len(batch), batches=len(self.loader),
@@ -187,9 +187,9 @@ class EntityRankingJob(EvaluationJob):
         epoch_time += time.time()
 
         # and trace them
-        self.config.trace(
+        self.trace(
             echo=True, echo_prefix="  ", log=True,
-            job='eval', type='entity_ranking', scope='epoch',
+            type='entity_ranking', scope='epoch',
             data=self.eval_data,
             epoch=self.epoch, batches=len(self.loader),
             size=len(self.triples), epoch_time=epoch_time,

@@ -3,6 +3,8 @@ import datetime
 import os
 import time
 import yaml
+import uuid
+
 
 from kge.util.misc import is_number
 
@@ -159,10 +161,11 @@ class Config:
         The pairs are written as a single-line YAML record. Optionally, also
         echo to console and/or write to log file.
 
-        The current time is automatically added using key ``timestamp``.
+        And id and the current time is automatically added using key ``timestamp``.
         """
         with open(self.tracefile(), 'a') as file:
             kwargs['timestamp'] = time.time()
+            kwargs['entry_id'] = str(uuid.uuid4())
             line = yaml.dump(
                 kwargs, width=float('inf'), default_flow_style=True).strip()
             if echo or log:

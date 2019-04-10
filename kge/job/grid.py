@@ -15,8 +15,8 @@ class GridJob(Job):
 
     """
 
-    def __init__(self, config, dataset):
-        super().__init__(config, dataset)
+    def __init__(self, config, dataset, parent_job=None):
+        super().__init__(config, dataset, parent_job)
 
     def resume(self):
         # no need to do anything here; run code automatically resumes
@@ -65,7 +65,7 @@ class GridJob(Job):
             for i, run in enumerate(runs):
                 self.config.log("Starting training job {} ({}/{})..."
                                 .format(run['name'], i+1, len(runs)))
-                job = Job.create(run['config'], self.dataset)
+                job = Job.create(run['config'], self.dataset, parent_job=self)
                 job.resume()
                 job.run()
         else:
@@ -94,7 +94,9 @@ class GridJob(Job):
             summary.append(data)
         self.config.log("And the winner is ({}={:.3f})..."
                         .format(metric_name, best_metric))
-        best['type'] = 'grid'
-        self.config.trace(echo=True, echo_prefix='  ', log=True,
-                          metric_name=metric_name, metric_value=best_metric,
-                          **best)
+        best['valid_job_id'] = best['job_id']
+        best['train_job_id'] = best['parent_job_id']
+        del best['job'], best['job_id'], best['type'], best['parent_job_id']
+        self.trace(echo=True, echo_prefix='  ', log=True,
+                   metric_name=metric_name, metric_value=best_metric,
+                   **best)
