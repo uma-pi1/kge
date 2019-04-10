@@ -86,11 +86,12 @@ class GridJob(Job):
             for row in data:
                 for i, key in enumerate(all_keys):
                     row[key] = run['values'][i]
-                    metric = Trace.get_metric(row, metric_name)
-                    if not best or best_metric < metric:
-                        best = row
-                        best_metric = metric
-                    self.config.trace(**row)
+                row['folder'] = config.folder()
+                metric = Trace.get_metric(row, metric_name)
+                if not best or best_metric < metric:
+                    best = row
+                    best_metric = metric
+                self.config.trace(**row)
             summary.append(data)
         self.config.log("And the winner is ({}={:.3f})..."
                         .format(metric_name, best_metric))
