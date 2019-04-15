@@ -225,8 +225,8 @@ class Config:
         return "{}/{}_{:05d}.pt".format(
             self.folder(), self.get('checkpoint.basefile'), epoch)
 
-    def last_checkpointfile(self):
-        "Return name of latest checkpoint file"
+    def last_checkpoint(self):
+        "Return epoch number of latest checkpoint"
         # stupid implementation, but works
         tried_epoch = 0
         found_epoch = 0
@@ -235,7 +235,7 @@ class Config:
             if os.path.exists(self.checkpointfile(tried_epoch)):
                 found_epoch = tried_epoch
         if found_epoch > 0:
-            return self.checkpointfile(found_epoch)
+            return found_epoch
         else:
             return None
 

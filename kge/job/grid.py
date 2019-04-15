@@ -65,8 +65,13 @@ class GridJob(Job):
                 self.config.log("Starting training job {} ({}/{})..."
                                 .format(run['name'], i+1, len(runs)))
                 job = Job.create(run['config'], self.dataset, parent_job=self)
-                job.resume()
-                job.run()
+                last_checkpoint = job.config.last_checkpoint()
+                if last_checkpoint is None \
+                   or last_checkpoint < job.config.get('train.max_epochs'):
+                    job.resume()
+                    job.run()
+                else:
+                    self.config.log('Maximum number of epochs reached.')
         else:
             self.config.log(
                 "Skipping running of training jobs as requested by user...")

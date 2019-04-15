@@ -96,8 +96,9 @@ the dataset (if not present).
         self.model.train()
 
     def resume(self):
-        checkpointfile = self.config.last_checkpointfile()
-        if checkpointfile is not None:
+        last_checkpoint = self.config.last_checkpoint()
+        if last_checkpoint is not None:
+            checkpointfile = self.config.checkpointfile(last_checkpoint)
             self.load(checkpointfile)
         else:
             self.config.log("No checkpoint found, starting from scratch...")
