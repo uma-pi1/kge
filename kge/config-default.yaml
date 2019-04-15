@@ -55,7 +55,9 @@ train:
   max_epochs: 20
   optimizer: Adagrad          # sgd, adagrad, adam
   optimizer_args:
-    +++:  +++                    # +++ signals that this option expects arbitrary options in a sublevel
+    # No default arguments are specified. Here, +++ signals that this option
+    # allows arbitrary additional key-value pairs.
+    +++: +++
   batch_size: 100
   loss: bce                   # bce, TODO
   num_workers: 0
@@ -96,9 +98,13 @@ eval:
 
 ## GRID SEARCH #################################################################
 
-# array of pairs of parameter name (flattened) and possible values
+# Metajob for a grid search
 grid:
   run: True                    # if false, only creates folders and configurations
-  options: [
-    [ 'train.optimizer_args.lr', [ 0.001, 0.01, 0.1 ] ],
-  ]
+
+  # Define the grid. This is a list of key-array pairs, where the key is a
+  # (flattened or nested) configuration option (e.g., "train.optimizer_args.lr")
+  # and the value is an array of grid-search values (e.g., [ 0.1, 0.01 ]). No
+  # default values specified.
+  options:
+    +++: +++

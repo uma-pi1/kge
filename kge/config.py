@@ -1,3 +1,4 @@
+import collections
 import copy
 import datetime
 import os
@@ -20,20 +21,31 @@ class Config:
         """Initialize with the default configuration"""
         with open('kge/config-default.yaml', 'r') as file:
             self.options = yaml.load(file, Loader=yaml.SafeLoader)
-        self.unchecked_option_paths = set()
 
     # -- ACCESS METHODS -------------------------------------------------------
 
-    def get(self, key):
+    def get(self, key, remove_plusplusplus=True):
         """Obtain value of specified key.
 
         Nested dictionary values can be accessed via "." (e.g.,
-        "output.folder").
+        "output.folder"). Strips all '+++' keys unless `remove_plusplusplus` is
+        set to `False`.
 
         """
         result = self.options
         for name in key.split('.'):
             result = result[name]
+
+        if remove_plusplusplus and isinstance(result, collections.Mapping):
+            def do_remove_plusplusplus(option):
+                if isinstance(option, collections.Mapping):
+                    option.pop('+++', None)
+                    for values in option.values():
+                        do_remove_plusplusplus(values)
+
+            result = copy.deepcopy(result)
+            do_remove_plusplusplus(result)
+
         return result
 
     def set(self, key, value, create=False):
@@ -52,18 +64,11 @@ class Config:
 
         path = []
         for i in range(len(splits) - 1):
+            create = create or '+++' in data[splits[i]]
             if create and splits[i] not in data:
                 data[splits[i]] = dict()
             path.append(splits[i])
-            if '+++' in data[splits[i]]:
-                self.unchecked_option_paths.add(tuple(path))
-                data[splits[i]] = dict()
-            if tuple(path) in self.unchecked_option_paths:
-                data = data[splits[i]]
-                create = True
-                break
-            else:
-                data = data[splits[i]]
+            data = data[splits[i]]
 
         current_value = data.get(splits[-1])
         if current_value is None:

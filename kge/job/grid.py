@@ -1,5 +1,5 @@
-from kge.job import Job
-from kge.job import Trace
+from kge.job import Job, Trace
+from kge import Config
 import itertools
 
 
@@ -27,8 +27,7 @@ class GridJob(Job):
         all_keys = []
         all_values = []
         all_indexes = []
-        for kv in self.config.get('grid.options'):
-            k, v = kv[0], kv[1]
+        for k, v in Config.flatten(self.config.get('grid.options')).items():
             all_keys.append(k)
             all_values.append(v)
             all_indexes.append(range(len(v)))

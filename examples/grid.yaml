@@ -1,0 +1,16 @@
+job:
+  type: grid
+
+dataset:
+  name: toy
+
+train:
+  optimizer: Adagrad
+
+grid:
+  options:
+    # can be specified flattened
+    train.optimizer_args.lr: [ 0.01, 0.1 ]
+
+    # or nested
+    lookup_embedder: { dim: [ 10, 20 ] }
