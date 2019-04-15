@@ -85,17 +85,13 @@ class Config:
         data[splits[-1]] = value
         return value
 
-    def set_all(self, new_options, create=False, detect_model_config=False):
-        found_model_config = False
+    def load_model_config(self, model_type):
+        self.load('kge/model/{}.yaml'.format(model_type), create=True,
+                  detect_model_config=False)
+
+    def set_all(self, new_options, create=False):
         for key, value in Config.flatten(new_options).items():
-            if detect_model_config and key == 'model.type':
-                self.load('kge/model/{}.yaml'.format(value), create=True,
-                          detect_model_config=False)
-                found_model_config = True
             self.set(key, value, create)
-        if detect_model_config and not found_model_config:
-            self.load('kge/model/{}.yaml'.format(self.get('model.type')),
-                      create=True, detect_model_config=False)
 
     def load(self, filename, create=False, detect_model_config=True):
         """Update configuration options from the specified YAML file.
@@ -109,7 +105,12 @@ class Config:
         """
         with open(filename, 'r') as file:
             new_options = yaml.load(file, Loader=yaml.SafeLoader)
-        self.set_all(new_options, create, detect_model_config)
+
+        if detect_model_config and 'model' in new_options:
+            model_type = new_options['model'].get('type')
+            if model_type is not None:
+                self.load_model_config(model_type)
+        self.set_all(new_options, create)
 
     def save(self, filename):
         """Save this configuration to the given file"""

@@ -32,7 +32,7 @@ if __name__ == '__main__':
             parser.add_argument('--'+key, type=type(value))
     args = parser.parse_args()
 
-    # load toy config file if no config guven
+    # load toy config file if no config given
     if args.config is None and args.resume is None:
         args.config = 'examples/toy.yaml'
         print('WARNING: No configuration specified; using '

@@ -4,6 +4,9 @@ job:
 dataset:
   name: toy
 
+model:
+  type: complex
+
 train:
   optimizer: Adagrad
   optimizer_args:

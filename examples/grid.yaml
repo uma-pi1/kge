@@ -7,6 +7,9 @@ dataset:
 train:
   optimizer: Adagrad
 
+model:
+  type: complex
+
 grid:
   options:
     # can be specified flattened

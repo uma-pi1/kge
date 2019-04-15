@@ -36,7 +36,7 @@ output:
 ## Model and its hyperparameters. Used for all jobs.
 
 model:
-  type: complex               # distmult, complex, transe, conve
+  type: ''                    # distmult, complex, transe, conve
 
 lookup_embedder:
   dim: 100                    # entity dimensionality or [ entity, relation ] dimensionality
