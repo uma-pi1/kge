@@ -105,7 +105,7 @@ class Config:
             self.set(key, value, create, overwrite)
 
     def load(self, filename, create=False, overwrite=Overwrite.Yes,
-             detect_model_config=False):
+             load_model_config=False):
         """Update configuration options from the specified YAML file.
 
         All options that do not occur in the specified file are retained.
@@ -114,7 +114,7 @@ class Config:
         contains a non-existing options. When ``create`` is ``True``, allows
         to add options that are not present in this configuration.
 
-        If ``detect_model_config`` is ``True``, loads the model configuration
+        If ``load_model_config`` is ``True``, loads the model configuration
         file before loading the specified configuration file.
 
         """
@@ -122,7 +122,7 @@ class Config:
             new_options = yaml.load(file, Loader=yaml.SafeLoader)
 
         # load the model configuration
-        if detect_model_config and 'model' in new_options:
+        if load_model_config and 'model' in new_options:
             model_type = new_options['model'].get('type')
             if model_type is not None:
                 self.load_model_config(model_type)

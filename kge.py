@@ -49,7 +49,7 @@ if __name__ == '__main__':
         if args.resume is not None:
             raise ValueError("config and resume")
         print('Loading configuration {}...'.format(args.config))
-        config.load(args.config, detect_model_config=not model_config_loaded)
+        config.load(args.config, load_model_config=not model_config_loaded)
 
     # optionally: load configuration of resumed job
     if args.resume is not None:
@@ -58,7 +58,7 @@ if __name__ == '__main__':
            and os.path.isfile(configfile + '/config.yaml'):
             configfile += '/config.yaml'
         print('Resuming from configuration {}...'.format(configfile))
-        config.load(configfile, detect_model_config=not model_config_loaded)
+        config.load(configfile, load_model_config=not model_config_loaded)
         if config.folder() == '' or not os.path.exists(config.folder()):
             raise ValueError("{} is not a valid config file for resuming"
                              .format(args.resume))
