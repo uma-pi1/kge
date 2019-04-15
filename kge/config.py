@@ -1,3 +1,4 @@
+from enum import Enum
 import collections
 import copy
 import datetime
@@ -21,6 +22,7 @@ class Config:
         """Initialize with the default configuration"""
         with open('kge/config-default.yaml', 'r') as file:
             self.options = yaml.load(file, Loader=yaml.SafeLoader)
+
 
     # -- ACCESS METHODS -------------------------------------------------------
 
@@ -48,7 +50,9 @@ class Config:
 
         return result
 
-    def set(self, key, value, create=False):
+    Overwrite = Enum('Overwrite', 'Yes No Error')
+
+    def set(self, key, value, create=False, overwrite=Overwrite.Yes):
         """Set value of specified key.
 
         Nested dictionary values can be accessed via "." (e.g.,
@@ -74,8 +78,13 @@ class Config:
         if current_value is None:
             if not create:
                 raise ValueError("key {} not present".format(key))
-        elif type(value) != type(current_value):
-            raise ValueError("key {} has incorrect type".format(key))
+        else:
+            if type(value) != type(current_value):
+                raise ValueError("key {} has incorrect type".format(key))
+            if overwrite == Config.Overwrite.No:
+                return current_value
+            if overwrite == Config.Overwrite.Error and value != current_value:
+                raise ValueError("key {} cannot be overwritten".format(key))
 
         if isinstance(value, str) and is_number(value, float):
             value = float(value)
@@ -86,31 +95,40 @@ class Config:
         return value
 
     def load_model_config(self, model_type):
+        # we throw an error for overwrites here to not accidentally overwrite
+        # the user's model configuration
         self.load('kge/model/{}.yaml'.format(model_type), create=True,
-                  detect_model_config=False)
+                  overwrite=Config.Overwrite.Error)
 
-    def set_all(self, new_options, create=False):
+    def set_all(self, new_options, create=False, overwrite=Overwrite.Yes):
         for key, value in Config.flatten(new_options).items():
-            self.set(key, value, create)
+            self.set(key, value, create, overwrite)
 
-    def load(self, filename, create=False, detect_model_config=True):
+    def load(self, filename, create=False, overwrite=Overwrite.Yes,
+             detect_model_config=False):
         """Update configuration options from the specified YAML file.
 
         All options that do not occur in the specified file are retained.
 
         If ``create`` is ``False``, raises :class:`ValueError` when the file
-        contains a non-existing options. When ``create`` is ``False``, allows
+        contains a non-existing options. When ``create`` is ``True``, allows
         to add options that are not present in this configuration.
+
+        If ``detect_model_config`` is ``True``, loads the model configuration
+        file before loading the specified configuration file.
 
         """
         with open(filename, 'r') as file:
             new_options = yaml.load(file, Loader=yaml.SafeLoader)
 
+        # load the model configuration
         if detect_model_config and 'model' in new_options:
             model_type = new_options['model'].get('type')
             if model_type is not None:
                 self.load_model_config(model_type)
-        self.set_all(new_options, create)
+
+        # now set all option
+        self.set_all(new_options, create, overwrite)
 
     def save(self, filename):
         """Save this configuration to the given file"""

@@ -32,7 +32,13 @@ if __name__ == '__main__':
             parser.add_argument('--'+key, type=type(value))
     args = parser.parse_args()
 
-    # load toy config file if no config given
+    # load model config if specified on command line
+    model_config_loaded = False
+    if vars(args)['model.type'] is not None:
+        config.load_model_config(vars(args)['model.type'])
+        model_config_loaded = True
+
+    # use toy config file if no config given
     if args.config is None and args.resume is None:
         args.config = 'examples/toy.yaml'
         print('WARNING: No configuration specified; using '
@@ -43,7 +49,7 @@ if __name__ == '__main__':
         if args.resume is not None:
             raise ValueError("config and resume")
         print('Loading configuration {}...'.format(args.config))
-        config.load(args.config)
+        config.load(args.config, detect_model_config=not model_config_loaded)
 
     # optionally: load configuration of resumed job
     if args.resume is not None:
@@ -52,7 +58,7 @@ if __name__ == '__main__':
            and os.path.isfile(configfile + '/config.yaml'):
             configfile += '/config.yaml'
         print('Resuming from configuration {}...'.format(configfile))
-        config.load(configfile)
+        config.load(configfile, detect_model_config=not model_config_loaded)
         if config.folder() == '' or not os.path.exists(config.folder()):
             raise ValueError("{} is not a valid config file for resuming"
                              .format(args.resume))
