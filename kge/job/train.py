@@ -271,7 +271,7 @@ class TrainingJob1toN(TrainingJob):
                    + 'd}/{}, avg_loss: {:.10E}, time: {:8.4f}s')
                   .format(
                       batch_index, len(self.loader)-1,
-                      loss_value.item()/batch_size,
+                      loss_value.item(),
                       batch_prepare_time + batch_forward_time
                       + batch_backward_time + batch_optimizer_time),
                   end='')

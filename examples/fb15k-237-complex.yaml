@@ -21,5 +21,4 @@ train:
 valid:
   filter_with_test: True
 
-eval:
-  batch_size: 1000
+eval.batch_size: 1024
