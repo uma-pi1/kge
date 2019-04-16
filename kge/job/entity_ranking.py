@@ -47,6 +47,7 @@ class EntityRankingJob(EvaluationJob):
         batch = torch.cat(batch).reshape((-1, 3))
         return batch, train_label_coords, valid_label_coords, test_label_coords
 
+    @torch.no_grad()
     def run(self) -> dict:
         was_training = self.model.training
         self.model.eval()
