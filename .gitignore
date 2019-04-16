@@ -8,3 +8,4 @@ local/*
 /trace.csv
 *.csv
 *.pyc
+.mypy_cache

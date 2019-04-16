@@ -1,17 +1,9 @@
-job:
-  type: grid
+job.type: grid
+dataset.name: toy
+train.optimizer: Adagrad
+model: complex
 
-dataset:
-  name: toy
-
-train:
-  optimizer: Adagrad
-
-model:
-  type: complex
-
-grid:
-  options:
+grid.options:
     # can be specified flattened
     train.optimizer_args.lr: [ 0.01, 0.1 ]
 

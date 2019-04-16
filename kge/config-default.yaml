@@ -33,19 +33,10 @@ output:
   tracefile: 'trace.yaml'   # one yaml entry per line
 
 ## MODEL #######################################################################
-## Model and its hyperparameters. Used for all jobs.
 
-model:
-  type: ''                    # distmult, complex, transe, conve
+# see model specific configuration files
+model: ''                     # distmult, complex, transe, conve, ...
 
-lookup_embedder:
-  dim: 100                    # entity dimensionality or [ entity, relation ] dimensionality
-  initialize: normal          # xavier, uniform, normal
-  initialize_arg: 0.1         # gain for Xavier, range for uniform, stddev for Normal
-  dropout: 0.                 # dropout used for embeddings
-  # TODO l2_reg: 0.01                # use L2 regularization
-  sparse: False               # ??
-  normalize: ''               # alternatively: normalize '', L2
 
 ## TRAINING ####################################################################
 ## Used for training jobs.

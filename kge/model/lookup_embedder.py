@@ -4,23 +4,23 @@ from kge.model import KgeEmbedder
 
 
 class LookupEmbedder(KgeEmbedder):
-    def __init__(self, config, dataset, is_entity_embedder):
-        super().__init__(config, dataset, is_entity_embedder)
+    def __init__(self, config, dataset, configuration_key, is_entity_embedder):
+        super().__init__(config, dataset, configuration_key, is_entity_embedder)
 
         ## read config
-        self.dropout = self.get_option('lookup_embedder.dropout')
-        # self.l2_reg = self.get_option('lookup_embedder.l2_reg')
-        self.dim = self.get_option('lookup_embedder.dim')
-        self.sparse = self.get_option('lookup_embedder.sparse')
-        self.config.check('lookup_embedder.normalize', [ '', 'L2' ])
-        self.normalize = self.get_option('lookup_embedder.normalize')
-        self.size = dataset.num_entities if self.is_entity_embedder else dataset.num_relations
+        self.dropout = self.get_option('dropout')
+        self.dim = self.get_option('dim')
+        self.sparse = self.get_option('sparse')
+        self.normalize = self.get_option('normalize')
+        self.size = dataset.num_entities if self.is_entity_embedder \
+            else dataset.num_relations
 
         ## setup embedder
-        self.embeddings = torch.nn.Embedding(self.size, self.dim, sparse=self.sparse)
+        self.embeddings = torch.nn.Embedding(self.size, self.dim,
+                                             sparse=self.sparse)
         self.initialize(self.embeddings.weight.data,
-                        self.get_option('lookup_embedder.initialize'),
-                        self.get_option('lookup_embedder.initialize_arg'))
+                        self.get_option('initialize'),
+                        self.get_option('initialize_arg'))
 
         ## TODO L2
 

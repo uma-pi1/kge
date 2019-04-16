@@ -1,3 +1,10 @@
-model:
-  embedder: lookup            # lookup, single or pair as above
+import: [ 'lookup_embedder' ]
+
+complex:
   class_name: ComplEx
+  entity_embedder:
+    type: lookup_embedder
+    +++: +++
+  relation_embedder:
+    type: lookup_embedder
+    +++: +++

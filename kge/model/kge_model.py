@@ -1,5 +1,8 @@
+from kge import Config
+import copy
 import torch.nn
 import importlib
+
 
 class KgeBase(torch.nn.Module):
     """
@@ -25,8 +28,11 @@ class KgeModel(KgeBase):
 
     def __init__(self, config, dataset):
         super().__init__(config, dataset)
-        self._entity_embedder = KgeEmbedder.create(config, dataset, True)
-        self._relation_embedder = KgeEmbedder.create(config, dataset, False)
+        # TODO generalize this
+        self._entity_embedder = KgeEmbedder.create(
+            config, dataset, config.get('model') + '.entity_embedder', True)
+        self._relation_embedder = KgeEmbedder.create(
+            config, dataset, config.get('model') + '.relation_embedder', False)
 
     def score_spo(self, s, p, o):
         return self._score(s, p, o)
@@ -65,23 +71,20 @@ class KgeModel(KgeBase):
     def create(config, dataset):
         """Factory method for model creation."""
 
-        ## create the embedders
         model = None
         try:
-            module = importlib.import_module('kge.model.{}'.format(
-                config.get('model.type')))
-            model = getattr(module, config.get('model.class_name'))(
-                config, dataset)
+            model_name = config.get('model')
+            class_name = config.get(model_name + '.class_name')
+            module = importlib.import_module('kge.model')
+            model = getattr(module, class_name)(config, dataset)
         except ImportError:
             # perhaps TODO: try class with specified name -> extensibility
-            raise ValueError('Can\'t find class {} in kge/model/ for type {}'.
-                             format(config.get('model.class_name'),
-                                    config.get('model.type')))
+            raise ValueError("Can't find class {} in 'kge.model' for model {}".
+                             format(class_name, model_name))
 
         # TODO I/O (resume model)
         model.to(config.get('job.device'))
         return model
-
 
     # TODO document this method and in particular: prefix
     def _score(self, s, p, o, prefix=None):
@@ -107,20 +110,43 @@ class KgeEmbedder(KgeBase):
     Base class for all relational model embedders
     """
 
-    def __init__(self, config, dataset, is_entity_embedder):
+    def __init__(self, config, dataset, configuration_key, is_entity_embedder):
         super().__init__(config, dataset)
+        self.configuration_key = configuration_key
+        self.embedder_type = config.get(configuration_key + ".type")
         self.is_entity_embedder = is_entity_embedder
 
-    @staticmethod
-    def create(config, dataset, is_entity_embedder):
-        """Factory method for embedder creation."""
-        from kge.model import LookupEmbedder
+        # verify all custom options by trying to set them in a copy of this
+        # configuration (quick and dirty, but works)
+        custom_options = Config.flatten(config.get(configuration_key))
+        del custom_options['type']
+        dummy_config = copy.deepcopy(self.config)
+        for key, value in custom_options.items():
+            try:
+                dummy_config.set(self.embedder_type + '.' + key, value)
+            except ValueError:
+                raise ValueError('key {}.{} invalid or of incorrect type'
+                                 .format(self.configuration_key, key))
 
-        embedder_type = KgeEmbedder._get_option(config, 'model.embedder', is_entity_embedder)
-        if embedder_type == 'lookup':
-            return LookupEmbedder(config, dataset, is_entity_embedder)
-        else:
-            raise ValueError('embedder')
+    @staticmethod
+    def create(config, dataset, configuration_key, is_entity_embedder):
+        """Factory method for embedder creation."""
+
+        embedder = None
+        try:
+            embedder_type = config.get(configuration_key + ".type")
+            class_name = config.get(embedder_type + '.class_name')
+            module = importlib.import_module('kge.model')
+            embedder = getattr(module, class_name)(
+                config, dataset, configuration_key, is_entity_embedder)
+        except ImportError:
+            # perhaps TODO: try class with specified name -> extensibility
+            raise ValueError(
+                "Can't find class {} in 'kge.model' for embedder {}"
+                .format(class_name, embedder_type))
+
+
+        return embedder
 
     def embed(self, indexes) -> torch.Tensor:
         """
@@ -137,12 +163,9 @@ class KgeEmbedder(KgeBase):
         # TODO I/O
 
     def get_option(self, name):
-        return KgeEmbedder._get_option(self.config, name, self.is_entity_embedder)
-
-    @staticmethod
-    def _get_option(config, name, is_entity_embedder):
-        value = config.get(name)
-        if type(value) == list:
-            return value[0 if is_entity_embedder else 1]
-        else:
-            return value
+        try:
+            # custom option
+            return self.config.get(self.configuration_key + '.' + name)
+        except KeyError:
+            # default option
+            return self.config.get(self.embedder_type + '.' + name)

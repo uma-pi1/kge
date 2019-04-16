@@ -1,9 +1,8 @@
 import datetime
-import sys
-
-import yaml
-import os
 import argparse
+import os
+import yaml
+
 from kge import Dataset
 from kge import Config
 from kge.job import Job
@@ -17,7 +16,7 @@ if __name__ == '__main__':
     short_options = {'dataset.name': '-d',
                      'job.type': '-j',
                      'train.max_epochs': '-e',
-                     'model.type': '-m',
+                     'model': '-m',
                      'output.folder': '-o'}
 
     # create parser and parse arguments
@@ -32,12 +31,6 @@ if __name__ == '__main__':
             parser.add_argument('--'+key, type=type(value))
     args = parser.parse_args()
 
-    # load model config if specified on command line
-    model_config_loaded = False
-    if vars(args)['model.type'] is not None:
-        config.load_model_config(vars(args)['model.type'])
-        model_config_loaded = True
-
     # use toy config file if no config given
     if args.config is None and args.resume is None:
         args.config = 'examples/toy.yaml'
@@ -49,7 +42,7 @@ if __name__ == '__main__':
         if args.resume is not None:
             raise ValueError("config and resume")
         print('Loading configuration {}...'.format(args.config))
-        config.load(args.config, load_model_config=not model_config_loaded)
+        config.load(args.config)
 
     # optionally: load configuration of resumed job
     if args.resume is not None:
@@ -58,7 +51,7 @@ if __name__ == '__main__':
            and os.path.isfile(configfile + '/config.yaml'):
             configfile += '/config.yaml'
         print('Resuming from configuration {}...'.format(configfile))
-        config.load(configfile, load_model_config=not model_config_loaded)
+        config.load(configfile)
         if config.folder() == '' or not os.path.exists(config.folder()):
             raise ValueError("{} is not a valid config file for resuming"
                              .format(args.resume))
@@ -76,7 +69,7 @@ if __name__ == '__main__':
                    'local/experiments/'
                    + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
                    + "-" + config.get('dataset.name')
-                   + "-" + config.get('model.type'))
+                   + "-" + config.get('model'))
     if not args.resume and not config.init_folder():
         raise ValueError("output folder exists")
 
@@ -84,7 +77,8 @@ if __name__ == '__main__':
     config.log("Configuration:")
     config.log(yaml.dump(config.options), prefix='  ')
 
-    config.log('git commit: {}'.format(get_git_revision_short_hash()), prefix='  ')
+    config.log('git commit: {}'.format(get_git_revision_short_hash()),
+               prefix='  ')
 
     # load data
     dataset = Dataset.load(config)

@@ -228,6 +228,7 @@ class TrainingJob1toN(TrainingJob):
 
             # forward pass
             batch_forward_time = -time.time()
+            self.optimizer.zero_grad()
             scores_sp = self.model.score_sp(pairs[sp_indexes, 0],
                                             pairs[sp_indexes, 1])
             loss_value = self.loss(scores_sp.view(-1),
@@ -242,7 +243,6 @@ class TrainingJob1toN(TrainingJob):
 
             # backward pass
             batch_backward_time = -time.time()
-            self.optimizer.zero_grad()
             loss_value.backward()
             batch_backward_time += time.time()
             backward_time += batch_backward_time
@@ -268,7 +268,7 @@ class TrainingJob1toN(TrainingJob):
             print('\033[K\r', end="")  # clear line and go back
             print(('  batch:{: '
                    + str(1+int(math.ceil(math.log10(len(self.loader)))))
-                   + 'd}/{}, avg_loss: {:14.4f}, time: {:8.4f}s')
+                   + 'd}/{}, avg_loss: {:.10E}, time: {:8.4f}s')
                   .format(
                       batch_index, len(self.loader)-1,
                       loss_value.item()/batch_size,

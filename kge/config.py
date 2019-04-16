@@ -18,11 +18,13 @@ class Config:
     :file:`config_default.yaml`.
     """
 
-    def __init__(self):
+    def __init__(self, load_default=True):
         """Initialize with the default configuration"""
-        with open('kge/config-default.yaml', 'r') as file:
-            self.options = yaml.load(file, Loader=yaml.SafeLoader)
-
+        if load_default:
+            with open('kge/config-default.yaml', 'r') as file:
+                self.options = yaml.load(file, Loader=yaml.SafeLoader)
+        else:
+            self.options = {}
 
     # -- ACCESS METHODS -------------------------------------------------------
 
@@ -94,18 +96,50 @@ class Config:
         data[splits[-1]] = value
         return value
 
-    def load_model_config(self, model_type):
-        # we throw an error for overwrites here to not accidentally overwrite
-        # the user's model configuration
-        self.load('kge/model/{}.yaml'.format(model_type), create=True,
-                  overwrite=Config.Overwrite.Error)
+    def _import(self, module_name):
+        """Imports the specified module configuration.
+
+        Adds the configuration options from kge/model/<module_name>.yaml to
+        the configuration. Retains existing module configurations, but verifies
+        that fields and their types are correct.
+
+        """
+
+        # load the module_name
+        module_config = Config(False)
+        module_config.load('kge/model/{}.yaml'.format(module_name),
+                           create=True)
+        if 'import' in module_config.options:
+            del module_config.options['import']
+
+        # add/verify current configuration
+        for key in module_config.options.keys():
+            cur_value = None
+            try:
+                cur_value = {key: self.get(key)}
+            except KeyError:
+                continue
+            module_config.set_all(cur_value, create=False)
+
+        # now update this configuration
+        self.set_all(module_config.options, create=True)
+
+        # remember the import
+        imports = self.options.get('import')
+        if imports is None:
+            imports = module_name
+        elif isinstance(imports, str):
+            imports = [imports, module_name]
+        else:
+            imports.append(module_name)
+            imports = list(dict.fromkeys(imports))
+        self.options['import'] = imports
 
     def set_all(self, new_options, create=False, overwrite=Overwrite.Yes):
         for key, value in Config.flatten(new_options).items():
             self.set(key, value, create, overwrite)
 
-    def load(self, filename, create=False, overwrite=Overwrite.Yes,
-             load_model_config=False):
+    def load(self, filename, create=False, overwrite=Overwrite.Yes):
         """Update configuration options from the specified YAML file.
 
         All options that do not occur in the specified file are retained.
@@ -114,20 +148,25 @@ class Config:
         contains a non-existing options. When ``create`` is ``True``, allows
         to add options that are not present in this configuration.
 
-        If ``load_model_config`` is ``True``, loads the model configuration
-        file before loading the specified configuration file.
+        If the file has an import or model field, the corresponding
+        configuration files are imported.
 
         """
         with open(filename, 'r') as file:
             new_options = yaml.load(file, Loader=yaml.SafeLoader)
 
-        # load the model configuration
-        if load_model_config and 'model' in new_options:
-            model_type = new_options['model'].get('type')
-            if model_type is not None:
-                self.load_model_config(model_type)
+        # import model configurations
+        if 'model' in new_options:
+            self._import(new_options.get('model'))
+        if 'import' in new_options:
+            imports = new_options.get('import')
+            if not isinstance(imports, list):
+                imports = [imports]
+            for module_name in imports:
+                self._import(module_name)
+            del new_options['import']
 
-        # now set all option
+        # now set all options
         self.set_all(new_options, create, overwrite)
 
     def save(self, filename):
