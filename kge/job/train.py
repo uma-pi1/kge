@@ -3,10 +3,9 @@ import math
 import torch
 import torch.utils.data
 import time
-from kge.job import Job
+from kge.job import Job, Trace
 from kge.model import KgeModel
-from kge.util import KgeLoss
-from kge.util import KgeOptimizer
+from kge.util import KgeLoss, KgeOptimizer
 import kge.job.util
 
 
@@ -37,6 +36,7 @@ class TrainingJob(Job):
         self.config.check('train.trace_level', ['batch', 'epoch'])
         self.trace_batch = self.config.get('train.trace_level') == 'batch'
         self.epoch = 0
+        self.valid_metrics = []
         self.model.train()
 
     def create(config, dataset, parent_job=None):
@@ -56,11 +56,39 @@ the dataset (if not present).
     def run(self):
         self.config.log('Starting training...')
         checkpoint = self.config.get('checkpoint.every')
-        while self.epoch < self.config.get('train.max_epochs'):
+        metric_name = self.config.get('valid.metric')
+        early_stopping = self.config.get('valid.early_stopping')
+        while True:
+            # should we stop?
+            if self.epoch >= self.config.get('train.max_epochs'):
+                self.config.log('Maximum number of epochs reached.')
+                break
+            if early_stopping > 0 and len(self.valid_metrics) > early_stopping:
+                stop_now = True
+                last = self.valid_metrics[-1][metric_name]
+                for i in range(early_stopping):
+                    if last > self.valid_metrics[-2-i][metric_name]:
+                        stop_now = False
+                        break
+                if stop_now:
+                    self.config.log(('Stopping early ({} did not improve '
+                                    + 'in the last {} validation runs).')
+                                    .format(metric_name, early_stopping))
+                    break
+
+            # start a new epoch
             self.epoch += 1
             self.config.log('Starting epoch {}...'.format(self.epoch))
             self.run_epoch()
             self.config.log('Finished epoch {}.'.format(self.epoch))
+
+            # validate
+            if self.config.get('valid.every') > 0 \
+               and self.epoch % self.config.get('valid.every') == 0:
+                self.valid_job.epoch = self.epoch
+                metrics = self.valid_job.run()
+                metrics['epoch'] = self.epoch
+                self.valid_metrics.append(metrics)
 
             # create checkpoint and delete old one, if necessary
             self.save(self.config.checkpointfile(self.epoch))
@@ -70,19 +98,11 @@ the dataset (if not present).
                         self.config.checkpointfile(self.epoch-1)))
                     os.remove(self.config.checkpointfile(self.epoch-1))
 
-            # validate
-            if self.config.get('valid.every') > 0 \
-               and self.epoch % self.config.get('valid.every') == 0:
-                self.valid_job.epoch = self.epoch
-                metrics = self.valid_job.run()
-                # TODO early_stopping here
-
-        self.config.log('Maximum number of epochs reached.')
-
     def save(self, filename):
         self.config.log('Saving checkpoint to "{}"...'.format(filename))
         torch.save({
             'epoch': self.epoch,
+            'valid_metrics': self.valid_metrics,
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             }, filename)
@@ -93,6 +113,7 @@ the dataset (if not present).
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.epoch = checkpoint['epoch']
+        self.valid_metrics = checkpoint['valid_metrics']
         self.model.train()
 
     def resume(self):

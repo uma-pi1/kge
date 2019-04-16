@@ -43,7 +43,7 @@ model: ''                     # distmult, complex, transe, conve, ...
 
 train:
   type: 1toN                  # 1toN, negative_sampling
-  max_epochs: 20
+  max_epochs: 50
   optimizer: Adagrad          # sgd, adagrad, adam
   optimizer_args:
     # No default arguments are specified. Here, +++ signals that this option
@@ -59,7 +59,7 @@ train:
 valid:
   every: 5                    # epochs (disable with 0)
   metric: mean_reciprocal_rank_filtered  # mean_rank(_filtered), mean_reciprocal_rank_(filtered), hits@k(_filtered) for some integer k <= eval.max_k
-  early_stopping: 0           # 0=disable, else:
+  early_stopping: 2           # 0=disable, else: grace period in number of validations
   trace_level: epoch          # example or batch or epoch
 
   # Whether test data should be leaked into validation (seriously!). Filtered
