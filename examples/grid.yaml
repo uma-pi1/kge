@@ -3,7 +3,7 @@ dataset.name: toy
 train.optimizer: Adagrad
 model: complex
 
-grid.options:
+grid.configurations:
     # can be specified flattened
     train.optimizer_args.lr: [ 0.01, 0.1 ]
 

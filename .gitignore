@@ -9,3 +9,4 @@ local/*
 *.csv
 *.pyc
 .mypy_cache
+/trace.yaml

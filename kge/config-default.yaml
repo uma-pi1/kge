@@ -43,7 +43,7 @@ model: ''                     # distmult, complex, transe, conve, ...
 
 train:
   type: 1toN                  # 1toN, negative_sampling
-  max_epochs: 50
+  max_epochs: 20
   optimizer: Adagrad          # sgd, adagrad, adam
   optimizer_args:
     # No default arguments are specified. Here, +++ signals that this option
@@ -89,13 +89,24 @@ eval:
 
 ## GRID SEARCH #################################################################
 
+search:
+  # if false, only creates folders and configurations
+  run: True
+
+  # List of configurations to search. Each entry is a record with a field
+  # 'folder' (where the training job is stored) and an arbitrary number of other
+  # fields that define the search configuration (e.g.
+  # 'train.optimizer_args.lr').
+  configurations: []
+
 # Metajob for a grid search
 grid:
-  run: True                    # if false, only creates folders and configurations
+  # if false, only creates folders and configurations
+  run: True
 
   # Define the grid. This is a list of key-array pairs, where the key is a
   # (flattened or nested) configuration option (e.g., "train.optimizer_args.lr")
   # and the value is an array of grid-search values (e.g., [ 0.1, 0.01 ]). No
   # default values specified.
-  options:
+  configurations:
     +++: +++
