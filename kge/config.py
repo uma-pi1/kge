@@ -260,13 +260,13 @@ class Config:
         """
         if not os.path.exists(self.folder()):
             os.makedirs(self.folder())
-            self.save(self.folder() + "/config.yaml")
+            self.save(self.folder() + "config.yaml")
             return True
         return False
 
     def checkpointfile(self, epoch):
         "Return path of checkpoint file for given epoch"
-        return "{}/{}_{:05d}.pt".format(
+        return "{}{}_{:05d}.pt".format(
             self.folder(), self.get('checkpoint.basefile'), epoch)
 
     def last_checkpoint(self):

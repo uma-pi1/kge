@@ -7,8 +7,8 @@ import itertools
 class GridJob(Job):
     """Job to perform grid search.
 
-    This job creates a `SearchJob` with one configuration for each point on the
-    grid.
+    This job creates a :class:`SearchJob` with one configuration for each point
+    on the grid.
 
     """
 

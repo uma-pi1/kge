@@ -12,8 +12,7 @@ import kge.job.util
 class TrainingJob(Job):
     """Job to train a single model with a fixed set of hyperparameters.
 
-    Also used by jobs such as grid search (:class:`GridJob`) or Bayesian
-    optimization.
+    Also used by jobs such as :class:`SearchJob`.
 
     """
 
@@ -108,7 +107,7 @@ the dataset (if not present).
                     os.remove(self.config.checkpointfile(self.epoch-1))
 
     def save(self, filename):
-        self.config.log('Saving checkpoint to "{}"...'.format(filename))
+        self.config.log('Saving checkpoint to {}...'.format(filename))
         torch.save({
             'epoch': self.epoch,
             'valid_trace': self.valid_trace,
@@ -117,7 +116,7 @@ the dataset (if not present).
             }, filename)
 
     def load(self, filename):
-        self.config.log('Loading checkpoint from "{}"...'.format(filename))
+        self.config.log('Loading checkpoint from {}...'.format(filename))
         checkpoint = torch.load(filename)
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])

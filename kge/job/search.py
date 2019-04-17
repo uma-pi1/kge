@@ -1,3 +1,4 @@
+import copy
 from kge.job import Job, Trace
 from kge import Config
 
@@ -11,6 +12,14 @@ class SearchJob(Job):
 
     Interrupted searches can be resumed. Subjobs can also be resumed/run
     directly. Configurations can be added/removed by modifying the config file.
+
+    Produces a trace file that contains entries for: each validation performed
+    for each job (type=eval), the best validation result of each job
+    (type=search, scope=train), and the best overall result (type=search,
+    scope=search). Each trace entry contains the values of all relevant
+    hyperparameters. To filter just the entries of the last run of this search
+    job, use its job_id (note: stored as field parent_job_id in type=eval
+    entries).
 
     """
     def __init__(self, config, dataset, parent_job=None):
@@ -35,59 +44,88 @@ class SearchJob(Job):
             all_keys.update(flattened_search_config.keys())
             search_configs[i] = config
 
-        # create folders for search_configs (existing folders remain
+        # create folders for search configs (existing folders remain
         # unmodified)
         for config in search_configs:
             config.init_folder()
 
         # now start running/resuming
         # TODO use a scheduler to run multiple jobs simultaneously?
-        if self.config.get('search.run'):
-            for i, config in enumerate(search_configs):
-                self.config.log(
-                    "Starting training job {} ({}/{})..."
-                    .format(config.folder(), i+1, len(search_configs)))
-                job = Job.create(config, self.dataset, parent_job=self)
-                last_checkpoint = job.config.last_checkpoint()
-                if last_checkpoint is None \
-                   or last_checkpoint < job.config.get('train.max_epochs'):
-                    def copy_to_search_trace(job, trace_entry):
-                        for key in all_keys:
-                            trace_entry[key] = config.get(key)
-                            trace_entry['folder'] = config.folder()
-                            self.config.trace(**trace_entry)
-                    job.resume()
-                    job.after_valid_hooks.append(copy_to_search_trace)
-                    job.run()
-                else:
-                    self.config.log('Maximum number of epochs reached.')
-        else:
-            self.config.log(
-                "Skipping running of training jobs as requested by user...")
-
-        # read each search_configs trace file and produce a summary
-        self.config.log("Reading results...")
-        best = None
-        best_metric = None
         metric_name = self.config.get('valid.metric')
-        for config in search_configs:
-            trace = Trace(config.tracefile(), 'epoch')
-            data = trace.filter(
-                {'job': 'eval', 'scope': 'epoch', 'data': 'valid'})
-            for row in data:
+        best_per_job = []
+        best_metric_per_job = []
+        for i, config in enumerate(search_configs):
+            # load the job
+            self.config.log(
+                "Starting training job {} ({}/{})..."
+                .format(config.folder(), i+1, len(search_configs)))
+            job = Job.create(config, self.dataset, parent_job=self)
+            job.resume()
+
+            # process the trace entries to far (in case of a resumed job)
+            valid_trace = []
+
+            def copy_to_search_trace(job, trace_entry):
+                trace_entry = copy.deepcopy(trace_entry)
                 for key in all_keys:
-                    row[key] = config.get(key)
-                row['folder'] = config.folder()
-                metric = Trace.get_metric(row, metric_name)
+                    trace_entry[key] = config.get(key)
+
+                trace_entry['folder'] = config.folder()
+                metric_value = Trace.get_metric(trace_entry, metric_name)
+                trace_entry['metric_name'] = metric_name
+                trace_entry['metric_value'] = metric_value
+                trace_entry['parent_job_id'] = self.job_id
+                self.config.trace(**trace_entry)
+                valid_trace.append(trace_entry)
+
+            for trace_entry in job.valid_trace:
+                copy_to_search_trace(None, trace_entry)
+
+            # run the job (adding new trace entries as we go)
+            if self.config.get('search.run'):
+                job.after_valid_hooks.append(copy_to_search_trace)
+                job.run()
+            else:
+                self.config.log(
+                    "Skipping running of training job as requested by user.")
+
+            # analyze the result
+            self.config.log("Best result in this training job:")
+            best = None
+            best_metric = None
+            for trace_entry in valid_trace:
+                metric = trace_entry['metric_value']
                 if not best or best_metric < metric:
-                    best = row
+                    best = trace_entry
                     best_metric = metric
-                # self.config.trace(**row)   # already done in after_valid_hook
-        self.config.log("And the winner is ({}={:.3f})..."
-                        .format(metric_name, best_metric))
-        best['valid_job_id'] = best['job_id']
-        best['train_job_id'] = best['parent_job_id']
-        del best['job'], best['job_id'], best['type'], best['parent_job_id']
+
+            # record the best result of this job
+            del best['job'], best['job_id'], best['type'], \
+                best['parent_job_id'], best['scope']
+            self.trace(echo=True, echo_prefix='  ', log=True,
+                       scope='train', **best)
+            best_per_job.append(best)
+            best_metric_per_job.append(best_metric)
+
+        # produce an overall summary
+        self.config.log("Result summary:")
+        overall_best = None
+        overall_best_metric = None
+        for i in range(len(search_configs)):
+            best = best_per_job[i]
+            best_metric = best_metric_per_job[i]
+            if not overall_best or overall_best_metric < best_metric:
+                overall_best = best
+                overall_best_metric = best_metric
+            self.config.log('{}={:.3f} after {} epochs in folder {}'
+                            .format(metric_name, best_metric,
+                                    best['epoch'], best['folder']),
+                            prefix='  ')
+        self.config.log("And the winner is:")
+        self.config.log('{}={:.3f} after {} epochs in folder {}'
+                        .format(metric_name, overall_best_metric,
+                                overall_best['epoch'], overall_best['folder']),
+                        prefix='  ')
+        self.config.log("Best overall result:")
         self.trace(echo=True, echo_prefix='  ', log=True,
-                   metric_name=metric_name, metric_value=best_metric,
-                   **best)
+                   scope="search", **overall_best)

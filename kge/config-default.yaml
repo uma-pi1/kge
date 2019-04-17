@@ -101,7 +101,9 @@ search:
 
 # Metajob for a grid search
 grid:
-  # if false, only creates folders and configurations
+  # If false, only creates search job configuration file. This may be useful to
+  # edit the configuration (e.g., change folder names) or to copy the created
+  # configurations to an existing search job.
   run: True
 
   # Define the grid. This is a list of key-array pairs, where the key is a
