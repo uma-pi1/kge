@@ -8,6 +8,16 @@ from kge import Config
 from kge.job import Job
 from kge.util.misc import get_git_revision_short_hash
 
+
+def argparse_bool_type(v):
+    "Type for argparse that correctly treats Boolean values"
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
 if __name__ == '__main__':
     # default config
     config = Config()
@@ -25,10 +35,13 @@ if __name__ == '__main__':
     parser.add_argument('--resume', '-r', type=str)
     for key, value in Config.flatten(config.options).items():
         short = short_options.get(key)
+        argtype = type(value)
+        if argtype == bool:
+            argtype = argparse_bool_type
         if short:
-            parser.add_argument('--'+key, short, type=type(value))
+            parser.add_argument('--'+key, short, type=argtype)
         else:
-            parser.add_argument('--'+key, type=type(value))
+            parser.add_argument('--'+key, type=argtype)
     args = parser.parse_args()
 
     # use toy config file if no config given
@@ -76,7 +89,6 @@ if __name__ == '__main__':
     # log configuration
     config.log("Configuration:")
     config.log(yaml.dump(config.options), prefix='  ')
-
     config.log('git commit: {}'.format(get_git_revision_short_hash()),
                prefix='  ')
 

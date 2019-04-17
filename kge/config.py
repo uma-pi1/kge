@@ -68,6 +68,7 @@ class Config:
         splits = key.split('.')
         data = self.options
 
+        # flatten path
         path = []
         for i in range(len(splits) - 1):
             create = create or '+++' in data[splits[i]]
@@ -76,6 +77,7 @@ class Config:
             path.append(splits[i])
             data = data[splits[i]]
 
+        # check correctness of value
         current_value = data.get(splits[-1])
         if current_value is None:
             if not create:
@@ -88,11 +90,7 @@ class Config:
             if overwrite == Config.Overwrite.Error and value != current_value:
                 raise ValueError("key {} cannot be overwritten".format(key))
 
-        if isinstance(value, str) and is_number(value, float):
-            value = float(value)
-        elif isinstance(value, str) and is_number(value, int):
-            value = int(value)
-
+        # all fine, set value
         data[splits[-1]] = value
         return value
 
