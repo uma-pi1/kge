@@ -30,8 +30,9 @@ class SearchJob(Job):
             del search_config['folder']
             config = self.config.clone(folder)
             config.set('job.type', 'train')
-            config.set_all(Config.flatten(search_config))
-            all_keys.update(search_config.keys())
+            flattened_search_config = Config.flatten(search_config)
+            config.set_all(flattened_search_config)
+            all_keys.update(flattened_search_config.keys())
             search_configs[i] = config
 
         # create folders for search_configs (existing folders remain
@@ -50,7 +51,13 @@ class SearchJob(Job):
                 last_checkpoint = job.config.last_checkpoint()
                 if last_checkpoint is None \
                    or last_checkpoint < job.config.get('train.max_epochs'):
+                    def copy_to_search_trace(job, trace_entry):
+                        for key in all_keys:
+                            trace_entry[key] = config.get(key)
+                            trace_entry['folder'] = config.folder()
+                            self.config.trace(**trace_entry)
                     job.resume()
+                    job.after_valid_hooks.append(copy_to_search_trace)
                     job.run()
                 else:
                     self.config.log('Maximum number of epochs reached.')
@@ -60,7 +67,6 @@ class SearchJob(Job):
 
         # read each search_configs trace file and produce a summary
         self.config.log("Reading results...")
-        summary = []
         best = None
         best_metric = None
         metric_name = self.config.get('valid.metric')
@@ -76,8 +82,7 @@ class SearchJob(Job):
                 if not best or best_metric < metric:
                     best = row
                     best_metric = metric
-                self.config.trace(**row)
-            summary.append(data)
+                # self.config.trace(**row)   # already done in after_valid_hook
         self.config.log("And the winner is ({}={:.3f})..."
                         .format(metric_name, best_metric))
         best['valid_job_id'] = best['job_id']
