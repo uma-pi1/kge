@@ -31,7 +31,7 @@ class SearchJob(Job):
 
     def run(self):
         # read search configurations and expand them to full configs
-        search_configs = self.config.get('search.configurations')
+        search_configs = copy.deepcopy(self.config.get('search.configurations'))
         all_keys = set()
         for i in range(len(search_configs)):
             search_config = search_configs[i]
