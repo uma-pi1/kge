@@ -36,8 +36,13 @@ class TrainingJob(Job):
         self.config.check('train.trace_level', ['batch', 'epoch'])
         self.trace_batch = self.config.get('train.trace_level') == 'batch'
         self.epoch = 0
-        self.valid_metrics = []
+        self.valid_trace = []
         self.model.train()
+
+        # function that takes this job and corresponding trace entry as
+        # argument
+        self.after_run_epoch_hooks = []
+        self.after_valid_hooks = []
 
     def create(config, dataset, parent_job=None):
         """Factory method to create a training job and add necessary label_coords to
@@ -50,7 +55,8 @@ the dataset (if not present).
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError("train.type")
 
-    def run_epoch(self):
+    def run_epoch(self) -> dict:
+        "Runs an epoch and returns a trace entry."
         raise NotImplementedError
 
     def run(self):
@@ -63,11 +69,11 @@ the dataset (if not present).
             if self.epoch >= self.config.get('train.max_epochs'):
                 self.config.log('Maximum number of epochs reached.')
                 break
-            if early_stopping > 0 and len(self.valid_metrics) > early_stopping:
+            if early_stopping > 0 and len(self.valid_trace) > early_stopping:
                 stop_now = True
-                last = self.valid_metrics[-1][metric_name]
+                last = self.valid_trace[-1][metric_name]
                 for i in range(early_stopping):
-                    if last > self.valid_metrics[-2-i][metric_name]:
+                    if last > self.valid_trace[-2-i][metric_name]:
                         stop_now = False
                         break
                 if stop_now:
@@ -79,16 +85,19 @@ the dataset (if not present).
             # start a new epoch
             self.epoch += 1
             self.config.log('Starting epoch {}...'.format(self.epoch))
-            self.run_epoch()
+            trace_entry = self.run_epoch()
+            for f in self.after_run_epoch_hooks:
+                f(self, trace_entry)
             self.config.log('Finished epoch {}.'.format(self.epoch))
 
             # validate
             if self.config.get('valid.every') > 0 \
                and self.epoch % self.config.get('valid.every') == 0:
                 self.valid_job.epoch = self.epoch
-                metrics = self.valid_job.run()
-                metrics['epoch'] = self.epoch
-                self.valid_metrics.append(metrics)
+                trace_entry = self.valid_job.run()
+                self.valid_trace.append(trace_entry)
+                for f in self.after_valid_hooks:
+                    f(self, trace_entry)
 
             # create checkpoint and delete old one, if necessary
             self.save(self.config.checkpointfile(self.epoch))
@@ -102,7 +111,7 @@ the dataset (if not present).
         self.config.log('Saving checkpoint to "{}"...'.format(filename))
         torch.save({
             'epoch': self.epoch,
-            'valid_metrics': self.valid_metrics,
+            'valid_trace': self.valid_trace,
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             }, filename)
@@ -113,7 +122,7 @@ the dataset (if not present).
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.epoch = checkpoint['epoch']
-        self.valid_metrics = checkpoint['valid_metrics']
+        self.valid_trace = checkpoint['valid_trace']
         self.model.train()
 
     def resume(self):
@@ -225,7 +234,7 @@ class TrainingJob1toN(TrainingJob):
 
         return collate
 
-    def run_epoch(self):
+    def run_epoch(self) -> dict:
         # TODO refactor: much of this can go to TrainingJob
         sum_loss = 0
         epoch_time = -time.time()
@@ -301,7 +310,7 @@ class TrainingJob1toN(TrainingJob):
         print("\033[2K\r", end="")  # clear line and go back
         other_time = epoch_time - prepare_time - forward_time \
             - backward_time - optimizer_time
-        self.trace(
+        trace_entry = self.trace(
             echo=True, echo_prefix="  ", log=True,
             type='1toN', scope='epoch',
             epoch=self.epoch, batches=len(self.loader),
@@ -311,3 +320,4 @@ class TrainingJob1toN(TrainingJob):
             forward_time=forward_time, backward_time=backward_time,
             optimizer_time=optimizer_time,
             other_time=other_time)
+        return trace_entry

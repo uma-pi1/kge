@@ -188,7 +188,7 @@ class EntityRankingJob(EvaluationJob):
         epoch_time += time.time()
 
         # and trace them
-        self.trace(
+        trace_entry = self.trace(
             echo=True, echo_prefix="  ", log=True,
             type='entity_ranking', scope='epoch',
             data=self.eval_data,
@@ -201,7 +201,7 @@ class EntityRankingJob(EvaluationJob):
             self.model.train()
         self.config.log("Finished evaluating on " + self.eval_data + " data.")
 
-        return metrics
+        return trace_entry
 
     def _filter_and_rank(self, s, p, o, scores_sp, scores_po, labels):
         num_entities = self.dataset.num_entities
