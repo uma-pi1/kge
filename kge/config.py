@@ -82,6 +82,11 @@ class Config:
         if current_value is None:
             if not create:
                 raise ValueError("key {} not present".format(key))
+
+            if isinstance(value, str) and is_number(value, float):
+                value = float(value)
+            elif isinstance(value, str) and is_number(value, int):
+                value = int(value)
         else:
             if type(value) != type(current_value):
                 raise ValueError("key {} has incorrect type".format(key))
@@ -216,13 +221,15 @@ class Config:
                 file.write("\n")
 
     def trace(self, echo=False, echo_prefix='', echo_flow=False,
-              log=False, **kwargs):
+              log=False, **kwargs) -> dict:
         """Write a set of key-value pairs to the trace file.
 
         The pairs are written as a single-line YAML record. Optionally, also
         echo to console and/or write to log file.
 
         And id and the current time is automatically added using key ``timestamp``.
+
+        Returns the written k/v pairs.
         """
         with open(self.tracefile(), 'a') as file:
             kwargs['timestamp'] = time.time()
@@ -240,7 +247,7 @@ class Config:
                             print(line)
             file.write(line)
             file.write("\n")
-            return line
+        return kwargs
 
     # -- FOLDERS AND CHECKPOINTS ----------------------------------------------
 

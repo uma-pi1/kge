@@ -52,6 +52,7 @@ class Job:
 
         if self.parent_job is not None:
             kwargs['parent_job_id'] = self.parent_job.job_id
-        self.config.trace(job_id=self.job_id,
-                          job=self.config.get('job.type'),
-                          **kwargs)
+
+        return self.config.trace(job_id=self.job_id,
+                                 job=self.config.get('job.type'),
+                                 **kwargs)

@@ -36,7 +36,7 @@ class GridJob(Job):
             # create search configuration and check whether correct
             dummy_config = copy.deepcopy(self.config)
             search_config = Config(False)
-            search_config.set('folder', str('_'.join(map(str, values))), create=True)
+            search_config.options['folder'] = '_'.join(map(str, values))
             for i, key in enumerate(all_keys):
                 dummy_config.set(key, values[i])  # to test whether correct k/v pair
                 search_config.set(key, values[i], create=True)
