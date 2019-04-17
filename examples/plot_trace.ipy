@@ -8,32 +8,52 @@ tracefile = 'local/experiments/toy/trace.yaml'
 tracefile = sys.argv[1] # to be able to run with plot_trace.ipy <tracefile>
 trace = Trace(tracefile, regex_filter='epoch')
 
+show_raw = True
+show_filtered = True
+show_filtered_with_test = True
+
 train = trace.to_dataframe({'job': 'train', 'scope': 'epoch'})
 valid = trace.to_dataframe({'job': 'eval', 'scope': 'epoch'})
+
 
 # plot train loss and validation mrr and hits@k
 fig, axs = plt.subplots(3, 1, sharex=True)
 axs[0].plot(train.epoch, train.avg_loss)
 axs[0].set_ylabel("avg loss (train)")
-axs[1].plot(valid.epoch, valid.mean_reciprocal_rank_filtered,
-            label='MRR (filtered)')
-axs[1].plot(valid.epoch, valid.mean_reciprocal_rank,
-            label='MRR', linestyle='dashed', color='C0')
 axs[1].set_ylabel("mrr (valid)")
-axs[1].legend()
-axs[2].plot(valid.epoch, list(map(lambda x: x[0], valid.hits_at_k_filtered)),
-            label='Hits@1 (filtered)', color='C0')
-axs[2].plot(valid.epoch, list(map(lambda x: x[2], valid.hits_at_k_filtered)),
-            label='Hits@3 (filtered)', color='C1')
-axs[2].plot(valid.epoch, list(map(lambda x: x[9], valid.hits_at_k_filtered)),
-            label='Hits@10 (filtered)', color='C2')
-axs[2].plot(valid.epoch, list(map(lambda x: x[0], valid.hits_at_k)),
-            label='Hits@1', linestyle='dashed', color='C0')
-axs[2].plot(valid.epoch, list(map(lambda x: x[2], valid.hits_at_k)),
-            label='Hits@3', linestyle='dashed', color='C1')
-axs[2].plot(valid.epoch, list(map(lambda x: x[9], valid.hits_at_k)),
-            label='Hits@10', linestyle='dashed', color='C2')
 axs[2].set_ylabel("Hits@k (valid)")
+if show_raw:
+    axs[1].plot(valid.epoch, valid.mean_reciprocal_rank,
+                label='MRR (raw)', linestyle='dotted', color='C0')
+    axs[2].plot(valid.epoch, list(map(lambda x: x[0], valid.hits_at_k)),
+                label='Hits@1 (raw)', linestyle='dotted', color='C0')
+    axs[2].plot(valid.epoch, list(map(lambda x: x[2], valid.hits_at_k)),
+                label='Hits@3 (raw)', linestyle='dotted', color='C1')
+    axs[2].plot(valid.epoch, list(map(lambda x: x[9], valid.hits_at_k)),
+                label='Hits@10 (raw)', linestyle='dotted', color='C2')
+if show_filtered:
+    axs[1].plot(valid.epoch, valid.mean_reciprocal_rank_filtered,
+                label='MRR (filtered)', linestyle='dashed', color='C0')
+    axs[2].plot(valid.epoch, list(map(lambda x: x[0], valid.hits_at_k_filtered)),
+                label='Hits@1 (filtered)', linestyle='dashed', color='C0')
+    axs[2].plot(valid.epoch, list(map(lambda x: x[2], valid.hits_at_k_filtered)),
+                label='Hits@3 (filtered)', linestyle='dashed', color='C1')
+    axs[2].plot(valid.epoch, list(map(lambda x: x[9], valid.hits_at_k_filtered)),
+                label='Hits@10 (filtered)', linestyle='dashed', color='C2')
+if show_filtered_with_test:
+    axs[1].plot(valid.epoch, valid.mean_reciprocal_rank_filtered_with_test,
+                label='MRR (filtered w/ test)', color='C0')
+    axs[2].plot(valid.epoch, list(map(lambda x: x[0],
+                                      valid.hits_at_k_filtered_with_test)),
+                label='Hits@1 (filtered w/ test)', color='C0')
+    axs[2].plot(valid.epoch, list(map(lambda x: x[2],
+                                      valid.hits_at_k_filtered_with_test)),
+                label='Hits@3 (filtered w/ test)', color='C1')
+    axs[2].plot(valid.epoch, list(map(lambda x: x[9],
+                                      valid.hits_at_k_filtered_with_test)),
+                label='Hits@10 (filtered w/ test)', color='C2')
+axs[1].legend()
 axs[2].legend()
+
 
 input("Press Enter to continue...")
