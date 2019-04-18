@@ -20,8 +20,7 @@ class Config:
     def __init__(self, load_default=True):
         """Initialize with the default configuration"""
         if load_default:
-            with open(filename_in_module(kge, 'config-default.yaml'), 'r') \
-                 as file:
+            with open(filename_in_module(kge, "config-default.yaml"), "r") as file:
                 self.options = yaml.load(file, Loader=yaml.SafeLoader)
         else:
             self.options = {}
@@ -37,13 +36,14 @@ class Config:
 
         """
         result = self.options
-        for name in key.split('.'):
+        for name in key.split("."):
             result = result[name]
 
         if remove_plusplusplus and isinstance(result, collections.Mapping):
+
             def do_remove_plusplusplus(option):
                 if isinstance(option, collections.Mapping):
-                    option.pop('+++', None)
+                    option.pop("+++", None)
                     for values in option.values():
                         do_remove_plusplusplus(values)
 
@@ -52,7 +52,7 @@ class Config:
 
         return result
 
-    Overwrite = Enum('Overwrite', 'Yes No Error')
+    Overwrite = Enum("Overwrite", "Yes No Error")
 
     def set(self, key, value, create=False, overwrite=Overwrite.Yes):
         """Set value of specified key.
@@ -65,13 +65,13 @@ class Config:
         into the configuration.
 
         """
-        splits = key.split('.')
+        splits = key.split(".")
         data = self.options
 
         # flatten path
         path = []
         for i in range(len(splits) - 1):
-            create = create or '+++' in data[splits[i]]
+            create = create or "+++" in data[splits[i]]
             if create and splits[i] not in data:
                 data[splits[i]] = dict()
             path.append(splits[i])
@@ -110,11 +110,11 @@ class Config:
 
         # load the module_name
         module_config = Config(False)
-        module_config.load(filename_in_module(kge.model,
-                                              '{}.yaml'.format(module_name)),
-                           create=True)
-        if 'import' in module_config.options:
-            del module_config.options['import']
+        module_config.load(
+            filename_in_module(kge.model, "{}.yaml".format(module_name)), create=True
+        )
+        if "import" in module_config.options:
+            del module_config.options["import"]
 
         # add/verify current configuration
         for key in module_config.options.keys():
@@ -129,7 +129,7 @@ class Config:
         self.set_all(module_config.options, create=True)
 
         # remember the import
-        imports = self.options.get('import')
+        imports = self.options.get("import")
         if imports is None:
             imports = module_name
         elif isinstance(imports, str):
@@ -137,7 +137,7 @@ class Config:
         else:
             imports.append(module_name)
             imports = list(dict.fromkeys(imports))
-        self.options['import'] = imports
+        self.options["import"] = imports
 
     def set_all(self, new_options, create=False, overwrite=Overwrite.Yes):
         for key, value in Config.flatten(new_options).items():
@@ -156,19 +156,19 @@ class Config:
         configuration files are imported.
 
         """
-        with open(filename, 'r') as file:
+        with open(filename, "r") as file:
             new_options = yaml.load(file, Loader=yaml.SafeLoader)
 
         # import model configurations
-        if 'model' in new_options:
-            self._import(new_options.get('model'))
-        if 'import' in new_options:
-            imports = new_options.get('import')
+        if "model" in new_options:
+            self._import(new_options.get("model"))
+        if "import" in new_options:
+            imports = new_options.get("import")
             if not isinstance(imports, list):
                 imports = [imports]
             for module_name in imports:
                 self._import(module_name)
-            del new_options['import']
+            del new_options["import"]
 
         # now set all options
         self.set_all(new_options, create, overwrite)
@@ -186,9 +186,9 @@ class Config:
         return result
 
     @staticmethod
-    def __flatten(options, result, prefix=''):
+    def __flatten(options, result, prefix=""):
         for key, value in options.items():
-            fullkey = key if prefix == '' else prefix + '.' + key
+            fullkey = key if prefix == "" else prefix + "." + key
             if type(value) is dict:
                 Config.__flatten(value, result, prefix=fullkey)
             else:
@@ -198,19 +198,19 @@ class Config:
         """Return a deep copy"""
         new_config = copy.deepcopy(self)
         if subfolder is not None:
-            new_config.set("output.folder", self.folder() + subfolder + '/')
+            new_config.set("output.folder", self.folder() + subfolder + "/")
         return new_config
 
     # -- LOGGING AND TRACING --------------------------------------------------
 
-    def log(self, msg, echo=True, prefix=''):
+    def log(self, msg, echo=True, prefix=""):
         """Add a message to the default log file.
 
         Optionally also print on console. ``prefix`` is used to indent each
         output line.
 
         """
-        with open(self.logfile(), 'a') as file:
+        with open(self.logfile(), "a") as file:
             for line in msg.splitlines():
                 if prefix:
                     line = prefix + line
@@ -221,8 +221,9 @@ class Config:
                 file.write(line)
                 file.write("\n")
 
-    def trace(self, echo=False, echo_prefix='', echo_flow=False,
-              log=False, **kwargs) -> dict:
+    def trace(
+        self, echo=False, echo_prefix="", echo_flow=False, log=False, **kwargs
+    ) -> dict:
         """Write a set of key-value pairs to the trace file.
 
         The pairs are written as a single-line YAML record. Optionally, also
@@ -232,11 +233,12 @@ class Config:
 
         Returns the written k/v pairs.
         """
-        with open(self.tracefile(), 'a') as file:
-            kwargs['timestamp'] = time.time()
-            kwargs['entry_id'] = str(uuid.uuid4())
+        with open(self.tracefile(), "a") as file:
+            kwargs["timestamp"] = time.time()
+            kwargs["entry_id"] = str(uuid.uuid4())
             line = yaml.dump(
-                kwargs, width=float('inf'), default_flow_style=True).strip()
+                kwargs, width=float("inf"), default_flow_style=True
+            ).strip()
             if echo or log:
                 msg = yaml.dump(kwargs, default_flow_style=echo_flow)
                 if log:
@@ -268,7 +270,8 @@ class Config:
     def checkpointfile(self, epoch):
         "Return path of checkpoint file for given epoch"
         return "{}{}_{:05d}.pt".format(
-            self.folder(), self.get('checkpoint.basefile'), epoch)
+            self.folder(), self.get("checkpoint.basefile"), epoch
+        )
 
     def last_checkpoint(self):
         "Return epoch number of latest checkpoint"
@@ -290,18 +293,20 @@ class Config:
         """Raise an error if value of key is not in allowed"""
         if not self.get(key) in allowed_values:
             raise ValueError(
-                "Illegal value {} for key {}; allowed values are {}"
-                .format(self.get(key), key, allowed_values))
+                "Illegal value {} for key {}; allowed values are {}".format(
+                    self.get(key), key, allowed_values
+                )
+            )
 
     def folder(self):
         """Return output folder"""
-        folder = self.get('output.folder')
-        if len(folder) > 0 and not folder.endswith('/'):
-            folder += '/'
+        folder = self.get("output.folder")
+        if len(folder) > 0 and not folder.endswith("/"):
+            folder += "/"
         return folder
 
     def logfile(self):
-        return self.folder() + self.get('output.logfile')
+        return self.folder() + self.get("output.logfile")
 
     def tracefile(self):
-        return self.folder() + self.get('output.tracefile')
+        return self.folder() + self.get("output.tracefile")

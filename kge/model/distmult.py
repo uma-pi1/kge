@@ -24,9 +24,9 @@ class DistMult(KgeModel):
         feat_dim = 1
 
         if prefix:
-            if prefix == 'sp':
+            if prefix == "sp":
                 out = (sub * rel).mm(obj.transpose(0, 1))
-            elif prefix == 'po':
+            elif prefix == "po":
                 out = (rel * obj).mm(sub.transpose(0, 1))
             else:
                 raise Exception

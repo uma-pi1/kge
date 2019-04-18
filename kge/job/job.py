@@ -11,12 +11,12 @@ class Job:
         self.dataset = dataset
         self.job_id = str(uuid.uuid4())
         self.parent_job = parent_job
-        userhome = os.path.expanduser('~')
+        userhome = os.path.expanduser("~")
         username = os.path.split(userhome)[-1]
         self.trace(
             git_head=get_git_revision_short_hash(),
             username=username,
-            hostname=socket.gethostname()
+            hostname=socket.gethostname(),
         )
 
     def resume(self):
@@ -35,13 +35,13 @@ class Job:
 
         from kge.job import TrainingJob, GridJob, EvaluationJob, SearchJob
 
-        if config.get('job.type') == 'train':
+        if config.get("job.type") == "train":
             return TrainingJob.create(config, dataset, parent_job)
-        elif config.get('job.type') == 'search':
+        elif config.get("job.type") == "search":
             return SearchJob(config, dataset, parent_job)
-        elif config.get('job.type') == 'grid':
+        elif config.get("job.type") == "grid":
             return GridJob(config, dataset, parent_job)
-        elif config.get('job.type') == 'eval':
+        elif config.get("job.type") == "eval":
             return EvaluationJob.create(config, dataset, parent_job)
         else:
             raise ValueError("unknown job type")
@@ -51,8 +51,8 @@ class Job:
         information about this job. See `Config.trace` for more information."""
 
         if self.parent_job is not None:
-            kwargs['parent_job_id'] = self.parent_job.job_id
+            kwargs["parent_job_id"] = self.parent_job.job_id
 
-        return self.config.trace(job_id=self.job_id,
-                                 job=self.config.get('job.type'),
-                                 **kwargs)
+        return self.config.trace(
+            job_id=self.job_id, job=self.config.get("job.type"), **kwargs
+        )

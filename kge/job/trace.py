@@ -5,6 +5,7 @@ import re
 
 class Trace:
     """Utility class for handling traces."""
+
     def __init__(self, tracefile=None, regex_filter=None):
         self.entries = []
         if tracefile:
@@ -13,7 +14,7 @@ class Trace:
     def load(self, tracefile, regex_filter=None):
         if regex_filter:
             matcher = re.compile(regex_filter)
-        with open(tracefile, 'r') as file:
+        with open(tracefile, "r") as file:
             self.kv_pairs = []
             for line in file:
                 if regex_filter and not matcher.search(line):
@@ -28,6 +29,7 @@ class Trace:
                 if not entry_value or value != entry_value:
                     return False
             return True
+
         return list(filter(predicate, self.entries))
 
     def to_dataframe(self, filter_dict={}):
@@ -47,7 +49,7 @@ class Trace:
         if match:
             k = int(match.group(1))
             if match.group(2):
-                return entry.get("hits_at_k_filtered")[k-1]
+                return entry.get("hits_at_k_filtered")[k - 1]
             else:
-                return entry.get("hits_at_k")[k-1]
+                return entry.get("hits_at_k")[k - 1]
         raise ValueError("metric " + metric_name + " not found")

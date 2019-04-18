@@ -15,7 +15,7 @@ class KgeBase(torch.nn.Module):
         self.dataset = dataset
 
     def initialize(self, what, initialize, initialize_arg):
-        if initialize == 'normal':
+        if initialize == "normal":
             torch.nn.init.normal_(what, std=initialize_arg)
         else:
             raise ValueError("initialize")
@@ -30,9 +30,17 @@ class KgeModel(KgeBase):
         super().__init__(config, dataset)
         # TODO generalize this
         self._entity_embedder = KgeEmbedder.create(
-            config, dataset, config.get('model') + '.entity_embedder', dataset.num_entities)
+            config,
+            dataset,
+            config.get("model") + ".entity_embedder",
+            dataset.num_entities,
+        )
         self._relation_embedder = KgeEmbedder.create(
-            config, dataset, config.get('model') + '.relation_embedder', dataset.num_relations)
+            config,
+            dataset,
+            config.get("model") + ".relation_embedder",
+            dataset.num_relations,
+        )
 
     def score_spo(self, s, p, o):
         return self._score(s, p, o)
@@ -41,13 +49,13 @@ class KgeModel(KgeBase):
         s = self.get_s_embedder().embed(s)
         p = self.get_p_embedder().embed(p)
         all_objects = self.get_o_embedder().embed_all()
-        return self._score(s, p, all_objects, prefix='sp')
+        return self._score(s, p, all_objects, prefix="sp")
 
     def score_po(self, p, o):
         all_subjects = self.get_s_embedder().embed_all()
         p = self.get_p_embedder().embed(p)
         o = self.get_o_embedder().embed(o)
-        return self._score(all_subjects, p, o, prefix='po')
+        return self._score(all_subjects, p, o, prefix="po")
 
     def score_sp_po(self, s, p, o):
         s = self.get_s_embedder().embed(s)
@@ -55,13 +63,13 @@ class KgeModel(KgeBase):
         o = self.get_o_embedder().embed(o)
         if self.get_s_embedder() is self.get_o_embedder():
             all_entities = self.get_s_embedder().embed_all()
-            sp_scores = self._score(s, p, all_entities, prefix='sp')
-            po_scores = self._score(all_entities, p, o, prefix='po')
+            sp_scores = self._score(s, p, all_entities, prefix="sp")
+            po_scores = self._score(all_entities, p, o, prefix="po")
         else:
             all_objects = self.get_o_embedder().embed_all()
-            sp_scores = self._score(s, p, all_objects, prefix='sp')
+            sp_scores = self._score(s, p, all_objects, prefix="sp")
             all_subjects = self.get_s_embedder().embed_all()
-            po_scores = self._score(all_subjects, p, o, prefix='po')
+            po_scores = self._score(all_subjects, p, o, prefix="po")
         return torch.cat((sp_scores, po_scores), dim=1)
 
     def score_p(self, p):
@@ -73,17 +81,20 @@ class KgeModel(KgeBase):
 
         model = None
         try:
-            model_name = config.get('model')
-            class_name = config.get(model_name + '.class_name')
-            module = importlib.import_module('kge.model')
+            model_name = config.get("model")
+            class_name = config.get(model_name + ".class_name")
+            module = importlib.import_module("kge.model")
             model = getattr(module, class_name)(config, dataset)
         except ImportError:
             # perhaps TODO: try class with specified name -> extensibility
-            raise ValueError("Can't find class {} in 'kge.model' for model {}".
-                             format(class_name, model_name))
+            raise ValueError(
+                "Can't find class {} in 'kge.model' for model {}".format(
+                    class_name, model_name
+                )
+            )
 
         # TODO I/O (resume model)
-        model.to(config.get('job.device'))
+        model.to(config.get("job.device"))
         return model
 
     # TODO document this method and in particular: prefix
@@ -118,14 +129,17 @@ class KgeEmbedder(KgeBase):
         # verify all custom options by trying to set them in a copy of this
         # configuration (quick and dirty, but works)
         custom_options = Config.flatten(config.get(configuration_key))
-        del custom_options['type']
+        del custom_options["type"]
         dummy_config = copy.deepcopy(self.config)
         for key, value in custom_options.items():
             try:
-                dummy_config.set(self.embedder_type + '.' + key, value)
+                dummy_config.set(self.embedder_type + "." + key, value)
             except ValueError:
-                raise ValueError('key {}.{} invalid or of incorrect type'
-                                 .format(self.configuration_key, key))
+                raise ValueError(
+                    "key {}.{} invalid or of incorrect type".format(
+                        self.configuration_key, key
+                    )
+                )
 
     @staticmethod
     def create(config, dataset, configuration_key, vocab_size):
@@ -134,16 +148,18 @@ class KgeEmbedder(KgeBase):
         embedder = None
         try:
             embedder_type = config.get(configuration_key + ".type")
-            class_name = config.get(embedder_type + '.class_name')
-            module = importlib.import_module('kge.model')
+            class_name = config.get(embedder_type + ".class_name")
+            module = importlib.import_module("kge.model")
             embedder = getattr(module, class_name)(
-                config, dataset, configuration_key, vocab_size)
+                config, dataset, configuration_key, vocab_size
+            )
         except ImportError:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError(
-                "Can't find class {} in 'kge.model' for embedder {}"
-                .format(class_name, embedder_type))
-
+                "Can't find class {} in 'kge.model' for embedder {}".format(
+                    class_name, embedder_type
+                )
+            )
 
         return embedder
 
@@ -164,7 +180,7 @@ class KgeEmbedder(KgeBase):
     def get_option(self, name):
         try:
             # custom option
-            return self.config.get(self.configuration_key + '.' + name)
+            return self.config.get(self.configuration_key + "." + name)
         except KeyError:
             # default option
-            return self.config.get(self.embedder_type + '.' + name)
+            return self.config.get(self.embedder_type + "." + name)

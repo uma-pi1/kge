@@ -27,16 +27,16 @@ class ComplEx(KgeModel):
         rel1, rel2 = (t.contiguous() for t in rel.chunk(2, dim=feat_dim))
         obj1, obj2 = (t.contiguous() for t in obj.chunk(2, dim=feat_dim))
         sub_all = torch.cat((sub, sub), dim=feat_dim)
-        rel_all = torch.cat((rel1, rel, -rel2,), dim=feat_dim)
-        obj_all = torch.cat((obj, obj2, obj1,), dim=feat_dim)
+        rel_all = torch.cat((rel1, rel, -rel2), dim=feat_dim)
+        obj_all = torch.cat((obj, obj2, obj1), dim=feat_dim)
 
         if prefix:
-          if prefix == 'sp':
-              out = (sub_all * rel_all).mm(obj_all.transpose(0, 1))
-          elif prefix == 'po':
-              out = (rel_all * obj_all).mm(sub_all.transpose(0, 1))
-          else:
-              raise Exception
+            if prefix == "sp":
+                out = (sub_all * rel_all).mm(obj_all.transpose(0, 1))
+            elif prefix == "po":
+                out = (rel_all * obj_all).mm(sub_all.transpose(0, 1))
+            else:
+                raise Exception
         else:
             out = (sub_all * obj_all * rel_all).sum(dim=feat_dim)
 

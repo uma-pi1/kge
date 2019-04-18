@@ -1,7 +1,9 @@
 import torch
 
 
-def get_batch_sp_po_coords(batch, num_entities, sp_index: dict, po_index: dict) -> torch.LongTensor:
+def get_batch_sp_po_coords(
+    batch, num_entities, sp_index: dict, po_index: dict
+) -> torch.LongTensor:
     """Given a set of triples , lookup matches for (s,p,?) and (?,p,o).
 
     Each row in batch holds an (s,p,o) triple. Returns the non-zero coordinates
@@ -23,28 +25,30 @@ def get_batch_sp_po_coords(batch, num_entities, sp_index: dict, po_index: dict) 
         s, p, o = triple[0].item(), triple[1].item(), triple[2].item()
 
         objects = sp_index.get((s, p), NOTHING)
-        coords[current_index:(current_index+len(objects)), 0] = i
-        coords[current_index:(current_index+len(objects)), 1] = objects
+        coords[current_index : (current_index + len(objects)), 0] = i
+        coords[current_index : (current_index + len(objects)), 1] = objects
         current_index += len(objects)
 
         subjects = po_index.get((p, o), NOTHING) + num_entities
-        coords[current_index:(current_index+len(subjects)), 0] = i
-        coords[current_index:(current_index+len(subjects)), 1] = subjects
+        coords[current_index : (current_index + len(subjects)), 0] = i
+        coords[current_index : (current_index + len(subjects)), 1] = subjects
         current_index += len(subjects)
 
     return coords
 
+
 def coord_to_sparse_tensor(nrows, ncols, coords, device, value=1.0):
-    if device == 'cpu':
+    if device == "cpu":
         labels = torch.sparse.FloatTensor(
             coords.t(),
-            torch.ones([len(coords)], dtype=torch.float, device=device)*value,
-            torch.Size([nrows, ncols]))
+            torch.ones([len(coords)], dtype=torch.float, device=device) * value,
+            torch.Size([nrows, ncols]),
+        )
     else:
         labels = torch.cuda.sparse.FloatTensor(
             coords.t(),
-            torch.ones([len(coords)], dtype=torch.float, device=device)*value,
+            torch.ones([len(coords)], dtype=torch.float, device=device) * value,
             torch.Size([nrows, ncols]),
-            device=device)
+            device=device,
+        )
     return labels
-

@@ -3,7 +3,7 @@ import math
 import torch
 import torch.utils.data
 import time
-from kge.job import Job, Trace
+from kge.job import Job
 from kge.model import KgeModel
 from kge.util import KgeLoss, KgeOptimizer
 import kge.job.util
@@ -23,17 +23,17 @@ class TrainingJob(Job):
         self.model = KgeModel.create(config, dataset)
         self.optimizer = KgeOptimizer.create(config, self.model)
         self.loss = KgeLoss.create(config)
-        self.batch_size = config.get('train.batch_size')
-        self.device = self.config.get('job.device')
+        self.batch_size = config.get("train.batch_size")
+        self.device = self.config.get("job.device")
         valid_conf = config.clone()
-        valid_conf.set('job.type', 'eval')
-        valid_conf.set('eval.data', 'valid')
-        valid_conf.set('eval.trace_level',
-                       self.config.get('valid.trace_level'))
+        valid_conf.set("job.type", "eval")
+        valid_conf.set("eval.data", "valid")
+        valid_conf.set("eval.trace_level", self.config.get("valid.trace_level"))
         self.valid_job = EvaluationJob.create(
-            valid_conf, dataset, parent_job=self, model=self.model)
-        self.config.check('train.trace_level', ['batch', 'epoch'])
-        self.trace_batch = self.config.get('train.trace_level') == 'batch'
+            valid_conf, dataset, parent_job=self, model=self.model
+        )
+        self.config.check("train.trace_level", ["batch", "epoch"])
+        self.trace_batch = self.config.get("train.trace_level") == "batch"
         self.epoch = 0
         self.valid_trace = []
         self.model.train()
@@ -48,7 +48,7 @@ class TrainingJob(Job):
 the dataset (if not present).
 
         """
-        if config.get('train.type') == '1toN':
+        if config.get("train.type") == "1toN":
             return TrainingJob1toN(config, dataset, parent_job)
         else:
             # perhaps TODO: try class with specified name -> extensibility
@@ -59,39 +59,44 @@ the dataset (if not present).
         raise NotImplementedError
 
     def run(self):
-        self.config.log('Starting training...')
-        checkpoint = self.config.get('checkpoint.every')
-        metric_name = self.config.get('valid.metric')
-        early_stopping = self.config.get('valid.early_stopping')
+        self.config.log("Starting training...")
+        checkpoint = self.config.get("checkpoint.every")
+        metric_name = self.config.get("valid.metric")
+        early_stopping = self.config.get("valid.early_stopping")
         while True:
             # should we stop?
-            if self.epoch >= self.config.get('train.max_epochs'):
-                self.config.log('Maximum number of epochs reached.')
+            if self.epoch >= self.config.get("train.max_epochs"):
+                self.config.log("Maximum number of epochs reached.")
                 break
             if early_stopping > 0 and len(self.valid_trace) > early_stopping:
                 stop_now = True
                 last = self.valid_trace[-1][metric_name]
                 for i in range(early_stopping):
-                    if last > self.valid_trace[-2-i][metric_name]:
+                    if last > self.valid_trace[-2 - i][metric_name]:
                         stop_now = False
                         break
                 if stop_now:
-                    self.config.log(('Stopping early ({} did not improve '
-                                    + 'in the last {} validation runs).')
-                                    .format(metric_name, early_stopping))
+                    self.config.log(
+                        (
+                            "Stopping early ({} did not improve "
+                            + "in the last {} validation runs)."
+                        ).format(metric_name, early_stopping)
+                    )
                     break
 
             # start a new epoch
             self.epoch += 1
-            self.config.log('Starting epoch {}...'.format(self.epoch))
+            self.config.log("Starting epoch {}...".format(self.epoch))
             trace_entry = self.run_epoch()
             for f in self.after_run_epoch_hooks:
                 f(self, trace_entry)
-            self.config.log('Finished epoch {}.'.format(self.epoch))
+            self.config.log("Finished epoch {}.".format(self.epoch))
 
             # validate
-            if self.config.get('valid.every') > 0 \
-               and self.epoch % self.config.get('valid.every') == 0:
+            if (
+                self.config.get("valid.every") > 0
+                and self.epoch % self.config.get("valid.every") == 0
+            ):
                 self.valid_job.epoch = self.epoch
                 trace_entry = self.valid_job.run()
                 self.valid_trace.append(trace_entry)
@@ -101,27 +106,33 @@ the dataset (if not present).
             # create checkpoint and delete old one, if necessary
             self.save(self.config.checkpointfile(self.epoch))
             if self.epoch > 1:
-                if not (checkpoint > 0 and ((self.epoch-1) % checkpoint == 0)):
-                    self.config.log('Removing old checkpoint {}...'.format(
-                        self.config.checkpointfile(self.epoch-1)))
-                    os.remove(self.config.checkpointfile(self.epoch-1))
+                if not (checkpoint > 0 and ((self.epoch - 1) % checkpoint == 0)):
+                    self.config.log(
+                        "Removing old checkpoint {}...".format(
+                            self.config.checkpointfile(self.epoch - 1)
+                        )
+                    )
+                    os.remove(self.config.checkpointfile(self.epoch - 1))
 
     def save(self, filename):
-        self.config.log('Saving checkpoint to {}...'.format(filename))
-        torch.save({
-            'epoch': self.epoch,
-            'valid_trace': self.valid_trace,
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            }, filename)
+        self.config.log("Saving checkpoint to {}...".format(filename))
+        torch.save(
+            {
+                "epoch": self.epoch,
+                "valid_trace": self.valid_trace,
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+            },
+            filename,
+        )
 
     def load(self, filename):
-        self.config.log('Loading checkpoint from {}...'.format(filename))
+        self.config.log("Loading checkpoint from {}...".format(filename))
         checkpoint = torch.load(filename)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
-        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        self.epoch = checkpoint['epoch']
-        self.valid_trace = checkpoint['valid_trace']
+        self.model.load_state_dict(checkpoint["model_state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        self.epoch = checkpoint["epoch"]
+        self.valid_trace = checkpoint["valid_trace"]
         self.model.train()
 
     def resume(self):
@@ -140,8 +151,8 @@ class TrainingJob1toN(TrainingJob):
         config.log("Initializing 1-to-N training job...")
 
         # create sp and po label_coords (if not done before)
-        train_sp = dataset.index_1toN('train', 'sp')
-        train_po = dataset.index_1toN('train', 'po')
+        train_sp = dataset.index_1toN("train", "sp")
+        train_po = dataset.index_1toN("train", "po")
 
         # convert indexes to pytoch tensors: a nx2 keys tensor (rows = keys),
         # an offset vector (row = starting offset in values for corresponding
@@ -154,28 +165,31 @@ class TrainingJob1toN(TrainingJob):
             keys = torch.tensor(list(index.keys()), dtype=torch.int)
             values = torch.cat(list(index.values()))
             offsets = torch.cumsum(
-                torch.tensor([0] + list(map(len, index.values())),
-                             dtype=torch.int), 0)
+                torch.tensor([0] + list(map(len, index.values())), dtype=torch.int), 0
+            )
             return keys, values, offsets
-        self.train_sp_keys, self.train_sp_values, self.train_sp_offsets = \
-            prepare_index(train_sp)
-        self.train_po_keys, self.train_po_values, self.train_po_offsets = \
-            prepare_index(train_po)
+
+        self.train_sp_keys, self.train_sp_values, self.train_sp_offsets = prepare_index(
+            train_sp
+        )
+        self.train_po_keys, self.train_po_values, self.train_po_offsets = prepare_index(
+            train_po
+        )
 
         # create dataloader
         self.loader = torch.utils.data.DataLoader(
-            range(len(train_sp)+len(train_po)),
+            range(len(train_sp) + len(train_po)),
             collate_fn=self._get_collate_fun(),
             shuffle=True,
             batch_size=self.batch_size,
-            num_workers=config.get('train.num_workers'),
-            pin_memory=config.get('train.pin_memory')
-           )
+            num_workers=config.get("train.num_workers"),
+            pin_memory=config.get("train.pin_memory"),
+        )
 
-        self.num_examples = len(train_sp)+len(train_po)
+        self.num_examples = len(train_sp) + len(train_po)
 
         # TODO currently assuming BCE loss
-        self.config.check('train.loss', ['bce'])
+        self.config.check("train.loss", ["bce"])
 
     def _get_collate_fun(self):
         num_sp = len(self.train_sp_keys)
@@ -194,11 +208,11 @@ class TrainingJob1toN(TrainingJob):
             num_ones = 0
             for example_index in batch:
                 if example_index < num_sp:
-                    num_ones += self.train_sp_offsets[example_index+1]
+                    num_ones += self.train_sp_offsets[example_index + 1]
                     num_ones -= self.train_sp_offsets[example_index]
                 else:
                     example_index -= num_sp
-                    num_ones += self.train_po_offsets[example_index+1]
+                    num_ones += self.train_po_offsets[example_index + 1]
                     num_ones -= self.train_po_offsets[example_index]
 
             # now create the results
@@ -218,14 +232,14 @@ class TrainingJob1toN(TrainingJob):
                     offsets = self.train_po_offsets
                     values = self.train_po_values
 
-                pairs[batch_index, ] = keys[example_index]
+                pairs[batch_index,] = keys[example_index]
                 start = offsets[example_index]
-                end = offsets[example_index+1]
-                size = end-start
-                label_coords[current_index:(current_index+size), 0] = \
-                    batch_index
-                label_coords[current_index:(current_index+size), 1] = \
-                    values[start:end]
+                end = offsets[example_index + 1]
+                size = end - start
+                label_coords[current_index : (current_index + size), 0] = batch_index
+                label_coords[current_index : (current_index + size), 1] = values[
+                    start:end
+                ]
                 current_index += size
 
             # all done
@@ -250,23 +264,21 @@ class TrainingJob1toN(TrainingJob):
             sp_indexes = is_sp.nonzero().to(self.device).view(-1)
             po_indexes = (is_sp == 0).nonzero().to(self.device).view(-1)
             labels = kge.job.util.coord_to_sparse_tensor(
-                batch_size, self.dataset.num_entities, label_coords,
-                self.device).to_dense()
+                batch_size, self.dataset.num_entities, label_coords, self.device
+            ).to_dense()
             batch_prepare_time += time.time()
             prepare_time += batch_prepare_time
 
             # forward pass
             batch_forward_time = -time.time()
             self.optimizer.zero_grad()
-            scores_sp = self.model.score_sp(pairs[sp_indexes, 0],
-                                            pairs[sp_indexes, 1])
-            loss_value = self.loss(scores_sp.view(-1),
-                                   labels[sp_indexes, ].view(-1))
-            scores_po = self.model.score_po(pairs[po_indexes, 0],
-                                            pairs[po_indexes, 1])
-            loss_value = loss_value + self.loss(scores_po.view(-1),
-                                    labels[po_indexes, ].view(-1))
-            sum_loss += loss_value.item()*batch_size
+            scores_sp = self.model.score_sp(pairs[sp_indexes, 0], pairs[sp_indexes, 1])
+            loss_value = self.loss(scores_sp.view(-1), labels[sp_indexes,].view(-1))
+            scores_po = self.model.score_po(pairs[po_indexes, 0], pairs[po_indexes, 1])
+            loss_value = loss_value + self.loss(
+                scores_po.view(-1), labels[po_indexes,].view(-1)
+            )
+            sum_loss += loss_value.item() * batch_size
             batch_forward_time += time.time()
             forward_time += batch_forward_time
 
@@ -284,39 +296,58 @@ class TrainingJob1toN(TrainingJob):
 
             if self.trace_batch:
                 self.trace(
-                    type='1toN', scope='batch',
+                    type="1toN",
+                    scope="batch",
                     epoch=self.epoch,
-                    batch=batch_index, size=batch_size,
+                    batch=batch_index,
+                    size=batch_size,
                     batches=len(self.loader),
                     avg_loss=loss_value.item(),
                     prepare_time=batch_prepare_time,
                     forward_time=batch_forward_time,
                     backward_time=batch_backward_time,
-                    optimizer_time=batch_optimizer_time
+                    optimizer_time=batch_optimizer_time,
                 )
-            print('\033[K\r', end="")  # clear line and go back
-            print(('  batch:{: '
-                   + str(1+int(math.ceil(math.log10(len(self.loader)))))
-                   + 'd}/{}, avg_loss: {:.10E}, time: {:8.4f}s')
-                  .format(
-                      batch_index, len(self.loader)-1,
-                      loss_value.item(),
-                      batch_prepare_time + batch_forward_time
-                      + batch_backward_time + batch_optimizer_time),
-                  end='')
+            print("\033[K\r", end="")  # clear line and go back
+            print(
+                (
+                    "  batch:{: "
+                    + str(1 + int(math.ceil(math.log10(len(self.loader)))))
+                    + "d}/{}, avg_loss: {:.10E}, time: {:8.4f}s"
+                ).format(
+                    batch_index,
+                    len(self.loader) - 1,
+                    loss_value.item(),
+                    batch_prepare_time
+                    + batch_forward_time
+                    + batch_backward_time
+                    + batch_optimizer_time,
+                ),
+                end="",
+            )
 
         epoch_time += time.time()
         print("\033[2K\r", end="")  # clear line and go back
-        other_time = epoch_time - prepare_time - forward_time \
-            - backward_time - optimizer_time
+
+        other_time = (
+            epoch_time - prepare_time - forward_time - backward_time - optimizer_time
+        )
         trace_entry = self.trace(
-            echo=True, echo_prefix="  ", log=True,
-            type='1toN', scope='epoch',
-            epoch=self.epoch, batches=len(self.loader),
+            echo=True,
+            echo_prefix="  ",
+            log=True,
+            type="1toN",
+            scope="epoch",
+            epoch=self.epoch,
+            batches=len(self.loader),
             size=self.num_examples,
-            avg_loss=sum_loss/self.num_examples,
-            epoch_time=epoch_time, prepare_time=prepare_time,
-            forward_time=forward_time, backward_time=backward_time,
+            avg_loss=sum_loss / self.num_examples,
+            epoch_time=epoch_time,
+            prepare_time=prepare_time,
+            forward_time=forward_time,
+            backward_time=backward_time,
             optimizer_time=optimizer_time,
-            other_time=other_time)
+            other_time=other_time,
+        )
+
         return trace_entry
