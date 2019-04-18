@@ -10,3 +10,4 @@ local/*
 *.pyc
 .mypy_cache
 /trace.yaml
+kge.egg-info

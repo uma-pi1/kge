@@ -1,2 +1,0 @@
-PyYAML
-pytorch=1.0.1

@@ -1,12 +1,14 @@
+#!/usr/bin/env python
 import datetime
 import argparse
 import os
 import yaml
 
+import kge
 from kge import Dataset
 from kge import Config
 from kge.job import Job
-from kge.util.misc import get_git_revision_short_hash
+from kge.util.misc import get_git_revision_short_hash, filename_in_module
 
 
 def argparse_bool_type(v):
@@ -75,6 +77,11 @@ if __name__ == '__main__':
             continue
         if value is not None:
             config.set(key, value)
+
+    # TODO For now, relative directories (output folder, dataset folder) are
+    # hard-coded to refer to # the kge base folder. This is really not a nice
+    # solution, but will do for now.
+    os.chdir(filename_in_module(kge, '../'))
 
     # initialize output folder
     if config.folder() == '':  # means: set default

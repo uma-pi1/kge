@@ -47,3 +47,4 @@ def coord_to_sparse_tensor(nrows, ncols, coords, device, value=1.0):
             torch.Size([nrows, ncols]),
             device=device)
     return labels
+

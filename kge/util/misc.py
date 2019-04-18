@@ -1,4 +1,7 @@
+import os
+import inspect
 import subprocess
+
 
 def is_number(s, number_type):
     """ Returns True is string is a number. """
@@ -11,9 +14,15 @@ def is_number(s, number_type):
 
 # from https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script
 def get_git_revision_hash():
-    return subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip().decode()
+    return subprocess.check_output(['git', 'rev-parse', 'HEAD']) \
+                     .strip().decode()
 
 
 # from https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script
 def get_git_revision_short_hash():
-    return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).strip().decode()
+    return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']) \
+                     .strip().decode()
+
+
+def filename_in_module(module, filename):
+    return os.path.dirname(inspect.getfile(module)) + '/' + filename
