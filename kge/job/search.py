@@ -1,4 +1,5 @@
 import copy
+import os
 from kge.job import Job, Trace
 from kge import Config
 
@@ -73,7 +74,7 @@ class SearchJob(Job):
                 for key in all_keys:
                     trace_entry[key] = config.get(key)
 
-                trace_entry["folder"] = config.folder
+                trace_entry["folder"] = os.path.split(config.folder)[1]
                 metric_value = Trace.get_metric(trace_entry, metric_name)
                 trace_entry["metric_name"] = metric_name
                 trace_entry["metric_value"] = metric_value
