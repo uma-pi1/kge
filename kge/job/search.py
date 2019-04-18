@@ -59,7 +59,7 @@ class SearchJob(Job):
             # load the job
             self.config.log(
                 "Starting training job {} ({}/{})...".format(
-                    config.folder(), i + 1, len(search_configs)
+                    config.folder, i + 1, len(search_configs)
                 )
             )
             job = Job.create(config, self.dataset, parent_job=self)
@@ -73,7 +73,7 @@ class SearchJob(Job):
                 for key in all_keys:
                     trace_entry[key] = config.get(key)
 
-                trace_entry["folder"] = config.folder()
+                trace_entry["folder"] = config.folder
                 metric_value = Trace.get_metric(trace_entry, metric_name)
                 trace_entry["metric_name"] = metric_name
                 trace_entry["metric_value"] = metric_value

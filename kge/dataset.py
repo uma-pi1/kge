@@ -1,6 +1,10 @@
 import csv
+import os
 import torch
-from kge.util.misc import filename_in_module
+
+import kge
+from kge.util.misc import kge_base_dir
+
 
 # TODO add support to pickle dataset (and indexes) and reload from there
 class Dataset:
@@ -40,24 +44,30 @@ class Dataset:
     def load(config):
         name = config.get("dataset.name")
         config.log("Loading dataset " + name + "...")
-        basedir = "data/" + name + "/"
+        base_dir = os.path.join(kge_base_dir(), "data/" + name)
 
         num_entities, entities = Dataset._load_map(
-            basedir + config.get("dataset.entity_map")
+            os.path.join(base_dir, config.get("dataset.entity_map"))
         )
         config.log(str(num_entities) + " entities", prefix="  ")
         num_relations, relations = Dataset._load_map(
-            basedir + config.get("dataset.relation_map")
+            os.path.join(base_dir, config.get("dataset.relation_map"))
         )
         config.log(str(num_relations) + " relations", prefix="  ")
 
-        train, train_meta = Dataset._load_triples(basedir + config.get("dataset.train"))
+        train, train_meta = Dataset._load_triples(
+            os.path.join(base_dir, config.get("dataset.train"))
+        )
         config.log(str(len(train)) + " training triples", prefix="  ")
 
-        valid, valid_meta = Dataset._load_triples(basedir + config.get("dataset.valid"))
+        valid, valid_meta = Dataset._load_triples(
+            os.path.join(base_dir, config.get("dataset.valid"))
+        )
         config.log(str(len(valid)) + " validation triples", prefix="  ")
 
-        test, test_meta = Dataset._load_triples(basedir + config.get("dataset.test"))
+        test, test_meta = Dataset._load_triples(
+            os.path.join(base_dir, config.get("dataset.test"))
+        )
         config.log(str(len(test)) + " test triples", prefix="  ")
 
         return Dataset(

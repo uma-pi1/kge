@@ -17,6 +17,7 @@ class Job:
             git_head=get_git_revision_short_hash(),
             username=username,
             hostname=socket.gethostname(),
+            folder=config.folder
         )
 
     def resume(self):

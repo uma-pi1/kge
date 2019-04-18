@@ -8,7 +8,7 @@ import kge
 from kge import Dataset
 from kge import Config
 from kge.job import Job
-from kge.util.misc import get_git_revision_short_hash, filename_in_module
+from kge.util.misc import get_git_revision_short_hash, filename_in_module, kge_base_dir
 
 
 def argparse_bool_type(v):
@@ -31,7 +31,6 @@ if __name__ == "__main__":
         "job.type": "-j",
         "train.max_epochs": "-e",
         "model": "-m",
-        "output.folder": "-o",
     }
 
     # create parser for config
@@ -54,7 +53,13 @@ if __name__ == "__main__":
         "create", help="Create a new job", parents=[parser_conf]
     )
     parser_create.add_argument("config", type=str, nargs="?")
-    parser_create.add_argument("--run", default=True, type=argparse_bool_type)
+    parser_create.add_argument("--folder", "-f", type=str, help="Output folder to use")
+    parser_create.add_argument(
+        "--run",
+        default=True,
+        type=argparse_bool_type,
+        help="Whether to immediately run the created job",
+    )
     parser_resume = subparsers.add_parser(
         "resume", help="Resume a prior job", parents=[parser_conf]
     )
@@ -77,36 +82,37 @@ if __name__ == "__main__":
             args.config += "/config.yaml"
         print("Resuming from configuration {}...".format(args.config))
         config.load(args.config)
-        if config.folder() == "" or not os.path.exists(config.folder()):
+        config.folder = os.path.dirname(args.config)
+        if not os.path.exists(config.folder):
             raise ValueError(
                 "{} is not a valid config file for resuming".format(args.config)
             )
 
     # overwrite configuration with command line arguments
     for key, value in vars(args).items():
-        if key in ["command", "config", "run"]:
+        if key in ["command", "config", "run", "folder"]:
             continue
         if value is not None:
             config.set(key, value)
 
-    # TODO For now, relative directories (output folder, dataset folder) are
-    # hard-coded to refer to # the kge base folder. This is really not a nice
-    # solution, but will do for now.
-    os.chdir(filename_in_module(kge, "../"))
-
     # initialize output folder
-    if config.folder() == "":  # means: set default
-        config.set(
-            "output.folder",
-            "local/experiments/"
-            + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-            + "-"
-            + config.get("dataset.name")
-            + "-"
-            + config.get("model"),
-        )
+    if args.command == "create":
+        if args.folder is None:  # means: set default
+            config.folder = os.path.join(
+                kge_base_dir(),
+                "local/experiments/"
+                + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+                + "-"
+                + config.get("dataset.name")
+                + "-"
+                + config.get("model"),
+            )
+        else:
+            config.folder = args.folder
+
     if args.command == "create" and not config.init_folder():
-        raise ValueError("output folder exists")
+        raise ValueError("output folder {} exists already".format(config.folder))
+    config.log("Using folder: {}".format(config.folder))
 
     # log configuration
     config.log("Configuration:")

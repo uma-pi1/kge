@@ -25,13 +25,6 @@ dataset:
   entity_map: entity_map.del
   relation_map: relation_map.del
 
-output:
-  # Main folder where logs, checkpoints, traces, and model output are stored.
-  # If left unspecified, defaults to local/experiments/<date>-<dataset>-<model>
-  folder: ''
-  logfile: 'kge.log'
-  tracefile: 'trace.yaml'   # one yaml entry per line
-
 ## MODEL #######################################################################
 
 # see model specific configuration files
@@ -72,7 +65,6 @@ valid:
 
 checkpoint:
   every: 5                    # epochs (disable with 0)
-  basefile: 'checkpoint'      # add _epoch.pt
 
 ## EVALUATION ##################################################################
 ## Used for evaluation jobs.

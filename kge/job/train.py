@@ -104,15 +104,15 @@ the dataset (if not present).
                     f(self, trace_entry)
 
             # create checkpoint and delete old one, if necessary
-            self.save(self.config.checkpointfile(self.epoch))
+            self.save(self.config.checkpoint_file(self.epoch))
             if self.epoch > 1:
                 if not (checkpoint > 0 and ((self.epoch - 1) % checkpoint == 0)):
                     self.config.log(
                         "Removing old checkpoint {}...".format(
-                            self.config.checkpointfile(self.epoch - 1)
+                            self.config.checkpoint_file(self.epoch - 1)
                         )
                     )
-                    os.remove(self.config.checkpointfile(self.epoch - 1))
+                    os.remove(self.config.checkpoint_file(self.epoch - 1))
 
     def save(self, filename):
         self.config.log("Saving checkpoint to {}...".format(filename))
@@ -138,8 +138,8 @@ the dataset (if not present).
     def resume(self):
         last_checkpoint = self.config.last_checkpoint()
         if last_checkpoint is not None:
-            checkpointfile = self.config.checkpointfile(last_checkpoint)
-            self.load(checkpointfile)
+            checkpoint_file = self.config.checkpoint_file(last_checkpoint)
+            self.load(checkpoint_file)
         else:
             self.config.log("No checkpoint found, starting from scratch...")
 

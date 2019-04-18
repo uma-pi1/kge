@@ -1,4 +1,5 @@
 import copy
+import os
 from kge.job import Job
 from kge import Config
 import itertools
@@ -36,7 +37,7 @@ class GridJob(Job):
 
             # create search configuration and check whether correct
             dummy_config = copy.deepcopy(self.config)
-            search_config = Config(False)
+            search_config = Config(load_default=False)
             search_config.options["folder"] = "_".join(map(str, values))
             for i, key in enumerate(all_keys):
                 dummy_config.set(key, values[i])  # to test whether correct k/v pair
@@ -48,7 +49,7 @@ class GridJob(Job):
         # create configuration file of search job
         self.config.set("job.type", "search")
         self.config.set("search.configurations", search_configs)
-        self.config.save(self.config.folder() + "/config.yaml")
+        self.config.save(os.path.join(self.config.folder, "config.yaml"))
 
         # and run it
         if self.config.get("grid.run"):

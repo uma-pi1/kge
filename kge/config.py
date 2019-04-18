@@ -17,7 +17,7 @@ class Config:
     :file:`config_default.yaml`.
     """
 
-    def __init__(self, load_default=True):
+    def __init__(self, folder=None, load_default=True):
         """Initialize with the default configuration"""
         if load_default:
             with open(filename_in_module(kge, "config-default.yaml"), "r") as file:
@@ -25,14 +25,15 @@ class Config:
         else:
             self.options = {}
 
-    # -- ACCESS METHODS -------------------------------------------------------
+        self.folder = folder
+
+    # -- ACCESS METHODS ----------------------------------------------------------------
 
     def get(self, key, remove_plusplusplus=True):
         """Obtain value of specified key.
 
-        Nested dictionary values can be accessed via "." (e.g.,
-        "output.folder"). Strips all '+++' keys unless `remove_plusplusplus` is
-        set to `False`.
+        Nested dictionary values can be accessed via "." (e.g., "job.type"). Strips all
+        '+++' keys unless `remove_plusplusplus` is set to `False`.
 
         """
         result = self.options
@@ -57,8 +58,7 @@ class Config:
     def set(self, key, value, create=False, overwrite=Overwrite.Yes):
         """Set value of specified key.
 
-        Nested dictionary values can be accessed via "." (e.g.,
-        "output.folder").
+        Nested dictionary values can be accessed via "." (e.g., "job.type").
 
         If ``create`` is ``False``, raises :class:`ValueError` when the key
         does not exist already; otherwise, the new key-value pair is inserted
@@ -109,7 +109,7 @@ class Config:
         """
 
         # load the module_name
-        module_config = Config(False)
+        module_config = Config(load_default=False)
         module_config.load(
             filename_in_module(kge.model, "{}.yaml".format(module_name)), create=True
         )
@@ -198,10 +198,10 @@ class Config:
         """Return a deep copy"""
         new_config = copy.deepcopy(self)
         if subfolder is not None:
-            new_config.set("output.folder", self.folder() + subfolder + "/")
+            new_config.folder = os.path.join(self.folder, subfolder)
         return new_config
 
-    # -- LOGGING AND TRACING --------------------------------------------------
+    # -- LOGGING AND TRACING -----------------------------------------------------------
 
     def log(self, msg, echo=True, prefix=""):
         """Add a message to the default log file.
@@ -261,17 +261,15 @@ class Config:
         there and return ``True``. Else do nothing and return ``False``.
 
         """
-        if not os.path.exists(self.folder()):
-            os.makedirs(self.folder())
-            self.save(self.folder() + "config.yaml")
+        if not os.path.exists(self.folder):
+            os.makedirs(self.folder)
+            self.save(os.path.join(self.folder, "config.yaml"))
             return True
         return False
 
-    def checkpointfile(self, epoch):
+    def checkpoint_file(self, epoch):
         "Return path of checkpoint file for given epoch"
-        return "{}{}_{:05d}.pt".format(
-            self.folder(), self.get("checkpoint.basefile"), epoch
-        )
+        return os.path.join(self.folder, "checkpoint_{:05d}.pt".format(epoch))
 
     def last_checkpoint(self):
         "Return epoch number of latest checkpoint"
@@ -280,7 +278,7 @@ class Config:
         found_epoch = 0
         while tried_epoch < found_epoch + 100:
             tried_epoch += 1
-            if os.path.exists(self.checkpointfile(tried_epoch)):
+            if os.path.exists(self.checkpoint_file(tried_epoch)):
                 found_epoch = tried_epoch
         if found_epoch > 0:
             return found_epoch
@@ -298,15 +296,8 @@ class Config:
                 )
             )
 
-    def folder(self):
-        """Return output folder"""
-        folder = self.get("output.folder")
-        if len(folder) > 0 and not folder.endswith("/"):
-            folder += "/"
-        return folder
-
     def logfile(self):
-        return self.folder() + self.get("output.logfile")
+        return os.path.join(self.folder, "kge.log")
 
     def tracefile(self):
-        return self.folder() + self.get("output.tracefile")
+        return os.path.join(self.folder, "trace.yaml")

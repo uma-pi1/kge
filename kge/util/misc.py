@@ -1,3 +1,4 @@
+import kge
 import os
 import inspect
 import subprocess
@@ -24,6 +25,10 @@ def get_git_revision_short_hash():
         .strip()
         .decode()
     )
+
+
+def kge_base_dir():
+    return os.path.abspath(filename_in_module(kge, '..'))
 
 
 def filename_in_module(module, filename):
