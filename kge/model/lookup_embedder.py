@@ -4,19 +4,19 @@ from kge.model import KgeEmbedder
 
 
 class LookupEmbedder(KgeEmbedder):
-    def __init__(self, config, dataset, configuration_key, is_entity_embedder):
-        super().__init__(config, dataset, configuration_key, is_entity_embedder)
+
+    def __init__(self, config, dataset, configuration_key, vocab_size):
+        super().__init__(config, dataset, configuration_key)
 
         ## read config
         self.dropout = self.get_option('dropout')
         self.dim = self.get_option('dim')
         self.sparse = self.get_option('sparse')
         self.normalize = self.get_option('normalize')
-        self.size = dataset.num_entities if self.is_entity_embedder \
-            else dataset.num_relations
+        self.vocab_size = vocab_size
 
         ## setup embedder
-        self.embeddings = torch.nn.Embedding(self.size, self.dim,
+        self.embeddings = torch.nn.Embedding(self.vocab_size, self.dim,
                                              sparse=self.sparse)
         self.initialize(self.embeddings.weight.data,
                         self.get_option('initialize'),

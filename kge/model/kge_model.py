@@ -30,9 +30,9 @@ class KgeModel(KgeBase):
         super().__init__(config, dataset)
         # TODO generalize this
         self._entity_embedder = KgeEmbedder.create(
-            config, dataset, config.get('model') + '.entity_embedder', True)
+            config, dataset, config.get('model') + '.entity_embedder', dataset.num_entities)
         self._relation_embedder = KgeEmbedder.create(
-            config, dataset, config.get('model') + '.relation_embedder', False)
+            config, dataset, config.get('model') + '.relation_embedder', dataset.num_relations)
 
     def score_spo(self, s, p, o):
         return self._score(s, p, o)
@@ -110,11 +110,10 @@ class KgeEmbedder(KgeBase):
     Base class for all relational model embedders
     """
 
-    def __init__(self, config, dataset, configuration_key, is_entity_embedder):
+    def __init__(self, config, dataset, configuration_key):
         super().__init__(config, dataset)
         self.configuration_key = configuration_key
         self.embedder_type = config.get(configuration_key + ".type")
-        self.is_entity_embedder = is_entity_embedder
 
         # verify all custom options by trying to set them in a copy of this
         # configuration (quick and dirty, but works)
@@ -129,7 +128,7 @@ class KgeEmbedder(KgeBase):
                                  .format(self.configuration_key, key))
 
     @staticmethod
-    def create(config, dataset, configuration_key, is_entity_embedder):
+    def create(config, dataset, configuration_key, vocab_size):
         """Factory method for embedder creation."""
 
         embedder = None
@@ -138,7 +137,7 @@ class KgeEmbedder(KgeBase):
             class_name = config.get(embedder_type + '.class_name')
             module = importlib.import_module('kge.model')
             embedder = getattr(module, class_name)(
-                config, dataset, configuration_key, is_entity_embedder)
+                config, dataset, configuration_key, vocab_size)
         except ImportError:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError(
