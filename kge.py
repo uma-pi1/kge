@@ -31,49 +31,55 @@ if __name__ == '__main__':
                      'model': '-m',
                      'output.folder': '-o'}
 
-    # create parser and parse arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--config', '-c', type=str)
-    parser.add_argument('--resume', '-r', type=str)
+    # create parser for config
+    parser_conf = argparse.ArgumentParser(add_help=False)
     for key, value in Config.flatten(config.options).items():
         short = short_options.get(key)
         argtype = type(value)
         if argtype == bool:
             argtype = argparse_bool_type
         if short:
-            parser.add_argument('--'+key, short, type=argtype)
+            parser_conf.add_argument('--'+key, short, type=argtype)
         else:
-            parser.add_argument('--'+key, type=argtype)
+            parser_conf.add_argument('--'+key, type=argtype)
+
+    # create main parsers and subparsers
+    parser = argparse.ArgumentParser('kge')
+    subparsers = parser.add_subparsers(title='command', dest='command')
+    subparsers.required = True
+    parser_create = subparsers.add_parser(
+        'create', help='Create a new job', parents=[parser_conf])
+    parser_create.add_argument('config', type=str, nargs='?')
+    parser_create.add_argument('--run', default=True, type=argparse_bool_type)
+    parser_resume = subparsers.add_parser(
+        'resume', help='Resume a prior job', parents=[parser_conf])
+    parser_resume.add_argument('config', type=str)
     args = parser.parse_args()
 
-    # use toy config file if no config given
-    if args.config is None and args.resume is None:
-        args.config = 'examples/toy.yaml'
-        print('WARNING: No configuration specified; using '
-              + args.config)
+    # start command
+    if args.command == 'create':
+        # use toy config file if no config given
+        if args.config is None:
+            args.config = 'examples/toy.yaml'
+            print('WARNING: No configuration specified; using ' + args.config)
 
-    # optionally: load user config file (overwrites some defaults)
-    if args.config is not None:
-        if args.resume is not None:
-            raise ValueError("config and resume")
         print('Loading configuration {}...'.format(args.config))
         config.load(args.config)
 
-    # optionally: load configuration of resumed job
-    if args.resume is not None:
-        configfile = args.resume
-        if os.path.isdir(configfile) \
-           and os.path.isfile(configfile + '/config.yaml'):
-            configfile += '/config.yaml'
-        print('Resuming from configuration {}...'.format(configfile))
-        config.load(configfile)
+    # resume command
+    if args.command == 'resume':
+        if os.path.isdir(args.config) \
+           and os.path.isfile(args.config + '/config.yaml'):
+            args.config += '/config.yaml'
+        print('Resuming from configuration {}...'.format(args.config))
+        config.load(args.config)
         if config.folder() == '' or not os.path.exists(config.folder()):
             raise ValueError("{} is not a valid config file for resuming"
-                             .format(args.resume))
+                             .format(args.config))
 
     # overwrite configuration with command line arguments
     for key, value in vars(args).items():
-        if key in ['config', 'resume']:
+        if key in ['command', 'config', 'run']:
             continue
         if value is not None:
             config.set(key, value)
@@ -90,7 +96,7 @@ if __name__ == '__main__':
                    + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
                    + "-" + config.get('dataset.name')
                    + "-" + config.get('model'))
-    if not args.resume and not config.init_folder():
+    if args.command == 'create' and not config.init_folder():
         raise ValueError("output folder exists")
 
     # log configuration
@@ -99,11 +105,12 @@ if __name__ == '__main__':
     config.log('git commit: {}'.format(get_git_revision_short_hash()),
                prefix='  ')
 
-    # load data
-    dataset = Dataset.load(config)
+    if not (args.command == 'create' and not args.run):
+        # load data
+        dataset = Dataset.load(config)
 
-    # let's go
-    job = Job.create(config, dataset)
-    if args.resume:
-        job.resume()
-    job.run()
+        # let's go
+        job = Job.create(config, dataset)
+        if args.command == 'resume':
+            job.resume()
+        job.run()
