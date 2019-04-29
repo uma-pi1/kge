@@ -21,6 +21,25 @@ def argparse_bool_type(v):
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
+def process_meta_command(args, meta_command, fixed_args):
+    """Process&update program arguments for meta commands.
+
+    `meta_command` is the name of a special command, which fixes all key-value arguments
+    given in `fixed_args` to the specified value. `fxied_args` should contain key
+    `command` (for the actual command being run).
+
+    """
+    if args.command == meta_command:
+        for k, v in fixed_args.items():
+            if k != "command" and vars(args)[k] and vars(args)[k] != v:
+                raise ValueError(
+                    "invalid argument for 'test' command: --{} {}".format(
+                        meta_command, k, v
+                    )
+                )
+            vars(args)[k] = v
+
+
 if __name__ == "__main__":
     # default config
     config = Config()
@@ -50,7 +69,7 @@ if __name__ == "__main__":
     subparsers = parser.add_subparsers(title="command", dest="command")
     subparsers.required = True
     parser_create = subparsers.add_parser(
-        "create", help="Create a new job", parents=[parser_conf]
+        "create", help="Create and run a new job", parents=[parser_conf]
     )
     parser_create.add_argument("config", type=str, nargs="?")
     parser_create.add_argument("--folder", "-f", type=str, help="Output folder to use")
@@ -64,7 +83,32 @@ if __name__ == "__main__":
         "resume", help="Resume a prior job", parents=[parser_conf]
     )
     parser_resume.add_argument("config", type=str)
+    parser_eval = subparsers.add_parser(
+        "eval", help="Evaluate the result of a prior job", parents=[parser_conf]
+    )
+    parser_eval.add_argument("config", type=str)
+    parser_valid = subparsers.add_parser(
+        "valid",
+        help="Evaluate the result of a prior job using validation data",
+        parents=[parser_conf],
+    )
+    parser_valid.add_argument("config", type=str)
+    parser_test = subparsers.add_parser(
+        "test",
+        help="Evaluate the result of a prior job using test data",
+        parents=[parser_conf],
+    )
+    parser_test.add_argument("config", type=str)
     args = parser.parse_args()
+
+    # process meta-commands: eval
+    process_meta_command(args, "eval", {"command": "resume", "job.type": "eval"})
+    process_meta_command(
+        args, "test", {"command": "resume", "job.type": "eval", "eval.data": "test"}
+    )
+    process_meta_command(
+        args, "valid", {"command": "resume", "job.type": "eval", "eval.data": "valid"}
+    )
 
     # start command
     if args.command == "create":

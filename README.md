@@ -1,5 +1,8 @@
 # kge
 
+# Run
+- See available commands: kge.py --help
+
 # Installation
 - locally: run "pip install -e ."
 
