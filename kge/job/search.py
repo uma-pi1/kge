@@ -1,9 +1,8 @@
 import copy
 import os
-from concurrent.futures import ThreadPoolExecutor
+import concurrent.futures
 from kge.job import Job, Trace
 from kge import Config
-import threading
 
 
 class SearchJob(Job):
@@ -120,11 +119,11 @@ class SearchJob(Job):
         if self.config.get("search.num_workers") == 1:
             result = list(map(run_job, enumerate(search_configs)))
         else:
-            with ThreadPoolExecutor(
+            with concurrent.futures.ThreadPoolExecutor(
                 max_workers=self.config.get("search.num_workers")
             ) as e:
                 result = list(
-                    map(lambda x: e.submit(run_job, x), enumerate(search_configs))
+                    e.map(run_job, enumerate(search_configs))
                 )
 
         # collect results
