@@ -217,10 +217,7 @@ class Config:
                     line = prefix + line
                 if echo:
                     print(line)
-                file.write(str(datetime.datetime.now()))
-                file.write(" ")
-                file.write(line)
-                file.write("\n")
+                file.write(str(datetime.datetime.now()) + " " + line + "\n")
 
     def trace(
         self, echo=False, echo_prefix="", echo_flow=False, log=False, **kwargs
@@ -249,8 +246,7 @@ class Config:
                         line = echo_prefix + line
                         print(line)
         with open(self.tracefile(), "a") as file:
-            file.write(line)
-            file.write("\n")
+            file.write(line + "\n")
         return kwargs
 
     # -- FOLDERS AND CHECKPOINTS ----------------------------------------------
