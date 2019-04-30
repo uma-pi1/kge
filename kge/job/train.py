@@ -149,10 +149,20 @@ class TrainingJob1toN(TrainingJob):
         super().__init__(config, dataset, parent_job)
 
         config.log("Initializing 1-to-N training job...")
+        self.is_prepared = False
+
+        # TODO currently assuming BCE loss
+        self.config.check("train.loss", ["bce"])
+
+    def _prepare(self):
+        """Construct all indexes needed to run an epoch."""
+
+        if self.is_prepared:
+            return
 
         # create sp and po label_coords (if not done before)
-        train_sp = dataset.index_1toN("train", "sp")
-        train_po = dataset.index_1toN("train", "po")
+        train_sp = self.dataset.index_1toN("train", "sp")
+        train_po = self.dataset.index_1toN("train", "po")
 
         # convert indexes to pytoch tensors: a nx2 keys tensor (rows = keys),
         # an offset vector (row = starting offset in values for corresponding
@@ -182,18 +192,15 @@ class TrainingJob1toN(TrainingJob):
             collate_fn=self._get_collate_fun(),
             shuffle=True,
             batch_size=self.batch_size,
-            num_workers=config.get("train.num_workers"),
-            pin_memory=config.get("train.pin_memory"),
+            num_workers=self.config.get("train.num_workers"),
+            pin_memory=self.config.get("train.pin_memory"),
         )
 
         self.num_examples = len(train_sp) + len(train_po)
-
-        # TODO currently assuming BCE loss
-        self.config.check("train.loss", ["bce"])
+        self.is_prepared = True
 
     def _get_collate_fun(self):
         num_sp = len(self.train_sp_keys)
-        num_po = len(self.train_po_keys)
 
         # create the collate function
         def collate(batch):
@@ -248,6 +255,8 @@ class TrainingJob1toN(TrainingJob):
         return collate
 
     def run_epoch(self) -> dict:
+        self._prepare()
+
         # TODO refactor: much of this can go to TrainingJob
         sum_loss = 0
         epoch_time = -time.time()

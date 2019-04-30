@@ -11,17 +11,24 @@ class EntityRankingJob(EvaluationJob):
 
     def __init__(self, config, dataset, parent_job, model):
         super().__init__(config, dataset, parent_job, model)
+        self.is_prepared = False
+
+    def _prepare(self):
+        """Construct all indexes needed to run."""
+
+        if self.is_prepared:
+            return
 
         # create indexes
-        self.train_sp = dataset.index_1toN("train", "sp")
-        self.train_po = dataset.index_1toN("train", "po")
-        self.valid_sp = dataset.index_1toN("valid", "sp")
-        self.valid_po = dataset.index_1toN("valid", "po")
-        self.triples = dataset.valid
+        self.train_sp = self.dataset.index_1toN("train", "sp")
+        self.train_po = self.dataset.index_1toN("train", "po")
+        self.valid_sp = self.dataset.index_1toN("valid", "sp")
+        self.valid_po = self.dataset.index_1toN("valid", "po")
+        self.triples = self.dataset.valid
         if self.eval_data == "test" or self.filter_valid_with_test:
-            self.triples = dataset.test
-            self.test_sp = dataset.index_1toN("test", "sp")
-            self.test_po = dataset.index_1toN("test", "po")
+            self.triples = self.dataset.test
+            self.test_sp = self.dataset.index_1toN("test", "sp")
+            self.test_po = self.dataset.index_1toN("test", "po")
 
         # and data loader
         self.loader = torch.utils.data.DataLoader(
@@ -29,9 +36,11 @@ class EntityRankingJob(EvaluationJob):
             collate_fn=self._collate,
             shuffle=False,
             batch_size=self.batch_size,
-            num_workers=config.get("eval.num_workers"),
-            pin_memory=config.get("eval.pin_memory"),
+            num_workers=self.config.get("eval.num_workers"),
+            pin_memory=self.config.get("eval.pin_memory"),
         )
+
+        self.is_prepared = True
 
     def _collate(self, batch):
         "Looks up true triples for each triple in the batch"
@@ -53,6 +62,8 @@ class EntityRankingJob(EvaluationJob):
 
     @torch.no_grad()
     def run(self) -> dict:
+        self._prepare()
+
         was_training = self.model.training
         self.model.eval()
         self.config.log(
