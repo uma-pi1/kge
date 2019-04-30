@@ -84,7 +84,9 @@ eval:
 search:
   # if false, only creates folders and configurations
   run: True
-  num_workers: 1  # NOTE: not yet working -> leave at 1
+
+  # number of parallel training jobs to run during a search
+  num_workers: 1
 
   # List of configurations to search. Each entry is a record with a field
   # 'folder' (where the training job is stored) and an arbitrary number of other
