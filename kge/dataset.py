@@ -1,8 +1,8 @@
 import csv
 import os
 import torch
+import threading
 
-import kge
 from kge.util.misc import kge_base_dir
 
 
@@ -40,6 +40,7 @@ class Dataset:
             test_meta
         )  # array: triple row number -> metadata array of strings
         self.indexes = {}  # map: name of index -> index (used mainly by training jobs)
+        self._lock = threading.Lock()
 
     def load(config):
         name = config.get("dataset.name")
@@ -148,14 +149,16 @@ remaining constituent (''o'' or ''s'', respectively.)
             raise ValueError()
 
         name = what + "_" + key
-        if not self.indexes.get(name):
-            index = Dataset._create_index_1toN(
-                triples[:, key_columns], triples[:, value_column]
-            )
-            self.indexes[name] = index
-            self.config.log(
-                "{} distinct {} pairs in {}".format(len(index), key, what), prefix="  "
-            )
+        with self._lock:
+            if not self.indexes.get(name):
+                index = Dataset._create_index_1toN(
+                    triples[:, key_columns], triples[:, value_column]
+                )
+                self.indexes[name] = index
+                self.config.log(
+                    "{} distinct {} pairs in {}".format(len(index), key, what),
+                    prefix="  ",
+                )
 
         return self.indexes.get(name)
 

@@ -17,7 +17,7 @@ class Job:
             git_head=get_git_revision_short_hash(),
             username=username,
             hostname=socket.gethostname(),
-            folder=config.folder
+            folder=config.folder,
         )
 
     def resume(self):
@@ -50,7 +50,6 @@ class Job:
     def trace(self, **kwargs):
         """Write a set of key-value pairs to the trace file and automatically append
         information about this job. See `Config.trace` for more information."""
-
         if self.parent_job is not None:
             kwargs["parent_job_id"] = self.parent_job.job_id
 

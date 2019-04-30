@@ -130,7 +130,7 @@ class KgeEmbedder(KgeBase):
         # configuration (quick and dirty, but works)
         custom_options = Config.flatten(config.get(configuration_key))
         del custom_options["type"]
-        dummy_config = copy.deepcopy(self.config)
+        dummy_config = self.config.clone()
         for key, value in custom_options.items():
             try:
                 dummy_config.set(self.embedder_type + "." + key, value)

@@ -1,7 +1,9 @@
 import copy
 import os
+from concurrent.futures import ThreadPoolExecutor
 from kge.job import Job, Trace
 from kge import Config
+import threading
 
 
 class SearchJob(Job):
@@ -52,11 +54,10 @@ class SearchJob(Job):
             config.init_folder()
 
         # now start running/resuming
-        # TODO use a scheduler to run multiple jobs simultaneously?
         metric_name = self.config.get("valid.metric")
-        best_per_job = []
-        best_metric_per_job = []
-        for i, config in enumerate(search_configs):
+
+        def run_job(i_config):
+            i, config = i_config
             # load the job
             self.config.log(
                 "Starting training job {} ({}/{})...".format(
@@ -113,8 +114,26 @@ class SearchJob(Job):
                 best["scope"],
             )
             self.trace(echo=True, echo_prefix="  ", log=True, scope="train", **best)
-            best_per_job.append(best)
-            best_metric_per_job.append(best_metric)
+            return (i, best, best_metric)
+
+        # and go
+        if self.config.get("search.num_workers") == 1:
+            result = list(map(run_job, enumerate(search_configs)))
+        else:
+            with ThreadPoolExecutor(
+                max_workers=self.config.get("search.num_workers")
+            ) as e:
+                result = list(
+                    map(lambda x: e.submit(run_job, x), enumerate(search_configs))
+                )
+
+        # collect results
+        best_per_job = [None] * len(search_configs)
+        best_metric_per_job = [None] * len(search_configs)
+        for ibm in result:
+            i, best, best_metric = ibm
+            best_per_job[i] = best
+            best_metric_per_job[i] = best_metric
 
         # produce an overall summary
         self.config.log("Result summary:")

@@ -4,6 +4,7 @@ import copy
 import datetime
 import os
 import time
+import threading
 import yaml
 import uuid
 import kge
@@ -26,6 +27,8 @@ class Config:
             self.options = {}
 
         self.folder = folder
+        self._trace_lock = threading.Lock()
+        self._log_lock = threading.Lock()
 
     # -- ACCESS METHODS ----------------------------------------------------------------
 
@@ -196,9 +199,13 @@ class Config:
 
     def clone(self, subfolder=None):
         """Return a deep copy"""
-        new_config = copy.deepcopy(self)
+        new_config = Config(folder=copy.deepcopy(self.folder), load_default=False)
+        new_config.options = copy.deepcopy(self.options)
         if subfolder is not None:
             new_config.folder = os.path.join(self.folder, subfolder)
+        else:
+            new_config._log_lock = self._log_lock
+            new_config._trace_lock = self._trace_lock
         return new_config
 
     # -- LOGGING AND TRACING -----------------------------------------------------------
@@ -210,16 +217,17 @@ class Config:
         output line.
 
         """
-        with open(self.logfile(), "a") as file:
-            for line in msg.splitlines():
-                if prefix:
-                    line = prefix + line
-                if echo:
-                    print(line)
-                file.write(str(datetime.datetime.now()))
-                file.write(" ")
-                file.write(line)
-                file.write("\n")
+        with self._log_lock:
+            with open(self.logfile(), "a") as file:
+                for line in msg.splitlines():
+                    if prefix:
+                        line = prefix + line
+                    if echo:
+                        print(line)
+                    file.write(str(datetime.datetime.now()))
+                    file.write(" ")
+                    file.write(line)
+                    file.write("\n")
 
     def trace(
         self, echo=False, echo_prefix="", echo_flow=False, log=False, **kwargs
@@ -233,23 +241,24 @@ class Config:
 
         Returns the written k/v pairs.
         """
-        with open(self.tracefile(), "a") as file:
-            kwargs["timestamp"] = time.time()
-            kwargs["entry_id"] = str(uuid.uuid4())
-            line = yaml.dump(
-                kwargs, width=float("inf"), default_flow_style=True
-            ).strip()
-            if echo or log:
-                msg = yaml.dump(kwargs, default_flow_style=echo_flow)
-                if log:
-                    self.log(msg, echo, echo_prefix)
-                else:
-                    for line in msg.splitlines():
-                        if echo_prefix:
-                            line = echo_prefix + line
-                            print(line)
-            file.write(line)
-            file.write("\n")
+        kwargs["timestamp"] = time.time()
+        kwargs["entry_id"] = str(uuid.uuid4())
+        line = yaml.dump(
+            kwargs, width=float("inf"), default_flow_style=True
+        ).strip()
+        if echo or log:
+            msg = yaml.dump(kwargs, default_flow_style=echo_flow)
+            if log:
+                self.log(msg, echo, echo_prefix)
+            else:
+                for line in msg.splitlines():
+                    if echo_prefix:
+                        line = echo_prefix + line
+                        print(line)
+        with self._trace_lock:
+            with open(self.tracefile(), "a") as file:
+                file.write(line)
+                file.write("\n")
         return kwargs
 
     # -- FOLDERS AND CHECKPOINTS ----------------------------------------------
