@@ -1,4 +1,3 @@
-import copy
 import os
 from kge.job import Job
 from kge import Config

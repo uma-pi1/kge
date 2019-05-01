@@ -1,5 +1,5 @@
 import torch
-from kge.model.kge_model import KgeModel, KgeEmbedder
+from kge.model.kge_model import KgeModel
 
 
 class ComplEx(KgeModel):
