@@ -32,7 +32,7 @@ def process_meta_command(args, meta_command, fixed_args):
         for k, v in fixed_args.items():
             if k != "command" and vars(args)[k] and vars(args)[k] != v:
                 raise ValueError(
-                    "invalid argument for 'test' command: --{} {}".format(
+                    "invalid argument for '{}' command: --{} {}".format(
                         meta_command, k, v
                     )
                 )
@@ -67,40 +67,49 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("kge")
     subparsers = parser.add_subparsers(title="command", dest="command")
     subparsers.required = True
+
+    # start and its meta-commands
+    parser_start = subparsers.add_parser(
+        "start", help="Start a new job (create and run it)", parents=[parser_conf]
+    )
     parser_create = subparsers.add_parser(
-        "create", help="Create and run a new job", parents=[parser_conf]
+        "create", help="Create a new job (but do not run it)", parents=[parser_conf]
     )
-    parser_create.add_argument("config", type=str, nargs="?")
-    parser_create.add_argument("--folder", "-f", type=str, help="Output folder to use")
-    parser_create.add_argument(
-        "--run",
-        default=True,
-        type=argparse_bool_type,
-        help="Whether to immediately run the created job",
-    )
+    for p in [parser_start, parser_create]:
+        p.add_argument("config", type=str, nargs="?")
+        p.add_argument("--folder", "-f", type=str, help="Output folder to use")
+        p.add_argument(
+            "--run",
+            default=p is parser_start,
+            type=argparse_bool_type,
+            help="Whether to immediately run the created job",
+        )
+
+    # resume and its meta-commands
     parser_resume = subparsers.add_parser(
         "resume", help="Resume a prior job", parents=[parser_conf]
     )
-    parser_resume.add_argument("config", type=str)
     parser_eval = subparsers.add_parser(
         "eval", help="Evaluate the result of a prior job", parents=[parser_conf]
     )
-    parser_eval.add_argument("config", type=str)
     parser_valid = subparsers.add_parser(
         "valid",
         help="Evaluate the result of a prior job using validation data",
         parents=[parser_conf],
     )
-    parser_valid.add_argument("config", type=str)
     parser_test = subparsers.add_parser(
         "test",
         help="Evaluate the result of a prior job using test data",
         parents=[parser_conf],
     )
-    parser_test.add_argument("config", type=str)
+    for p in [parser_resume, parser_eval, parser_valid, parser_test]:
+        p.add_argument("config", type=str)
+
+    # now parse the arguments
     args = parser.parse_args()
 
-    # process meta-commands: eval
+    # process meta-commands
+    process_meta_command(args, "create", {"command": "start", "run": False})
     process_meta_command(args, "eval", {"command": "resume", "job.type": "eval"})
     process_meta_command(
         args, "test", {"command": "resume", "job.type": "eval", "eval.data": "test"}
@@ -110,7 +119,7 @@ if __name__ == "__main__":
     )
 
     # start command
-    if args.command == "create":
+    if args.command == "start":
         # use toy config file if no config given
         if args.config is None:
             args.config = "examples/toy.yaml"
@@ -139,7 +148,7 @@ if __name__ == "__main__":
             config.set(key, value)
 
     # initialize output folder
-    if args.command == "create":
+    if args.command == "start":
         if args.folder is None:  # means: set default
             config.folder = os.path.join(
                 kge_base_dir(),
@@ -153,7 +162,7 @@ if __name__ == "__main__":
         else:
             config.folder = args.folder
 
-    if args.command == "create" and not config.init_folder():
+    if args.command == "start" and not config.init_folder():
         raise ValueError("output folder {} exists already".format(config.folder))
     config.log("Using folder: {}".format(config.folder))
 
@@ -162,7 +171,9 @@ if __name__ == "__main__":
     config.log(yaml.dump(config.options), prefix="  ")
     config.log("git commit: {}".format(get_git_revision_short_hash()), prefix="  ")
 
-    if not (args.command == "create" and not args.run):
+    if args.command == "start" and not args.run:
+        config.log("Job created successfully.")
+    else:
         # load data
         dataset = Dataset.load(config)
 
