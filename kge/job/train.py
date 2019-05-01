@@ -317,12 +317,13 @@ class TrainingJob1toN(TrainingJob):
                     backward_time=batch_backward_time,
                     optimizer_time=batch_optimizer_time,
                 )
-            print("\033[K\r", end="")  # clear line and go back
             print(
                 (
-                    "{}  batch:{: "
+                    "\r"  # go back
+                    + "{}  batch:{: "
                     + str(1 + int(math.ceil(math.log10(len(self.loader)))))
                     + "d}/{}, avg_loss: {:.10E}, time: {:8.4f}s"
+                    + "\033[K"  # clear to right
                 ).format(
                     self.config.log_prefix,
                     batch_index,
@@ -334,10 +335,11 @@ class TrainingJob1toN(TrainingJob):
                     + batch_optimizer_time,
                 ),
                 end="",
+                flush=True,
             )
 
         epoch_time += time.time()
-        print("\033[2K\r", end="")  # clear line and go back
+        print("\033[2K\r", end="", flush=True)  # clear line and go back
 
         other_time = (
             epoch_time - prepare_time - forward_time - backward_time - optimizer_time

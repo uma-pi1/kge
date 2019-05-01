@@ -200,14 +200,15 @@ class EntityRankingJob(EvaluationJob):
                 )
 
             # output batch information to console
-            print("\033[K\r", end="")  # clear line and go back
             print(
                 (
-                    "{}  batch:{: "
+                    "\r"  # go back
+                    + "{}  batch:{: "
                     + str(1 + int(math.ceil(math.log10(len(self.loader)))))
                     + "d}/{}, mrr (filt.): {:4.3f} ({:4.3f}), "
                     + "hits@1: {:4.3f} ({:4.3f}), "
                     + "hits@{}: {:4.3f} ({:4.3f})"
+                    + "\033[K"  # clear to right
                 ).format(
                     self.config.log_prefix,
                     batch_number,
@@ -221,10 +222,11 @@ class EntityRankingJob(EvaluationJob):
                     metrics["hits_at_k_filtered"][self.max_k - 1],
                 ),
                 end="",
+                flush=True,
             )
 
         # we are done; compute final metrics
-        print("\033[2K\r", end="")  # clear line and go back
+        print("\033[2K\r", end="", flush=True)  # clear line and go back
         metrics = self._compute_metrics(hist)
         metrics.update(self._compute_metrics(hist_filt, suffix="_filtered"))
         if evil:
