@@ -203,12 +203,13 @@ class EntityRankingJob(EvaluationJob):
             print("\033[K\r", end="")  # clear line and go back
             print(
                 (
-                    "  batch:{: "
+                    "{}  batch:{: "
                     + str(1 + int(math.ceil(math.log10(len(self.loader)))))
                     + "d}/{}, mrr (filt.): {:4.3f} ({:4.3f}), "
                     + "hits@1: {:4.3f} ({:4.3f}), "
                     + "hits@{}: {:4.3f} ({:4.3f})"
                 ).format(
+                    self.config.log_prefix,
                     batch_number,
                     len(self.loader) - 1,
                     metrics["mean_reciprocal_rank"],

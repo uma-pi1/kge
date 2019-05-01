@@ -320,10 +320,11 @@ class TrainingJob1toN(TrainingJob):
             print("\033[K\r", end="")  # clear line and go back
             print(
                 (
-                    "  batch:{: "
+                    "{}  batch:{: "
                     + str(1 + int(math.ceil(math.log10(len(self.loader)))))
                     + "d}/{}, avg_loss: {:.10E}, time: {:8.4f}s"
                 ).format(
+                    self.config.log_prefix,
                     batch_index,
                     len(self.loader) - 1,
                     loss_value.item(),

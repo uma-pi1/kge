@@ -4,11 +4,10 @@ import argparse
 import os
 import yaml
 
-import kge
 from kge import Dataset
 from kge import Config
 from kge.job import Job
-from kge.util.misc import get_git_revision_short_hash, filename_in_module, kge_base_dir
+from kge.util.misc import get_git_revision_short_hash, kge_base_dir
 
 
 def argparse_bool_type(v):

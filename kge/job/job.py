@@ -20,6 +20,10 @@ class Job:
             folder=config.folder,
         )
 
+        # prepend log entries with the job id. Since we use random job IDs but
+        # want short log entries, we only output the first 8 bytes here
+        self.config.log_prefix = "[" + self.job_id[0:8] + "] "
+
     def resume(self):
         """Restores all relevant state to resume a previous job.
 

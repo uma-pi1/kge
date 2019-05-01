@@ -26,6 +26,7 @@ class Config:
             self.options = {}
 
         self.folder = folder
+        self.log_prefix = None
 
     # -- ACCESS METHODS ----------------------------------------------------------------
 
@@ -215,6 +216,8 @@ class Config:
             for line in msg.splitlines():
                 if prefix:
                     line = prefix + line
+                if self.log_prefix:
+                    line = self.log_prefix + line
                 if echo:
                     print(line)
                 file.write(str(datetime.datetime.now()) + " " + line + "\n")
