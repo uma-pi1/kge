@@ -1,43 +1,39 @@
 import torch
-from kge.model.kge_model import KgeModel
+from torch import Tensor
+from kge import Config, Dataset
+from kge.model.kge_model import ClosedKgeModel
 
 
-class ComplEx(KgeModel):
+class ComplEx(ClosedKgeModel):
     """
-    ComplEx
+    Implementation of the ComplEx embedding model.
     """
 
-    def __init__(self, config, dataset):
+    def __init__(self, config: Config, dataset: Dataset):
         super().__init__(config, dataset)
 
-    def _score(self, s, p, o, prefix=None):
-        r"""
-        :param s: tensor of size [batch_size, embedding_size]
-        :param p: tensor of size [batch_size, embedding_size]
-        :param o:: tensor of size [batch_size, embedding_size]
-        :return: score tensor of size [batch_size, 1]
-        """
-        sub = s.view(-1, s.size(-1))
-        rel = p.view(-1, p.size(-1))
-        obj = o.view(-1, o.size(-1))
+    def score_emb(self, s_emb, p_emb, o_emb, combine: str):
+        n = p_emb.size(0)
 
-        batch_size = p.size(0)
-        feat_dim = 1
+        # Here we use a fast implementation of computing the ComplEx scores using
+        # Hadamard products. TODO add details / reference to paper
 
-        rel1, rel2 = (t.contiguous() for t in rel.chunk(2, dim=feat_dim))
-        obj1, obj2 = (t.contiguous() for t in obj.chunk(2, dim=feat_dim))
-        sub_all = torch.cat((sub, sub), dim=feat_dim)
-        rel_all = torch.cat((rel1, rel, -rel2), dim=feat_dim)
-        obj_all = torch.cat((obj, obj2, obj1), dim=feat_dim)
+        # split the relation and object embeddings into two halves
+        p_emb_left, p_emb_right = (t.contiguous() for t in p_emb.chunk(2, dim=1))
+        o_emb_left, o_emb_right = (t.contiguous() for t in o_emb.chunk(2, dim=1))
 
-        if prefix:
-            if prefix == "sp":
-                out = (sub_all * rel_all).mm(obj_all.transpose(0, 1))
-            elif prefix == "po":
-                out = (rel_all * obj_all).mm(sub_all.transpose(0, 1))
-            else:
-                raise Exception
+        # and combine them again
+        s_all = torch.cat((s_emb, s_emb), dim=1)
+        r_all = torch.cat((p_emb_left, p_emb, -p_emb_right), dim=1)
+
+        o_all = torch.cat((o_emb, o_emb_right, o_emb_left), dim=1)
+        if combine == "spo":
+            out = (s_all * o_all * r_all).sum(dim=1)
+        elif combine == "sp*":
+            out = (s_all * r_all).mm(o_all.transpose(0, 1))
+        elif combine == "*po":
+            out = (r_all * o_all).mm(s_all.transpose(0, 1))
         else:
-            out = (sub_all * obj_all * rel_all).sum(dim=feat_dim)
+            raise ValueError('cannot handle combine="{}".format(combine)')
 
-        return out.view(batch_size, -1)
+        return out.view(n, -1)
