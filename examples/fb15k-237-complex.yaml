@@ -11,7 +11,7 @@ lookup_embedder:
   initialize_arg: 0.1
 
 train:
-  max_epochs: 5
+  max_epochs: 20
   optimizer: Adagrad
   batch_size: 512
   optimizer_args:

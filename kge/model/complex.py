@@ -1,13 +1,10 @@
 import torch
-from torch import Tensor
 from kge import Config, Dataset
-from kge.model.kge_model import ClosedKgeModel
+from kge.model.kge_model import KgeScorer, KgeModel
 
 
-class ComplEx(ClosedKgeModel):
-    """
-    Implementation of the ComplEx embedding model.
-    """
+class ComplExScorer(KgeScorer):
+    r"""Implementation of the ComplEx KGE scorer."""
 
     def __init__(self, config: Config, dataset: Dataset):
         super().__init__(config, dataset)
@@ -37,3 +34,10 @@ class ComplEx(ClosedKgeModel):
             raise ValueError('cannot handle combine="{}".format(combine)')
 
         return out.view(n, -1)
+
+
+class ComplEx(KgeModel):
+    r"""Implementation of the ComplEx KGE model."""
+
+    def __init__(self, config: Config, dataset: Dataset):
+        super().__init__(config, dataset, ComplExScorer(config, dataset))

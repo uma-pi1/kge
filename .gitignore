@@ -11,3 +11,4 @@ local/*
 .mypy_cache
 /trace.yaml
 kge.egg-info
+docs/_build
