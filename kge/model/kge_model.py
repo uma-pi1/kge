@@ -37,16 +37,16 @@ class KgeScorer(KgeBase):
         :math:`d_r` are the sizes of the entity and relation embeddings, respectively.
 
         The provided embeddings are combined based on the value of `combine`. Common
-        values are :code:`"spo"`, :code:`"sp*"`, and :code:`"*po"`. Not all models may support all
-        combinations.
+        values are :code:`"spo"`, :code:`"sp*"`, and :code:`"*po"`. Not all models may
+        support all combinations.
 
         When `combine` is :code:`"spo"`, then embeddings are combined row-wise. In this
         case, it is required that :math:`n_s=n_p=n_o=n`. The output is a :math`n\times
         1` tensor, in which the :math:`i`-th entry holds the score of the embedding
         triple :math:`(s_i, p_i, o_i)`.
 
-        When `combine` is :code:`"sp*"`, the subjects and predicates are taken row-wise and
-        subsequently combined with all objects. In this case, it is required that
+        When `combine` is :code:`"sp*"`, the subjects and predicates are taken row-wise
+        and subsequently combined with all objects. In this case, it is required that
         :math:`n_s=n_p=n`. The output is a :math`n\times n_o` tensor, in which the
         :math:`(i,j)`-th entry holds the score of the embedding triple :math:`(s_i, p_i,
         o_j)`.
@@ -252,12 +252,12 @@ class KgeModel(KgeBase):
         `s`, `p` and `o` are vectors of common size :math:`n`, holding the indexes of
         the subjects, relations, and objects to score.
 
-        The result is the horizontal concatenation of the outputs of :code:`score_sp(s,p)`
-        and :code:`score_po(p,o)`. I.e., returns an :math:`n\times 2E` tensor, where
-        :math:`E` is the total number of known entities. For :math:`j<E`, the
-        :math:`(i,j)`-entry holds the score for triple :math:`(s_i, p_i, j)`. For
-        :math:`j\ge E`, the :math:`(i,j)`-entry holds the score for triple :math:`(j-E,
-        p_i, o_i)`.
+        The result is the horizontal concatenation of the outputs of
+        :code:`score_sp(s,p)` and :code:`score_po(p,o)`. I.e., returns an :math:`n\times
+        2E` tensor, where :math:`E` is the total number of known entities. For
+        :math:`j<E`, the :math:`(i,j)`-entry holds the score for triple :math:`(s_i,
+        p_i, j)`. For :math:`j\ge E`, the :math:`(i,j)`-entry holds the score for triple
+        :math:`(j-E, p_i, o_i)`.
 
         """
         s = self.get_s_embedder().embed(s)
