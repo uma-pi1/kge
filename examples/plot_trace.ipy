@@ -1,3 +1,5 @@
+# examples for analyzing the output of a train job
+
 from kge.job import Trace
 import sys
 import matplotlib.pyplot as plt

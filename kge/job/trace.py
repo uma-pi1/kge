@@ -32,7 +32,7 @@ class Trace:
 
         return list(filter(predicate, self.entries))
 
-    def to_dataframe(self, filter_dict={}):
+    def to_dataframe(self, filter_dict={}) -> pd.DataFrame:
         filtered_entries = self.filter(filter_dict)
         return pd.DataFrame(filtered_entries)
 
