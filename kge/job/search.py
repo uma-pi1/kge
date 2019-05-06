@@ -42,6 +42,7 @@ ikljZZ    Interrupted searches can be resumed. Subjobs can also be resumed/run
             del search_config["folder"]
             config = self.config.clone(folder)
             config.set("job.type", "train")
+            config.options.pop("search", None)
             flattened_search_config = Config.flatten(search_config)
             config.set_all(flattened_search_config)
             all_keys.update(flattened_search_config.keys())

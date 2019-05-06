@@ -263,6 +263,7 @@ class Config:
         """
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
+            os.makedirs(os.path.join(self.folder, "config"))
             self.save(os.path.join(self.folder, "config.yaml"))
             return True
         return False

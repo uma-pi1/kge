@@ -41,15 +41,20 @@ class Job:
         from kge.job import TrainingJob, GridJob, EvaluationJob, SearchJob
 
         if config.get("job.type") == "train":
-            return TrainingJob.create(config, dataset, parent_job)
+            job = TrainingJob.create(config, dataset, parent_job)
         elif config.get("job.type") == "search":
-            return SearchJob(config, dataset, parent_job)
+            job = SearchJob(config, dataset, parent_job)
         elif config.get("job.type") == "grid":
-            return GridJob(config, dataset, parent_job)
+            job = GridJob(config, dataset, parent_job)
         elif config.get("job.type") == "eval":
-            return EvaluationJob.create(config, dataset, parent_job)
+            job = EvaluationJob.create(config, dataset, parent_job)
         else:
             raise ValueError("unknown job type")
+
+        # save the configs of all jobs we created
+        job.config.save(os.path.join(job.config.folder,
+                                     "config/{}.yaml".format(job.job_id[0:8])))
+        return job
 
     def trace(self, **kwargs):
         """Write a set of key-value pairs to the trace file and automatically append
