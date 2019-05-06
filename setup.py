@@ -8,6 +8,6 @@ setup(
     author="Universität Mannheim",
     author_email="rgemulla@uni-mannheim.de",
     packages=["kge"],
-    install_requires=["torch>=1.0.1", "pyyaml", "pandas", "argparse"],
+    install_requires=["torch>=1.0.1", "pyyaml", "pandas", "argparse", "path.py"],
     zip_safe=False,
 )

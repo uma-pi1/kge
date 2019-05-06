@@ -1,5 +1,6 @@
 import kge
 import os
+from path import Path
 import inspect
 import subprocess
 
@@ -15,16 +16,18 @@ def is_number(s, number_type):
 
 # from https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script
 def get_git_revision_hash():
-    return subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode()
+    with Path(kge_base_dir()):
+        return subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode()
 
 
 # from https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script
 def get_git_revision_short_hash():
-    return (
-        subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
-        .strip()
-        .decode()
-    )
+    with Path(kge_base_dir()):
+        return (
+            subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
+            .strip()
+            .decode()
+        )
 
 
 def kge_base_dir():
