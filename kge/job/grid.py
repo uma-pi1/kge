@@ -18,11 +18,21 @@ class GridJob(Job):
     def run(self):
         # read grid search options range
         all_keys = []
+        all_keys_short = []
         all_values = []
         all_indexes = []
         grid_configs = self.config.get("grid.configurations")
-        for k, v in Config.flatten(grid_configs).items():
+        for k, v in sorted(Config.flatten(grid_configs).items()):
             all_keys.append(k)
+            short_key = k[k.rfind(".") + 1 :]
+            if "_" in short_key:
+                # just keep first letter after each _
+                all_keys_short.append(
+                    "".join(map(lambda s: s[0], short_key.split("_")))
+                )
+            else:
+                # keep up to three letters
+                all_keys_short.append(short_key[:3])
             all_values.append(v)
             all_indexes.append(range(len(v)))
 
@@ -37,7 +47,9 @@ class GridJob(Job):
             # create search configuration and check whether correct
             dummy_config = self.config.clone()
             search_config = Config(load_default=False)
-            search_config.options["folder"] = "_".join(map(str, values))
+            search_config.options["folder"] = "_".join(
+                map(lambda i: all_keys_short[i] + str(values[i]), range(len(values)))
+            )
             for i, key in enumerate(all_keys):
                 dummy_config.set(key, values[i])  # to test whether correct k/v pair
                 search_config.set(key, values[i], create=True)
