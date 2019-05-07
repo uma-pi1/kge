@@ -6,6 +6,10 @@ from ax.service.ax_client import AxClient
 from typing import List
 
 
+# TODO generalize the code to support other backends than ax
+# TODO handle "max_epochs" in some sensible way
+# TODO support running of multiple trials in parallel
+
 class AxSearchJob(Job):
     """Job for hyperparameter search using [ax](https://ax.dev/)"""
 
