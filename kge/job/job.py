@@ -38,7 +38,7 @@ class Job:
     def create(config, dataset, parent_job=None):
         """Creates a job for a given configuration."""
 
-        from kge.job import TrainingJob, GridJob, EvaluationJob, SearchJob
+        from kge.job import TrainingJob, GridJob, EvaluationJob, SearchJob, AxSearchJob
 
         if config.get("job.type") == "train":
             job = TrainingJob.create(config, dataset, parent_job)
@@ -46,6 +46,8 @@ class Job:
             job = SearchJob(config, dataset, parent_job)
         elif config.get("job.type") == "grid":
             job = GridJob(config, dataset, parent_job)
+        elif config.get("job.type") == "axsearch":
+            job = AxSearchJob(config, dataset, parent_job)
         elif config.get("job.type") == "eval":
             job = EvaluationJob.create(config, dataset, parent_job)
         else:

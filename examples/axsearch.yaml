@@ -1,0 +1,20 @@
+job.type: axsearch
+dataset.name: toy
+train.optimizer: Adagrad
+model: complex
+
+train.max_epochs: 10
+
+axsearch:
+  max_trials: 20
+  parameters:
+    - name: train.optimizer_args.lr
+      type: range
+      bounds: [0.0, 1.0] }
+    - name: train.optimizer_args.weight_decay
+      type: range
+      bounds: [1.0e-8, 1.0]
+      log_scale: True
+    - name: lookup_embedder.dim
+      type: range
+      bounds: [10, 50]

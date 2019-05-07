@@ -4,5 +4,6 @@ from kge.job.train import TrainingJob
 from kge.job.eval import EvaluationJob
 from kge.job.grid import GridJob
 from kge.job.search import SearchJob
+from kge.job.axsearch import AxSearchJob
 from kge.job.entity_ranking import EntityRankingJob
 from kge.job.entity_pair_ranking import EntityPairRankingJob
