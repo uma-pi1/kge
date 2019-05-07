@@ -146,6 +146,8 @@ if __name__ == "__main__":
             continue
         if value is not None:
             config.set(key, value)
+            if key == "model":
+                config._import(value)
 
     # initialize output folder
     if args.command == "start":
