@@ -1,36 +1,31 @@
-from kge.model.kge_model import KgeModel, KgeEmbedder
+import torch
+from kge import Config, Dataset
+from kge.model.kge_model import RelationalScorer, KgeModel
+
+
+class DistMultScorer(RelationalScorer):
+    r"""Implementation of the DistMult KGE scorer."""
+
+    def __init__(self, config: Config, dataset: Dataset):
+        super().__init__(config, dataset)
+
+    def score_emb(self, s_emb, p_emb, o_emb, combine: str):
+        n = p_emb.size(0)
+
+        if combine == "spo":
+            out = (s_emb * p_emb * o_emb).sum(dim=1)
+        elif combine == "sp*":
+            out = (s_emb * p_emb).mm(o_emb.transpose(0, 1))
+        elif combine == "*po":
+            out = (o_emb * o_emb).mm(s_emb.transpose(0, 1))
+        else:
+            raise ValueError('cannot handle combine="{}".format(combine)')
+
+        return out.view(n, -1)
 
 
 class DistMult(KgeModel):
-    """
-    DistMult
-    """
+    r"""Implementation of the DistMult KGE model."""
 
-    def __init__(self, config, dataset):
-        super().__init__(config, dataset)
-
-    def _score(self, s, p, o, prefix=None):
-        r"""
-        :param s: tensor of size [batch_size, embedding_size]
-        :param p: tensor of size [batch_size, embedding_size]
-        :param o:: tensor of size [batch_size, embedding_size]
-        :return: score tensor of size [batch_size, 1]
-        """
-        sub = s.view(-1, s.size(-1))
-        rel = p.view(-1, p.size(-1))
-        obj = o.view(-1, o.size(-1))
-
-        batch_size = p.size(0)
-        feat_dim = 1
-
-        if prefix:
-            if prefix == "sp":
-                out = (sub * rel).mm(obj.transpose(0, 1))
-            elif prefix == "po":
-                out = (rel * obj).mm(sub.transpose(0, 1))
-            else:
-                raise Exception
-        else:
-            out = (sub * obj * rel).sum(dim=feat_dim)
-
-        return out.view(batch_size, -1)
+    def __init__(self, config: Config, dataset: Dataset):
+        super().__init__(config, dataset, DistMultScorer(config, dataset))

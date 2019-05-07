@@ -24,7 +24,6 @@ print(train[-1:].transpose())
 # scatter plot of all results so far as a function of the learning rate
 plt.clf()
 plt.scatter(train["train.optimizer_args.lr"], train.metric_value)
-plt.xscale("log")
 
 # lood detail data (again, just the part being completed)
 epoch = trace.to_dataframe({"scope": "epoch"})

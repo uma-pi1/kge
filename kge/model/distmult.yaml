@@ -1,3 +1,10 @@
-model:
-  embedder: lookup            # lookup, single or pair as above
+import: [ 'lookup_embedder' ]
+
+distmult:
   class_name: DistMult
+  entity_embedder:
+    type: lookup_embedder
+    +++: +++
+  relation_embedder:
+    type: lookup_embedder
+    +++: +++

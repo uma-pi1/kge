@@ -18,16 +18,34 @@ class KgeBase(torch.nn.Module):
             raise ValueError("initialize")
 
 
-class KgeScorer(KgeBase):
-    r"""Base class for all KGE scorers.
+class RelationalScorer(KgeBase):
+    r"""Base class for all relational scorers.
 
-    KGE scorers take as input the embeddings of (subject, predicate, object)-triple and
-    produce a score.
+    Relational scorers take as input the embeddings of (subject, predicate,
+    object)-triple and produce a score.
+
+    Implementations of this class should either implement
+    :func:`~RelationalScorer.score_emb_spo` (the quick way, but potentially inefficient)
+    or :func:`~RelationalScorer.score_emb` (the hard way, potentially more efficient).
 
     """
 
     def __init__(self, config: Config, dataset: Dataset):
         super().__init__(config, dataset)
+
+    def score_emb_spo(self, s_emb, p_emb, o_emb):
+        r"""Scores a set of triples specified by their embeddings.
+
+        `s_emb`, `p_emb`, and `o_emb` are tensors of size :math:`n\times d_e`,
+        :math:`n\times d_r`, and :math:`n\times d_e`, where :math:`d_e` and
+        :math:`d_r` are the sizes of the entity and relation embeddings, respectively.
+
+        The embeddings are combined row-wise. The output is a :math`n\times 1` tensor,
+        in which the :math:`i`-th entry holds the score of the embedding triple
+        :math:`(s_i, p_i, o_i)`.
+
+        """
+        return self.score_emb(s_emb, p_emb, o_emb, "spo")
 
     def score_emb(self, s_emb, p_emb, o_emb, combine: str):
         r"""Scores a set of triples specified by their embeddings.
@@ -41,9 +59,10 @@ class KgeScorer(KgeBase):
         support all combinations.
 
         When `combine` is :code:`"spo"`, then embeddings are combined row-wise. In this
-        case, it is required that :math:`n_s=n_p=n_o=n`. The output is a :math`n\times
-        1` tensor, in which the :math:`i`-th entry holds the score of the embedding
-        triple :math:`(s_i, p_i, o_i)`.
+        case, it is required that :math:`n_s=n_p=n_o=n`. The output is identical to
+        :func:`~RelationalScorer.score_emb_spo`, i.e., a :math`n\times 1` tensor, in
+        which the :math:`i`-th entry holds the score of the embedding triple
+        :math:`(s_i, p_i, o_i)`.
 
         When `combine` is :code:`"sp*"`, the subjects and predicates are taken row-wise
         and subsequently combined with all objects. In this case, it is required that
@@ -58,7 +77,29 @@ class KgeScorer(KgeBase):
         o_i)`.
 
         """
-        raise NotImplementedError
+        n = p_emb.size(0)
+
+        if combine == "spo":
+            assert s_emb.size(0) == n and o_emb.size(0) == n
+            out = self.score_emb_spo(s_emb, p_emb, o_emb)
+        elif combine == "sp*":
+            assert s_emb.size(0) == n
+            n_o = o_emb.size(0)
+            s_embs = s_emb.repeat_interleave(n_o, 0)
+            p_embs = p_emb.repeat_interleave(n_o, 0)
+            o_embs = o_emb.repeat((n, 1))
+            out = self.score_emb_spo(s_embs, p_embs, o_embs)
+        elif combine == "*po":
+            assert o_emb.size(0) == n
+            n_s = o_emb.size(0)
+            s_embs = s_emb.repeat((n, 1))
+            p_embs = p_emb.repeat_interleave(n_s, 0)
+            o_embs = o_emb.repeat_interleave(n_s, 0)
+            out = self.score_emb_spo(s_embs, p_embs, o_embs)
+        else:
+            raise ValueError('cannot handle combine="{}".format(combine)')
+
+        return out.view(n, -1)
 
 
 class KgeEmbedder(KgeBase):
@@ -136,13 +177,13 @@ class KgeEmbedder(KgeBase):
 class KgeModel(KgeBase):
     r"""Generic KGE model for KBs with a fixed set of entities and relations.
 
-    This class uses :class:`KgeEmbedder` to associate each subject, relation, and
-    object with an embedding, and a :class:`KgeScorer` to score (subject, predicate,
+    This class uses :class:`KgeEmbedder` to associate each subject, relation, and object
+    with an embedding, and a :class:`RelationalScorer` to score (subject, predicate,
     object) triples.
 
     """
 
-    def __init__(self, config: Config, dataset: Dataset, scorer: KgeScorer):
+    def __init__(self, config: Config, dataset: Dataset, scorer: RelationalScorer):
         super().__init__(config, dataset)
 
         #: Embedder used for entitites (both subject and objects)
@@ -196,7 +237,7 @@ class KgeModel(KgeBase):
     def get_p_embedder(self) -> KgeEmbedder:
         return self._relation_embedder
 
-    def get_scorer(self) -> KgeScorer:
+    def get_scorer(self) -> RelationalScorer:
         return self._scorer
 
     def score_spo(self, s, p, o):

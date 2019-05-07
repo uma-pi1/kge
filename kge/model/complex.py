@@ -1,9 +1,9 @@
 import torch
 from kge import Config, Dataset
-from kge.model.kge_model import KgeScorer, KgeModel
+from kge.model.kge_model import RelationalScorer, KgeModel
 
 
-class ComplExScorer(KgeScorer):
+class ComplExScorer(RelationalScorer):
     r"""Implementation of the ComplEx KGE scorer."""
 
     def __init__(self, config: Config, dataset: Dataset):
