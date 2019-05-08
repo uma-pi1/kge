@@ -1,8 +1,8 @@
 # examples for analyzing the output of a search job
 
+from kge.job import Trace
 import matplotlib.pyplot as plt
 from IPython import get_ipython
-from kge.job import Trace
 
 get_ipython().magic("matplotlib")
 
@@ -25,6 +25,10 @@ print(train[-1:].transpose())
 plt.clf()
 plt.scatter(train["train.optimizer_args.lr"], train.metric_value)
 
+# scatter plot of all results so far as a function of training job number
+plt.clf()
+plt.scatter(train["timestamp"], train.metric_value)
+
 # lood detail data (again, just the part being completed)
 epoch = trace.to_dataframe({"scope": "epoch"})
 
@@ -39,3 +43,6 @@ epoch.groupby("folder").plot("epoch", "metric_value", ax=plt.gca())
 # sandbox
 tracefile = "/home/rgemulla/extern/kge/local/experiments/fb15k-237-complex-search-large/trace.yaml"
 job_id = "9b2846dd"
+
+tracefile="/home/rgemulla/extern/kge/local/experiments/fb15k-237-complex-axsearch/trace.yaml"
+job_id = "e977da3f"

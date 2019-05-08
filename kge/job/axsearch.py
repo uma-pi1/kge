@@ -65,30 +65,25 @@ class AxSearchJob(Job):
             self.config.log("Parameters: {}".format(parameters), prefix="  ")
 
             # evaluate the trial
-            if trial_no >= len(self.results):
-                # create the job
-                folder = str("{:05d}".format(trial_no))
-                config = self.config.clone(folder)
-                config.set("job.type", "train")
-                config.set_all(parameters)
-                config.init_folder()
+            folder = str("{:05d}".format(trial_no))
+            config = self.config.clone(folder)
+            config.set("job.type", "train")
+            config.set_all(parameters)
+            config.init_folder()
 
-                # run it
-                _, best, _ = _run_train_job(
-                    (
-                        self,
-                        trial_no,
-                        config,
-                        self.config.get("axsearch.max_trials"),
-                        parameters.keys(),
-                    )
+            # run it
+            _, best, _ = _run_train_job(
+                (
+                    self,
+                    trial_no,
+                    config,
+                    self.config.get("axsearch.max_trials"),
+                    parameters.keys(),
                 )
+            )
 
-                # remember it
-                self.results.append(best)
-            else:
-                # use previous results
-                best = self.results[trial_no]
+            # remember it
+            self.results.append(best)
             self.config.log("Result: {}".format(best["metric_value"]), prefix="  ")
 
             # register the arm
@@ -113,6 +108,6 @@ class AxSearchJob(Job):
             echo_prefix="  ",
             log=True,
             scope="search",
-            metric_value=values[0]["metric_value"],
+            metric_value=float(values[0]["metric_value"]),
             **best_parameters
         )
