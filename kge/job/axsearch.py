@@ -1,14 +1,16 @@
 import torch
+import concurrent.futures
+import os.path
 from kge.job import Job
 from kge import Config
 from kge.job.search import _run_train_job
 from ax.service.ax_client import AxClient
 from typing import List
 
-
 # TODO generalize the code to support other backends than ax
 # TODO handle "max_epochs" in some sensible way
-# TODO support running of multiple trials in parallel
+# TODO when resuming an experiment, run BO right away (instead of Sobol first)
+
 
 class AxSearchJob(Job):
     """Job for hyperparameter search using [ax](https://ax.dev/)"""
@@ -41,6 +43,7 @@ class AxSearchJob(Job):
             self.config.log("No checkpoint found, starting from scratch...")
 
     def run(self):
+        # create experiment
         ax_client = AxClient()
         ax_client.create_experiment(
             name=self.job_id,
@@ -49,58 +52,145 @@ class AxSearchJob(Job):
             minimize=False,
         )
 
+        # create worker pool
+        if self.config.get("search.num_workers") > 1:
+            process_pool = concurrent.futures.ProcessPoolExecutor(
+                max_workers=self.config.get("search.num_workers")
+            )
+            running_trials = set()  # set of trial currently running
+            ready_trials = list()  # results of ready trials
+        else:
+            process_pool = None  # marks that we run in single process
+
+        # let's go
+        index_for_trial = []
+        trial_no = 0
         max_trials = self.config.get("axsearch.max_trials")
-        for trial_no in range(max_trials):
-            self.config.log("Starting trial {}/{}...".format(trial_no, max_trials))
+        while trial_no < max_trials:
+            self.config.log("Starting trial {}/{}...".format(trial_no, max_trials - 1))
 
             # determine next trial
             if trial_no >= len(self.trial_parameters):
                 # create a new trial
-                parameters, trial_index = ax_client.get_next_trial()
-                self.trial_parameters.append(parameters)
+                try:
+                    parameters, trial_index = ax_client.get_next_trial()
+                    self.trial_parameters.append(parameters)
+                    self.results.append(None)
+                    index_for_trial.append(trial_index)
+                except ValueError:
+                    # error: ax needs more data
+                    self.config.log(
+                        "Cannot generate trial. Will try again after a running trial "
+                        + "has completed."
+                    )
+                    trial_index = None  # marks error
             else:
                 # use the trial of the prior run of this job
                 parameters = self.trial_parameters[trial_no]
-                ax_client.attach_trial(parameters)
-            self.config.log("Parameters: {}".format(parameters), prefix="  ")
+                _, trial_index = ax_client.attach_trial(parameters)
+                index_for_trial.append(trial_index)
+                self.results.append(None)
 
-            # evaluate the trial
-            folder = str("{:05d}".format(trial_no))
-            config = self.config.clone(folder)
-            config.set("job.type", "train")
-            config.set_all(parameters)
-            config.init_folder()
+            # create job for trial
+            if trial_index is not None:
+                folder = str("{:05d}".format(trial_no))
+                config = self.config.clone(folder)
+                config.set("job.type", "train")
+                config.set_all(parameters)
+                config.init_folder()
+            else:
+                config = None
 
-            # run it
-            _, best, _ = _run_train_job(
-                (
-                    self,
-                    trial_no,
-                    config,
-                    self.config.get("axsearch.max_trials"),
-                    parameters.keys(),
+            # run or schedule the trial
+            if process_pool is None:
+                # single process -> just run
+                ready_trials = [
+                    _run_train_job(
+                        (
+                            self,
+                            trial_no,
+                            config,
+                            self.config.get("axsearch.max_trials"),
+                            parameters.keys(),
+                        )
+                    )
+                ]
+            else:
+                # multiprocess
+                ready_futures = set()  # trials that just become ready
+
+                # wait until there is a free worker for a new trial; also wait when we
+                # couldn't generate a new trial since data is lacking
+                if (
+                    len(running_trials) == self.config.get("search.num_workers")
+                    or trial_index is None
+                ):
+                    self.config.log("Waiting for some trial to complete...")
+                    ready_futures, running_trials = concurrent.futures.wait(
+                        running_trials, return_when=concurrent.futures.FIRST_COMPLETED
+                    )
+
+                # now submit the next trial (in case we had generated one)
+                if trial_index is not None:
+                    running_trials.add(
+                        process_pool.submit(
+                            _run_train_job,
+                            (
+                                self,
+                                trial_no,
+                                config,
+                                self.config.get("axsearch.max_trials"),
+                                set(parameters.keys()),
+                            ),
+                        )
+                    )
+
+                    # on last iteration, wait for all running trials to complete
+                    if trial_no == max_trials - 1:
+                        self.config.log("Waiting for remaining trials to complete...")
+                        new_ready_futures, _ = concurrent.futures.wait(
+                            running_trials, return_when=concurrent.futures.ALL_COMPLETED
+                        )
+                        ready_futures = ready_futures.union(new_ready_futures)
+
+                # fetch results of all ready trials
+                for future in ready_futures:
+                    ready_trials.append(future.result())
+
+            # for each ready trial, store its results
+            for ready_trial_no, ready_trial_best, _ in ready_trials:
+                self.config.log(
+                    "Registering trial {} result: {}".format(
+                        ready_trial_no, ready_trial_best["metric_value"]
+                    )
                 )
-            )
+                self.results[ready_trial_no] = ready_trial_best
 
-            # remember it
-            self.results.append(best)
-            self.config.log("Result: {}".format(best["metric_value"]), prefix="  ")
+                # register the arm
+                # TODO: std dev shouldn't be fixed to 0.0
+                ax_client.complete_trial(
+                    trial_index=index_for_trial[ready_trial_no],
+                    raw_data={"metric_value": (ready_trial_best["metric_value"], 0.0)},
+                )
 
-            # register the arm
-            # TODO: std dev shouldn't be fixed to 0.0
-            ax_client.complete_trial(
-                trial_index=trial_no,
-                raw_data={"metric_value": (best["metric_value"], 0.0)},
-            )
+                # save checkpoint
+                # TODO make atomic (may corrupt good checkpoint when canceled!)
+                self.save(self.config.checkpoint_file(1))
 
-            # save checkpoint if necessary
-            if trial_no >= len(self.results) - 1:
-                self.save(self.config.checkpoint_file(trial_no))
+            # clean up
+            ready_trials.clear()
+            if trial_index is not None:
+                # advance to next trial (unless we did not run this one)
+                trial_no += 1
 
         # all done, output best result
+        self.config.log("And the winner is...")
         best_parameters, values = ax_client.get_best_parameters()
-        self.config.log("best_parameters: {}".format(best_parameters))
-        self.config.log("values: {}".format(values[0]))
+        self.config.log("best_parameters: {}".format(best_parameters), prefix="  ")
+        self.config.log(
+            "best_matric_value (estimate): {}".format(values[0]["metric_value"]),
+            prefix=" ",
+        )
 
         # record the best result of this job
         self.trace(

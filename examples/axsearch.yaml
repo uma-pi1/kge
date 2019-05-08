@@ -10,7 +10,7 @@ axsearch:
   parameters:
     - name: train.optimizer_args.lr
       type: range
-      bounds: [0.0, 1.0] }
+      bounds: [0.0, 1.0]
     - name: train.optimizer_args.weight_decay
       type: range
       bounds: [1.0e-8, 1.0]
