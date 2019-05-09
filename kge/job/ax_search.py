@@ -10,7 +10,6 @@ from typing import List
 # TODO handle "max_epochs" in some sensible way
 # TODO when resuming an experiment, run BO right away (instead of Sobol first)
 
-
 class AxSearchJob(SearchJob):
     """Job for hyperparameter search using [ax](https://ax.dev/)"""
 
@@ -50,16 +49,6 @@ class AxSearchJob(SearchJob):
             objective_name="metric_value",
             minimize=False,
         )
-
-        # create worker pool
-        if self.config.get("search.num_workers") > 1:
-            process_pool = concurrent.futures.ProcessPoolExecutor(
-                max_workers=self.config.get("search.num_workers")
-            )
-            running_trials = set()  # set of trial currently running
-            ready_trials = list()  # results of ready trials
-        else:
-            process_pool = None  # marks that we run in single process
 
         # let's go
         index_for_trial = []
@@ -101,63 +90,27 @@ class AxSearchJob(SearchJob):
                 config = None
 
             # run or schedule the trial
-            if process_pool is None:
-                # single process -> just run
-                ready_trials = [
-                    kge.job.search._run_train_job(
-                        (
-                            self,
-                            trial_no,
-                            config,
-                            self.config.get("ax_search.max_trials"),
-                            parameters.keys(),
-                        )
-                    )
-                ]
+            if trial_index is not None:
+                self.submit_task(
+                    kge.job.search._run_train_job,
+                    (
+                        self,
+                        trial_no,
+                        config,
+                        self.config.get("ax_search.max_trials"),
+                        list(parameters.keys()),
+                    ),
+                )
+
+                # on last iteration, wait for all running trials to complete
+                if trial_no == max_trials - 1:
+                    self.wait_task(return_when=concurrent.futures.ALL_COMPLETED)
             else:
-                # multiprocess
-                ready_futures = set()  # trials that just become ready
-
-                # wait until there is a free worker for a new trial; also wait when we
-                # couldn't generate a new trial since data is lacking
-                if (
-                    len(running_trials) == self.config.get("search.num_workers")
-                    or trial_index is None
-                ):
-                    self.config.log("Waiting for some trial to complete...")
-                    ready_futures, running_trials = concurrent.futures.wait(
-                        running_trials, return_when=concurrent.futures.FIRST_COMPLETED
-                    )
-
-                # now submit the next trial (in case we had generated one)
-                if trial_index is not None:
-                    running_trials.add(
-                        process_pool.submit(
-                            kge.job.search._run_train_job,
-                            (
-                                self,
-                                trial_no,
-                                config,
-                                self.config.get("ax_search.max_trials"),
-                                set(parameters.keys()),
-                            ),
-                        )
-                    )
-
-                    # on last iteration, wait for all running trials to complete
-                    if trial_no == max_trials - 1:
-                        self.config.log("Waiting for remaining trials to complete...")
-                        new_ready_futures, _ = concurrent.futures.wait(
-                            running_trials, return_when=concurrent.futures.ALL_COMPLETED
-                        )
-                        ready_futures = ready_futures.union(new_ready_futures)
-
-                # fetch results of all ready trials
-                for future in ready_futures:
-                    ready_trials.append(future.result())
+                # couldn't generate a new trial since data is lacking; so wait
+                self.wait_task()
 
             # for each ready trial, store its results
-            for ready_trial_no, ready_trial_best, _ in ready_trials:
+            for ready_trial_no, ready_trial_best, _ in self.ready_task_results:
                 self.config.log(
                     "Registering trial {} result: {}".format(
                         ready_trial_no, ready_trial_best["metric_value"]
@@ -177,7 +130,7 @@ class AxSearchJob(SearchJob):
                 self.save(self.config.checkpoint_file(1))
 
             # clean up
-            ready_trials.clear()
+            self.ready_task_results.clear()
             if trial_index is not None:
                 # advance to next trial (unless we did not run this one)
                 trial_no += 1

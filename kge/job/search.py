@@ -1,5 +1,6 @@
 import copy
 import os
+import concurrent.futures
 from kge.job import Job, Trace
 
 
@@ -8,6 +9,56 @@ class SearchJob(Job):
 
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
+
+        # create data structures for parallel job submission
+        self.num_workers = self.config.get("search.num_workers")
+        self.running_tasks = set()  # set of futures currently runnning
+        self.ready_task_results = list()  # set of results
+        if self.num_workers > 1:
+            self.process_pool = concurrent.futures.ProcessPoolExecutor(
+                max_workers=self.num_workers
+            )
+        else:
+            self.process_pool = None  # marks that we run in single process
+
+    def __getstate__(self):
+        state = dict(self.__dict__)
+        del state['process_pool']
+        del state['running_tasks']
+        return state
+
+    def submit_task(self, task, task_arg, wait_when_full=True):
+        """Runs the given task with the given argument.
+
+        When ``search.num_workers`` is 1, blocks and runs synchronous. Otherwise,
+        schedules the task at a free worker. If no worker is free, either waits
+        (`wait_when_full` true) or throws an error (`wait_when_full` false).
+
+        """
+        if self.process_pool is None:
+            self.ready_task_results.append(task(task_arg))
+        else:
+            if len(self.running_tasks) >= self.num_workers:
+                if wait_when_full:
+                    self.config.log("No more free workers.")
+                    self.wait_task()
+                else:
+                    raise ValueError("no more free workers for running the task")
+            self.running_tasks.add(self.process_pool.submit(task, task_arg))
+
+    def wait_task(self, return_when=concurrent.futures.FIRST_COMPLETED):
+        """Waits for one or more tasks to complete.
+
+        When no task is running, does nothing.
+
+        """
+        if len(self.running_tasks) > 0:
+            self.config.log("Waiting for tasks to complete...")
+            ready_tasks, self.running_tasks = concurrent.futures.wait(
+                self.running_tasks, return_when=return_when
+            )
+            for task in ready_tasks:
+                self.ready_task_results.append(task.result())
 
     def create(config, dataset, parent_job=None):
         """Factory method to create a search job."""

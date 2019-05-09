@@ -63,17 +63,10 @@ class ManualSearchJob(SearchJob):
         # self.dataset.index_1toN("test", "po")
 
         # now start running/resuming
-        tasks = [
-            (self, i, config, len(search_configs), all_keys)
-            for i, config in enumerate(search_configs)
-        ]
-        if self.config.get("search.num_workers") == 1:
-            result = list(map(kge.job.search._run_train_job, tasks))
-        else:
-            with concurrent.futures.ProcessPoolExecutor(
-                max_workers=self.config.get("search.num_workers")
-            ) as e:
-                result = list(e.map(kge.job.search._run_train_job, tasks))
+        for i, config in enumerate(search_configs):
+            task_arg = (self, i, config, len(search_configs), all_keys)
+            self.submit_task(kge.job.search._run_train_job, task_arg)
+        self.wait_task(concurrent.futures.ALL_COMPLETED)
 
         # if not running the jobs, stop here
         if not self.config.get("manual_search.run"):
@@ -83,7 +76,7 @@ class ManualSearchJob(SearchJob):
         # collect results
         best_per_job = [None] * len(search_configs)
         best_metric_per_job = [None] * len(search_configs)
-        for ibm in result:
+        for ibm in self.ready_task_results:
             i, best, best_metric = ibm
             best_per_job[i] = best
             best_metric_per_job[i] = best_metric
