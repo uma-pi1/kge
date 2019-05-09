@@ -11,7 +11,6 @@ setup(
     install_requires=[
         "torch>=1.0.1",
         "pyyaml",
-        "pypath",
         "pandas",
         "argparse",
         "path.py",

@@ -79,14 +79,19 @@ eval:
   pin_memory: False
   trace_level: example            # example or batch or epoch
 
-## GRID SEARCH #################################################################
+## HYPERPARAMETER SEARCH ###############################################################
 
 search:
-  # if false, only creates folders and configurations
-  run: True
+  # the type of search to run (see descriptions below): manual, grid, ax
+  type: ax
 
-  # number of parallel training jobs to run during a search
+  # (maximum) number of parallel training jobs to run during a search
   num_workers: 1
+
+# Manually specify all configurations to try
+manual_search:
+  # If false, only creates training job folders but does not run the jobs.
+  run: True
 
   # List of configurations to search. Each entry is a record with a field
   # 'folder' (where the training job is stored) and an arbitrary number of other
@@ -94,21 +99,24 @@ search:
   # 'train.optimizer_args.lr').
   configurations: []
 
-# Metajob for a grid search
-grid:
-  # If false, only creates search job configuration file. This may be useful to
-  # edit the configuration (e.g., change folder names) or to copy the created
-  # configurations to an existing search job.
+
+# Metajob for a grid search. Creates a manual search job with all points on the
+# grid.
+grid_search:
+  # If false, only creates manual search job configuration file but does not run
+  # it. This may be useful to edit the configuration (e.g., change folder names)
+  # or to copy the created configurations to an existing manual search job.
   run: True
 
-  # Define the grid. This is a list of key-array pairs, where the key is a
-  # (flattened or nested) configuration option (e.g., "train.optimizer_args.lr")
-  # and the value is an array of grid-search values (e.g., [ 0.1, 0.01 ]). No
-  # default values specified.
-  configurations:
+  # Define the grid. This is a dict where the key is a (flattened or nested)
+  # configuration option (e.g., "train.optimizer_args.lr") and the value is an
+  # array of grid-search values (e.g., [ 0.1, 0.01 ]). No default values
+  # specified.
+  parameters:
     +++: +++
 
-axsearch:
+# Dynamic search job that picks configurations using ax
+ax_search:
   max_trials: 10
 
   # Search space definition passed to ax. See create_experiment in

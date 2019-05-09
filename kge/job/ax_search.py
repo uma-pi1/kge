@@ -1,9 +1,8 @@
 import torch
 import concurrent.futures
-import os.path
-from kge.job import Job
+from kge.job import SearchJob
 from kge import Config
-from kge.job.search import _run_train_job
+import kge.job.search
 from ax.service.ax_client import AxClient
 from typing import List
 
@@ -12,7 +11,7 @@ from typing import List
 # TODO when resuming an experiment, run BO right away (instead of Sobol first)
 
 
-class AxSearchJob(Job):
+class AxSearchJob(SearchJob):
     """Job for hyperparameter search using [ax](https://ax.dev/)"""
 
     def __init__(self, config: Config, dataset, parent_job=None):
@@ -47,7 +46,7 @@ class AxSearchJob(Job):
         ax_client = AxClient()
         ax_client.create_experiment(
             name=self.job_id,
-            parameters=self.config.get("axsearch.parameters"),
+            parameters=self.config.get("ax_search.parameters"),
             objective_name="metric_value",
             minimize=False,
         )
@@ -65,7 +64,7 @@ class AxSearchJob(Job):
         # let's go
         index_for_trial = []
         trial_no = 0
-        max_trials = self.config.get("axsearch.max_trials")
+        max_trials = self.config.get("ax_search.max_trials")
         while trial_no < max_trials:
             self.config.log("Starting trial {}/{}...".format(trial_no, max_trials - 1))
 
@@ -105,12 +104,12 @@ class AxSearchJob(Job):
             if process_pool is None:
                 # single process -> just run
                 ready_trials = [
-                    _run_train_job(
+                    kge.job.search._run_train_job(
                         (
                             self,
                             trial_no,
                             config,
-                            self.config.get("axsearch.max_trials"),
+                            self.config.get("ax_search.max_trials"),
                             parameters.keys(),
                         )
                     )
@@ -134,12 +133,12 @@ class AxSearchJob(Job):
                 if trial_index is not None:
                     running_trials.add(
                         process_pool.submit(
-                            _run_train_job,
+                            kge.job.search._run_train_job,
                             (
                                 self,
                                 trial_no,
                                 config,
-                                self.config.get("axsearch.max_trials"),
+                                self.config.get("ax_search.max_trials"),
                                 set(parameters.keys()),
                             ),
                         )

@@ -4,11 +4,11 @@ from kge import Config
 import itertools
 
 
-class GridJob(Job):
+class GridSearchJob(Job):
     """Job to perform grid search.
 
-    This job creates a :class:`SearchJob` with one configuration for each point
-    on the grid.
+    This job creates a :class:`ManualSearchJob` with one configuration for each point on
+    the grid.
 
     """
 
@@ -21,7 +21,7 @@ class GridJob(Job):
         all_keys_short = []
         all_values = []
         all_indexes = []
-        grid_configs = self.config.get("grid.configurations")
+        grid_configs = self.config.get("grid_search.parameters")
         for k, v in sorted(Config.flatten(grid_configs).items()):
             all_keys.append(k)
             short_key = k[k.rfind(".") + 1 :]
@@ -58,12 +58,12 @@ class GridJob(Job):
             search_configs.append(search_config.options)
 
         # create configuration file of search job
-        self.config.set("job.type", "search")
-        self.config.set("search.configurations", search_configs)
+        self.config.set("search.type", "manual")
+        self.config.set("manual_search.configurations", search_configs)
         self.config.save(os.path.join(self.config.folder, "config.yaml"))
 
         # and run it
-        if self.config.get("grid.run"):
+        if self.config.get("grid_search.run"):
             job = Job.create(self.config, self.dataset, parent_job=self)
             job.resume()
             job.run()

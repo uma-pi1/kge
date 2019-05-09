@@ -1,9 +1,10 @@
-job.type: grid
+job.type: search
 dataset.name: toy
 train.optimizer: Adagrad
 model: complex
 
-grid.configurations:
+search.type: grid
+grid_search.parameters:
     # can be specified flattened
     train.optimizer_args.lr: [ 0.01, 0.1 ]
 

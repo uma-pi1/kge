@@ -1,11 +1,12 @@
-job.type: axsearch
+job.type: search
 dataset.name: toy
 train.optimizer: Adagrad
 model: complex
 
 train.max_epochs: 10
 
-axsearch:
+search.type: ax
+ax_search:
   max_trials: 20
   parameters:
     - name: train.optimizer_args.lr
