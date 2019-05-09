@@ -117,7 +117,7 @@ grid_search:
 
 # Dynamic search job that picks configurations using ax
 ax_search:
-  max_trials: 10
+  num_trials: 10
 
   # Search space definition passed to ax. See create_experiment in
   # https://ax.dev/api/service.html#module-ax.service.ax_client

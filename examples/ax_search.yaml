@@ -7,7 +7,7 @@ train.max_epochs: 10
 
 search.type: ax
 ax_search:
-  max_trials: 20
+  num_trials: 20
   parameters:
     - name: train.optimizer_args.lr
       type: range

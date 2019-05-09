@@ -53,9 +53,9 @@ class AxSearchJob(SearchJob):
         # let's go
         index_for_trial = []
         trial_no = 0
-        max_trials = self.config.get("ax_search.max_trials")
-        while trial_no < max_trials:
-            self.config.log("Starting trial {}/{}...".format(trial_no, max_trials - 1))
+        num_trials = self.config.get("ax_search.num_trials")
+        while trial_no < num_trials:
+            self.config.log("Starting trial {}/{}...".format(trial_no, num_trials - 1))
 
             # determine next trial
             if trial_no >= len(self.trial_parameters):
@@ -97,13 +97,13 @@ class AxSearchJob(SearchJob):
                         self,
                         trial_no,
                         config,
-                        self.config.get("ax_search.max_trials"),
+                        self.config.get("ax_search.num_trials"),
                         list(parameters.keys()),
                     ),
                 )
 
                 # on last iteration, wait for all running trials to complete
-                if trial_no == max_trials - 1:
+                if trial_no == num_trials - 1:
                     self.wait_task(return_when=concurrent.futures.ALL_COMPLETED)
             else:
                 # couldn't generate a new trial since data is lacking; so wait
