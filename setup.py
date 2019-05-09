@@ -11,10 +11,11 @@ setup(
     install_requires=[
         "torch>=1.0.1",
         "pyyaml",
+        "pypath",
         "pandas",
         "argparse",
         "path.py",
-        "ax-plattform",
+        "ax-platform",
     ],
     zip_safe=False,
 )
