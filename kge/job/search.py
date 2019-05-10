@@ -5,15 +5,18 @@ from kge.job import Job, Trace
 
 
 class SearchJob(Job):
-    """Base class of jobs for hyperparameter search."""
+    """Base class of jobs for hyperparameter search.
+
+    Provides functionality for scheduling training jobs across workers.
+    """
 
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
 
         # create data structures for parallel job submission
         self.num_workers = self.config.get("search.num_workers")
-        self.running_tasks = set()  # set of futures currently runnning
-        self.ready_task_results = list()  # set of results
+        self.running_tasks = set()  #: set of futures currently runnning
+        self.ready_task_results = list()  #: set of results
         if self.num_workers > 1:
             self.process_pool = concurrent.futures.ProcessPoolExecutor(
                 max_workers=self.num_workers
@@ -21,11 +24,24 @@ class SearchJob(Job):
         else:
             self.process_pool = None  # marks that we run in single process
 
-    def __getstate__(self):
-        state = dict(self.__dict__)
-        del state['process_pool']
-        del state['running_tasks']
-        return state
+    def create(config, dataset, parent_job=None):
+        """Factory method to create a search job."""
+
+        if config.get("search.type") == "manual":
+            from kge.job import ManualSearchJob
+
+            return ManualSearchJob(config, dataset, parent_job)
+        elif config.get("search.type") == "grid":
+            from kge.job import GridSearchJob
+
+            return GridSearchJob(config, dataset, parent_job)
+        elif config.get("search.type") == "ax":
+            from kge.job import AxSearchJob
+
+            return AxSearchJob(config, dataset, parent_job)
+        else:
+            # perhaps TODO: try class with specified name -> extensibility
+            raise ValueError("search.type")
 
     def submit_task(self, task, task_arg, wait_when_full=True):
         """Runs the given task with the given argument.
@@ -47,7 +63,9 @@ class SearchJob(Job):
             self.running_tasks.add(self.process_pool.submit(task, task_arg))
 
     def wait_task(self, return_when=concurrent.futures.FIRST_COMPLETED):
-        """Waits for one or more tasks to complete.
+        """Waits for one or more running tasks to complete.
+
+        Results of all completed tasks are copied into ``self.ready_task_results``.
 
         When no task is running, does nothing.
 
@@ -60,24 +78,12 @@ class SearchJob(Job):
             for task in ready_tasks:
                 self.ready_task_results.append(task.result())
 
-    def create(config, dataset, parent_job=None):
-        """Factory method to create a search job."""
-
-        if config.get("search.type") == "manual":
-            from kge.job import ManualSearchJob
-
-            return ManualSearchJob(config, dataset, parent_job)
-        elif config.get("search.type") == "grid":
-            from kge.job import GridSearchJob
-
-            return GridSearchJob(config, dataset, parent_job)
-        elif config.get("search.type") == "ax":
-            from kge.job import AxSearchJob
-
-            return AxSearchJob(config, dataset, parent_job)
-        else:
-            # perhaps TODO: try class with specified name -> extensibility
-            raise ValueError("search.type")
+    # Overridden such that instances of search job can be pickled to workers
+    def __getstate__(self):
+        state = dict(self.__dict__)
+        del state['process_pool']
+        del state['running_tasks']
+        return state
 
 
 # TODO add job submission (to devices/cpus) etc. to SearchJob main class with a simpler
