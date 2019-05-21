@@ -91,7 +91,7 @@ class RelationalScorer(KgeBase):
             out = self.score_emb_spo(s_embs, p_embs, o_embs)
         elif combine == "*po":
             assert o_emb.size(0) == n
-            n_s = o_emb.size(0)
+            n_s = s_emb.size(0)
             s_embs = s_emb.repeat((n, 1))
             p_embs = p_emb.repeat_interleave(n_s, 0)
             o_embs = o_emb.repeat_interleave(n_s, 0)
