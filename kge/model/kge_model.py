@@ -133,6 +133,8 @@ class KgeEmbedder(KgeBase):
                     )
                 )
 
+        self.dim = self.get_option("dim")
+
     @staticmethod
     def create(
         config: Config, dataset: Dataset, configuration_key: str, vocab_size: int

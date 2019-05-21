@@ -7,14 +7,13 @@ class LookupEmbedder(KgeEmbedder):
     def __init__(self, config, dataset, configuration_key, vocab_size):
         super().__init__(config, dataset, configuration_key)
 
-        ## read config
+        # read config
         self.dropout = self.get_option("dropout")
-        self.dim = self.get_option("dim")
         self.sparse = self.get_option("sparse")
         self.normalize = self.get_option("normalize")
         self.vocab_size = vocab_size
 
-        ## setup embedder
+        # setup embedder
         self.embeddings = torch.nn.Embedding(
             self.vocab_size, self.dim, sparse=self.sparse
         )
@@ -24,7 +23,7 @@ class LookupEmbedder(KgeEmbedder):
             self.get_option("initialize_arg"),
         )
 
-        ## TODO L2
+        # TODO L2
 
     def _embed(self, embeddings):
         if self.dropout > 0:
