@@ -7,7 +7,13 @@ from collections import OrderedDict
 
 
 class FnnScorer(RelationalScorer):
-    r"""Implementation of the ComplEx KGE scorer."""
+    r"""Implementation of a simple feedforward neural network KGE scorer.
+
+    Concatenates the spo embeddings and runs them through a fully connected neural
+    network with a linear output unit. The number of hidden layers as well as their
+    sizes can be configured.
+
+    """
 
     def __init__(
         self,
@@ -53,7 +59,12 @@ class FnnScorer(RelationalScorer):
 
 
 class Fnn(KgeModel):
-    r"""Implementation of a simple feedforward neural network KGE model."""
+    r"""Implementation of a simple feedforward neural network KGE model.
+
+    Note that this model is very slow since no computation can be shared when scoring
+    related triples (e.g., as arise when scoring all objects for an (s,p,?) task).
+
+    """
 
     def __init__(self, config: Config, dataset: Dataset):
         super().__init__(config, dataset, None)
