@@ -1,3 +1,4 @@
+from torch import nn as nn
 import kge
 import os
 from path import Path
@@ -31,8 +32,15 @@ def get_git_revision_short_hash():
 
 
 def kge_base_dir():
-    return os.path.abspath(filename_in_module(kge, '..'))
+    return os.path.abspath(filename_in_module(kge, ".."))
 
 
 def filename_in_module(module, filename):
     return os.path.dirname(inspect.getfile(module)) + "/" + filename
+
+
+def get_activation_function(s: str):
+    if s == "tanh":
+        return nn.Tanh()
+    else:
+        raise ValueError("activation function {} unknown".format(s))
