@@ -281,12 +281,21 @@ class TrainingJob1toN(TrainingJob):
             # forward pass
             batch_forward_time = -time.time()
             self.optimizer.zero_grad()
-            scores_sp = self.model.score_sp(pairs[sp_indexes, 0], pairs[sp_indexes, 1])
-            loss_value = self.loss(scores_sp.view(-1), labels[sp_indexes,].view(-1))
-            scores_po = self.model.score_po(pairs[po_indexes, 0], pairs[po_indexes, 1])
-            loss_value = loss_value + self.loss(
-                scores_po.view(-1), labels[po_indexes,].view(-1)
-            )
+            loss_value = 0.
+            if len(sp_indexes) > 0:
+                scores_sp = self.model.score_sp(
+                    pairs[sp_indexes, 0], pairs[sp_indexes, 1]
+                )
+                loss_value = loss_value + self.loss(
+                    scores_sp.view(-1), labels[sp_indexes,].view(-1)
+                )
+            if len(po_indexes) > 0:
+                scores_po = self.model.score_po(
+                    pairs[po_indexes, 0], pairs[po_indexes, 1]
+                )
+                loss_value = loss_value + self.loss(
+                    scores_po.view(-1), labels[po_indexes,].view(-1)
+                )
             sum_loss += loss_value.item() * batch_size
             batch_forward_time += time.time()
             forward_time += batch_forward_time
