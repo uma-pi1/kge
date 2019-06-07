@@ -15,6 +15,7 @@ setup(
         "argparse",
         "path.py",
         "ax-platform",
+        "sqlalchemy",
     ],
     zip_safe=False,
 )
