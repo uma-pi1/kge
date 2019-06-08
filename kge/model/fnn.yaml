@@ -1,4 +1,4 @@
-import: [ 'lookup_embedder' ]
+import: [lookup_embedder]
 
 fnn:
   class_name: Fnn

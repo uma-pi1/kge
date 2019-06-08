@@ -1,6 +1,6 @@
 lookup_embedder:
-  class_name: 'LookupEmbedder'
-  dim: 100                    # dimensionality
+  class_name: LookupEmbedder
+  dim: -1                    # dimensionality
   initialize: normal          # xavier, uniform, normal
   initialize_arg: 0.1         # gain for Xavier, range for uniform, stddev for Normal
   dropout: 0.                 # dropout used for embeddings
