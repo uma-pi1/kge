@@ -4,6 +4,7 @@ import torch
 class KgeLoss:
     """ Wraps torch loss functions """
 
+    @staticmethod
     def create(config):
         """ Factory method for loss creation """
         if config.get("train.loss") == "ce":
