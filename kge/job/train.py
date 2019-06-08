@@ -297,6 +297,12 @@ class TrainingJob1toN(TrainingJob):
                     scores_po.view(-1), labels[po_indexes,].view(-1)
                 )
             sum_loss += loss_value.item() * batch_size
+            post_score_loss_hook_result = self.model.post_score_loss_hook(
+                epoch=self.epoch,
+                epoch_step=batch_index,
+            )
+            if post_score_loss_hook_result is not None:
+                loss_value = loss_value + post_score_loss_hook_result
             batch_forward_time += time.time()
             forward_time += batch_forward_time
 
@@ -313,19 +319,21 @@ class TrainingJob1toN(TrainingJob):
             optimizer_time += batch_optimizer_time
 
             if self.trace_batch:
-                self.trace(
-                    type="1toN",
-                    scope="batch",
-                    epoch=self.epoch,
-                    batch=batch_index,
-                    size=batch_size,
-                    batches=len(self.loader),
-                    avg_loss=loss_value.item(),
-                    prepare_time=batch_prepare_time,
-                    forward_time=batch_forward_time,
-                    backward_time=batch_backward_time,
-                    optimizer_time=batch_optimizer_time,
-                )
+                trace_after_update = {
+                    "type": "1toN",
+                    "scope": "batch",
+                    "epoch": self.epoch,
+                    "batch": batch_index,
+                    "size": batch_size,
+                    "batches": len(self.loader),
+                    "avg_loss": loss_value.item(),
+                    "prepare_time": batch_prepare_time,
+                    "forward_time": batch_forward_time,
+                    "backward_time": batch_backward_time,
+                    "optimizer_time": batch_optimizer_time,
+                }
+                trace_after_update = self.model.post_update_trace_hook(trace_after_update)
+                self.trace(**trace_after_update)
             print(
                 (
                     "\r"  # go back
@@ -353,22 +361,24 @@ class TrainingJob1toN(TrainingJob):
         other_time = (
             epoch_time - prepare_time - forward_time - backward_time - optimizer_time
         )
-        trace_entry = self.trace(
-            echo=True,
-            echo_prefix="  ",
-            log=True,
-            type="1toN",
-            scope="epoch",
-            epoch=self.epoch,
-            batches=len(self.loader),
-            size=self.num_examples,
-            avg_loss=sum_loss / self.num_examples,
-            epoch_time=epoch_time,
-            prepare_time=prepare_time,
-            forward_time=forward_time,
-            backward_time=backward_time,
-            optimizer_time=optimizer_time,
-            other_time=other_time,
-        )
+        trace_after_epoch = {
+            "echo": True,
+            "echo_prefix": "  ",
+            "log": True,
+            "type": "1toN",
+            "scope": "epoch",
+            "epoch": self.epoch,
+            "batches": len(self.loader),
+            "size": self.num_examples,
+            "avg_loss": sum_loss / self.num_examples,
+            "epoch_time": epoch_time,
+            "prepare_time": prepare_time,
+            "forward_time": forward_time,
+            "backward_time": backward_time,
+            "optimizer_time": optimizer_time,
+            "other_time": other_time,
+        }
+        trace_after_epoch = self.model.post_epoch_trace_hook(trace_after_epoch)
+        trace_entry = self.trace(**trace_after_epoch)
 
         return trace_entry
