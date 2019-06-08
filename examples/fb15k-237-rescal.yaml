@@ -1,0 +1,32 @@
+job.type: train
+dataset.name: fb15k-237
+
+model: rescal
+
+rescal:
+  entity_embedder:
+    type: lookup_embedder
+    dropout: 0.4
+    dim: 200
+    initialize: normal
+    initialize_arg: 0.1
+  relation_embedder:
+    type: lookup_embedder
+    dim: -1
+    dropout: 0.0
+    initialize: normal
+    initialize_arg: 0.001
+
+train:
+  batch_size: 512
+  max_epochs: 50
+  optimizer: Adagrad
+  optimizer_args:
+    lr: 0.3
+    weight_decay: 1e-10
+
+valid:
+  filter_with_test: True
+
+eval:
+  batch_size: 512

@@ -1,0 +1,10 @@
+import: [lookup_embedder]
+
+rescal:
+  class_name: RESCAL
+  entity_embedder:
+    type: lookup_embedder
+    +++: +++
+  relation_embedder:
+    type: lookup_embedder
+    +++: +++
