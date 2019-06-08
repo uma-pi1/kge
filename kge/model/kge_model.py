@@ -141,14 +141,22 @@ class KgeEmbedder(KgeBase):
     ) -> "KgeEmbedder":
         """Factory method for embedder creation."""
 
-        embedder = None
         try:
             embedder_type = config.get(configuration_key + ".type")
             class_name = config.get(embedder_type + ".class_name")
             module = importlib.import_module("kge.model")
+        except:
+            raise Exception(
+                "Can't find {}.type in config".format(
+                    configuration_key
+                )
+            )
+
+        try:
             embedder = getattr(module, class_name)(
                 config, dataset, configuration_key, vocab_size
             )
+            return embedder
         except ImportError:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError(
@@ -156,8 +164,6 @@ class KgeEmbedder(KgeBase):
                     class_name, embedder_type
                 )
             )
-
-        return embedder
 
     def embed(self, indexes):
         """Computes the embedding."""
@@ -191,20 +197,30 @@ class KgeModel(KgeBase):
         #: Embedder used for entitites (both subject and objects)
         #:
         #: TODO support different embedders for subjects and objects
-        self._entity_embedder = KgeEmbedder.create(
-            config,
-            dataset,
-            config.get("model") + ".entity_embedder",
-            dataset.num_entities,
-        )
+        try:
+            if config.get(config.get("model") + ".entity_embedder.dim") > 0:
+                self._entity_embedder = KgeEmbedder.create(
+                    config,
+                    dataset,
+                    config.get("model") + ".entity_embedder",
+                    dataset.num_entities,
+                )
+        except:
+            #TODO: print info/warning that entity_embedder was not initialized
+            pass
 
         #: Embedder used for relations
-        self._relation_embedder = KgeEmbedder.create(
-            config,
-            dataset,
-            config.get("model") + ".relation_embedder",
-            dataset.num_relations,
-        )
+        try:
+            if config.get(config.get("model") + ".relation_embedder.dim") > 0:
+                self._relation_embedder = KgeEmbedder.create(
+                    config,
+                    dataset,
+                    config.get("model") + ".relation_embedder",
+                    dataset.num_relations,
+                )
+        except:
+            #TODO: print info/warning that relation_embedder was not initialized
+            pass
 
         #: Scorer
         self._scorer = scorer
@@ -316,3 +332,15 @@ class KgeModel(KgeBase):
             all_subjects = self.get_s_embedder().embed_all()
             po_scores = self._scorer.score_emb(all_subjects, p, o, combine="*po")
         return torch.cat((sp_scores, po_scores), dim=1)
+
+    def post_score_loss_hook(self, epoch, epoch_step):
+        r"""Return additional penalties that are can be added to the loss"""
+        pass
+
+    def post_update_trace_hook(self, trace_msg):
+        r"""Add additional messages after the update"""
+        return trace_msg
+
+    def post_epoch_trace_hook(self, trace_msg):
+        r"""Add additional messages after the epoch"""
+        return trace_msg
