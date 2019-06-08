@@ -1,0 +1,10 @@
+import: [lookup_embedder, sparse_tucker3_lookup_embedder]
+
+sparse_relational_tucker3:
+  class_name: SparseRelationalTucker3
+  entity_embedder:
+    type: lookup_embedder
+    +++: +++
+  relation_embedder:
+    type: sparse_tucker3_lookup_embedder
+    +++: +++
