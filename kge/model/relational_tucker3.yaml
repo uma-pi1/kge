@@ -1,0 +1,10 @@
+import: [lookup_embedder, tucker3_lookup_embedder]
+
+relational_tucker3:
+  class_name: RelationalTucker3
+  entity_embedder:
+    type: lookup_embedder
+    +++: +++
+  relation_embedder:
+    type: tucker3_lookup_embedder
+    +++: +++

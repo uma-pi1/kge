@@ -1,0 +1,33 @@
+job.type: train
+dataset.name: fb15k-237
+
+model: relational_tucker3
+
+relational_tucker3:
+  entity_embedder:
+    type: lookup_embedder
+    dropout: 0.4
+    dim: 200
+    initialize: normal
+    initialize_arg: 0.1
+  relation_embedder:
+    type: tucker3_lookup_embedder
+    relation_dim: 160
+    dropout: 0.0
+    core_tensor_dropout: 0.0
+    initialize: normal
+    initialize_arg: 0.001
+
+train:
+  batch_size: 512
+  max_epochs: 50
+  optimizer: Adagrad
+  optimizer_args:
+    lr: 0.05
+    weight_decay: 0
+
+valid:
+  filter_with_test: True
+
+eval:
+  batch_size: 512
