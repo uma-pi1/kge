@@ -146,11 +146,7 @@ class KgeEmbedder(KgeBase):
             class_name = config.get(embedder_type + ".class_name")
             module = importlib.import_module("kge.model")
         except:
-            raise Exception(
-                "Can't find {}.type in config".format(
-                    configuration_key
-                )
-            )
+            raise Exception("Can't find {}.type in config".format(configuration_key))
 
         try:
             embedder = getattr(module, class_name)(
@@ -191,36 +187,38 @@ class KgeModel(KgeBase):
 
     """
 
-    def __init__(self, config: Config, dataset: Dataset, scorer: RelationalScorer):
+    def __init__(
+        self,
+        config: Config,
+        dataset: Dataset,
+        scorer: RelationalScorer,
+        initialize_embedders=True,
+    ):
         super().__init__(config, dataset)
 
+        # TODO support different embedders for subjects and objects
+
         #: Embedder used for entitites (both subject and objects)
-        #:
-        #: TODO support different embedders for subjects and objects
-        try:
-            if config.get(config.get("model") + ".entity_embedder.dim") > 0:
-                self._entity_embedder = KgeEmbedder.create(
-                    config,
-                    dataset,
-                    config.get("model") + ".entity_embedder",
-                    dataset.num_entities,
-                )
-        except:
-            #TODO: print info/warning that entity_embedder was not initialized
-            pass
+        self._entity_embedder = None
 
         #: Embedder used for relations
-        try:
-            if config.get(config.get("model") + ".relation_embedder.dim") > 0:
-                self._relation_embedder = KgeEmbedder.create(
-                    config,
-                    dataset,
-                    config.get("model") + ".relation_embedder",
-                    dataset.num_relations,
-                )
-        except:
-            #TODO: print info/warning that relation_embedder was not initialized
-            pass
+        self._relation_embedder = None
+
+        if initialize_embedders:
+            self._entity_embedder = KgeEmbedder.create(
+                config,
+                dataset,
+                config.get("model") + ".entity_embedder",
+                dataset.num_entities,
+            )
+
+            #: Embedder used for relations
+            self._relation_embedder = KgeEmbedder.create(
+                config,
+                dataset,
+                config.get("model") + ".relation_embedder",
+                dataset.num_relations,
+            )
 
         #: Scorer
         self._scorer = scorer
