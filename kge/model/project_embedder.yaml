@@ -1,0 +1,12 @@
+import: [lookup_embedder]
+
+project_embedder:
+  class_name: ProjectEmbedder
+  base_embedder:
+    type: lookup_embedder
+    +++: +++
+  dim: -1                     # -1 means: same as base_embedder
+  initialize: normal          # xavier, uniform, normal
+  initialize_arg: 0.1         # gain for Xavier, range for uniform, stddev for Normal
+  dropout: 0.                 # dropout used for embeddings
+  normalize: ''               # alternatively: normalize '', L2

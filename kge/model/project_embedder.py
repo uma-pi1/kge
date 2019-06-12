@@ -3,29 +3,36 @@ import torch.nn.functional
 from kge.model import KgeEmbedder
 
 
-class LookupEmbedder(KgeEmbedder):
+class ProjectEmbedder(KgeEmbedder):
+    """Adds a linear projection layer to a base embedder."""
+
     def __init__(self, config, dataset, configuration_key, vocab_size):
         super().__init__(config, dataset, configuration_key)
 
-        # read config
+        # initialize base_embedder
+        self.base_embedder = KgeEmbedder.create(
+            config, dataset, configuration_key + ".base_embedder", vocab_size
+        )
+
+        # initialize projection
+        if self.dim < 0:
+            self.dim = self.base_embedder.dim
         self.dropout = self.get_option("dropout")
         self.normalize = self.get_option("normalize")
-        self.sparse = self.get_option("sparse")
         self.check_option("normalize", ["", "L2"])
-        self.config.check("train.trace_level", ["batch", "epoch"])
-        self.vocab_size = vocab_size
-
-        # setup embedder
-        self.embeddings = torch.nn.Embedding(
-            self.vocab_size, self.dim, sparse=self.sparse
+        self.projection = torch.nn.Linear(
+            self.base_embedder.dim,
+            self.dim,
+            bias=False,
         )
         self.initialize(
-            self.embeddings.weight.data,
+            self.projection.weight.data,
             self.get_option("initialize"),
             self.get_option("initialize_arg"),
         )
 
     def _embed(self, embeddings):
+        embeddings = self.projection(embeddings)
         if self.dropout > 0:
             embeddings = torch.nn.functional.dropout(
                 embeddings, p=self.dropout, training=self.training
@@ -35,7 +42,7 @@ class LookupEmbedder(KgeEmbedder):
         return embeddings
 
     def embed(self, indexes):
-        return self._embed(self.embeddings(indexes.long()))
+        return self._embed(self.base_embedder.embed(indexes))
 
     def embed_all(self):
-        return self._embed(self.embeddings.weight)
+        return self._embed(self.base_embedder.embed_all())

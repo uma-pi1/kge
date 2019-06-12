@@ -177,6 +177,15 @@ class KgeEmbedder(KgeBase):
             # default option
             return self.config.get(self.embedder_type + "." + name)
 
+    def check_option(self, name, allowed_values):
+        try:
+            # custom option
+            key = self.configuration_key + "." + name
+            self.config.get(key)
+        except KeyError:
+            key = self.embedder_type + "." + name
+        self.config.check(key, allowed_values)
+
 
 class KgeModel(KgeBase):
     r"""Generic KGE model for KBs with a fixed set of entities and relations.
