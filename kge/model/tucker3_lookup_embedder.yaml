@@ -1,13 +1,14 @@
+import: [lookup_embedder]
+
 tucker3_lookup_embedder:
   class_name: Tucker3LookupEmbedder
-  dim: -1                     # dimensionality
-  relation_dim: -1            # dimensionality
-  entity_dim: -1              # is set automatically from entity args
-  entity_initialize_arg: 0.   # is set automatically from entity args
+  base_embedder:
+    type: lookup_embedder
+    dim: 100                  # dimensionality for relation embeddings
+    dropout: 0.               # dropout used for relation embeddings
+    +++: +++
+  dim: -1                     # set automatically to square of entity dimensionality
+  dropout: 0.                 # dropout used for mixing matrices
   initialize: normal          # xavier, uniform, normal
   initialize_arg: 0.1         # gain for Xavier, range for uniform, stddev for Normal
-  dropout: 0.                 # dropout used for embeddings
-  core_tensor_dropout: 0.     # dropout used for embeddings
-  sparse: False               # use sparse gradients for lookup embeddings
   normalize: ''               # alternatively: normalize '', L2
-  variance: 0.0001

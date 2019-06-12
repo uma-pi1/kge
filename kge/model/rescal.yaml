@@ -1,10 +1,11 @@
 import: [lookup_embedder]
 
 rescal:
-  class_name: RESCAL
+  class_name: Rescal
   entity_embedder:
     type: lookup_embedder
     +++: +++
   relation_embedder:
     type: lookup_embedder
+    dim: -1  # determine automatically
     +++: +++

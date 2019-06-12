@@ -3,13 +3,18 @@ import torch.nn.functional
 from kge.model import KgeEmbedder
 
 
-class ProjectEmbedder(KgeEmbedder):
+class ProjectionEmbedder(KgeEmbedder):
     """Adds a linear projection layer to a base embedder."""
 
     def __init__(self, config, dataset, configuration_key, vocab_size):
         super().__init__(config, dataset, configuration_key)
 
         # initialize base_embedder
+        if not configuration_key + ".base_embedder.type" in config.options:
+            config.set(
+                configuration_key + ".base_embedder.type",
+                self.get_option("base_embedder.type"),
+            )
         self.base_embedder = KgeEmbedder.create(
             config, dataset, configuration_key + ".base_embedder", vocab_size
         )
@@ -20,11 +25,7 @@ class ProjectEmbedder(KgeEmbedder):
         self.dropout = self.get_option("dropout")
         self.normalize = self.get_option("normalize")
         self.check_option("normalize", ["", "L2"])
-        self.projection = torch.nn.Linear(
-            self.base_embedder.dim,
-            self.dim,
-            bias=False,
-        )
+        self.projection = torch.nn.Linear(self.base_embedder.dim, self.dim, bias=False)
         self.initialize(
             self.projection.weight.data,
             self.get_option("initialize"),

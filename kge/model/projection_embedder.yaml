@@ -1,7 +1,7 @@
 import: [lookup_embedder]
 
-project_embedder:
-  class_name: ProjectEmbedder
+projection_embedder:
+  class_name: ProjectionEmbedder
   base_embedder:
     type: lookup_embedder
     +++: +++

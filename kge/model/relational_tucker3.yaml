@@ -8,3 +8,4 @@ relational_tucker3:
   relation_embedder:
     type: tucker3_lookup_embedder
     +++: +++
+    # set relation embedding size via base_embedder.dim
