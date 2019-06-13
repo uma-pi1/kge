@@ -152,14 +152,12 @@ if __name__ == "__main__":
     # initialize output folder
     if args.command == "start":
         if args.folder is None:  # means: set default
+            config_name = os.path.splitext(os.path.basename(args.config))[0]
             config.folder = os.path.join(
                 kge_base_dir(),
-                "local/experiments/"
-                + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-                + "-"
-                + config.get("dataset.name")
-                + "-"
-                + config.get("model"),
+                "local",
+                "experiments",
+                datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + config_name,
             )
         else:
             config.folder = args.folder
