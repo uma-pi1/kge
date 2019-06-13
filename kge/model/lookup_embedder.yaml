@@ -6,5 +6,5 @@ lookup_embedder:
   dropout: 0.                 # dropout used for embeddings
   sparse: False               # ??
   normalize: ''               # alternatively: normalize '', L2
-  regularize: ''              # '', 'l1', 'l2'
+  regularize: 'l2'              # '', 'l1', 'l2'
   regularize_weight: 0.0

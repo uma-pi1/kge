@@ -8,7 +8,9 @@ tucker3_lookup_embedder:
     dropout: 0.               # dropout used for relation embeddings
     +++: +++
   dim: -1                     # set automatically to square of entity dimensionality
-  dropout: 0.                 # dropout used for mixing matrices
   initialize: normal          # xavier, uniform, normal
   initialize_arg: 0.1         # gain for Xavier, range for uniform, stddev for Normal
+  dropout: 0.                 # dropout used for mixing matrices
   normalize: ''               # alternatively: normalize '', L2
+  regularize: 'l2'              # '', 'l1', 'l2'
+  regularize_weight: 0.0

@@ -23,8 +23,11 @@ class ProjectionEmbedder(KgeEmbedder):
         if self.dim < 0:
             self.dim = self.base_embedder.dim
         self.dropout = self.get_option("dropout")
-        self.normalize = self.get_option("normalize")
         self.check_option("normalize", ["", "L2"])
+        self.normalize = self.get_option("normalize")
+        self.check_option("regularize", ["", "l1", "l2"])
+        self.regularize = self.get_option("regularize")
+        self.regularize_weight = self.get_option("regularize_weight")
         self.projection = torch.nn.Linear(self.base_embedder.dim, self.dim, bias=False)
         self.initialize(
             self.projection.weight.data,
@@ -47,3 +50,18 @@ class ProjectionEmbedder(KgeEmbedder):
 
     def embed_all(self):
         return self._embed(self.base_embedder.embed_all())
+
+    def penalty(self, epoch, batch_index, num_batches):
+        # TODO factor out to a utility method
+        if self.regularize == "" or self.regularize_weight == 0.0:
+            return super().penalty(epoch, batch_index, num_batches)
+        elif self.regularize == "l1":
+            return super().penalty(epoch, batch_index, num_batches) + [
+                self.regularize_weight * self.projection.weight.norm(p=1)
+            ]
+        elif self.regularize == "l2":
+            return super().penalty(epoch, batch_index, num_batches) + [
+                self.regularize_weight * self.projection.weight.norm(p=2)**2
+            ]
+        else:
+            raise ValueError("unknown penalty")
