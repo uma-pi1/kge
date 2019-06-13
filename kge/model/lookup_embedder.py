@@ -10,6 +10,9 @@ class LookupEmbedder(KgeEmbedder):
         # read config
         self.dropout = self.get_option("dropout")
         self.normalize = self.get_option("normalize")
+        self.check_option("regularize", ["", "l1", "l2"])
+        self.regularize = self.get_option("regularize")
+        self.regularize_weight = self.get_option("regularize_weight")
         self.sparse = self.get_option("sparse")
         self.check_option("normalize", ["", "L2"])
         self.config.check("train.trace_level", ["batch", "epoch"])
@@ -39,3 +42,18 @@ class LookupEmbedder(KgeEmbedder):
 
     def embed_all(self):
         return self._embed(self.embeddings.weight)
+
+    def penalty(self, epoch, batch_index, num_batches):
+        # TODO factor out to a utility method
+        if self.regularize == "" or self.regularize_weight == 0.0:
+            return super().penalty(epoch, batch_index, num_batches)
+        elif self.regularize == "l1":
+            return super().penalty(epoch, batch_index, num_batches) + [
+                self.regularize_weight * self.embeddings.weight.norm(p=1)
+            ]
+        elif self.regularize == "l2":
+            return super().penalty(epoch, batch_index, num_batches) + [
+                self.regularize_weight * self.embeddings.weight.norm(p=2)**2
+            ]
+        else:
+            raise ValueError("unknown penalty")

@@ -275,6 +275,7 @@ class TrainingJob1toN(TrainingJob):
         # TODO refactor: much of this can go to TrainingJob
         sum_loss = 0.0
         sum_penalty = 0.0
+        sum_penalties = []
         epoch_time = -time.time()
 
         prepare_time = 0.0
@@ -299,7 +300,6 @@ class TrainingJob1toN(TrainingJob):
             batch_forward_time = -time.time()
             self.optimizer.zero_grad()
             loss_value = torch.zeros(1, device=self.device)
-            penalty_value = torch.zeros(1, device=self.device)
             if len(sp_indexes) > 0:
                 scores_sp = self.model.score_sp(
                     pairs[sp_indexes, 0], pairs[sp_indexes, 1]
@@ -315,11 +315,18 @@ class TrainingJob1toN(TrainingJob):
                     scores_po.view(-1), labels[po_indexes,].view(-1)
                 )
             sum_loss += loss_value.item() * batch_size
+
+            # determine penalty terms
+            penalty_value = torch.zeros(1, device=self.device)
             penalty_values = self.model.penalty(
                 self.epoch, batch_index, len(self.loader)
             )
-            for penalty_value in penalty_values:
-                penalty_value = loss_value + penalty_value
+            for pv_index, pv_value in enumerate(penalty_values):
+                penalty_value = penalty_value + pv_value
+                if len(sum_penalties) > pv_index:
+                    sum_penalties[pv_index] += pv_value.item()
+                else:
+                    sum_penalties.append(pv_value.item())
             sum_penalty += penalty_value.item()
             batch_forward_time += time.time()
             forward_time += batch_forward_time
@@ -397,6 +404,7 @@ class TrainingJob1toN(TrainingJob):
             "size": self.num_examples,
             "avg_loss": sum_loss / self.num_examples,
             "avg_penalty": sum_penalty / len(self.loader),
+            "avg_penalties": [p / len(self.loader) for p in sum_penalties],
             "avg_cost": sum_loss / self.num_examples + sum_penalty / len(self.loader),
             "epoch_time": epoch_time,
             "prepare_time": prepare_time,
