@@ -193,7 +193,7 @@ class EntityRankingJob(EvaluationJob):
                     scope="batch",
                     data=self.eval_data,
                     epoch=self.epoch,
-                    batch=i,
+                    batch=batch_number,
                     size=len(batch),
                     batches=len(self.loader),
                     **metrics

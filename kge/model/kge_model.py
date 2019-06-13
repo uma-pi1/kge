@@ -17,6 +17,25 @@ class KgeBase(torch.nn.Module):
         else:
             raise ValueError("initialize")
 
+    def prepare_training_job(self, job):
+        r"""Prepares the given training job to train this model.
+
+        Registers hooks required for training this model to the specified training job.
+
+        If this model does not support the specified trainer, this function should
+        raise an error.
+
+        """
+        pass
+
+    def penalty(self, epoch, batch_index, num_batches):
+        r"""Returns additional penalty terms that are added to the loss during training.
+
+        Returns a list of penalty terms (which can be empty).
+        """
+
+        return []
+
 
 class RelationalScorer(KgeBase):
     r"""Base class for all relational scorers.
@@ -253,6 +272,18 @@ class KgeModel(KgeBase):
         model.to(config.get("job.device"))
         return model
 
+    def prepare_training_job(self, job):
+        super().prepare_training_job(job)
+        self._entity_embedder.prepare_training_job(job)
+        self._relation_embedder.prepare_training_job(job)
+
+    def penalty(self, epoch, batch_index, num_batches):
+        return (
+            super().penalty(epoch, batch_index, num_batches)
+            + self._entity_embedder.penalty(epoch, batch_index, num_batches)
+            + self._relation_embedder.penalty(epoch, batch_index, num_batches)
+        )
+
     def get_s_embedder(self) -> KgeEmbedder:
         return self._entity_embedder
 
@@ -339,15 +370,3 @@ class KgeModel(KgeBase):
             all_subjects = self.get_s_embedder().embed_all()
             po_scores = self._scorer.score_emb(all_subjects, p, o, combine="*po")
         return torch.cat((sp_scores, po_scores), dim=1)
-
-    def post_score_loss_hook(self, epoch, epoch_step):
-        r"""Return additional penalties that are can be added to the loss"""
-        pass
-
-    def post_update_trace_hook(self, trace_msg):
-        r"""Add additional messages after the update"""
-        return trace_msg
-
-    def post_epoch_trace_hook(self, trace_msg):
-        r"""Add additional messages after the epoch"""
-        return trace_msg

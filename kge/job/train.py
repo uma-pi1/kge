@@ -38,10 +38,25 @@ class TrainingJob(Job):
         self.valid_trace = []
         self.model.train()
 
-        # function that takes this job and corresponding trace entry as
-        # argument
-        self.after_run_epoch_hooks = []
-        self.after_valid_hooks = []
+        #: Hooks run after training for an epoch. Takes this job and epoch trace entry
+        # as input.
+        self.post_epoch_hooks = []
+
+        #: Hooks run before outputting the trace of an batch. Takes this job and batch
+        # trace entry as input and can modify the latter. Only executed when trace level
+        # is batch.
+        self.post_batch_update_trace_hooks = []
+
+        #: Hooks run before outputting the trace of an epoch. Takes this job and epoch
+        # trace entry as input and can modify the latter.
+        self.post_epoch_update_trace_hooks = []
+
+        #: Hooks run after a validation job. Takes this job and a valid trace entry as
+        # input.
+        self.post_valid_hooks = []
+
+        # let the model add some hooks, if it wants to do so
+        self.model.prepare_training_job(self)
 
     def create(config, dataset, parent_job=None):
         """Factory method to create a training job and add necessary label_coords to
@@ -88,7 +103,7 @@ the dataset (if not present).
             self.epoch += 1
             self.config.log("Starting epoch {}...".format(self.epoch))
             trace_entry = self.run_epoch()
-            for f in self.after_run_epoch_hooks:
+            for f in self.post_epoch_hooks:
                 f(self, trace_entry)
             self.config.log("Finished epoch {}.".format(self.epoch))
 
@@ -100,7 +115,7 @@ the dataset (if not present).
                 self.valid_job.epoch = self.epoch
                 trace_entry = self.valid_job.run()
                 self.valid_trace.append(trace_entry)
-                for f in self.after_valid_hooks:
+                for f in self.post_valid_hooks:
                     f(self, trace_entry)
 
             # create checkpoint and delete old one, if necessary
@@ -258,12 +273,14 @@ class TrainingJob1toN(TrainingJob):
         self._prepare()
 
         # TODO refactor: much of this can go to TrainingJob
-        sum_loss = 0
+        sum_loss = 0.0
+        sum_penalty = 0.0
         epoch_time = -time.time()
-        prepare_time = 0
-        forward_time = 0
-        backward_time = 0
-        optimizer_time = 0
+
+        prepare_time = 0.0
+        forward_time = 0.0
+        backward_time = 0.0
+        optimizer_time = 0.0
         for batch_index, batch in enumerate(self.loader):
             batch_prepare_time = -time.time()
             pairs = batch[0].to(self.device)
@@ -281,7 +298,8 @@ class TrainingJob1toN(TrainingJob):
             # forward pass
             batch_forward_time = -time.time()
             self.optimizer.zero_grad()
-            loss_value = 0.
+            loss_value = torch.zeros(1, device=self.device)
+            penalty_value = torch.zeros(1, device=self.device)
             if len(sp_indexes) > 0:
                 scores_sp = self.model.score_sp(
                     pairs[sp_indexes, 0], pairs[sp_indexes, 1]
@@ -297,18 +315,19 @@ class TrainingJob1toN(TrainingJob):
                     scores_po.view(-1), labels[po_indexes,].view(-1)
                 )
             sum_loss += loss_value.item() * batch_size
-            post_score_loss_hook_result = self.model.post_score_loss_hook(
-                epoch=self.epoch,
-                epoch_step=batch_index,
+            penalty_values = self.model.penalty(
+                self.epoch, batch_index, len(self.loader)
             )
-            if post_score_loss_hook_result is not None:
-                loss_value = loss_value + post_score_loss_hook_result
+            for penalty_value in penalty_values:
+                penalty_value = loss_value + penalty_value
+            sum_penalty += penalty_value.item()
             batch_forward_time += time.time()
             forward_time += batch_forward_time
 
             # backward pass
             batch_backward_time = -time.time()
-            loss_value.backward()
+            cost_value = loss_value + penalty_value
+            cost_value.backward()
             batch_backward_time += time.time()
             backward_time += batch_backward_time
 
@@ -319,7 +338,7 @@ class TrainingJob1toN(TrainingJob):
             optimizer_time += batch_optimizer_time
 
             if self.trace_batch:
-                trace_after_update = {
+                batch_trace = {
                     "type": "1toN",
                     "scope": "batch",
                     "epoch": self.epoch,
@@ -327,25 +346,31 @@ class TrainingJob1toN(TrainingJob):
                     "size": batch_size,
                     "batches": len(self.loader),
                     "avg_loss": loss_value.item(),
+                    "penalties": [p.item() for p in penalty_values],
+                    "penalty": penalty_value.item(),
+                    "cost": cost_value.item(),
                     "prepare_time": batch_prepare_time,
                     "forward_time": batch_forward_time,
                     "backward_time": batch_backward_time,
                     "optimizer_time": batch_optimizer_time,
                 }
-                trace_after_update = self.model.post_update_trace_hook(trace_after_update)
-                self.trace(**trace_after_update)
+                for f in self.post_batch_update_trace_hooks:
+                    f(self, batch_trace)
+                self.trace(**batch_trace)
             print(
                 (
                     "\r"  # go back
-                    + "{}  batch:{: "
+                    + "{}  batch{: "
                     + str(1 + int(math.ceil(math.log10(len(self.loader)))))
-                    + "d}/{}, avg_loss: {:.10E}, time: {:8.4f}s"
+                    + "d}/{}, loss {:.4E}, penalty {:.4E}, cost {:.4E}, time {:6.2f}s"
                     + "\033[K"  # clear to right
                 ).format(
                     self.config.log_prefix,
                     batch_index,
                     len(self.loader) - 1,
                     loss_value.item(),
+                    penalty_value.item(),
+                    cost_value.item(),
                     batch_prepare_time
                     + batch_forward_time
                     + batch_backward_time
@@ -361,7 +386,7 @@ class TrainingJob1toN(TrainingJob):
         other_time = (
             epoch_time - prepare_time - forward_time - backward_time - optimizer_time
         )
-        trace_after_epoch = {
+        trace_entry = {
             "echo": True,
             "echo_prefix": "  ",
             "log": True,
@@ -371,6 +396,8 @@ class TrainingJob1toN(TrainingJob):
             "batches": len(self.loader),
             "size": self.num_examples,
             "avg_loss": sum_loss / self.num_examples,
+            "avg_penalty": sum_penalty / len(self.loader),
+            "avg_cost": sum_loss / self.num_examples + sum_penalty / len(self.loader),
             "epoch_time": epoch_time,
             "prepare_time": prepare_time,
             "forward_time": forward_time,
@@ -378,7 +405,7 @@ class TrainingJob1toN(TrainingJob):
             "optimizer_time": optimizer_time,
             "other_time": other_time,
         }
-        trace_after_epoch = self.model.post_epoch_trace_hook(trace_after_epoch)
-        trace_entry = self.trace(**trace_after_epoch)
-
+        for f in self.post_epoch_update_trace_hooks:
+            f(self, trace_entry)
+        trace_entry = self.trace(**trace_entry)
         return trace_entry

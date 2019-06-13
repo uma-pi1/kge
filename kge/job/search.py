@@ -133,7 +133,7 @@ def _run_train_job(sicnk):
     if not isinstance(search_job, ManualSearchJob) or search_job.config.get(
         "manual_search.run"
     ):
-        job.after_valid_hooks.append(copy_to_search_trace)
+        job.post_valid_hooks.append(copy_to_search_trace)
         job.run()
     else:
         search_job.config.log("Skipping running of training job as requested by user.")

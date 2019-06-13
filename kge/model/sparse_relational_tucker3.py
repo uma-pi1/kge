@@ -4,7 +4,7 @@ from kge.model import RelationalTucker3
 class SparseRelationalTucker3(RelationalTucker3):
     r"""Implementation of the ComplEx KGE model."""
 
-    def post_score_loss_hook(self, epoch, epoch_step):
+    def penalty(self, epoch, epoch_step):
         return self.config.get(self.config.get("model") +
                                ".relation_embedder.l0_regularization") * \
         self._relation_embedder.penalty
