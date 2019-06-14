@@ -37,6 +37,7 @@ class TrainingJob(Job):
         self.epoch = 0
         self.valid_trace = []
         self.model.train()
+        self.inverse_relations = config.get(config.get("model") + ".relation_embedder.inverse_relations")
 
         #: Hooks run after training for an epoch. Takes this job and epoch trace entry
         # as input.
@@ -254,7 +255,12 @@ class TrainingJob1toN(TrainingJob):
                     offsets = self.train_po_offsets
                     values = self.train_po_values
 
-                pairs[batch_index,] = keys[example_index]
+                if self.inverse_relations and not is_sp[batch_index]:
+                    pairs[batch_index,] = torch.tensor((keys[example_index][1], keys[example_index][0] +
+                                                        self.dataset.num_relations))
+                    is_sp[batch_index] = 1
+                else:
+                    pairs[batch_index,] = keys[example_index]
                 start = offsets[example_index]
                 end = offsets[example_index + 1]
                 size = end - start

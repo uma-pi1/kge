@@ -141,6 +141,8 @@ class KgeEmbedder(KgeBase):
         # configuration (quick and dirty, but works)
         custom_options = Config.flatten(config.get(configuration_key))
         del custom_options["type"]
+        if "inverse_relations" in custom_options:
+            del custom_options["inverse_relations"]
         dummy_config = self.config.clone()
         for key, value in custom_options.items():
             try:
@@ -241,11 +243,14 @@ class KgeModel(KgeBase):
             )
 
             #: Embedder used for relations
+            num_relations = dataset.num_relations
+            if config.get(config.get("model") + ".relation_embedder.inverse_relations"):
+                num_relations = num_relations * 2
             self._relation_embedder = KgeEmbedder.create(
                 config,
                 dataset,
                 config.get("model") + ".relation_embedder",
-                dataset.num_relations,
+                num_relations,
             )
 
         #: Scorer
