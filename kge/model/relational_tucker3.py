@@ -8,7 +8,7 @@ class RelationalTucker3(KgeModel):
 
     def __init__(self, config: Config, dataset: Dataset):
         rescal_set_relation_embedder_dim(
-            config, dataset, "relational_tucker3.relation_embedder"
+            config, dataset, config.get("model") + ".relation_embedder"
         )
         super().__init__(
             config, dataset, scorer=RescalScorer(config=config, dataset=dataset)

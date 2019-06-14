@@ -42,6 +42,9 @@ class TrainingJob(Job):
         # as input.
         self.post_epoch_hooks = []
 
+        #: Hooks run before starting a batch. Takes this job as input
+        self.pre_batch_hook = []
+
         #: Hooks run before outputting the trace of an batch. Takes this job and batch
         # trace entry as input and can modify the latter. Only executed when trace level
         # is batch.
@@ -283,6 +286,9 @@ class TrainingJob1toN(TrainingJob):
         backward_time = 0.0
         optimizer_time = 0.0
         for batch_index, batch in enumerate(self.loader):
+            for f in self.pre_batch_hook:
+                f(self)
+
             batch_prepare_time = -time.time()
             pairs = batch[0].to(self.device)
             batch_size = len(pairs)

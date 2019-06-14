@@ -1,5 +1,6 @@
 job.type: train
 dataset.name: fb15k-237
+# dataset.name: toy
 
 model: sparse_relational_tucker3
 
@@ -11,17 +12,18 @@ sparse_relational_tucker3:
     initialize: normal
     initialize_arg: 0.1
   relation_embedder:
-    type: sparse_tucker3_lookup_embedder
-    relation_dim: 160
+    base_embedder:
+      dim: 160
+      dropout: 0.0
     dropout: 0.0
-    core_tensor_dropout: 0.0
     initialize: normal
     initialize_arg: 0.001
-    l0_regularization: 5e-11 # l0_lambda = 0.1
+    l0_weight: 1e-3
+    # l0_weight: 5e-11 # l0_lambda = 0.1
                              # -> l0_reg = l0_lambda / (|entities| * |train data|)
                              #  = 0.1 x 5e-10
-    loc_mean: 3.
-    loc_sdev: 1.
+    # loc_mean: 3.
+    # loc_sdev: 1.
 
 train:
   batch_size: 512

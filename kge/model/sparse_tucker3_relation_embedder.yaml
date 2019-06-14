@@ -1,7 +1,7 @@
 import: [lookup_embedder]
 
-tucker3_lookup_embedder:
-  class_name: Tucker3LookupEmbedder
+sparse_tucker3_relation_embedder:
+  class_name: SparseTucker3RelationEmbedder
   base_embedder:
     type: lookup_embedder
     dim: 100                  # dimensionality for relation embeddings
@@ -14,3 +14,11 @@ tucker3_lookup_embedder:
   normalize: ''               # alternatively: normalize '', L2
   regularize: 'l2'              # '', 'l1', 'l2'
   regularize_weight: 0.0
+
+  # l0 params
+  l0_weight: 0.1
+  loc_mean: 0.
+  loc_sdev: 1.
+  beta: 0.666667
+  gamma: -0.1
+  zeta: 1.1

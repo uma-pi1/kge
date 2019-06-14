@@ -1,0 +1,65 @@
+
+import torch.nn
+import torch.nn.functional
+from kge.model import Tucker3RelationEmbedder
+from kge.util.l0module import _L0Norm_orig
+from torch.nn import functional as F
+
+
+class SparseTucker3RelationEmbedder(Tucker3RelationEmbedder):
+    """Like Tucker3RelationEmbedder but with L0 penalty"""
+
+    def __init__(self, config, dataset, configuration_key, vocab_size):
+        super().__init__(config, dataset, configuration_key, vocab_size)
+
+        self.l0_weight = self.get_option("l0_weight")
+        self.l0norm = _L0Norm_orig(
+            self.projection,
+            loc_mean=self.get_option("loc_mean"),
+            loc_sdev=self.get_option("loc_sdev"),
+            beta=self.get_option("beta"),
+            gamma=self.get_option("gamma"),
+            zeta=self.get_option("zeta"),
+        )
+
+        self.mask = None  # recomputed at each batch during training, else kept constant
+        self.l0_penalty = None
+        self.density = None
+
+    def _embed(self, embeddings):
+        if self.mask is None:
+            self.mask, self.l0_penalty = self.l0norm._get_mask()
+            self.density = ((self.mask > 0).float().sum() / self.mask.numel()).item()
+
+        embeddings = F.linear(
+            embeddings, self.projection.weight * self.mask, self.projection.bias
+        )
+        if self.dropout > 0:
+            embeddings = torch.nn.functional.dropout(
+                embeddings, p=self.dropout, training=self.training
+            )
+        if self.normalize == "L2":
+            embeddings = torch.nn.functional.normalize(embeddings)
+        return embeddings
+
+    def _invalidate_mask(self):
+        self.mask = None
+        self.density = None
+        self.l0_penalty = None
+
+    def penalty(self, epoch, batch_index, num_batches):
+        return super().penalty(epoch, batch_index, num_batches) + [
+            self.l0_weight * self.l0_penalty
+        ]
+
+    def prepare_training_job(self, job):
+        super().prepare_training_job(job)
+
+        # during training, we recompute the mask in every batch
+        job.pre_batch_hook.append(lambda job: self._invalidate_mask())
+
+        def append_density(job, trace):
+            trace["core_tensor_density"] = self.density
+
+        job.post_batch_update_trace_hooks.append(append_density)
+        job.post_epoch_update_trace_hooks.append(append_density)

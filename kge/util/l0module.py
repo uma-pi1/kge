@@ -67,7 +67,7 @@ class _L0Norm(L0):
             penalty = 0
         return hard_sigmoid(s), penalty
 
-
+# no clamping; TODO document
 class _L0Norm_orig(L0):
 
     def __init__(self, origin, loc_mean=0, loc_sdev=1e-2, beta=2 / 3, gamma=-0.1,

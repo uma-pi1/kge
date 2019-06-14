@@ -1,0 +1,20 @@
+job.type: train
+dataset.name: toy
+model: sparse_relational_tucker3
+
+sparse_relational_tucker3:
+  entity_embedder:
+    dim: 100
+    dropout: 0.1
+  relation_embedder:
+    base_embedder:
+      dim: 100
+      dropout: 0.1
+    dropout: 0.1
+    l0_weight: 1E-5
+
+train:
+  optimizer: Adagrad
+  optimizer_args:
+    lr: 0.2
+    weight_decay: 0.4e-7
