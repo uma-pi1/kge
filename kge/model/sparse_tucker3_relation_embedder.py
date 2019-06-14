@@ -1,4 +1,3 @@
-
 import torch.nn
 import torch.nn.functional
 from kge.model import Tucker3RelationEmbedder
@@ -48,15 +47,13 @@ class SparseTucker3RelationEmbedder(Tucker3RelationEmbedder):
         self.l0_penalty = None
 
     def penalty(self, **kwargs):
-        return super().penalty(**kwargs) + [
-            self.l0_weight * self.l0_penalty
-        ]
+        return super().penalty(**kwargs) + [self.l0_weight * self.l0_penalty]
 
     def prepare_training_job(self, job):
         super().prepare_training_job(job)
 
         # during training, we recompute the mask in every batch
-        job.pre_batch_hook.append(lambda job: self._invalidate_mask())
+        job.pre_batch_hooks.append(lambda job: self._invalidate_mask())
 
         def append_density(job, trace):
             trace["core_tensor_density"] = self.density

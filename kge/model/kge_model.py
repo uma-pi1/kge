@@ -185,6 +185,9 @@ class KgeEmbedder(KgeBase):
                 )
             )
 
+    def forward(self, indexes):
+        return self.embed(indexes)
+
     def embed(self, indexes):
         """Computes the embedding."""
         raise NotImplementedError

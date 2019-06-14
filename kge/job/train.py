@@ -44,7 +44,7 @@ class TrainingJob(Job):
 
         #: Hooks run before starting a batch.
         #: Signature: job
-        self.pre_batch_hook = []
+        self.pre_batch_hooks = []
 
         #: Hooks run before outputting the trace of a batch. Can modify trace entry.
         #: Signature: job, trace_entry
@@ -287,7 +287,7 @@ class TrainingJob1toN(TrainingJob):
         backward_time = 0.0
         optimizer_time = 0.0
         for batch_index, batch in enumerate(self.loader):
-            for f in self.pre_batch_hook:
+            for f in self.pre_batch_hooks:
                 f(self)
 
             batch_prepare_time = -time.time()
