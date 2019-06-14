@@ -21,17 +21,22 @@ class KgeBase(torch.nn.Module):
         r"""Prepares the given training job to train this model.
 
         Registers hooks required for training this model to the specified training job.
+        For a list of available hooks, see :class:`TrainJob`.
 
-        If this model does not support the specified trainer, this function should
-        raise an error.
+        If this model does not support the specified trainer, this function may raise an
+        error.
 
         """
         pass
 
-    def penalty(self, epoch, batch_index, num_batches):
+    def penalty(self, **kwargs):
         r"""Returns additional penalty terms that are added to the loss during training.
 
-        Returns a list of penalty terms (which can be empty).
+        This method is called once per batch during training. The arguments being passed
+        depend on the trainer being used.
+
+        Returns a (possibly empty) list of penalty terms.
+
         """
 
         return []
@@ -203,7 +208,7 @@ class KgeEmbedder(KgeBase):
             self.config.get(key)
         except KeyError:
             key = self.embedder_type + "." + name
-        self.config.check(key, allowed_values)
+        return self.config.check(key, allowed_values)
 
 
 class KgeModel(KgeBase):
@@ -277,11 +282,11 @@ class KgeModel(KgeBase):
         self._entity_embedder.prepare_training_job(job)
         self._relation_embedder.prepare_training_job(job)
 
-    def penalty(self, epoch, batch_index, num_batches):
+    def penalty(self, **kwargs):
         return (
-            super().penalty(epoch, batch_index, num_batches)
-            + self._entity_embedder.penalty(epoch, batch_index, num_batches)
-            + self._relation_embedder.penalty(epoch, batch_index, num_batches)
+            super().penalty(**kwargs)
+            + self._entity_embedder.penalty(**kwargs)
+            + self._relation_embedder.penalty(**kwargs)
         )
 
     def get_s_embedder(self) -> KgeEmbedder:

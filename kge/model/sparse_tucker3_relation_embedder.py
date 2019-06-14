@@ -7,7 +7,7 @@ from torch.nn import functional as F
 
 
 class SparseTucker3RelationEmbedder(Tucker3RelationEmbedder):
-    """Like Tucker3RelationEmbedder but with L0 penalty"""
+    """Like Tucker3RelationEmbedder but with L0 penalty on projection (core tensor)"""
 
     def __init__(self, config, dataset, configuration_key, vocab_size):
         super().__init__(config, dataset, configuration_key, vocab_size)
@@ -47,8 +47,8 @@ class SparseTucker3RelationEmbedder(Tucker3RelationEmbedder):
         self.density = None
         self.l0_penalty = None
 
-    def penalty(self, epoch, batch_index, num_batches):
-        return super().penalty(epoch, batch_index, num_batches) + [
+    def penalty(self, **kwargs):
+        return super().penalty(**kwargs) + [
             self.l0_weight * self.l0_penalty
         ]
 
@@ -61,5 +61,5 @@ class SparseTucker3RelationEmbedder(Tucker3RelationEmbedder):
         def append_density(job, trace):
             trace["core_tensor_density"] = self.density
 
-        job.post_batch_update_trace_hooks.append(append_density)
-        job.post_epoch_update_trace_hooks.append(append_density)
+        job.post_batch_trace_hooks.append(append_density)
+        job.post_epoch_trace_hooks.append(append_density)

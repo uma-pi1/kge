@@ -289,13 +289,18 @@ class Config:
     # -- CONVENIENCE METHODS --------------------------------------------------
 
     def check(self, key, allowed_values):
-        """Raise an error if value of key is not in allowed"""
-        if not self.get(key) in allowed_values:
+        """Raise an error if value of key is not in allowed.
+
+        If fine, returns value.
+        """
+        value = self.get(key)
+        if not value in allowed_values:
             raise ValueError(
                 "Illegal value {} for key {}; allowed values are {}".format(
-                    self.get(key), key, allowed_values
+                    value, key, allowed_values
                 )
             )
+        return value
 
     def logfile(self):
         return os.path.join(self.folder, "kge.log")
