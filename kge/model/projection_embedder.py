@@ -54,14 +54,16 @@ class ProjectionEmbedder(KgeEmbedder):
     def penalty(self, epoch, batch_index, num_batches):
         # TODO factor out to a utility method
         if self.regularize == "" or self.regularize_weight == 0.0:
-            return super().penalty(epoch, batch_index, num_batches)
+            p = []
         elif self.regularize == "l1":
-            return super().penalty(epoch, batch_index, num_batches) + [
-                self.regularize_weight * self.projection.weight.norm(p=1)
-            ]
+            p = [self.regularize_weight * self.projection.weight.norm(p=1)]
         elif self.regularize == "l2":
-            return super().penalty(epoch, batch_index, num_batches) + [
-                self.regularize_weight * self.projection.weight.norm(p=2)**2
-            ]
+            p = [self.regularize_weight * self.projection.weight.norm(p=2) ** 2]
         else:
             raise ValueError("unknown penalty")
+
+        return (
+            super().penalty(epoch, batch_index, num_batches)
+            + p
+            + self.base_embedder.penalty(epoch, batch_index, num_batches)
+        )
