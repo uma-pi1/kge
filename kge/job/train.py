@@ -37,7 +37,10 @@ class TrainingJob(Job):
         self.epoch = 0
         self.valid_trace = []
         self.model.train()
-        self.inverse_relations = config.get(config.get("model") + ".relation_embedder.inverse_relations")
+
+        # TODO disabled since it breaks existing configurations
+        # self.inverse_relations = config.get(config.get("model") + ".relation_embedder.inverse_relations")
+        self.inverse_relations = False
 
         #: Hooks run after training for an epoch.
         #: Signature: job, trace_entry

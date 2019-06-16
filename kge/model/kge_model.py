@@ -253,8 +253,9 @@ class KgeModel(KgeBase):
 
             #: Embedder used for relations
             num_relations = dataset.num_relations
-            if config.get(config.get("model") + ".relation_embedder.inverse_relations"):
-                num_relations = num_relations * 2
+            # TODO disabled since it breaks existing configurations
+            # if config.get(config.get("model") + ".relation_embedder.inverse_relations"):
+            #     num_relations = num_relations * 2
             self._relation_embedder = KgeEmbedder.create(
                 config,
                 dataset,

@@ -19,7 +19,9 @@ class EvaluationJob(Job):
         self.eval_data = self.config.check("eval.data", ["valid", "test"])
         self.filter_valid_with_test = config.get("valid.filter_with_test")
         self.epoch = -1
-        self.inverse_relations = config.get(config.get("model") + ".relation_embedder.inverse_relations")
+        # TODO disabled since it breaks existing configurations
+        # self.inverse_relations = config.get(config.get("model") + ".relation_embedder.inverse_relations")
+        self.inverse_relations = False
 
         #: Hooks run before outputting the trace of an epoch. Can modify trace entry.
         #: Signature: job, trace_entry
