@@ -332,7 +332,7 @@ class KgeModel(KgeBase):
         all_objects = self.get_o_embedder().embed_all()
         return self._scorer.score_emb(s, p, all_objects, combine="sp*")
 
-    def score_po(self, p, o):
+    def score_po(self, p, o, inverse_relations=False):
         r"""Compute scores for triples formed from a set of po-pairs and all subjects.
 
         `p` and `o` are vectors of common size :math:`n`, holding the indexes of the
@@ -343,12 +343,21 @@ class KgeModel(KgeBase):
         p_i, o_i)`.
 
         """
-        all_subjects = self.get_s_embedder().embed_all()
-        p = self.get_p_embedder().embed(p)
-        o = self.get_o_embedder().embed(o)
-        return self._scorer.score_emb(all_subjects, p, o, combine="*po")
 
-    def score_sp_po(self, s, p, o):
+        # TODO: based on current 1toN training, no need for the inverse relation flag here
+        # should we keep it anyhow?
+        # current 1toN training should NOT set this flag to true!
+
+        all_subjects = self.get_s_embedder().embed_all()
+        o = self.get_o_embedder().embed(o)
+        if not inverse_relations:
+            p = self.get_p_embedder().embed(p)
+            return self._scorer.score_emb(all_subjects, p, o, combine="*po")
+        else:
+            p = self.get_p_embedder().embed(p + self.dataset.num_relations)
+            return self._scorer.score_emb(o, p, all_subjects, combine="sp*")
+
+    def score_sp_po(self, s, p, o, inverse_relations=False):
         r"""Combine `score_sp` and `score_po`.
 
         `s`, `p` and `o` are vectors of common size :math:`n`, holding the indexes of
@@ -362,16 +371,28 @@ class KgeModel(KgeBase):
         :math:`(j-E, p_i, o_i)`.
 
         """
+
+        # TODO: is this the right way to handle inverse relations with different embedders
+        # for subjects and objects?
+
         s = self.get_s_embedder().embed(s)
+        if inverse_relations:
+            p_inv = self.get_p_embedder().embed(p + self.dataset.num_relations)
         p = self.get_p_embedder().embed(p)
         o = self.get_o_embedder().embed(o)
         if self.get_s_embedder() is self.get_o_embedder():
             all_entities = self.get_s_embedder().embed_all()
             sp_scores = self._scorer.score_emb(s, p, all_entities, combine="sp*")
-            po_scores = self._scorer.score_emb(all_entities, p, o, combine="*po")
+            if not inverse_relations:
+                po_scores = self._scorer.score_emb(all_entities, p, o, combine="*po")
+            else:
+                po_scores = self._scorer.score_emb(o, p_inv, all_entities, combine="sp*")
         else:
             all_objects = self.get_o_embedder().embed_all()
             sp_scores = self._scorer.score_emb(s, p, all_objects, combine="sp*")
             all_subjects = self.get_s_embedder().embed_all()
-            po_scores = self._scorer.score_emb(all_subjects, p, o, combine="*po")
+            if not inverse_relations:
+                po_scores = self._scorer.score_emb(all_subjects, p, o, combine="*po")
+            else:
+                po_scores = self._scorer.score_emb(o, p_inv, all_subjects, combine="sp*")
         return torch.cat((sp_scores, po_scores), dim=1)
