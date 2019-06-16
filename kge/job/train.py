@@ -1,8 +1,8 @@
 import os
 import math
+import time
 import torch
 import torch.utils.data
-import time
 from kge.job import Job
 from kge.model import KgeModel
 from kge.util import KgeLoss, KgeOptimizer
@@ -39,26 +39,30 @@ class TrainingJob(Job):
         self.model.train()
         self.inverse_relations = config.get(config.get("model") + ".relation_embedder.inverse_relations")
 
-        #: Hooks run after training for an epoch. Takes this job and epoch trace entry
-        # as input.
+        #: Hooks run after training for an epoch.
+        #: Signature: job, trace_entry
         self.post_epoch_hooks = []
 
-        #: Hooks run before outputting the trace of an batch. Takes this job and batch
-        # trace entry as input and can modify the latter. Only executed when trace level
-        # is batch.
-        self.post_batch_update_trace_hooks = []
+        #: Hooks run before starting a batch.
+        #: Signature: job
+        self.pre_batch_hooks = []
 
-        #: Hooks run before outputting the trace of an epoch. Takes this job and epoch
-        # trace entry as input and can modify the latter.
-        self.post_epoch_update_trace_hooks = []
+        #: Hooks run before outputting the trace of a batch. Can modify trace entry.
+        #: Signature: job, trace_entry
+        self.post_batch_trace_hooks = []
 
-        #: Hooks run after a validation job. Takes this job and a valid trace entry as
-        # input.
+        #: Hooks run before outputting the trace of an epoch. Can modify trace entry.
+        #: Signature: job, trace_entry
+        self.post_epoch_trace_hooks = []
+
+        #: Hooks run after a validation job.
+        #: Signature: job, trace_entry
         self.post_valid_hooks = []
 
         # let the model add some hooks, if it wants to do so
         self.model.prepare_training_job(self)
 
+    @staticmethod
     def create(config, dataset, parent_job=None):
         """Factory method to create a training job and add necessary label_coords to
 the dataset (if not present).
@@ -289,6 +293,9 @@ class TrainingJob1toN(TrainingJob):
         backward_time = 0.0
         optimizer_time = 0.0
         for batch_index, batch in enumerate(self.loader):
+            for f in self.pre_batch_hooks:
+                f(self)
+
             batch_prepare_time = -time.time()
             pairs = batch[0].to(self.device)
             batch_size = len(pairs)
@@ -325,7 +332,9 @@ class TrainingJob1toN(TrainingJob):
             # determine penalty terms
             penalty_value = torch.zeros(1, device=self.device)
             penalty_values = self.model.penalty(
-                self.epoch, batch_index, len(self.loader)
+                epoch=self.epoch,
+                batch_index=batch_index,
+                num_batches=len(self.loader)
             )
             for pv_index, pv_value in enumerate(penalty_values):
                 penalty_value = penalty_value + pv_value
@@ -367,7 +376,7 @@ class TrainingJob1toN(TrainingJob):
                     "backward_time": batch_backward_time,
                     "optimizer_time": batch_optimizer_time,
                 }
-                for f in self.post_batch_update_trace_hooks:
+                for f in self.post_batch_trace_hooks:
                     f(self, batch_trace)
                 self.trace(**batch_trace)
             print(
@@ -419,7 +428,7 @@ class TrainingJob1toN(TrainingJob):
             "optimizer_time": optimizer_time,
             "other_time": other_time,
         }
-        for f in self.post_epoch_update_trace_hooks:
+        for f in self.post_epoch_trace_hooks:
             f(self, trace_entry)
         trace_entry = self.trace(**trace_entry)
         return trace_entry
