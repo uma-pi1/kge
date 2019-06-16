@@ -13,6 +13,9 @@ class EntityRankingJob(EvaluationJob):
         super().__init__(config, dataset, parent_job, model)
         self.is_prepared = False
 
+        # let the model add some hooks, if it wants to do so
+        self.model.prepare_job(self)
+
     def _prepare(self):
         """Construct all indexes needed to run."""
 
@@ -163,7 +166,7 @@ class EntityRankingJob(EvaluationJob):
                         task="sp",
                         rank=o_ranks[i].item() + 1,
                         rank_filtered=o_ranks_filt[i].item() + 1,
-                        **entry
+                        **entry,
                     )
                     if evil:
                         entry["rank_filtered_with_test"] = (
@@ -173,7 +176,7 @@ class EntityRankingJob(EvaluationJob):
                         task="po",
                         rank=s_ranks[i].item() + 1,
                         rank_filtered=s_ranks_filt[i].item() + 1,
-                        **entry
+                        **entry,
                     )
 
             # now compute the metrics
@@ -196,7 +199,7 @@ class EntityRankingJob(EvaluationJob):
                     batch=batch_number,
                     size=len(batch),
                     batches=len(self.loader),
-                    **metrics
+                    **metrics,
                 )
 
             # output batch information to console
@@ -236,10 +239,7 @@ class EntityRankingJob(EvaluationJob):
         epoch_time += time.time()
 
         # and trace them
-        trace_entry = self.trace(
-            echo=True,
-            echo_prefix="  ",
-            log=True,
+        trace_entry = dict(
             type="entity_ranking",
             scope="epoch",
             data=self.eval_data,
@@ -247,8 +247,11 @@ class EntityRankingJob(EvaluationJob):
             batches=len(self.loader),
             size=len(self.triples),
             epoch_time=epoch_time,
-            **metrics
+            **metrics,
         )
+        for f in self.post_epoch_trace_hooks:
+            f(self, trace_entry)
+        trace_entry = self.trace(**trace_entry, echo=True, echo_prefix="  ", log=True)
 
         # reset model and return metrics
         if was_training:

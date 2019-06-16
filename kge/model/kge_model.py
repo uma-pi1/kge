@@ -17,14 +17,15 @@ class KgeBase(torch.nn.Module):
         else:
             raise ValueError("initialize")
 
-    def prepare_training_job(self, job):
-        r"""Prepares the given training job to train this model.
+    def prepare_job(self, job, **kwargs):
+        r"""Prepares the given job to work with this model.
 
-        Registers hooks required for training this model to the specified training job.
-        For a list of available hooks, see :class:`TrainJob`.
+        If this model does not support the specified job type, this function may raise
+        an error.
 
-        If this model does not support the specified trainer, this function may raise an
-        error.
+        This function commonly registers hooks specific to this model. For a list of
+        available hooks during training or evaluation, see :class:`TrainingJob` or
+        :class:`EvaluationJob`:, respectively.
 
         """
         pass
@@ -285,10 +286,10 @@ class KgeModel(KgeBase):
         model.to(config.get("job.device"))
         return model
 
-    def prepare_training_job(self, job):
-        super().prepare_training_job(job)
-        self._entity_embedder.prepare_training_job(job)
-        self._relation_embedder.prepare_training_job(job)
+    def prepare_job(self, job, **kwargs):
+        super().prepare_job(job, **kwargs)
+        self._entity_embedder.prepare_job(job, **kwargs)
+        self._relation_embedder.prepare_job(job, **kwargs)
 
     def penalty(self, **kwargs):
         return (

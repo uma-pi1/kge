@@ -49,14 +49,15 @@ class SparseTucker3RelationEmbedder(Tucker3RelationEmbedder):
     def penalty(self, **kwargs):
         return super().penalty(**kwargs) + [self.l0_weight * self.l0_penalty]
 
-    def prepare_training_job(self, job):
-        super().prepare_training_job(job)
-
-        # during training, we recompute the mask in every batch
-        job.pre_batch_hooks.append(lambda job: self._invalidate_mask())
-
+    def prepare_job(self, job, **kwargs):
+        super().prepare_job(job, **kwargs)
         def append_density(job, trace):
             trace["core_tensor_density"] = self.density
 
-        job.post_batch_trace_hooks.append(append_density)
+        from kge.job import TrainingJob
+        if isinstance(job, TrainingJob):
+            # during training, we recompute the mask in every batch
+            job.pre_batch_hooks.append(lambda job: self._invalidate_mask())
+            job.post_batch_trace_hooks.append(append_density)
+
         job.post_epoch_trace_hooks.append(append_density)

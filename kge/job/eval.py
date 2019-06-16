@@ -21,6 +21,10 @@ class EvaluationJob(Job):
         self.epoch = -1
         self.inverse_relations = config.get(config.get("model") + ".relation_embedder.inverse_relations")
 
+        #: Hooks run before outputting the trace of an epoch. Can modify trace entry.
+        #: Signature: job, trace_entry
+        self.post_epoch_trace_hooks = []
+
     def create(config, dataset, parent_job=None, model=None):
         """Factory method to create an evaluation job """
         from kge.job import EntityRankingJob, EntityPairRankingJob
