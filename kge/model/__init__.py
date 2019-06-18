@@ -4,7 +4,9 @@ from kge.model.projection_embedder import ProjectionEmbedder
 from kge.model.complex import ComplEx
 from kge.model.distmult import DistMult
 from kge.model.rescal import Rescal
-from kge.model.relational_tucker3 import RelationalTucker3
-from kge.model.tucker3_relation_embedder import Tucker3RelationEmbedder
-from kge.model.sparse_tucker3_relation_embedder import SparseTucker3RelationEmbedder
+from kge.model.tucker3 import (
+    Tucker3RelationEmbedder,
+    SparseTucker3RelationEmbedder,
+    RelationalTucker3,
+)
 from kge.model.fnn import Fnn
