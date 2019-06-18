@@ -13,9 +13,6 @@ class EntityRankingJob(EvaluationJob):
         super().__init__(config, dataset, parent_job, model)
         self.is_prepared = False
 
-        # let the model add some hooks, if it wants to do so
-        self.model.prepare_job(self)
-
     def _prepare(self):
         """Construct all indexes needed to run."""
 
@@ -43,6 +40,8 @@ class EntityRankingJob(EvaluationJob):
             pin_memory=self.config.get("eval.pin_memory"),
         )
 
+        # let the model add some hooks, if it wants to do so
+        self.model.prepare_job(self)
         self.is_prepared = True
 
     def _collate(self, batch):

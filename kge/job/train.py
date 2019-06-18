@@ -182,9 +182,6 @@ class TrainingJob1toN(TrainingJob):
         # TODO currently assuming BCE loss
         self.config.check("train.loss", ["bce"])
 
-        # let the model add some hooks, if it wants to do so
-        self.model.prepare_job(self)
-
     def _prepare(self):
         """Construct all indexes needed to run an epoch."""
 
@@ -226,8 +223,10 @@ class TrainingJob1toN(TrainingJob):
             num_workers=self.config.get("train.num_workers"),
             pin_memory=self.config.get("train.pin_memory"),
         )
-
         self.num_examples = len(train_sp) + len(train_po)
+
+        # let the model add some hooks, if it wants to do so
+        self.model.prepare_job(self)
         self.is_prepared = True
 
     def _get_collate_fun(self):
