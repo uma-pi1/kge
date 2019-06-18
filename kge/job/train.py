@@ -157,7 +157,12 @@ the dataset (if not present).
     def load(self, filename):
         self.config.log("Loading checkpoint from {}...".format(filename))
         checkpoint = torch.load(filename)
-        self.model.load(checkpoint["model"])
+        if "model" in checkpoint:
+            # new format
+            self.model.load(checkpoint["model"])
+        else:
+            # old format (deprecated, will eventually be removed)
+            self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         self.epoch = checkpoint["epoch"]
         self.valid_trace = checkpoint["valid_trace"]
