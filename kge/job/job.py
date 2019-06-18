@@ -13,7 +13,7 @@ class Job:
         self.parent_job = parent_job
         userhome = os.path.expanduser("~")
         username = os.path.split(userhome)[-1]
-        self.trace(
+        self.trace_entry = self.trace(
             git_head=get_git_revision_short_hash(),
             username=username,
             hostname=socket.gethostname(),

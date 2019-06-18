@@ -112,6 +112,12 @@ the dataset (if not present).
                 f(self, trace_entry)
             self.config.log("Finished epoch {}.".format(self.epoch))
 
+            # update model metadata
+            self.model.meta['train_job_trace_entry'] = self.trace_entry
+            self.model.meta['train_epoch'] = self.epoch
+            self.model.meta['train_config'] = self.config
+            self.model.meta['train_trace_entry'] = trace_entry
+
             # validate
             if (
                 self.config.get("valid.every") > 0
@@ -122,6 +128,7 @@ the dataset (if not present).
                 self.valid_trace.append(trace_entry)
                 for f in self.post_valid_hooks:
                     f(self, trace_entry)
+                self.model.meta['valid_trace_entry'] = trace_entry
 
             # create checkpoint and delete old one, if necessary
             self.save(self.config.checkpoint_file(self.epoch))
@@ -138,9 +145,10 @@ the dataset (if not present).
         self.config.log("Saving checkpoint to {}...".format(filename))
         torch.save(
             {
+                "config": self.config,
                 "epoch": self.epoch,
                 "valid_trace": self.valid_trace,
-                "model_state_dict": self.model.state_dict(),
+                "model": self.model.save(),
                 "optimizer_state_dict": self.optimizer.state_dict(),
             },
             filename,
@@ -149,7 +157,7 @@ the dataset (if not present).
     def load(self, filename):
         self.config.log("Loading checkpoint from {}...".format(filename))
         checkpoint = torch.load(filename)
-        self.model.load_state_dict(checkpoint["model_state_dict"])
+        self.model.load(checkpoint["model"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         self.epoch = checkpoint["epoch"]
         self.valid_trace = checkpoint["valid_trace"]

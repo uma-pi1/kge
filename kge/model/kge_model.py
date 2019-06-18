@@ -10,6 +10,7 @@ class KgeBase(torch.nn.Module):
         super().__init__()
         self.config = config
         self.dataset = dataset
+        self.meta = dict()  #: meta-data stored with this module
 
     def initialize(self, what, initialize: str, initialize_arg):
         if initialize == "normal":
@@ -41,6 +42,15 @@ class KgeBase(torch.nn.Module):
         """
 
         return []
+
+    def save(self):
+        "Returns data structure to save"
+        return (self.state_dict(), self.meta)
+
+    def load(self, savepoint):
+        "Loads a model from a saved data structre"
+        self.load_state_dict(savepoint[0])
+        self.meta = savepoint[1]
 
 
 class RelationalScorer(KgeBase):
@@ -396,7 +406,9 @@ class KgeModel(KgeBase):
             if not inverse_relations:
                 po_scores = self._scorer.score_emb(all_entities, p, o, combine="*po")
             else:
-                po_scores = self._scorer.score_emb(o, p_inv, all_entities, combine="sp*")
+                po_scores = self._scorer.score_emb(
+                    o, p_inv, all_entities, combine="sp*"
+                )
         else:
             all_objects = self.get_o_embedder().embed_all()
             sp_scores = self._scorer.score_emb(s, p, all_objects, combine="sp*")
@@ -404,5 +416,7 @@ class KgeModel(KgeBase):
             if not inverse_relations:
                 po_scores = self._scorer.score_emb(all_subjects, p, o, combine="*po")
             else:
-                po_scores = self._scorer.score_emb(o, p_inv, all_subjects, combine="sp*")
+                po_scores = self._scorer.score_emb(
+                    o, p_inv, all_subjects, combine="sp*"
+                )
         return torch.cat((sp_scores, po_scores), dim=1)
