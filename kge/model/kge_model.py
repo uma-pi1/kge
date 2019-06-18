@@ -44,11 +44,11 @@ class KgeBase(torch.nn.Module):
         return []
 
     def save(self):
-        "Returns data structure to save"
+        "Returns data structure to save module state"
         return (self.state_dict(), self.meta)
 
     def load(self, savepoint):
-        "Loads a model from a saved data structre"
+        "Loads modulde state from a saved data structre"
         self.load_state_dict(savepoint[0])
         self.meta = savepoint[1]
 
@@ -295,6 +295,23 @@ class KgeModel(KgeBase):
             )
 
         model.to(config.get("job.device"))
+        return model
+
+    @staticmethod
+    def load_from_checkpoint(filename, dataset=None):
+        """Loads a model from a checkpoint file of a training job.
+
+        If dataset is specified, associates this dataset with the model. Otherwise uses
+        the dataset used to train the model.
+
+        """
+
+        checkpoint = torch.load(filename)
+        config = checkpoint["config"]
+        if dataset is None:
+            dataset = Dataset.load(config)
+        model = KgeModel.create(config, dataset)
+        model.load(checkpoint["model"])
         return model
 
     def prepare_job(self, job, **kwargs):
