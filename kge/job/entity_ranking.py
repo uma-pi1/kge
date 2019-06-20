@@ -114,7 +114,7 @@ class EntityRankingJob(EvaluationJob):
 
             # compute all scores
             s, p, o = batch[:, 0], batch[:, 1], batch[:, 2]
-            scores = self.model.score_sp_po(s, p, o, self.inverse_relations)
+            scores = self.model.score_sp_po(s, p, o)
             scores_sp = scores[:, :num_entities]
             scores_po = scores[:, num_entities:]
 

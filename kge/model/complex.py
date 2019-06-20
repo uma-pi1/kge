@@ -27,6 +27,9 @@ class ComplExScorer(RelationalScorer):
         if combine == "spo":
             out = (s_all * o_all * r_all).sum(dim=1)
         elif combine == "sp*":
+            # print(s_all.size())
+            # print(r_all.size())
+            # input()
             out = (s_all * r_all).mm(o_all.transpose(0, 1))
         elif combine == "*po":
             out = (r_all * o_all).mm(s_all.transpose(0, 1))
