@@ -11,3 +11,4 @@ from kge.model.tucker3 import (
 )
 from kge.model.fnn import Fnn
 from kge.model.inverse_model import InverseModel
+from kge.model.conve import ConvE

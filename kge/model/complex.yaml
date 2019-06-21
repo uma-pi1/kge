@@ -7,5 +7,4 @@ complex:
     +++: +++
   relation_embedder:
     type: lookup_embedder
-    inverse_relations: False
     +++: +++
