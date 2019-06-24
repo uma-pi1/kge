@@ -10,7 +10,7 @@ class KgeLoss:
         if config.get("train.loss") == "ce":
             return torch.nn.CrossEntropyLoss(reduction="mean")
         elif config.get("train.loss") == "bce":
-            return torch.nn.BCEWithLogitsLoss(reduction="mean")
+            return torch.nn.BCEWithLogitsLoss(reduction="mean", pos_weight=None)
         elif config.get("train.loss") == "kl":
             return torch.nn.KLDivLoss(reduction="mean")
         else:

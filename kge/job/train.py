@@ -66,6 +66,8 @@ the dataset (if not present).
         """
         if config.get("train.type") == "1toN":
             return TrainingJob1toN(config, dataset, parent_job)
+        elif config.get("train.type") == "negative_sampling":
+            return TrainingJobNegativeSampling(config, dataset, parent_job)
         else:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError("train.type")
@@ -402,6 +404,212 @@ class TrainingJob1toN(TrainingJob):
                     + batch_backward_time
                     + batch_optimizer_time,
                 ),
+                end="",
+                flush=True,
+            )
+
+        epoch_time += time.time()
+        print("\033[2K\r", end="", flush=True)  # clear line and go back
+
+        other_time = (
+            epoch_time - prepare_time - forward_time - backward_time - optimizer_time
+        )
+        trace_entry = dict(
+            type="1toN",
+            scope="epoch",
+            epoch=self.epoch,
+            batches=len(self.loader),
+            size=self.num_examples,
+            avg_loss=sum_loss / self.num_examples,
+            avg_penalty=sum_penalty / len(self.loader),
+            avg_penalties=[p / len(self.loader) for p in sum_penalties],
+            avg_cost=sum_loss / self.num_examples + sum_penalty / len(self.loader),
+            epoch_time=epoch_time,
+            prepare_time=prepare_time,
+            forward_time=forward_time,
+            backward_time=backward_time,
+            optimizer_time=optimizer_time,
+            other_time=other_time,
+        )
+        for f in self.post_epoch_trace_hooks:
+            f(self, trace_entry)
+        trace_entry = self.trace(**trace_entry, echo=True, echo_prefix="  ", log=True)
+        return trace_entry
+
+
+class TrainingJobNegativeSampling(TrainingJob):
+    def __init__(self, config, dataset, parent_job=None):
+        super().__init__(config, dataset, parent_job)
+        self.num_negatives = self.config.get("train.num_negatives")
+
+        config.log("Initializing negative sampling training job...")
+        self.is_prepared = False
+
+        # TODO currently assuming BCE loss
+        self.config.check("train.loss", ["bce"])
+
+    def _prepare(self):
+        """Construct dataloader"""
+
+        if self.is_prepared:
+            return
+
+        self.loader = torch.utils.data.DataLoader(
+            range(self.dataset.train.size(0) * 2),
+            collate_fn=self._get_collate_fun(),
+            shuffle=True,
+            batch_size=self.batch_size,
+            num_workers=self.config.get("train.num_workers"),
+            pin_memory=self.config.get("train.pin_memory"),
+        )
+        self.num_examples = self.dataset.train.size(0) * 2
+
+        # let the model add some hooks, if it wants to do so
+        self.model.prepare_job(self)
+        self.is_prepared = True
+
+    def _get_collate_fun(self):
+        num_train = self.dataset.train.size(0)
+
+        # create the collate function
+        def collate(batch):
+            """For a batch of size n, returns a triple of:
+
+            - triples (tensor of shape [n * num_negatives, 3], row = sp or po indexes),
+            - labels (tensor of [n * num_negatives, 1] with labels for triples)
+
+            """
+
+            # triples = torch.zeros([len(batch) * (self.num_negatives + 1), 3], dtype=torch.long)
+            # labels = torch.zeros([len(batch) * (self.num_negatives + 1), 1], dtype=torch.long)
+            triples = torch.zeros([len(batch) * (self.num_negatives + 1), 3], dtype=torch.float)
+            labels = torch.zeros([len(batch) * (self.num_negatives + 1), 1], dtype=torch.float)
+            current_index = 0
+            for batch_index, example_index in enumerate(batch):
+                random_entities = torch.randint(0, self.dataset.num_entities, (self.num_negatives, 1))
+                if example_index < num_train:
+                    triples[current_index] = self.dataset.train[example_index]
+                    labels[current_index] = 1
+                    sub = triples[current_index][0]
+                    rel = triples[current_index][1]
+                    current_index = current_index + 1
+                    for obj in random_entities:
+                        triples[current_index] = torch.tensor([sub, rel, obj])
+                        current_index = current_index + 1
+                else:
+                    example_index = example_index - num_train
+                    triples[current_index] = self.dataset.train[example_index]
+                    labels[current_index] = 1
+                    rel = triples[current_index][1]
+                    obj = triples[current_index][2]
+                    current_index = current_index + 1
+                    for sub in random_entities:
+                        triples[current_index] = torch.tensor([sub, rel, obj])
+                        current_index = current_index + 1
+
+            return triples, labels
+
+        return collate
+
+    def run_epoch(self) -> dict:
+        self._prepare()
+
+        # TODO refactor: much of this can go to TrainingJob
+        sum_loss = 0.0
+        sum_penalty = 0.0
+        sum_penalties = []
+        epoch_time = -time.time()
+
+        prepare_time = 0.0
+        forward_time = 0.0
+        backward_time = 0.0
+        optimizer_time = 0.0
+        for batch_index, batch in enumerate(self.loader):
+            for f in self.pre_batch_hooks:
+                f(self)
+
+            batch_prepare_time = -time.time()
+            triples = batch[0].to(self.device)
+            batch_size = len(triples)
+            labels = batch[1].to(self.device)
+            batch_prepare_time += time.time()
+            prepare_time += batch_prepare_time
+
+            # forward pass
+            batch_forward_time = -time.time()
+            self.optimizer.zero_grad()
+            loss_value = torch.zeros(1, device=self.device)
+            scores = self.model.score_spo(triples[:,0], triples[:,1], triples[:,2])
+            loss_value = loss_value + self.loss(scores.view(-1), labels.view(-1))
+            sum_loss += loss_value.item() * batch_size
+
+            # determine penalty terms
+            penalty_value = torch.zeros(1, device=self.device)
+            penalty_values = self.model.penalty(
+                epoch=self.epoch, batch_index=batch_index, num_batches=len(self.loader)
+            )
+            for pv_index, pv_value in enumerate(penalty_values):
+                penalty_value = penalty_value + pv_value
+                if len(sum_penalties) > pv_index:
+                    sum_penalties[pv_index] += pv_value.item()
+                else:
+                    sum_penalties.append(pv_value.item())
+            sum_penalty += penalty_value.item()
+            batch_forward_time += time.time()
+            forward_time += batch_forward_time
+
+            # backward pass
+            batch_backward_time = -time.time()
+            cost_value = loss_value + penalty_value
+            cost_value.backward()
+            batch_backward_time += time.time()
+            backward_time += batch_backward_time
+
+            # upgrades
+            batch_optimizer_time = -time.time()
+            self.optimizer.step()
+            batch_optimizer_time += time.time()
+            optimizer_time += batch_optimizer_time
+
+            if self.trace_batch:
+                batch_trace = {
+                    "type": "1toN",
+                    "scope": "batch",
+                    "epoch": self.epoch,
+                    "batch": batch_index,
+                    "size": batch_size,
+                    "batches": len(self.loader),
+                    "avg_loss": loss_value.item(),
+                    "penalties": [p.item() for p in penalty_values],
+                    "penalty": penalty_value.item(),
+                    "cost": cost_value.item(),
+                    "prepare_time": batch_prepare_time,
+                    "forward_time": batch_forward_time,
+                    "backward_time": batch_backward_time,
+                    "optimizer_time": batch_optimizer_time,
+                }
+                for f in self.post_batch_trace_hooks:
+                    f(self, batch_trace)
+                self.trace(**batch_trace)
+            print(
+                (
+                    "\r"  # go back
+                    + "{}  batch{: "
+                    + str(1 + int(math.ceil(math.log10(len(self.loader)))))
+                    + "d}/{}, loss {:.4E}, penalty {:.4E}, cost {:.4E}, time {:6.2f}s"
+                    + "\033[K"  # clear to right
+                ).format(
+                    self.config.log_prefix,
+                    batch_index,
+                    len(self.loader) - 1,
+                    loss_value.item(),
+                    penalty_value.item(),
+                    cost_value.item(),
+                    batch_prepare_time
+                    + batch_forward_time
+                    + batch_backward_time
+                    + batch_optimizer_time,
+                    ),
                 end="",
                 flush=True,
             )
