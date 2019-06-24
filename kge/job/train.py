@@ -269,7 +269,8 @@ class TrainingJob1toN(TrainingJob):
                     keys = self.train_po_keys
                     offsets = self.train_po_offsets
                     values = self.train_po_values
-                    pairs[batch_index,] = keys[example_index]
+
+                pairs[batch_index,] = keys[example_index]
                 start = offsets[example_index]
                 end = offsets[example_index + 1]
                 size = end - start
