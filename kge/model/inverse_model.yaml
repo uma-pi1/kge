@@ -1,0 +1,6 @@
+import: [conve]
+
+inverse_model:
+  class_name: InverseModel
+  base_model: conve
+  +++: +++
