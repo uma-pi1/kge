@@ -454,6 +454,13 @@ class TrainingJobNegativeSampling(TrainingJob):
         if self.is_prepared:
             return
 
+        # Generate candidate entities
+        if self.config.get("train.sampling_type") == "standard":
+            filter_negatives = self.config.get("train.filter_negatives")
+            self.negative_candidates = self._standard_sampling(filter_negatives)
+        else:
+            raise Exception("Unrecognized type of negative sampling strategy")
+
         self.loader = torch.utils.data.DataLoader(
             range(self.dataset.train.size(0) * 2),
             collate_fn=self._get_collate_fun(),
@@ -468,6 +475,34 @@ class TrainingJobNegativeSampling(TrainingJob):
         self.model.prepare_job(self)
         self.is_prepared = True
 
+    def _standard_sampling(self, filter_with_training_set=False):
+        """Generates self.num_negatives candidates for each sp and po tuple in training"""
+
+        num_train = self.dataset.train.size(0)
+        random_entities = torch.randint(0, self.dataset.num_entities, (num_train * 2, 3))
+        if filter_with_training_set:
+            train_sp = self.dataset.index_1toN("train", "sp")
+            train_po = self.dataset.index_1toN("train", "po")
+            # TODO make this more efficient?
+            for i in range(0,num_train * 2):
+                if i < num_train:
+                    tuple_ = (self.dataset.train[i][0].item(), self.dataset.train[i][1].item())
+                    index = train_sp
+                else:
+                    tuple_ = (self.dataset.train[i - num_train][1].item(), self.dataset.train[i - num_train][2].item())
+                    index = train_po
+
+                # Filter out triples in training
+                for entity in random_entities[i]:
+                    while entity in index[tuple_]:
+                        entity = torch.randint(0, self.dataset.num_entities, (1, 1)).item()
+                    if i < num_train:
+                        random_entities[i] = torch.tensor([tuple_[0], tuple_[1], entity])
+                    else:
+                        random_entities[i] = torch.tensor([entity, tuple_[0], tuple_[1]])
+
+        return random_entities
+
     def _get_collate_fun(self):
         num_train = self.dataset.train.size(0)
 
@@ -480,30 +515,27 @@ class TrainingJobNegativeSampling(TrainingJob):
 
             """
 
-            # triples = torch.zeros([len(batch) * (self.num_negatives + 1), 3], dtype=torch.long)
-            # labels = torch.zeros([len(batch) * (self.num_negatives + 1), 1], dtype=torch.long)
+            # TODO not sure why these have to be float
             triples = torch.zeros([len(batch) * (self.num_negatives + 1), 3], dtype=torch.float)
             labels = torch.zeros([len(batch) * (self.num_negatives + 1), 1], dtype=torch.float)
             current_index = 0
             for batch_index, example_index in enumerate(batch):
-                random_entities = torch.randint(0, self.dataset.num_entities, (self.num_negatives, 1))
                 if example_index < num_train:
                     triples[current_index] = self.dataset.train[example_index]
                     labels[current_index] = 1
                     sub = triples[current_index][0]
                     rel = triples[current_index][1]
                     current_index = current_index + 1
-                    for obj in random_entities:
+                    for obj in self.negative_candidates[example_index]:
                         triples[current_index] = torch.tensor([sub, rel, obj])
                         current_index = current_index + 1
                 else:
-                    example_index = example_index - num_train
-                    triples[current_index] = self.dataset.train[example_index]
+                    triples[current_index] = self.dataset.train[example_index - num_train]
                     labels[current_index] = 1
                     rel = triples[current_index][1]
                     obj = triples[current_index][2]
                     current_index = current_index + 1
-                    for sub in random_entities:
+                    for sub in self.negative_candidates[example_index]:
                         triples[current_index] = torch.tensor([sub, rel, obj])
                         current_index = current_index + 1
 

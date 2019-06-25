@@ -37,6 +37,8 @@ model: ''                     # distmult, complex, transe, conve, ...
 train:
   type: 1toN                  # 1toN, negative_sampling
   num_negatives: 6
+  sampling_type: standard
+  filter_negatives: False
   max_epochs: 20
   optimizer: Adagrad          # sgd, adagrad, adam
   optimizer_args:
