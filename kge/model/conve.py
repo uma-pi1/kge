@@ -6,21 +6,21 @@ from kge.model.kge_model import RelationalScorer, KgeModel
 # TODO: change implementation to suit framework
 # For now everything is here
 # Required decisions:
-#   Where to add batch normalization before input dropout?
-#       Cannot do this by overriding score_sp and others of KgeModel,because ConvE uses the inverse_model
-#       Inverse model already has its own version of score_sp and others
-#   Where to do the conversion of embeddings to 2D?
-#       Again, cannot do this by overriding score_sp of KgeModel,because ConvE uses the inverse_model
-#   What is the purpose of the parameter b that is manually added to the model?
-#   We should implement Xavier initialization, as original model uses that
-#   We should implement label smoothing, as original model they uses that
+#   Where to add batch normalization before input dropout? -> to LookupEmbedder
+#   Where to do the conversion of embeddings to 2D? -> that's just reshaping -> in scorer as now
+#   What is the purpose of the parameter b that is manually added to the model? -> rename to entity_bias
+#   We should implement Xavier initialization, as original model uses that -> just add option
+#   We should implement label smoothing, as original model they uses that -> to trainer (with option)
 
 class ConvEScorer(RelationalScorer):
-    r"""Implementation of the ConvE KGE scorer."""
+    r"""Implementation of the ConvE KGE scorer.
+
+    Must be used with InverseModel."""
 
     def __init__(self, config: Config, dataset: Dataset):
         super().__init__(config, dataset)
-        # TODO how to do this not hardcoded?
+        # TODO raise error if not possible exactly
+        # TODO use apect ratio of 2D; default should be 2:1 = 2.0
         self.emb_dim = config.get("lookup_embedder.dim")
         self.emb_height = config.get("conve.embedding_height")
         self.emb_width = self.emb_dim / self.emb_height
@@ -28,6 +28,7 @@ class ConvEScorer(RelationalScorer):
         self.stride = config.get("conve.stride")
         self.padding = config.get("conve.padding")
         # TODO for now input dropout is here until we add batch normalization to lookup embedder
+        # TODO use nn.Sequential for improved readability
         self.input_dropout = torch.nn.Dropout(config.get("conve.input_dropout"))
         self.feature_map_dropout = torch.nn.Dropout(config.get("conve.feature_map_dropout"))
         self.projection_dropout = torch.nn.Dropout(config.get("conve.projection_dropout"))
@@ -64,7 +65,7 @@ class ConvEScorer(RelationalScorer):
         out = self.non_linear(out)
         if combine == "sp*":
             out = torch.mm(out, o_emb.transpose(1, 0))
-        elif combine == "spo":
+        elif combine == "spo": # TODO do not allow this
             out = (out * o_emb).sum(dim=1)
         else:
             raise Exception("Combine {} not supported in ConvE's score function".format(combine))
