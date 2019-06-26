@@ -440,7 +440,11 @@ class TrainingJob1toN(TrainingJob):
 class TrainingJobNegativeSampling(TrainingJob):
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
+        # TODO num_negatives_s=-1, num_negatives_p=0, num_negatives_o=-1
+        # TODO notImplementedError if num_negatives_p > 0
         self.num_negatives = self.config.get("train.num_negatives")
+
+        # TODO frequency-based/biased sampling
 
         config.log("Initializing negative sampling training job...")
         self.is_prepared = False
@@ -514,6 +518,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             - labels (tensor of [n * num_negatives, 1] with labels for triples)
 
             """
+            # TODO return columns | s | p | o | samples s | samples p | samples o |
 
             # TODO not sure why these have to be float
             triples = torch.zeros([len(batch) * (self.num_negatives + 1), 3], dtype=torch.float)

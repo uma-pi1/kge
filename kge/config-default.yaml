@@ -36,9 +36,6 @@ model: ''                     # distmult, complex, transe, conve, ...
 
 train:
   type: 1toN                  # 1toN, negative_sampling
-  num_negatives: 6
-  sampling_type: standard
-  filter_negatives: False
   max_epochs: 20
   optimizer: Adagrad          # sgd, adagrad, adam
   optimizer_args:
@@ -50,6 +47,11 @@ train:
   num_workers: 0
   pin_memory: False
   trace_level: epoch          # batch or epoch
+
+negative_sampling:
+  num_negatives: 6
+  sampling_type: standard
+  filter_negatives: False
 
 # configuration options for model validation/selection during training
 valid:
