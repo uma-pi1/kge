@@ -243,7 +243,6 @@ class KgeModel(KgeBase):
     ):
         super().__init__(config, dataset)
 
-
         # TODO support different embedders for subjects and objects
 
         #: Embedder used for entitites (both subject and objects)
@@ -352,8 +351,9 @@ class KgeModel(KgeBase):
         o = self.get_o_embedder().embed(o)
         return self._scorer.score_emb(s, p, o, combine="spo")
 
-    def score_sp(self, s, p):
-        r"""Compute scores for triples formed from a set of sp-pairs and all objects.
+    def score_sp(self, s, p, o=None):
+        r"""Compute scores for triples formed from a set of sp-pairs and all (or a subset of the)
+objects.
 
         `s` and `p` are vectors of common size :math:`n`, holding the indexes of the
         subjects and relations to score.
@@ -362,14 +362,21 @@ class KgeModel(KgeBase):
         known entities. The :math:`(i,j)`-entry holds the score for triple :math:`(s_i,
         p_i, j)`.
 
+        If `o` is not None, it is a vector holding the indexes of the objects to score.
+
         """
         s = self.get_s_embedder().embed(s)
         p = self.get_p_embedder().embed(p)
-        all_objects = self.get_o_embedder().embed_all()
-        return self._scorer.score_emb(s, p, all_objects, combine="sp*")
+        if o is None:
+            o = self.get_o_embedder().embed_all()
+        else:
+            o = self.get_o_embedder().embed(o)
 
-    def score_po(self, p, o):
-        r"""Compute scores for triples formed from a set of po-pairs and all subjects.
+        return self._scorer.score_emb(s, p, o, combine="sp*")
+
+    def score_po(self, p, o, s=None):
+        r"""Compute scores for triples formed from a set of po-pairs and (or a subset of the)
+subjects.
 
         `p` and `o` are vectors of common size :math:`n`, holding the indexes of the
         relations and objects to score.
@@ -378,12 +385,18 @@ class KgeModel(KgeBase):
         known entities. The :math:`(i,j)`-entry holds the score for triple :math:`(j,
         p_i, o_i)`.
 
+        If `s` is not None, it is a vector holding the indexes of the objects to score.
+
         """
 
-        all_subjects = self.get_s_embedder().embed_all()
+        if s is None:
+            s = self.get_s_embedder().embed_all()
+        else:
+            s = self.get_s_embedder().embed(s)
         o = self.get_o_embedder().embed(o)
         p = self.get_p_embedder().embed(p)
-        return self._scorer.score_emb(all_subjects, p, o, combine="*po")
+
+        return self._scorer.score_emb(s, p, o, combine="*po")
 
     def score_sp_po(self, s, p, o):
         r"""Combine `score_sp` and `score_po`.
