@@ -243,6 +243,7 @@ class KgeModel(KgeBase):
     ):
         super().__init__(config, dataset)
 
+
         # TODO support different embedders for subjects and objects
 
         #: Embedder used for entitites (both subject and objects)

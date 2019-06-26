@@ -3,12 +3,21 @@ from kge import Config, Dataset
 from kge.model.kge_model import KgeModel, KgeEmbedder, RelationalScorer
 
 
+# TODO WithInverseRelationsModel
 class InverseModel(KgeModel):
+    """Modifies a base model to use different embeddings for predicting subject and object.
+
+    This implements the inverse training procedure of [TODO cite]. Note that this model
+    cannot be used to score a single triple, but only to rank sp* or *po questions.
+
+    """
 
     def __init__(self, config: Config, dataset: Dataset):
         super().__init__(config, dataset, None, initialize_embedders=False)
 
         # Set base_model as base_model in config
+        # TODO do not do that, instead extend KgeModel.create with a configuraiton key
+        # exactly as done for Embedders
         config.set("model", config.get("inverse_model.base_model"))
 
         # Initialize base model
@@ -23,24 +32,17 @@ class InverseModel(KgeModel):
             dataset,
             config.get("model") + ".relation_embedder",
             dataset.num_relations * 2,
-            )
+        )
 
         # Initialize this model with the scorer of base_model
         self._scorer = self._base_model.get_scorer()
 
     def prepare_job(self, job, **kwargs):
-        # TODO how to handle this when parent class has no embedders?
-        # super().prepare_job(job, **kwargs)
-        self._base_model._entity_embedder.prepare_job(job, **kwargs)
-        self._base_model._relation_embedder.prepare_job(job, **kwargs)
+        super().prepare_job(job, **kwargs)
+        self._base_model.prepare_job(job, **kwargs)
 
     def penalty(self, **kwargs):
-        return (
-            # TODO how to handle this when parent class has no embedders?
-            # super().penalty(**kwargs) +
-            self._base_model._entity_embedder.penalty(**kwargs) +
-            self._base_model._relation_embedder.penalty(**kwargs)
-        )
+        return super().penalty(**kwargs) + self._base_model.penalty(**kwargs)
 
     def get_s_embedder(self) -> KgeEmbedder:
         return self._base_model._entity_embedder
