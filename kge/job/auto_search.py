@@ -161,20 +161,27 @@ class AutoSearchJob(SearchJob):
                 # advance to next trial (unless we did not run this one)
                 trial_no += 1
 
-        # all done, output best result
-        self.config.log("And the winner is...")
-        best_parameters, best_value_estimate = self.get_best_parameters()
-        self.config.log("best_parameters: {}".format(best_parameters), prefix="  ")
+        # all done, output best trial result
+        trial_metric_values = list(
+            map(lambda trial_best: trial_best["metric_value"], self.results)
+        )
+        best_trial_index = trial_metric_values.index(max(trial_metric_values))
+        metric_name = self.results[best_trial_index]["metric_name"]
         self.config.log(
-            "best_metric_value (estimate): {}".format(best_value_estimate), prefix="  "
+            "Best trial: {}={}".format(
+                metric_name, trial_metric_values[best_trial_index]
+            )
         )
+        self.trace(echo=True,
+                   echo_prefix="  ",
+                   log=True,
+                   scope="search",
+                   **self.results[best_trial_index])
 
-        # record the best result of this job
-        self.trace(
-            echo=True,
-            echo_prefix="  ",
-            log=True,
-            scope="search",
-            metric_value=best_value_estimate,  # TODO really record estimate?
-            **best_parameters
-        )
+        # DISABLED FOR NOW SINCE IDENTICAL TO BEST TRIAL
+        # output parameter estimates
+        # best_parameters, best_value_estimate = self.get_best_parameters()
+        # self.config.log(
+        #     "Search result (estimate): {}={}".format(metric_name, best_value_estimate)
+        # )
+        # self.config.log("parameters: {}".format(best_parameters), prefix="  ")
