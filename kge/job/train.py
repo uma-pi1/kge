@@ -297,7 +297,7 @@ the dataset (if not present).
             epoch_time - prepare_time - forward_time - backward_time - optimizer_time
         )
         trace_entry = dict(
-            type="type_str",
+            type=self.type_str,
             scope="epoch",
             epoch=self.epoch,
             batches=len(self.loader),
@@ -712,7 +712,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             epoch_time - prepare_time - forward_time - backward_time - optimizer_time
         )
         trace_entry = dict(
-            type="1toN",
+            type="negative_sampling",
             scope="epoch",
             epoch=self.epoch,
             batches=len(self.loader),
