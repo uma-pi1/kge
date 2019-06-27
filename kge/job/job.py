@@ -1,5 +1,6 @@
 from kge import Config, Dataset
 import uuid
+
 from kge.util.misc import get_git_revision_short_hash
 import os
 import socket

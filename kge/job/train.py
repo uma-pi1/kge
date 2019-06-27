@@ -10,9 +10,12 @@ import kge.job.util
 
 
 class TrainingJob(Job):
-    """Job to train a single model with a fixed set of hyperparameters.
+    """Abstract base job to train a single model with a fixed set of hyperparameters.
 
     Also used by jobs such as :class:`SearchJob`.
+
+    Subclasses for specific training methods need to implement `_prepare` and
+    `_compute_batch_loss`.
 
     """
 
@@ -36,7 +39,13 @@ class TrainingJob(Job):
         self.trace_batch = self.config.get("train.trace_level") == "batch"
         self.epoch = 0
         self.valid_trace = []
+        self.is_prepared = False
         self.model.train()
+
+        # attributes filled in by implementing classes
+        self.loader = None
+        self.num_examples = None
+        self.type_str = None
 
         #: Hooks run after training for an epoch.
         #: Signature: job, trace_entry
@@ -72,11 +81,8 @@ the dataset (if not present).
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError("train.type")
 
-    def run_epoch(self) -> dict:
-        "Runs an epoch and returns a trace entry."
-        raise NotImplementedError
-
     def run(self):
+        """Start/resume the training job and run to completion."""
         self.config.log("Starting training...")
         checkpoint = self.config.get("checkpoint.every")
         metric_name = self.config.get("valid.metric")
@@ -111,10 +117,10 @@ the dataset (if not present).
             self.config.log("Finished epoch {}.".format(self.epoch))
 
             # update model metadata
-            self.model.meta['train_job_trace_entry'] = self.trace_entry
-            self.model.meta['train_epoch'] = self.epoch
-            self.model.meta['train_config'] = self.config
-            self.model.meta['train_trace_entry'] = trace_entry
+            self.model.meta["train_job_trace_entry"] = self.trace_entry
+            self.model.meta["train_epoch"] = self.epoch
+            self.model.meta["train_config"] = self.config
+            self.model.meta["train_trace_entry"] = trace_entry
 
             # validate
             if (
@@ -126,7 +132,7 @@ the dataset (if not present).
                 self.valid_trace.append(trace_entry)
                 for f in self.post_valid_hooks:
                     f(self, trace_entry)
-                self.model.meta['valid_trace_entry'] = trace_entry
+                self.model.meta["valid_trace_entry"] = trace_entry
 
             # create checkpoint and delete old one, if necessary
             self.save(self.config.checkpoint_file(self.epoch))
@@ -140,6 +146,7 @@ the dataset (if not present).
                     os.remove(self.config.checkpoint_file(self.epoch - 1))
 
     def save(self, filename):
+        """Save current state to specified file"""
         self.config.log("Saving checkpoint to {}...".format(filename))
         torch.save(
             {
@@ -153,6 +160,7 @@ the dataset (if not present).
         )
 
     def load(self, filename):
+        """Load job state from specified file"""
         self.config.log("Loading checkpoint from {}...".format(filename))
         checkpoint = torch.load(filename)
         if "model" in checkpoint:
@@ -167,6 +175,9 @@ the dataset (if not present).
         self.model.train()
 
     def resume(self):
+        """Load job state from last checkpoint.
+
+        Job is not actually run using this method; follow up with `run` for this."""
         last_checkpoint = self.config.last_checkpoint()
         if last_checkpoint is not None:
             checkpoint_file = self.config.checkpoint_file(last_checkpoint)
@@ -174,22 +185,165 @@ the dataset (if not present).
         else:
             self.config.log("No checkpoint found, starting from scratch...")
 
+    def run_epoch(self) -> dict:
+        "Runs an epoch and returns a trace entry."
+
+        # prepare the job is not done already
+        if not self.is_prepared:
+            self._prepare()
+            self.model.prepare_job(self)  # let the model add some hooks
+            self.is_prepared = True
+
+        # variables that record various statitics
+        sum_loss = 0.0
+        sum_penalty = 0.0
+        sum_penalties = []
+        epoch_time = -time.time()
+        prepare_time = 0.0
+        forward_time = 0.0
+        backward_time = 0.0
+        optimizer_time = 0.0
+
+        # process each batch
+        for batch_index, batch in enumerate(self.loader):
+            for f in self.pre_batch_hooks:
+                f(self)
+
+            # preprocess batch and perform forward pass
+            loss_value, batch_size, batch_prepare_time, batch_forward_time = self._compute_batch_loss(
+                batch_index, batch
+            )
+            sum_loss += loss_value.item() * batch_size
+            prepare_time += batch_prepare_time
+
+            # determine penalty terms (part of forward pass)
+            batch_forward_time -= time.time()
+            penalty_value = torch.zeros(1, device=self.device)
+            penalty_values = self.model.penalty(
+                epoch=self.epoch, batch_index=batch_index, num_batches=len(self.loader)
+            )
+            for pv_index, pv_value in enumerate(penalty_values):
+                penalty_value = penalty_value + pv_value
+                if len(sum_penalties) > pv_index:
+                    sum_penalties[pv_index] += pv_value.item()
+                else:
+                    sum_penalties.append(pv_value.item())
+            sum_penalty += penalty_value.item()
+            batch_forward_time += time.time()
+            forward_time += batch_forward_time
+
+            # backward pass
+            batch_backward_time = -time.time()
+            cost_value = loss_value + penalty_value
+            cost_value.backward()
+            batch_backward_time += time.time()
+            backward_time += batch_backward_time
+
+            # update parameters
+            batch_optimizer_time = -time.time()
+            self.optimizer.step()
+            batch_optimizer_time += time.time()
+            optimizer_time += batch_optimizer_time
+
+            # tracing/logging
+            if self.trace_batch:
+                batch_trace = {
+                    "type": self.type_str,
+                    "scope": "batch",
+                    "epoch": self.epoch,
+                    "batch": batch_index,
+                    "size": batch_size,
+                    "batches": len(self.loader),
+                    "avg_loss": loss_value.item(),
+                    "penalties": [p.item() for p in penalty_values],
+                    "penalty": penalty_value.item(),
+                    "cost": cost_value.item(),
+                    "prepare_time": batch_prepare_time,
+                    "forward_time": batch_forward_time,
+                    "backward_time": batch_backward_time,
+                    "optimizer_time": batch_optimizer_time,
+                }
+                for f in self.post_batch_trace_hooks:
+                    f(self, batch_trace)
+                self.trace(**batch_trace)
+            print(
+                (
+                    "\r"  # go back
+                    + "{}  batch{: "
+                    + str(1 + int(math.ceil(math.log10(len(self.loader)))))
+                    + "d}/{}, loss {:.4E}, penalty {:.4E}, cost {:.4E}, time {:6.2f}s"
+                    + "\033[K"  # clear to right
+                ).format(
+                    self.config.log_prefix,
+                    batch_index,
+                    len(self.loader) - 1,
+                    loss_value.item(),
+                    penalty_value.item(),
+                    cost_value.item(),
+                    batch_prepare_time
+                    + batch_forward_time
+                    + batch_backward_time
+                    + batch_optimizer_time,
+                ),
+                end="",
+                flush=True,
+            )
+
+        # all done; now trace and log
+        epoch_time += time.time()
+        print("\033[2K\r", end="", flush=True)  # clear line and go back
+
+        other_time = (
+            epoch_time - prepare_time - forward_time - backward_time - optimizer_time
+        )
+        trace_entry = dict(
+            type="type_str",
+            scope="epoch",
+            epoch=self.epoch,
+            batches=len(self.loader),
+            size=self.num_examples,
+            avg_loss=sum_loss / self.num_examples,
+            avg_penalty=sum_penalty / len(self.loader),
+            avg_penalties=[p / len(self.loader) for p in sum_penalties],
+            avg_cost=sum_loss / self.num_examples + sum_penalty / len(self.loader),
+            epoch_time=epoch_time,
+            prepare_time=prepare_time,
+            forward_time=forward_time,
+            backward_time=backward_time,
+            optimizer_time=optimizer_time,
+            other_time=other_time,
+        )
+        for f in self.post_epoch_trace_hooks:
+            f(self, trace_entry)
+        trace_entry = self.trace(**trace_entry, echo=True, echo_prefix="  ", log=True)
+        return trace_entry
+
+    def _prepare(self):
+        """Prepare this job for running.
+
+        Sets (at least) the `loader`, `num_examples`, and `type_str` attributes of this
+        job to a data loader, number of examples per epoch, and a name for the trainer,
+        repectively.
+
+        Guaranteed to be called exactly once before running the first epoch.
+
+        """
+        raise NotImplementedError
+
+    def _compute_batch_loss(self, batch_index, batch):
+        "Returns loss_value (avg over batch), batch size, prepare time, forward time."
+        raise NotImplementedError
+
 
 class TrainingJob1toN(TrainingJob):
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
-
         config.log("Initializing 1-to-N training job...")
-        self.is_prepared = False
-
         # TODO currently assuming BCE loss
         self.config.check("train.loss", ["bce"])
 
     def _prepare(self):
-        """Construct all indexes needed to run an epoch."""
-
-        if self.is_prepared:
-            return
+        self.type_str = "1toN"
 
         # create sp and po label_coords (if not done before)
         train_sp = self.dataset.index_1toN("train", "sp")
@@ -227,10 +381,6 @@ class TrainingJob1toN(TrainingJob):
             pin_memory=self.config.get("train.pin_memory"),
         )
         self.num_examples = len(train_sp) + len(train_po)
-
-        # let the model add some hooks, if it wants to do so
-        self.model.prepare_job(self)
-        self.is_prepared = True
 
     def _get_collate_fun(self):
         num_sp = len(self.train_sp_keys)
@@ -287,156 +437,40 @@ class TrainingJob1toN(TrainingJob):
 
         return collate
 
-    def run_epoch(self) -> dict:
-        self._prepare()
+    def _compute_batch_loss(self, batch_index, batch):
+        # prepare
+        batch_prepare_time = -time.time()
+        pairs = batch[0].to(self.device)
+        batch_size = len(pairs)
+        label_coords = batch[1].to(self.device)
+        is_sp = batch[2]
+        sp_indexes = is_sp.nonzero().to(self.device).view(-1)
+        po_indexes = (is_sp == 0).nonzero().to(self.device).view(-1)
+        labels = kge.job.util.coord_to_sparse_tensor(
+            batch_size, self.dataset.num_entities, label_coords, self.device
+        ).to_dense()
+        batch_prepare_time += time.time()
 
-        # TODO refactor: much of this can go to TrainingJob
-        sum_loss = 0.0
-        sum_penalty = 0.0
-        sum_penalties = []
-        epoch_time = -time.time()
-
-        prepare_time = 0.0
-        forward_time = 0.0
-        backward_time = 0.0
-        optimizer_time = 0.0
-        for batch_index, batch in enumerate(self.loader):
-            for f in self.pre_batch_hooks:
-                f(self)
-
-            batch_prepare_time = -time.time()
-            pairs = batch[0].to(self.device)
-            batch_size = len(pairs)
-            label_coords = batch[1].to(self.device)
-            is_sp = batch[2]
-            sp_indexes = is_sp.nonzero().to(self.device).view(-1)
-            po_indexes = (is_sp == 0).nonzero().to(self.device).view(-1)
-            labels = kge.job.util.coord_to_sparse_tensor(
-                batch_size, self.dataset.num_entities, label_coords, self.device
-            ).to_dense()
-            batch_prepare_time += time.time()
-            prepare_time += batch_prepare_time
-
-            # forward pass
-            batch_forward_time = -time.time()
-            self.optimizer.zero_grad()
-            loss_value = torch.zeros(1, device=self.device)
-            if len(sp_indexes) > 0:
-                scores_sp = self.model.score_sp(
-                    pairs[sp_indexes, 0], pairs[sp_indexes, 1]
-                )
-                loss_value = loss_value + self.loss(
-                    scores_sp.view(-1), labels[sp_indexes,].view(-1)
-                )
-            if len(po_indexes) > 0:
-                scores_po = self.model.score_po(
-                    pairs[po_indexes, 0], pairs[po_indexes, 1]
-                )
-                loss_value = loss_value + self.loss(
-                    scores_po.view(-1), labels[po_indexes,].view(-1)
-                )
-            sum_loss += loss_value.item() * batch_size
-
-            # determine penalty terms
-            penalty_value = torch.zeros(1, device=self.device)
-            penalty_values = self.model.penalty(
-                epoch=self.epoch, batch_index=batch_index, num_batches=len(self.loader)
+        # forward pass
+        batch_forward_time = -time.time()
+        self.optimizer.zero_grad()
+        loss_value = torch.zeros(1, device=self.device)
+        if len(sp_indexes) > 0:
+            scores_sp = self.model.score_sp(pairs[sp_indexes, 0], pairs[sp_indexes, 1])
+            loss_value = loss_value + self.loss(
+                scores_sp.view(-1), labels[sp_indexes,].view(-1)
             )
-            for pv_index, pv_value in enumerate(penalty_values):
-                penalty_value = penalty_value + pv_value
-                if len(sum_penalties) > pv_index:
-                    sum_penalties[pv_index] += pv_value.item()
-                else:
-                    sum_penalties.append(pv_value.item())
-            sum_penalty += penalty_value.item()
-            batch_forward_time += time.time()
-            forward_time += batch_forward_time
-
-            # backward pass
-            batch_backward_time = -time.time()
-            cost_value = loss_value + penalty_value
-            cost_value.backward()
-            batch_backward_time += time.time()
-            backward_time += batch_backward_time
-
-            # upgrades
-            batch_optimizer_time = -time.time()
-            self.optimizer.step()
-            batch_optimizer_time += time.time()
-            optimizer_time += batch_optimizer_time
-
-            if self.trace_batch:
-                batch_trace = {
-                    "type": "1toN",
-                    "scope": "batch",
-                    "epoch": self.epoch,
-                    "batch": batch_index,
-                    "size": batch_size,
-                    "batches": len(self.loader),
-                    "avg_loss": loss_value.item(),
-                    "penalties": [p.item() for p in penalty_values],
-                    "penalty": penalty_value.item(),
-                    "cost": cost_value.item(),
-                    "prepare_time": batch_prepare_time,
-                    "forward_time": batch_forward_time,
-                    "backward_time": batch_backward_time,
-                    "optimizer_time": batch_optimizer_time,
-                }
-                for f in self.post_batch_trace_hooks:
-                    f(self, batch_trace)
-                self.trace(**batch_trace)
-            print(
-                (
-                    "\r"  # go back
-                    + "{}  batch{: "
-                    + str(1 + int(math.ceil(math.log10(len(self.loader)))))
-                    + "d}/{}, loss {:.4E}, penalty {:.4E}, cost {:.4E}, time {:6.2f}s"
-                    + "\033[K"  # clear to right
-                ).format(
-                    self.config.log_prefix,
-                    batch_index,
-                    len(self.loader) - 1,
-                    loss_value.item(),
-                    penalty_value.item(),
-                    cost_value.item(),
-                    batch_prepare_time
-                    + batch_forward_time
-                    + batch_backward_time
-                    + batch_optimizer_time,
-                ),
-                end="",
-                flush=True,
+        if len(po_indexes) > 0:
+            scores_po = self.model.score_po(pairs[po_indexes, 0], pairs[po_indexes, 1])
+            loss_value = loss_value + self.loss(
+                scores_po.view(-1), labels[po_indexes,].view(-1)
             )
+        batch_forward_time += time.time()
 
-        epoch_time += time.time()
-        print("\033[2K\r", end="", flush=True)  # clear line and go back
-
-        other_time = (
-            epoch_time - prepare_time - forward_time - backward_time - optimizer_time
-        )
-        trace_entry = dict(
-            type="1toN",
-            scope="epoch",
-            epoch=self.epoch,
-            batches=len(self.loader),
-            size=self.num_examples,
-            avg_loss=sum_loss / self.num_examples,
-            avg_penalty=sum_penalty / len(self.loader),
-            avg_penalties=[p / len(self.loader) for p in sum_penalties],
-            avg_cost=sum_loss / self.num_examples + sum_penalty / len(self.loader),
-            epoch_time=epoch_time,
-            prepare_time=prepare_time,
-            forward_time=forward_time,
-            backward_time=backward_time,
-            optimizer_time=optimizer_time,
-            other_time=other_time,
-        )
-        for f in self.post_epoch_trace_hooks:
-            f(self, trace_entry)
-        trace_entry = self.trace(**trace_entry, echo=True, echo_prefix="  ", log=True)
-        return trace_entry
+        return loss_value, batch_size, batch_prepare_time, batch_forward_time
 
 
+# TODO adapt to new TrainingJob
 class TrainingJobNegativeSampling(TrainingJob):
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
@@ -483,27 +517,41 @@ class TrainingJobNegativeSampling(TrainingJob):
         """Generates self.num_negatives candidates for each sp and po tuple in training"""
 
         num_train = self.dataset.train.size(0)
-        random_entities = torch.randint(0, self.dataset.num_entities, (num_train * 2, 3))
+        random_entities = torch.randint(
+            0, self.dataset.num_entities, (num_train * 2, 3)
+        )
         if filter_with_training_set:
             train_sp = self.dataset.index_1toN("train", "sp")
             train_po = self.dataset.index_1toN("train", "po")
             # TODO make this more efficient?
-            for i in range(0,num_train * 2):
+            for i in range(0, num_train * 2):
                 if i < num_train:
-                    tuple_ = (self.dataset.train[i][0].item(), self.dataset.train[i][1].item())
+                    tuple_ = (
+                        self.dataset.train[i][0].item(),
+                        self.dataset.train[i][1].item(),
+                    )
                     index = train_sp
                 else:
-                    tuple_ = (self.dataset.train[i - num_train][1].item(), self.dataset.train[i - num_train][2].item())
+                    tuple_ = (
+                        self.dataset.train[i - num_train][1].item(),
+                        self.dataset.train[i - num_train][2].item(),
+                    )
                     index = train_po
 
                 # Filter out triples in training
                 for entity in random_entities[i]:
                     while entity in index[tuple_]:
-                        entity = torch.randint(0, self.dataset.num_entities, (1, 1)).item()
+                        entity = torch.randint(
+                            0, self.dataset.num_entities, (1, 1)
+                        ).item()
                     if i < num_train:
-                        random_entities[i] = torch.tensor([tuple_[0], tuple_[1], entity])
+                        random_entities[i] = torch.tensor(
+                            [tuple_[0], tuple_[1], entity]
+                        )
                     else:
-                        random_entities[i] = torch.tensor([entity, tuple_[0], tuple_[1]])
+                        random_entities[i] = torch.tensor(
+                            [entity, tuple_[0], tuple_[1]]
+                        )
 
         return random_entities
 
@@ -521,8 +569,12 @@ class TrainingJobNegativeSampling(TrainingJob):
             # TODO return columns | s | p | o | samples s | samples p | samples o |
 
             # TODO not sure why these have to be float
-            triples = torch.zeros([len(batch) * (self.num_negatives + 1), 3], dtype=torch.float)
-            labels = torch.zeros([len(batch) * (self.num_negatives + 1), 1], dtype=torch.float)
+            triples = torch.zeros(
+                [len(batch) * (self.num_negatives + 1), 3], dtype=torch.float
+            )
+            labels = torch.zeros(
+                [len(batch) * (self.num_negatives + 1), 1], dtype=torch.float
+            )
             current_index = 0
             for batch_index, example_index in enumerate(batch):
                 if example_index < num_train:
@@ -535,7 +587,9 @@ class TrainingJobNegativeSampling(TrainingJob):
                         triples[current_index] = torch.tensor([sub, rel, obj])
                         current_index = current_index + 1
                 else:
-                    triples[current_index] = self.dataset.train[example_index - num_train]
+                    triples[current_index] = self.dataset.train[
+                        example_index - num_train
+                    ]
                     labels[current_index] = 1
                     rel = triples[current_index][1]
                     obj = triples[current_index][2]
@@ -576,7 +630,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             batch_forward_time = -time.time()
             self.optimizer.zero_grad()
             loss_value = torch.zeros(1, device=self.device)
-            scores = self.model.score_spo(triples[:,0], triples[:,1], triples[:,2])
+            scores = self.model.score_spo(triples[:, 0], triples[:, 1], triples[:, 2])
             loss_value = loss_value + self.loss(scores.view(-1), labels.view(-1))
             sum_loss += loss_value.item() * batch_size
 
@@ -646,7 +700,7 @@ class TrainingJobNegativeSampling(TrainingJob):
                     + batch_forward_time
                     + batch_backward_time
                     + batch_optimizer_time,
-                    ),
+                ),
                 end="",
                 flush=True,
             )
