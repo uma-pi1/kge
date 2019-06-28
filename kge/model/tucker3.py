@@ -93,6 +93,7 @@ class RelationalTucker3(KgeModel):
                 config,
                 dataset,
                 config.get("model") + ".relation_embedder"
+            )
 
         if config.get("relational_tucker3.auto_initialization"):
             dim_e = config.get_first(
@@ -142,7 +143,6 @@ class RelationalTucker3(KgeModel):
                 config.get("model") + ".relation_embedder.initialize_arg",
                 1.0,
                 log=True
->>>>>>> daecbfac63f163dc7e146e8fbf72ea6cbf6ecd75
             )
 
         super().__init__(
