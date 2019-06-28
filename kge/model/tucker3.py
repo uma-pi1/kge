@@ -122,7 +122,7 @@ class RelationalTucker3(KgeModel):
                 log=True,
             )
 
-            # core tensor weight -> initial scores have var=1
+            # core tensor weight -> initial scores have var=1 (when no dropout / eval)
             config.set(
                 config.get("model") + ".relation_embedder.initialize",
                 "normal",
@@ -130,19 +130,10 @@ class RelationalTucker3(KgeModel):
             )
             config.set(
                 config.get("model") + ".relation_embedder.initialize_arg",
-                math.sqrt(0.5),
+                1.0,
                 log=True
             )
 
         super().__init__(
             config, dataset, scorer=RescalScorer(config=config, dataset=dataset)
-        )
-        import numpy
-        print(
-            torch.std(
-            self.score_spo(
-                torch.tensor(numpy.arange(100)),
-                torch.tensor(numpy.arange(100)),
-                torch.tensor(numpy.arange(100)+100),
-            ))
         )
