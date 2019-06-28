@@ -208,20 +208,15 @@ class KgeEmbedder(KgeBase):
         raise NotImplementedError
 
     def get_option(self, name):
-        try:
-            # custom option
-            return self.config.get(self.configuration_key + "." + name)
-        except KeyError:
-            # default option
-            return self.config.get(self.embedder_type + "." + name)
+        key = self.config.get_first_present_key(
+            self.configuration_key + "." + name, self.embedder_type + "." + name
+        )
+        return self.config.get(key)
 
     def check_option(self, name, allowed_values):
-        try:
-            # custom option
-            key = self.configuration_key + "." + name
-            self.config.get(key)
-        except KeyError:
-            key = self.embedder_type + "." + name
+        key = self.config.get_first_present_key(
+            self.configuration_key + "." + name, self.embedder_type + "." + name
+        )
         return self.config.check(key, allowed_values)
 
 
