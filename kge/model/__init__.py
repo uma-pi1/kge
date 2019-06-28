@@ -10,5 +10,5 @@ from kge.model.tucker3 import (
     RelationalTucker3,
 )
 from kge.model.fnn import Fnn
-from kge.model.inverse_model import InverseModel
+from kge.model.inverse_relations_model import InverseRelationsModel
 from kge.model.conve import ConvE

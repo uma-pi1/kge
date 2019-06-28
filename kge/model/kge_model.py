@@ -240,12 +240,18 @@ class KgeModel(KgeBase):
         dataset: Dataset,
         scorer: RelationalScorer,
         initialize_embedders=True,
+        configuration_key=None
     ):
         super().__init__(config, dataset)
+        self.configuration_key = configuration_key
+        if self.configuration_key:
+            self.model = config.get(self.configuration_key + ".model")
+        else:
+            self.model = config.get("model")
 
         # TODO support different embedders for subjects and objects
 
-        #: Embedder used for entitites (both subject and objects)
+        #: Embedder used for entities (both subject and objects)
         self._entity_embedder = None
 
         #: Embedder used for relations
@@ -255,19 +261,16 @@ class KgeModel(KgeBase):
             self._entity_embedder = KgeEmbedder.create(
                 config,
                 dataset,
-                config.get("model") + ".entity_embedder",
+                self.get_option("model") + ".entity_embedder",
                 dataset.num_entities,
             )
 
             #: Embedder used for relations
             num_relations = dataset.num_relations
-            # TODO disabled since it breaks existing configurations
-            # if config.get(config.get("model") + ".relation_embedder.inverse_relations"):
-            #     num_relations = num_relations * 2
             self._relation_embedder = KgeEmbedder.create(
                 config,
                 dataset,
-                config.get("model") + ".relation_embedder",
+                self.get_option("model") + ".relation_embedder",
                 num_relations,
             )
 
@@ -275,15 +278,23 @@ class KgeModel(KgeBase):
         self._scorer = scorer
 
     @staticmethod
-    def create(config: Config, dataset: Dataset) -> "KgeModel":
+    def create(config: Config, dataset: Dataset, configuration_key: str = None) -> "KgeModel":
         """Factory method for model creation."""
 
-        model = None
         try:
-            model_name = config.get("model")
+            if configuration_key:
+                model_name = config.get(configuration_key + ".model")
+            else:
+                model_name = config.get("model")
             class_name = config.get(model_name + ".class_name")
             module = importlib.import_module("kge.model")
-            model = getattr(module, class_name)(config, dataset)
+        except:
+            raise Exception("Can't find {}.model in config".format(configuration_key))
+
+        try:
+            model = getattr(module, class_name)(config, dataset, configuration_key)
+            model.to(config.get("job.device"))
+            return model
         except ImportError:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError(
@@ -291,9 +302,6 @@ class KgeModel(KgeBase):
                     class_name, model_name
                 )
             )
-
-        model.to(config.get("job.device"))
-        return model
 
     @staticmethod
     def load_from_checkpoint(filename, dataset=None):
@@ -335,6 +343,34 @@ class KgeModel(KgeBase):
 
     def get_scorer(self) -> RelationalScorer:
         return self._scorer
+
+    def get_option(self, name):
+        try:
+            # custom option
+            if self.configuration_key:
+                # TODO logic is wrong here
+                # This could give KeyError, then default option should kick in
+                return self.config.get(self.configuration_key + "." + name)
+            # default option
+            else:
+                return self.config.get(name)
+        except KeyError:
+            raise Exception("Can't find {} or {} in config".format(self.configuration_key + "." + name,
+                                                                   name))
+
+    def check_option(self, name, allowed_values):
+        try:
+            # custom option
+            if self.configuration_key:
+                key = self.configuration_key + "." + name
+                self.config.get(key)
+            else:
+                key = name
+                self.config.get(key)
+        except KeyError:
+            raise Exception("Can't find {} or {} in config".format(self.configuration_key + "." + name,
+                                                                   name))
+        return self.config.check(key, allowed_values)
 
     def score_spo(self, s, p, o):
         r"""Compute scores for a set of triples.

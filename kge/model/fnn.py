@@ -66,8 +66,8 @@ class Fnn(KgeModel):
 
     """
 
-    def __init__(self, config: Config, dataset: Dataset):
-        super().__init__(config, dataset, None)
+    def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
+        super().__init__(config, dataset, None, configuration_key=configuration_key)
         self._scorer = FnnScorer(
             config,
             dataset,

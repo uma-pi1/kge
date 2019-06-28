@@ -88,10 +88,25 @@ class SparseTucker3RelationEmbedder(Tucker3RelationEmbedder):
 class RelationalTucker3(KgeModel):
     r"""Implementation of the Relational Tucker3 KGE model."""
 
-    def __init__(self, config: Config, dataset: Dataset):
-        rescal_set_relation_embedder_dim(
-            config, dataset, config.get("model") + ".relation_embedder"
-        )
+    def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
+        # TODO the following is same behaviour as get_option from KgeModel
+        # but no object yet at this point
+        if configuration_key:
+            rescal_set_relation_embedder_dim(
+                config,
+                dataset,
+                config.get(configuration_key + ".model") + ".relation_embedder"
+            )
+        else:
+            rescal_set_relation_embedder_dim(
+                config,
+                dataset,
+                config.get("model") + ".relation_embedder"
+            )
+
         super().__init__(
-            config, dataset, scorer=RescalScorer(config=config, dataset=dataset)
+            config,
+            dataset,
+            scorer=RescalScorer(config=config, dataset=dataset),
+            configuration_key=configuration_key
         )

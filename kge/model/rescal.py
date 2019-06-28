@@ -53,10 +53,13 @@ class RescalScorer(RelationalScorer):
 class Rescal(KgeModel):
     r"""Implementation of the ComplEx KGE model."""
 
-    def __init__(self, config: Config, dataset: Dataset):
+    def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         rescal_set_relation_embedder_dim(config, dataset, "rescal.relation_embedder")
         super().__init__(
-            config, dataset, scorer=RescalScorer(config=config, dataset=dataset)
+            config,
+            dataset,
+            scorer=RescalScorer(config=config, dataset=dataset),
+            configuration_key=configuration_key
         )
 
 
@@ -66,6 +69,7 @@ def rescal_set_relation_embedder_dim(config, dataset, rel_emb_conf_key):
     If-1, set it to the square of the size of the entity embedder. Else leave unchanged.
 
     """
+
     dim = KgeEmbedder(config, dataset, rel_emb_conf_key).dim
     if dim < 0:  # autodetect relation embedding dimensionality
         entity_dim_key = rel_emb_conf_key.replace(
