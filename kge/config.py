@@ -108,6 +108,7 @@ class Config:
         that fields and their types are correct.
 
         """
+        import kge.model
 
         # load the module_name
         module_config = Config(load_default=False)
