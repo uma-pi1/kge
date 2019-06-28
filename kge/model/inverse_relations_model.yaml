@@ -1,7 +1,7 @@
 import: [conve]
 
-inverse_model:
-  class_name: InverseModel
+inverse_relations_model:
+  class_name: InverseRelationsModel
   base_model:
     model: conve
     +++: +++

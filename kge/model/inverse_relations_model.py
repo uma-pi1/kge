@@ -1,41 +1,41 @@
 import torch
 from kge import Config, Dataset
-from kge.model.kge_model import KgeModel, KgeEmbedder, RelationalScorer
+from kge.model.kge_model import KgeModel
 
 
-# TODO WithInverseRelationsModel
-class InverseModel(KgeModel):
-    """Modifies a base model to use different embeddings for predicting subject and object.
+class InverseRelationsModel(KgeModel):
+    """Modifies a base model to use different relation embeddings for predicting subject and object.
 
-    This implements the inverse training procedure of [TODO cite]. Note that this model
+    This implements the inverse relations training procedure of [TODO cite ConvE]. Note that this model
     cannot be used to score a single triple, but only to rank sp* or *po questions.
 
     """
 
-    def __init__(self, config: Config, dataset: Dataset):
-        super().__init__(config, dataset, None, initialize_embedders=False)
-
-        # Set base_model as base_model in config
-        # TODO do not do that, instead extend KgeModel.create with a configuraiton key
-        # exactly as done for Embedders
-        config.set("model", config.get("inverse_model.base_model"))
-
+    def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         # Initialize base model
-        self._base_model = KgeModel.create(config, dataset)
+        # Using a dataset with twice the number of relations to initialize base model
+        alt_dataset = Dataset(dataset.config,
+                              dataset.num_entities,
+                              dataset.entities,
+                              dataset.num_relations * 2,
+                              dataset.relations,
+                              dataset.train,
+                              dataset.train_meta,
+                              dataset.valid,
+                              dataset.valid_meta,
+                              dataset.test,
+                              dataset.test_meta,
+                              )
+        base_model = KgeModel.create(config,
+                                     alt_dataset,
+                                     config.get("model") + ".base_model")
 
-        # Change relation embedder in base model
-        # TODO: if I had access to the initialize_embedders flag, I'd use it here
-        # Advantage would be not creating a relation embedder twice
-        # But adding such access means changing the signature of the constructors of all existing models
-        self._base_model._relation_embedder = KgeEmbedder.create(
-            config,
-            dataset,
-            config.get("model") + ".relation_embedder",
-            dataset.num_relations * 2,
-        )
-
-        # Initialize this model with the scorer of base_model
-        self._scorer = self._base_model.get_scorer()
+        # Initialize this model
+        super().__init__(config, dataset, base_model.get_scorer(), initialize_embedders=False)
+        self._base_model = base_model
+        # TODO change entity_embedder assignment to sub and obj embedders when support for that is added
+        self._entity_embedder = self._base_model.get_s_embedder()
+        self._relation_embedder = self._base_model.get_p_embedder()
 
     def prepare_job(self, job, **kwargs):
         super().prepare_job(job, **kwargs)
@@ -44,26 +44,17 @@ class InverseModel(KgeModel):
     def penalty(self, **kwargs):
         return super().penalty(**kwargs) + self._base_model.penalty(**kwargs)
 
-    def get_s_embedder(self) -> KgeEmbedder:
-        return self._base_model._entity_embedder
-
-    def get_o_embedder(self) -> KgeEmbedder:
-        return self._base_model._entity_embedder
-
-    def get_p_embedder(self) -> KgeEmbedder:
-        return self._base_model._relation_embedder
-
-    def get_scorer(self) -> RelationalScorer:
-        return self._scorer
-
     def score_spo(self, s, p, o):
-        raise Exception("The inverse model cannot compute spo scores.")
+        raise Exception("The inverse relations model cannot compute spo scores.")
 
-    def score_po(self, p, o):
-        all_subjects = self.get_s_embedder().embed_all()
+    def score_po(self, p, o, s=None):
+        if s is None:
+            s = self.get_s_embedder().embed_all()
+        else:
+            s = self.get_s_embedder().embed(s)
         p = self.get_p_embedder().embed(p + self.dataset.num_relations)
         o = self.get_o_embedder().embed(o)
-        return self._scorer.score_emb(o, p, all_subjects, combine="sp*")
+        return self._scorer.score_emb(o, p, s, combine="sp*")
 
     def score_sp_po(self, s, p, o):
         s = self.get_s_embedder().embed(s)
