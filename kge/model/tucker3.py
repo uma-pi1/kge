@@ -1,3 +1,4 @@
+import math
 import torch.nn
 from torch.nn import functional as F
 from kge import Config, Dataset
@@ -12,19 +13,9 @@ class Tucker3RelationEmbedder(ProjectionEmbedder):
     """A ProjectionEmbedder that expands relation embeddings to size entity_dim^2"""
 
     def __init__(self, config, dataset, configuration_key, vocab_size):
-        # TODO initialization
         # TODO dropout is not applied to core tensor, but only to mixing matrices
         rescal_set_relation_embedder_dim(config, dataset, configuration_key)
         super().__init__(config, dataset, configuration_key, vocab_size)
-
-        # init_core_tensor_std = math.sqrt(variance) / (
-        #     self.get_option("entity_dim")
-        #     * math.sqrt(self.get_option("relation_dim"))
-        #     * init_std ** 3
-        # )
-        # torch.nn.init.normal_(
-        #     self.relation_projection.weight.data, init_core_tensor_std
-        # )
 
 
 class SparseTucker3RelationEmbedder(Tucker3RelationEmbedder):
@@ -89,7 +80,7 @@ class RelationalTucker3(KgeModel):
     r"""Implementation of the Relational Tucker3 KGE model."""
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
-        # TODO the following is same behaviour as get_option from KgeModel
+        # The following is same behaviour as get_option from KgeModel
         # but no object yet at this point
         if configuration_key:
             rescal_set_relation_embedder_dim(
@@ -102,6 +93,56 @@ class RelationalTucker3(KgeModel):
                 config,
                 dataset,
                 config.get("model") + ".relation_embedder"
+
+        if config.get("relational_tucker3.auto_initialization"):
+            dim_e = config.get_first(
+                config.get("model") + ".entity_embedder.dim",
+                config.get(config.get("model") + ".entity_embedder.type") + ".dim",
+            )
+            dim_r = config.get_first(
+                config.get("model") + ".relation_embedder.base_embedder.dim",
+                config.get_first(
+                    config.get("model") + ".relation_embedder.base_embedder.type",
+                    config.get(config.get("model") + ".relation_embedder.type")
+                    + ".base_embedder.type",
+                )
+                + ".dim",
+            )
+            dim_core = config.get(config.get("model") + ".relation_embedder.dim")
+
+            # entity embeddings -> unit norm in expectation
+            config.set(
+                config.get("model") + ".entity_embedder.initialize", "normal", log=True
+            )
+            config.set(
+                config.get("model") + ".entity_embedder.initialize_arg",
+                1.0 / math.sqrt(dim_e),
+                log=True,
+            )
+
+            # relation embeddings -> unit norm in expectation
+            config.set(
+                config.get("model") + ".relation_embedder.base_embedder.initialize",
+                "normal",
+                log=True,
+            )
+            config.set(
+                config.get("model") + ".relation_embedder.base_embedder.initialize_arg",
+                1.0 / math.sqrt(dim_r),
+                log=True,
+            )
+
+            # core tensor weight -> initial scores have var=1 (when no dropout / eval)
+            config.set(
+                config.get("model") + ".relation_embedder.initialize",
+                "normal",
+                log=True
+            )
+            config.set(
+                config.get("model") + ".relation_embedder.initialize_arg",
+                1.0,
+                log=True
+>>>>>>> daecbfac63f163dc7e146e8fbf72ea6cbf6ecd75
             )
 
         super().__init__(

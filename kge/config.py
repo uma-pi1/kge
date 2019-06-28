@@ -56,7 +56,20 @@ class Config:
 
     Overwrite = Enum("Overwrite", "Yes No Error")
 
-    def set(self, key, value, create=False, overwrite=Overwrite.Yes):
+    def get_first_present_key(self, *keys):
+        "Return the first key present or KeyError."
+        for key in keys:
+            try:
+                self.get(key)
+                return key
+            except KeyError:
+                pass
+        raise KeyError("None of the following keys found: ".format(keys))
+
+    def get_first(self, *keys):
+        return self.get(self.get_first_present_key(*keys))
+
+    def set(self, key, value, create=False, overwrite=Overwrite.Yes, log=False):
         """Set value of specified key.
 
         Nested dictionary values can be accessed via "." (e.g., "job.type").
@@ -98,6 +111,8 @@ class Config:
 
         # all fine, set value
         data[splits[-1]] = value
+        if log:
+            self.log("Set {}={}".format(key,value))
         return value
 
     def _import(self, module_name):
