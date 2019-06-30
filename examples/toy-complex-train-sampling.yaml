@@ -3,9 +3,12 @@ dataset.name: toy
 model: complex
 train:
   type: negative_sampling
-  num_negatives: 3
   optimizer: Adagrad
   optimizer_args:
     lr: 0.2
     weight_decay: 0.4e-7
+negative_sampling:
+  num_negatives_s: 6
+  sampling_type: uniform
+  filter_negatives: False
 lookup_embedder.dim: 100
