@@ -367,6 +367,10 @@ class KgeModel(KgeBase):
         self._entity_embedder.prepare_job(job, **kwargs)
         self._relation_embedder.prepare_job(job, **kwargs)
 
+        def append_num_parameter(job, trace):
+            trace["num_parameters"] = sum(map(lambda p: p.numel(), self.parameters()))
+        job.post_epoch_trace_hooks.append(append_num_parameter)
+
     def penalty(self, **kwargs):
         return (
             super().penalty(**kwargs)

@@ -41,7 +41,10 @@ class SparseTucker3RelationEmbedder(Tucker3RelationEmbedder):
     def _embed(self, embeddings):
         if self.mask is None:
             self.mask, self.l0_penalty = self.l0norm._get_mask()
-            self.density = ((self.mask > 0).float().sum() / self.mask.numel()).item()
+            with torch.no_grad():
+                self.density = (
+                    (self.mask > 0).float().sum() / self.mask.numel()
+                ).item()
 
         embeddings = F.linear(
             embeddings, self.projection.weight * self.mask, self.projection.bias
@@ -63,16 +66,18 @@ class SparseTucker3RelationEmbedder(Tucker3RelationEmbedder):
     def prepare_job(self, job, **kwargs):
         super().prepare_job(job, **kwargs)
 
-        def append_density(job, trace):
-            trace["core_tensor_density"] = self.density
-
+        # during training, we recompute the mask in every batch
         from kge.job import TrainingJob
 
         if isinstance(job, TrainingJob):
-            # during training, we recompute the mask in every batch
             job.pre_batch_hooks.append(lambda job: self._invalidate_mask())
-            job.post_batch_trace_hooks.append(append_density)
 
+        # append density to traces
+        def append_density(job, trace):
+            trace["core_tensor_density"] = self.density
+
+        if isinstance(job, TrainingJob):
+            job.post_batch_trace_hooks.append(append_density)
         job.post_epoch_trace_hooks.append(append_density)
 
 
@@ -86,16 +91,14 @@ class RelationalTucker3(KgeModel):
             rescal_set_relation_embedder_dim(
                 config,
                 dataset,
-                config.get(configuration_key + ".model") + ".relation_embedder"
+                config.get(configuration_key + ".model") + ".relation_embedder",
             )
         else:
             rescal_set_relation_embedder_dim(
-                config,
-                dataset,
-                config.get("model") + ".relation_embedder"
+                config, dataset, config.get("model") + ".relation_embedder"
             )
 
-        if config.get("relational_tucker3.auto_initialization"):
+        if config.get(config.get("model") + ".auto_initialization"):
             dim_e = config.get_first(
                 config.get("model") + ".entity_embedder.dim",
                 config.get(config.get("model") + ".entity_embedder.type") + ".dim",
@@ -137,17 +140,37 @@ class RelationalTucker3(KgeModel):
             config.set(
                 config.get("model") + ".relation_embedder.initialize",
                 "normal",
-                log=True
+                log=True,
             )
             config.set(
-                config.get("model") + ".relation_embedder.initialize_arg",
-                1.0,
-                log=True
+                config.get("model") + ".relation_embedder.initialize_arg", 1.0, log=True
             )
 
         super().__init__(
             config,
             dataset,
             scorer=RescalScorer(config=config, dataset=dataset),
-            configuration_key=configuration_key
+            configuration_key=configuration_key,
         )
+
+    def prepare_job(self, job, **kwargs):
+        super().prepare_job(job, **kwargs)
+
+        # append number of active parameters to trace
+        if isinstance(self.get_p_embedder(), SparseTucker3RelationEmbedder):
+
+            def update_num_parameters(job, trace):
+                # set by hook from superclass
+                npars = trace["num_parameters"]
+
+                # do not count mask as a parameter
+                mask = self.get_p_embedder().mask
+                npars -= mask.numel()
+                trace["num_parameters"] = npars
+
+                # do not count zeroed out connections
+                with torch.no_grad():
+                    npars -= (mask == 0).float().sum().item()
+                    trace["num_active_parameters"] = int(npars)
+
+            job.post_epoch_trace_hooks.append(update_num_parameters)
