@@ -8,16 +8,29 @@ class TransEScorer(RelationalScorer):
 
     def __init__(self, config: Config, dataset: Dataset):
         super().__init__(config, dataset)
+        self._norm = config.get("transe.l_norm")
 
     def score_emb(self, s_emb, p_emb, o_emb, combine: str):
         n = p_emb.size(0)
-
+        emb_dim = p_emb.size(1)
         if combine == "spo":
-            out = (s_emb * p_emb * o_emb).sum(dim=1)
+            out = torch.norm(s_emb + p_emb - o_emb,
+                             p=self._norm,
+                             dim=1) * -1
         elif combine == "sp*":
-            out = (s_emb * p_emb).mm(o_emb.transpose(0, 1))
+            s_emb = s_emb.repeat(1, o_emb.size(0)).view(-1, emb_dim)
+            p_emb = p_emb.repeat(1, o_emb.size(0)).view(-1, emb_dim)
+            o_emb = o_emb.repeat(n, 1)
+            out = torch.norm(s_emb + p_emb - o_emb,
+                             p=self._norm,
+                             dim=1) * -1
         elif combine == "*po":
-            out = (o_emb * o_emb).mm(s_emb.transpose(0, 1))
+            p_emb = p_emb.repeat(1, s_emb.size(0)).view(-1, emb_dim)
+            o_emb = o_emb.repeat(1, s_emb.size(0)).view(-1, emb_dim)
+            s_emb = s_emb.repeat(n, 1)
+            out = torch.norm(s_emb + p_emb - o_emb,
+                             p=self._norm,
+                             dim=1) * -1
         else:
             raise ValueError('cannot handle combine="{}".format(combine)')
 
