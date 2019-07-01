@@ -1,5 +1,8 @@
+import kge
 from kge import Config, Dataset
+from kge.util.misc import filename_in_module
 import torch.nn
+import tempfile
 import importlib
 
 
@@ -235,7 +238,7 @@ class KgeModel(KgeBase):
         dataset: Dataset,
         scorer: RelationalScorer,
         initialize_embedders=True,
-        configuration_key=None
+        configuration_key=None,
     ):
         super().__init__(config, dataset)
         self.configuration_key = configuration_key
@@ -273,7 +276,9 @@ class KgeModel(KgeBase):
         self._scorer = scorer
 
     @staticmethod
-    def create(config: Config, dataset: Dataset, configuration_key: str = None) -> "KgeModel":
+    def create(
+        config: Config, dataset: Dataset, configuration_key: str = None
+    ) -> "KgeModel":
         """Factory method for model creation."""
 
         try:
@@ -297,6 +302,48 @@ class KgeModel(KgeBase):
                     class_name, model_name
                 )
             )
+
+    @staticmethod
+    def create_all(model=None, dataset=None, options={}, folder=None):
+        """Utility method to create a model, including configuration and dataset.
+
+        `model` is the name of the model (takes precedence over
+        ``options["model"]``), `dataset` a dataset name or `Dataset` instance (takes
+        precedence over ``options["dataset.name"]``), and options arbitrary other
+        configuration options.
+
+        If `folder` is ``None``, creates a temporary folder. Otherwise uses the
+        specified folder.
+
+        """
+        # load default model config
+        if model is None:
+            model = options["model"]
+        default_config_file = filename_in_module(kge.model, "{}.yaml".format(model))
+        config = Config()
+        config.load(default_config_file, create=True)
+
+        # apply specified options
+        config.set("model", model)
+        if isinstance(dataset, Dataset):
+            config.set("dataset.name", dataset.config.get("dataset.name"))
+        elif isinstance(dataset, str):
+            config.set("dataset.name", dataset)
+        config.set_all(new_options=options)
+
+        # create output folder
+        if folder is None:
+            config.folder = tempfile.mkdtemp(
+                "{}-{}-".format(config.get("dataset.name"), config.get("model"))
+            )
+        else:
+            config.folder = folder
+
+        # create dataset and model
+        if not isinstance(dataset, Dataset):
+            dataset = Dataset.load(config)
+        model = KgeModel.create(config, dataset)
+        return model
 
     @staticmethod
     def load_from_checkpoint(filename, dataset=None):
@@ -350,8 +397,11 @@ class KgeModel(KgeBase):
             else:
                 return self.config.get(name)
         except KeyError:
-            raise Exception("Can't find {} or {} in config".format(self.configuration_key + "." + name,
-                                                                   name))
+            raise Exception(
+                "Can't find {} or {} in config".format(
+                    self.configuration_key + "." + name, name
+                )
+            )
 
     def check_option(self, name, allowed_values):
         try:
@@ -363,8 +413,11 @@ class KgeModel(KgeBase):
                 key = name
                 self.config.get(key)
         except KeyError:
-            raise Exception("Can't find {} or {} in config".format(self.configuration_key + "." + name,
-                                                                   name))
+            raise Exception(
+                "Can't find {} or {} in config".format(
+                    self.configuration_key + "." + name, name
+                )
+            )
         return self.config.check(key, allowed_values)
 
     def score_spo(self, s, p, o):
@@ -383,8 +436,7 @@ class KgeModel(KgeBase):
         return self._scorer.score_emb(s, p, o, combine="spo")
 
     def score_sp(self, s, p, o=None):
-        r"""Compute scores for triples formed from a set of sp-pairs and all (or a subset of the)
-objects.
+        r"""Compute scores for triples formed from a set of sp-pairs and all (or a subset of the) objects.
 
         `s` and `p` are vectors of common size :math:`n`, holding the indexes of the
         subjects and relations to score.
@@ -406,8 +458,7 @@ objects.
         return self._scorer.score_emb(s, p, o, combine="sp*")
 
     def score_po(self, p, o, s=None):
-        r"""Compute scores for triples formed from a set of po-pairs and (or a subset of the)
-subjects.
+        r"""Compute scores for triples formed from a set of po-pairs and (or a subset of the) subjects.
 
         `p` and `o` are vectors of common size :math:`n`, holding the indexes of the
         relations and objects to score.
