@@ -39,10 +39,7 @@ def process_meta_command(args, meta_command, fixed_args):
             vars(args)[k] = v
 
 
-if __name__ == "__main__":
-    # default config
-    config = Config()
-
+def create_parser(config, additional_args=[]):
     # define short option names
     short_options = {
         "dataset.name": "-d",
@@ -62,6 +59,10 @@ if __name__ == "__main__":
             parser_conf.add_argument("--" + key, short, type=argtype)
         else:
             parser_conf.add_argument("--" + key, type=argtype)
+
+    # add additional arguments
+    for key in additional_args:
+        parser_conf.add_argument(key)
 
     # create main parsers and subparsers
     parser = argparse.ArgumentParser("kge")
@@ -105,8 +106,24 @@ if __name__ == "__main__":
     for p in [parser_resume, parser_eval, parser_valid, parser_test]:
         p.add_argument("config", type=str)
 
+    return parser
+
+
+if __name__ == "__main__":
+    # default config
+    config = Config()
+
     # now parse the arguments
-    args = parser.parse_args()
+    parser = create_parser(config)
+    args, unknown_args = parser.parse_known_args()
+
+    # If there where unknown args, add them to the parser and reparse. The correctness
+    # of these arguments will be checked later.
+    if len(unknown_args) > 0:
+        parser = create_parser(
+            config, filter(lambda a: a.startswith("--"), unknown_args)
+        )
+        args = parser.parse_args()
 
     # process meta-commands
     process_meta_command(args, "create", {"command": "start", "run": False})
