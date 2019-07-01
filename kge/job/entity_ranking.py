@@ -237,7 +237,7 @@ class EntityRankingJob(EvaluationJob):
             )
         epoch_time += time.time()
 
-        # and trace them
+        # compute trace
         trace_entry = dict(
             type="entity_ranking",
             scope="epoch",
@@ -250,6 +250,17 @@ class EntityRankingJob(EvaluationJob):
         )
         for f in self.post_epoch_trace_hooks:
             f(self, trace_entry)
+
+        # if validation metric is not present, try to compute it
+        metric_name = self.config.get("valid.metric")
+        if metric_name not in trace_entry:
+            trace_entry[metric_name] = eval(
+                self.config.get("valid.metric_expr"),
+                None,
+                {"config": self.config, **trace_entry},
+            )
+
+        # write out trace
         trace_entry = self.trace(**trace_entry, echo=True, echo_prefix="  ", log=True)
 
         # reset model and return metrics

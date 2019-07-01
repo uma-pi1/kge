@@ -55,18 +55,33 @@ negative_sampling:
   num_negatives_o: -1
   filter_negatives: False
 
-# configuration options for model validation/selection during training
+# Configuration options for model validation/selection during training.
 valid:
-  every: 5                    # epochs (disable with 0)
-  metric: mean_reciprocal_rank_filtered  # mean_rank(_filtered), mean_reciprocal_rank_(filtered), hits@k(_filtered) for some integer k <= eval.max_k
-  early_stopping: 2           # 0=disable, else: grace period in number of validations
-  trace_level: epoch          # example or batch or epoch
+  # Validation is run every this many epochs (disable validation with 0)
+  every: 5
+
+  # Name of the trace entry that holds the validation metric (higher value is
+  # better)
+  metric: mean_reciprocal_rank_filtered
+
+  # If the above metric is not present in trace (e.g., because a custom metric
+  # should be used), a Python expression to compute the metric. Can refer to
+  # trace entries directly and to configuration options via config.
+  # Example: 'math.sqrt(mean_reciprocal_rank) + config.get("user.par")'
+  metric_expr: ''
+
+  # Number of grace epochs before the training run is stopped early (disable
+  # early stopping with 0)
+  early_stopping: 2
+
+  # When to write a trace entry. Possible values: example, batch, epoch
+  trace_level: epoch
 
   # Whether test data should be leaked into validation (seriously!). Filtered
   # metrics by default only use train and validation data. When this is set to
   # True, additionally produces "filtered_with_test" validation metrics (such as
-  # MRR or HITS@k). Apparrently, many existing models have been trained with
-  # this set to True during model selection and using a metric such as
+  # MRR or HITS@k). Apparently, many existing models have been trained with this
+  # set to True during model selection and using a metric such as
   # mean_reciprocal_rank_filtered_with_test.
   filter_with_test: False
 
@@ -129,3 +144,10 @@ ax_search:
   # Search space definition passed to ax. See create_experiment in
   # https://ax.dev/api/service.html#module-ax.service.ax_client
   parameters: []
+
+## USER PARAMETERS #####################################################################
+
+# These parameters are not used by the kge framework itself. It can be used to
+# add additional configuration options or information to this config.
+user:
+  +++: +++
