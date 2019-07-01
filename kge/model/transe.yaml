@@ -1,0 +1,13 @@
+import: [lookup_embedder]
+
+transe:
+  class_name: TransE
+  entity_embedder:
+    type: lookup_embedder
+    +++: +++
+  relation_embedder:
+    type: lookup_embedder
+    +++: +++
+  norm: l1                    # l1, l2
+
+# TODO add entity and relation normalization!

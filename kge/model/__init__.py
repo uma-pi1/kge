@@ -12,3 +12,4 @@ from kge.model.tucker3 import (
 from kge.model.fnn import Fnn
 from kge.model.inverse_relations_model import InverseRelationsModel
 from kge.model.conve import ConvE
+from kge.model.transe import TransE

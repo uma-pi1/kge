@@ -1,0 +1,17 @@
+job.type: train
+dataset.name: toy
+model: transe
+train:
+  type: negative_sampling
+  optimizer: Adagrad
+  optimizer_args:
+    lr: 0.1
+  loss: margin_ranking
+negative_sampling:
+  num_negatives_s: 1
+  sampling_type: uniform
+  filter_negatives: False
+lookup_embedder.dim: 100
+
+margin_ranking:
+  margin: 2.0
