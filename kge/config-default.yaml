@@ -43,7 +43,7 @@ train:
     # allows arbitrary additional key-value pairs.
     +++: +++
   batch_size: 100
-  loss: bce                   # bce, TODO
+  loss: bce                   # bce, margin_ranking
   num_workers: 0
   pin_memory: False
   trace_level: epoch          # batch or epoch
@@ -54,6 +54,9 @@ negative_sampling:
   num_negatives_p: 0          
   num_negatives_o: -1
   filter_negatives: False
+
+margin_ranking:
+  margin: 1.0
 
 # configuration options for model validation/selection during training
 valid:

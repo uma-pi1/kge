@@ -339,8 +339,6 @@ class TrainingJob1toN(TrainingJob):
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
         config.log("Initializing 1-to-N training job...")
-        # TODO currently assuming BCE loss
-        self.config.check("train.loss", ["bce"])
 
     def _prepare(self):
         self.type_str = "1toN"
@@ -457,13 +455,19 @@ class TrainingJob1toN(TrainingJob):
         loss_value = torch.zeros(1, device=self.device)
         if len(sp_indexes) > 0:
             scores_sp = self.model.score_sp(pairs[sp_indexes, 0], pairs[sp_indexes, 1])
+            # loss_value = loss_value + self.loss(
+            #     scores_sp.view(-1), labels[sp_indexes,].view(-1)
+            # )
             loss_value = loss_value + self.loss(
-                scores_sp.view(-1), labels[sp_indexes,].view(-1)
+                scores_sp, labels[sp_indexes]
             )
         if len(po_indexes) > 0:
             scores_po = self.model.score_po(pairs[po_indexes, 0], pairs[po_indexes, 1])
+            # loss_value = loss_value + self.loss(
+            #     scores_po.view(-1), labels[po_indexes,].view(-1)
+            # )
             loss_value = loss_value + self.loss(
-                scores_po.view(-1), labels[po_indexes,].view(-1)
+                scores_po, labels[po_indexes]
             )
         batch_forward_time += time.time()
 
@@ -477,9 +481,6 @@ class TrainingJobNegativeSampling(TrainingJob):
 
         config.log("Initializing negative sampling training job...")
         self.is_prepared = False
-
-        # TODO currently assuming BCE loss
-        self.config.check("train.loss", ["bce"])
 
     def _prepare(self):
         """Construct dataloader"""
@@ -521,7 +522,7 @@ class TrainingJobNegativeSampling(TrainingJob):
                     labels.append(1)
                     sub = triples[-1][0]
                     rel = triples[-1][1]
-                    negative_candidates = self._sampler.sample((sub, rel), "sp")
+                    negative_candidates = self._sampler((sub, rel), "sp")
                     for obj in negative_candidates:
                         triples.append(torch.tensor([sub, rel, obj], dtype=torch.float))
                         labels.append(0)
@@ -532,7 +533,7 @@ class TrainingJobNegativeSampling(TrainingJob):
                     labels.append(1)
                     rel = triples[-1][1]
                     obj = triples[-1][2]
-                    negative_candidates = self._sampler.sample((rel, obj), "po")
+                    negative_candidates = self._sampler((rel, obj), "po")
                     for sub in negative_candidates:
                         triples.append(torch.tensor([sub, rel, obj], dtype=torch.float))
                         labels.append(0)
@@ -554,7 +555,8 @@ class TrainingJobNegativeSampling(TrainingJob):
         self.optimizer.zero_grad()
         loss_value = torch.zeros(1, device=self.device)
         scores = self.model.score_spo(triples[:, 0], triples[:, 1], triples[:, 2])
-        loss_value = loss_value + self.loss(scores.view(-1), labels.view(-1))
+        # loss_value = loss_value + self.loss(scores.view(-1), labels.view(-1))
+        loss_value = loss_value + self.loss(scores, labels.view(-1, 1))
         batch_forward_time += time.time()
 
         return loss_value, batch_size, batch_prepare_time, batch_forward_time

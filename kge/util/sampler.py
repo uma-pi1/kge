@@ -13,26 +13,32 @@ class KgeSampler:
         # Assumes num_negatives_s cannot be -1
         if self._num_negatives_s < 0:
             raise ValueError("num_negatives_s cannot be -1")
-        if self._num_negatives_o < 0:
-            self._num_negatives_o = self._num_negatives_s
-        # TODO add support for sampling relations
+        # TODO Not supported for now, margin ranking assumes same for both s and o
+        if self._num_negatives_o >= 0 and self._num_negatives_o != self._num_negatives_s:
+            raise ValueError("num_negatives_o different from num_negatives_s not yet supported.")
+        # TODO Add support for sampling relations
         # Issue is dataset is sp and po tuples, which ones will have p replaced
         if self._num_negatives_p > 0:
             raise ValueError("num_negatives_p, sampling relations not yet supported")
 
+        # TODO For now, these stay the same
+        self._num_negatives_o = self._num_negatives_s
+
     @staticmethod
     def create(config, dataset):
         """ Factory method for sampler creation """
-        # TODO add frequency-based/biased sampling
         sampling_type = config.get("negative_sampling.sampling_type")
         if sampling_type == "uniform":
             return UniformSampler(config, dataset)
+        # TODO add frequency-based/biased sampling
         else:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError("negative_sampling.sampling_type")
 
-    # TODO make it callable
-    def sample(self, tuple_, type_:str):
+    def __call__(self, tuple_, type_:str):
+        return self._sample(tuple_, type_)
+
+    def _sample(self, tuple_, type_:str):
         raise NotImplementedError()
 
 
@@ -44,7 +50,7 @@ class UniformSampler(KgeSampler):
             self._train_sp = self.dataset.index_1toN("train", "sp")
             self._train_po = self.dataset.index_1toN("train", "po")
 
-    def sample(self, tuple_, type_:str):
+    def _sample(self, tuple_, type_:str):
         """Generates negative candidates for given tuple and type (sp or po)"""
 
         if type_ == "sp":
