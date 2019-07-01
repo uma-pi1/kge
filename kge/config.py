@@ -102,8 +102,24 @@ class Config:
             elif isinstance(value, str) and is_number(value, int):
                 value = int(value)
         else:
+            if (
+                isinstance(value, str)
+                and isinstance(current_value, float)
+                and is_number(value, float)
+            ):
+                value = float(value)
+            elif (
+                isinstance(value, str)
+                and isinstance(current_value, int)
+                and is_number(value, int)
+            ):
+                value = int(value)
             if type(value) != type(current_value):
-                raise ValueError("key {} has incorrect type".format(key))
+                raise ValueError(
+                    "key {} has incorrect type (expected {}, found {})".format(
+                        key, type(current_value), type(value)
+                    )
+                )
             if overwrite == Config.Overwrite.No:
                 return current_value
             if overwrite == Config.Overwrite.Error and value != current_value:
@@ -112,7 +128,7 @@ class Config:
         # all fine, set value
         data[splits[-1]] = value
         if log:
-            self.log("Set {}={}".format(key,value))
+            self.log("Set {}={}".format(key, value))
         return value
 
     def _import(self, module_name):
@@ -252,9 +268,7 @@ class Config:
         """
         kwargs["timestamp"] = time.time()
         kwargs["entry_id"] = str(uuid.uuid4())
-        line = yaml.dump(
-            kwargs, width=float("inf"), default_flow_style=True
-        ).strip()
+        line = yaml.dump(kwargs, width=float("inf"), default_flow_style=True).strip()
         if echo or log:
             msg = yaml.dump(kwargs, default_flow_style=echo_flow)
             if log:
