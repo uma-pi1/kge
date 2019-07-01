@@ -1,6 +1,7 @@
 import: [lookup_embedder]
 
 sparse_tucker3_relation_embedder:
+  auto_initialization: True  # set all initialization parameters to suggested values
   class_name: SparseTucker3RelationEmbedder
   base_embedder:
     type: lookup_embedder
