@@ -1,27 +1,30 @@
-job.type: train
+job.type: search
 dataset.name: toy
 model: transe
 
 transe:
   entity_embedder:
-    dim: 200
     normalize: 'L2'
     regularize: ''
   relation_embedder:
-    dim: 200
     normalize: ''
     regularize: ''
 
 train:
   type: negative_sampling
   optimizer: Adagrad
-  optimizer_args:
-    lr: 0.1
   loss: margin_ranking
 negative_sampling:
   num_negatives_s: 3
   sampling_type: uniform
   filter_negatives: False
 
-margin_ranking:
-  margin: 1.0
+search.type: grid
+grid_search.parameters:
+    # can be specified flattened
+    train.optimizer_args.lr: [ 0.01, 0.1, 0.01 ]
+
+    # or nested
+    lookup_embedder: { dim: [ 100, 200, 300 ] }
+
+    margin_ranking.margin: [0.5, 1.0, 2.0, 3.0, 4.0 ]
