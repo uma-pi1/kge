@@ -8,7 +8,5 @@ transe:
   relation_embedder:
     type: lookup_embedder
     +++: +++
-  l_norm: 1                    # 1, 2
+  l_norm: 1                    
 
-# TODO add entity and relation embedding normalization!
-# this is already in the lookup embedders
