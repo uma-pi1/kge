@@ -55,6 +55,7 @@ negative_sampling:
   num_negatives_o: -1
   filter_negatives: False
 
+# Configuration options for margin ranking loss
 margin_ranking:
   margin: 1.0
 
