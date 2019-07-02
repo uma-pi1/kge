@@ -9,10 +9,13 @@
 # 3. A .tgz file with multiple subdirectories, each holding the result of a search job.
 set -e
 
+get_jobid() {
+    cat | tail -1 | sed -e "s/^.*job_id: \([^,]*\).*$/\1/"
+}
+
 get_trace() {
     cat \
-        | grep "scope: search" \
-        | tail -n 1
+        | grep "$1"
 }
 
 get_config() {
@@ -29,24 +32,31 @@ merge() {
         echo "Skipping $1 (no config found)" 1>&2
         return
     fi
-    echo ${2%?}, ${3#?}
+    IFS=$'\n'
+    for line in $2; do
+        echo ${line%?}, ${3#?}
+    done
 }
+
 
 for f in $* ; do
     if [[ $f == trace.yaml ]] ; then
-        TRACE=$(cat $f | get_trace)
+        JOBID=$(cat $f | get_jobid)
+        TRACE=$(cat $f | get_trace $JOBID)
         CONFIG=$(cat ${f//trace/config} | get_config)
         merge $f "$TRACE" "$CONFIG"
     elif tar --list -f $f trace.yaml 1>/dev/null 2>/dev/null ; then
         # old format
         ff=trace.yaml
-        TRACE=$(tar -xOzf $f $ff | get_trace)
+        JOBID=$(tar -xOzf $f $ff | get_jobid)
+        TRACE=$(tar -xOzf $f $ff | get_trace $JOBID)
         CONFIG=$(tar -xOzf $f ${ff//trace/config} | get_config)
         merge $f "$TRACE" "$CONFIG"
     else
         # current format
-        for ff in $(tar --list -f $f --wildcards */trace.yaml | grep -ve "/.*/") ; do
-            TRACE=$(tar -xOzf $f $ff | get_trace)
+        for ff in $(tar --list -f $f --wildcards "*/trace.yaml" | grep -ve "/.*/") ; do
+            JOBID=$(tar -xOzf $f $ff | get_jobid)
+            TRACE=$(tar -xOzf $f $ff | get_trace $JOBID)
             CONFIG=$(tar -xOzf $f ${ff//trace/config} | get_config)
             merge $ff "$TRACE" "$CONFIG"
         done
