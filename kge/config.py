@@ -6,7 +6,6 @@ import os
 import time
 import yaml
 import uuid
-import kge
 from kge.util.misc import filename_in_module, is_number
 
 
@@ -20,6 +19,7 @@ class Config:
     def __init__(self, folder=None, load_default=True):
         """Initialize with the default configuration"""
         if load_default:
+            import kge
             with open(filename_in_module(kge, "config-default.yaml"), "r") as file:
                 self.options = yaml.load(file, Loader=yaml.SafeLoader)
         else:
