@@ -27,7 +27,6 @@ df = trace.to_dataframe()
 df.columns = list(map(lambda s: s.replace(".", "___"), df.columns))
 x = eval(x_expr.replace("\\.", "___"), None, df)
 y = eval(y_expr.replace("\\.", "___"), None, df)
-print(df.columns)
 if groupby_expr:
     groupby = eval(groupby_expr.replace("\\.", "___"), None, df)
     print(pd.concat([x, y, groupby], axis=1))
