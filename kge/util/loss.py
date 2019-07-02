@@ -25,7 +25,7 @@ class KgeLoss:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError("train.loss")
 
-    def __call__(self, scores, labels=None):
+    def __call__(self, scores, labels):
         return self._compute_loss(scores, labels)
 
     def _compute_loss(self, scores, labels):
@@ -54,21 +54,24 @@ class MarginRankingKgeLoss(KgeLoss):
         )
 
     def _compute_loss(self, scores, labels):
+        # scores is (batch_size * num_negatives, 1)
+        # labels is (batch_size * num_negatives)
         if self._training_type == "negative_sampling":
-            # scores and labels are (batch_size * num_negatives, 1)
-            # Pair each 1 with the following zeros until a 1 appears
-            pos_positives = labels.nonzero().to(self._device).view(-1)
-            pos_negatives = (labels == 0).nonzero().to(self._device).view(-1)
-            pos_positives = pos_positives.repeat(1, self._num_negatives).view(-1)
-            positives = scores[pos_positives]
-            negatives = scores[pos_negatives]
+            # Pair each 1 with the following zeros until next 1
+            pos_positives = labels.view(-1).nonzero().to(self._device).view(-1)
+            pos_negatives = (labels.view(-1) == 0).nonzero().to(self._device).view(-1)
+            # repeat each positive score num_negatives times
+            pos_positives = pos_positives.view(-1, 1).repeat(1, self._num_negatives).view(-1)
+            positives = scores[pos_positives].view(-1)
+            negatives = scores[pos_negatives].view(-1)
             target = torch.ones(positives.size())
-
             return self._loss(positives, negatives, target)
-        else:
+        elif self._training_type == "1toN":
             # TODO determine how to form pairs for margin ranking in 1toN training
             # scores and labels are tensors of size (batch_size, num_entities)
             # Each row has 1s and 0s of a single sp or po tuple from training
             # How to combine them for pairs?
-            # Each 1 with all 0s?
+            # Each 1 with all 0s? Can memory handle this?
             raise NotImplementedError("Margin ranking with 1toN training not yet supported.")
+        else:
+            raise ValueError("train.type for margin ranking.")

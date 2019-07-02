@@ -455,19 +455,13 @@ class TrainingJob1toN(TrainingJob):
         loss_value = torch.zeros(1, device=self.device)
         if len(sp_indexes) > 0:
             scores_sp = self.model.score_sp(pairs[sp_indexes, 0], pairs[sp_indexes, 1])
-            # loss_value = loss_value + self.loss(
-            #     scores_sp.view(-1), labels[sp_indexes,].view(-1)
-            # )
             loss_value = loss_value + self.loss(
-                scores_sp, labels[sp_indexes]
+                scores_sp.view(-1), labels[sp_indexes,].view(-1)
             )
         if len(po_indexes) > 0:
             scores_po = self.model.score_po(pairs[po_indexes, 0], pairs[po_indexes, 1])
-            # loss_value = loss_value + self.loss(
-            #     scores_po.view(-1), labels[po_indexes,].view(-1)
-            # )
             loss_value = loss_value + self.loss(
-                scores_po, labels[po_indexes]
+                scores_po.view(-1), labels[po_indexes,].view(-1)
             )
         batch_forward_time += time.time()
 
@@ -508,7 +502,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             """For a batch of size n, returns a tuple of:
 
             - triples (tensor of shape [n * num_negatives, 3], row = sp or po indexes),
-            - labels (tensor of [n * num_negatives, 1] with labels for triples)
+            - labels (tensor of [n * num_negatives] with labels for triples)
 
             """
 
@@ -555,8 +549,7 @@ class TrainingJobNegativeSampling(TrainingJob):
         self.optimizer.zero_grad()
         loss_value = torch.zeros(1, device=self.device)
         scores = self.model.score_spo(triples[:, 0], triples[:, 1], triples[:, 2])
-        # loss_value = loss_value + self.loss(scores.view(-1), labels.view(-1))
-        loss_value = loss_value + self.loss(scores, labels.view(-1, 1))
+        loss_value = loss_value + self.loss(scores, labels)
         batch_forward_time += time.time()
 
         return loss_value, batch_size, batch_prepare_time, batch_forward_time
