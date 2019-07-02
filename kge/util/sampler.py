@@ -80,5 +80,5 @@ class UniformSampler(KgeSampler):
                     entity = torch.randint(
                         0, self.dataset.num_entities, (1, 1)
                     ).item()
-                filtered_random_entities.append(entity.item())
+                filtered_random_entities.append(entity)
             return torch.tensor(filtered_random_entities)

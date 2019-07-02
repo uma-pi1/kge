@@ -516,7 +516,7 @@ class TrainingJobNegativeSampling(TrainingJob):
                     labels.append(1)
                     sub = triples[-1][0]
                     rel = triples[-1][1]
-                    negative_candidates = self._sampler((sub, rel), "sp")
+                    negative_candidates = self._sampler((sub.item(), rel.item()), "sp")
                     for obj in negative_candidates:
                         triples.append(torch.tensor([sub, rel, obj], dtype=torch.float))
                         labels.append(0)
@@ -527,7 +527,7 @@ class TrainingJobNegativeSampling(TrainingJob):
                     labels.append(1)
                     rel = triples[-1][1]
                     obj = triples[-1][2]
-                    negative_candidates = self._sampler((rel, obj), "po")
+                    negative_candidates = self._sampler((rel.item(), obj.item()), "po")
                     for sub in negative_candidates:
                         triples.append(torch.tensor([sub, rel, obj], dtype=torch.float))
                         labels.append(0)
