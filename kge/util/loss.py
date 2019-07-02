@@ -62,9 +62,9 @@ class MarginRankingKgeLoss(KgeLoss):
             pos_negatives = (labels.view(-1) == 0).nonzero().to(self._device).view(-1)
             # repeat each positive score num_negatives times
             pos_positives = pos_positives.view(-1, 1).repeat(1, self._num_negatives).view(-1)
-            positives = scores[pos_positives].view(-1)
-            negatives = scores[pos_negatives].view(-1)
-            target = torch.ones(positives.size())
+            positives = scores[pos_positives].to(self._device).view(-1)
+            negatives = scores[pos_negatives].to(self._device).view(-1)
+            target = torch.ones(positives.size()).to(self._device)
             return self._loss(positives, negatives, target)
         elif self._training_type == "1toN":
             # TODO determine how to form pairs for margin ranking in 1toN training
