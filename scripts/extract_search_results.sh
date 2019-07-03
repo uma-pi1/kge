@@ -34,10 +34,14 @@ merge() {
     fi
     IFS=$'\n'
     for line in $2; do
-        A=${line%?}
-        B=${3#?}
-        B=${B%?}
-        echo "$A, $B, archive: $4, archive_folder: $5}"
+        TRACE_STR=${line%?}
+        TRACE_STR=${TRACE_STR#?}
+        CONFIG_STR=${3#?}
+        CONFIG_STR=${CONFIG_STR%?}
+        # It is important that config goes first because it may contains keys
+        # that are also present in the trace. By putting config first, the trace
+        # keys overwrite the config keys.
+        echo "{$CONFIG_STR, $TRACE_STR, archive: $4, archive_folder: $5}"
     done
 }
 
