@@ -41,7 +41,7 @@ if groupby is None:
 else:
     for group in groupby.unique():
         mask = groupby == group
-        plt.scatter(x[mask], y[mask], label=group)
+        plt.scatter(x[mask], y[mask], label=group, marker="x")
     plt.legend()
 plt.xlabel(x_expr)
 plt.ylabel(y_expr)

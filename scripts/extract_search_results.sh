@@ -34,7 +34,10 @@ merge() {
     fi
     IFS=$'\n'
     for line in $2; do
-        echo ${line%?}, ${3#?}
+        A=${line%?}
+        B=${3#?}
+        B=${B%?}
+        echo "$A, $B, archive: $4, archive_folder: $5}"
     done
 }
 
@@ -44,21 +47,21 @@ for f in $* ; do
         JOBID=$(cat $f | get_jobid)
         TRACE=$(cat $f | get_trace $JOBID)
         CONFIG=$(cat ${f//trace/config} | get_config)
-        merge $f "$TRACE" "$CONFIG"
+        merge $f "$TRACE" "$CONFIG" "$(basename $(pwd))" "."
     elif tar --list -f $f trace.yaml 1>/dev/null 2>/dev/null ; then
         # old format
         ff=trace.yaml
         JOBID=$(tar -xOzf $f $ff | get_jobid)
         TRACE=$(tar -xOzf $f $ff | get_trace $JOBID)
         CONFIG=$(tar -xOzf $f ${ff//trace/config} | get_config)
-        merge $f "$TRACE" "$CONFIG"
+        merge $f "$TRACE" "$CONFIG" "$f" "."
     else
         # current format
         for ff in $(tar --list -f $f --wildcards "*/trace.yaml" | grep -ve "/.*/") ; do
             JOBID=$(tar -xOzf $f $ff | get_jobid)
             TRACE=$(tar -xOzf $f $ff | get_trace $JOBID)
             CONFIG=$(tar -xOzf $f ${ff//trace/config} | get_config)
-            merge $ff "$TRACE" "$CONFIG"
+            merge $ff "$TRACE" "$CONFIG" "$f" "$(dirname $ff)"
         done
     fi
 done
