@@ -25,14 +25,12 @@ else:
     groupby_expr = None
 df = trace.to_dataframe()
 df.columns = list(map(lambda s: s.replace(".", "___"), df.columns))
-x = eval(x_expr.replace("\\.", "___"), None, df)
+x = df.apply(lambda row: eval(x_expr.replace("\\.", "___"), None, row), axis=1)
 y = eval(y_expr.replace("\\.", "___"), None, df)
 if groupby_expr:
     groupby = eval(groupby_expr.replace("\\.", "___"), None, df)
-    print(pd.concat([x, y, groupby], axis=1))
 else:
     groupby = None
-    print(pd.concat([x, y], axis=1))
 
 print("Plotting to {}".format(filename))
 fig = plt.figure()
