@@ -49,6 +49,18 @@ train:
   pin_memory: False
   trace_level: epoch          # batch or epoch
 
+1toN:
+  # Amount of label smoothing (disabled when <0). Disencourages models to
+  # perform extreme predictions (0 or 1).
+  #
+  # Technically, reduces all labels by fraction given by this value and
+  # subsequently increases them by 1.0/num_entities. For example, 0s become
+  # 1.0/num_entities and 1s become (1.0-label_smoothing)+1.0/num_entities.
+  #
+  # This form of label smoothing was used by ConvE
+  # ( https://github.com/TimDettmers/ConvE/blob/853d7010a4b569c3d24c9e6eeaf9dc3535d78832/main.py#L156) with a default value of 0.1.
+  label_smoothing: -1.0
+
 negative_sampling:
   sampling_type: uniform
   num_negatives_s: 3          # this is default value if others are -1, must not be -1

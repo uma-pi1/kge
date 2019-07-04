@@ -20,6 +20,7 @@ class Config:
         """Initialize with the default configuration"""
         if load_default:
             import kge
+
             with open(filename_in_module(kge, "config-default.yaml"), "r") as file:
                 self.options = yaml.load(file, Loader=yaml.SafeLoader)
         else:
@@ -328,6 +329,28 @@ class Config:
             raise ValueError(
                 "Illegal value {} for key {}; allowed values are {}".format(
                     value, key, allowed_values
+                )
+            )
+        return value
+
+    def check_range(
+        self, key, min_value, max_value, min_inclusive=True, max_inclusive=True
+    ):
+        value = self.get(key)
+        if (
+            value < min_value
+            or (value == min_value and not min_inclusive)
+            or value > max_value
+            or (value == max_value and not max_inclusive)
+        ):
+            raise ValueError(
+                "Illegal value {} for key {}; must be in range {}{},{}{}".format(
+                    value,
+                    key,
+                    "[" if min_inclusive else "(",
+                    min_value,
+                    max_value,
+                    "]" if max_inclusive else ")",
                 )
             )
         return value

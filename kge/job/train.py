@@ -338,6 +338,12 @@ the dataset (if not present).
 class TrainingJob1toN(TrainingJob):
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
+        self.label_smoothing = config.check_range(
+            "1toN.label_smoothing", float("-inf"), 1.0, max_inclusive=False
+        )
+        if self.label_smoothing >= 0 and self.label_smoothing <= 1.0/dataset.num_entities:
+            # just to be sure it's used correctly
+            raise ValueError("1toN.label_smoothing needs to be at least 1.0/num_entitites={}".format(1.0/dataset.num_entities))
         config.log("Initializing 1-to-N training job...")
 
     def _prepare(self):
@@ -447,6 +453,9 @@ class TrainingJob1toN(TrainingJob):
         labels = kge.job.util.coord_to_sparse_tensor(
             batch_size, self.dataset.num_entities, label_coords, self.device
         ).to_dense()
+        if self.label_smoothing >= 0.0:
+            # as in ConvE: https://github.com/TimDettmers/ConvE
+            labels = (1.0 - self.label_smoothing) * labels + 1.0 / labels.size(1)
         batch_prepare_time += time.time()
 
         # forward pass
@@ -521,9 +530,11 @@ class TrainingJobNegativeSampling(TrainingJob):
                         triples.append(torch.tensor([sub, rel, obj], dtype=torch.float))
                         labels.append(0)
                 else:
-                    triples.append(self.dataset.train[
-                        example_index - training_size
-                        ].type(torch.float))
+                    triples.append(
+                        self.dataset.train[example_index - training_size].type(
+                            torch.float
+                        )
+                    )
                     labels.append(1)
                     rel = triples[-1][1]
                     obj = triples[-1][2]
