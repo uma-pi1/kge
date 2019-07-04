@@ -30,12 +30,12 @@ class KgeBase(torch.nn.Module):
             if initialize_arg == -1:
                 torch.nn.init.xavier_uniform_(what)
             else:
-                torch.nn.init.xavier_uniform_(what, gain=initialize_arg)
+                torch.nn.init.xavier_uniform_(what, gain=initialize_arg[0])
         elif initialize == "xavier_normal":
             if initialize_arg == -1:
                 torch.nn.init.xavier_normal_(what)
             else:
-                torch.nn.init.xavier_normal_(what, gain=initialize_arg)
+                torch.nn.init.xavier_normal_(what, gain=initialize_arg[0])
 
         else:
             raise ValueError("initialize")
