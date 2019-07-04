@@ -17,7 +17,26 @@ class KgeBase(torch.nn.Module):
 
     def initialize(self, what, initialize: str, initialize_arg):
         if initialize == "normal":
-            torch.nn.init.normal_(what, std=initialize_arg)
+            if initialize_arg == -1:
+                torch.nn.init.normal_(what)
+            else:
+                torch.nn.init.normal_(what, mean=initialize_arg[0], std=initialize_arg[1])
+        elif initialize == "uniform":
+            if initialize_arg == -1:
+                torch.nn.init.uniform_(what)
+            else:
+                torch.nn.init.uniform_(what, a=initialize_arg[0], b=initialize_arg[1])
+        elif initialize == "xavier_uniform":
+            if initialize_arg == -1:
+                torch.nn.init.xavier_uniform_(what)
+            else:
+                torch.nn.init.xavier_uniform_(what, gain=initialize_arg)
+        elif initialize == "xavier_normal":
+            if initialize_arg == -1:
+                torch.nn.init.xavier_normal_(what)
+            else:
+                torch.nn.init.xavier_normal_(what, gain=initialize_arg)
+
         else:
             raise ValueError("initialize")
 
