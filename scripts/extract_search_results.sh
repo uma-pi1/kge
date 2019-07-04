@@ -15,7 +15,8 @@ get_jobid() {
 
 get_trace() {
     cat \
-        | grep "$1"
+        | grep "$1" \
+        | grep "scope: \(train\|search\)"
 }
 
 get_config() {
