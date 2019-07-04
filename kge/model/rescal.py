@@ -51,7 +51,7 @@ class RescalScorer(RelationalScorer):
 
 
 class Rescal(KgeModel):
-    r"""Implementation of the ComplEx KGE model."""
+    r"""Implementation of the RESCAL KGE model."""
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         self._init_configuration(config, configuration_key)

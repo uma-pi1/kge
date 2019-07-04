@@ -7,7 +7,7 @@ def get_batch_sp_po_coords(
     """Given a set of triples , lookup matches for (s,p,?) and (?,p,o).
 
     Each row in batch holds an (s,p,o) triple. Returns the non-zero coordinates
-    of a 2-way binary tensor with one row per triple and 2*num_entites columns.
+    of a 2-way binary tensor with one row per triple and 2*num_entities columns.
     The first half of the columns correspond to hits for (s,p,?); the second
     half for (?,p,o).
 
@@ -38,6 +38,13 @@ def get_batch_sp_po_coords(
 
 
 def coord_to_sparse_tensor(nrows, ncols, coords, device, value=1.0):
+    """Returns a sparse nrows x ncols tensor of labels from coordinates.
+
+    Commonly, nrows denotes the batch size and ncols denotes the overall
+    number of entities in a graph and coords holds batch indexes at the first
+    column and entity-ids at the second column.
+
+    """
     if device == "cpu":
         labels = torch.sparse.FloatTensor(
             coords.t(),

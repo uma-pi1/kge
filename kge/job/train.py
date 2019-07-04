@@ -210,7 +210,7 @@ the dataset (if not present).
             self.model.prepare_job(self)  # let the model add some hooks
             self.is_prepared = True
 
-        # variables that record various statitics
+        # variables that record various statistics
         sum_loss = 0.0
         sum_penalty = 0.0
         sum_penalties = []
@@ -339,7 +339,7 @@ the dataset (if not present).
 
         Sets (at least) the `loader`, `num_examples`, and `type_str` attributes of this
         job to a data loader, number of examples per epoch, and a name for the trainer,
-        repectively.
+        respectively.
 
         Guaranteed to be called exactly once before running the first epoch.
 
@@ -352,6 +352,22 @@ the dataset (if not present).
 
 
 class TrainingJob1toN(TrainingJob):
+    """Defines the 1toN training strategy.
+
+    Labels are created by defining non-existing triples as negative if they
+    contain a (s,p) or (p,o) pair which forms an existing triple with some o or s
+    respectively.
+
+    In a training epoch (s,p) and (p,o) pairs are sampled randomly from the triples of
+    the graph to form a batch of size n. For every pair in the batch, all existing
+    triples in the graph containing the pair are denoted as positive labels. All non-
+    existing triples containing the pair are denoted as negative labels.
+
+    Therefore, the overall number of triples that are associated with the optimization
+    step of one batch is n x overall number of entities.
+
+    """
+
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
         self.label_smoothing = config.check_range(
@@ -375,7 +391,7 @@ class TrainingJob1toN(TrainingJob):
         train_sp = self.dataset.index_1toN("train", "sp")
         train_po = self.dataset.index_1toN("train", "po")
 
-        # convert indexes to pytoch tensors: a nx2 keys tensor (rows = keys),
+        # convert indexes to pytorch tensors: a nx2 keys tensor (rows = keys),
         # an offset vector (row = starting offset in values for corresponding
         # key), a values vector (entries correspond to values of original
         # index)
@@ -416,7 +432,9 @@ class TrainingJob1toN(TrainingJob):
             """For a batch of size n, returns a triple of:
 
             - pairs (nx2 tensor, row = sp or po indexes),
-            - label coordinates (position of ones in a batch_size x num_entities tensor)
+            - label coordinates (number of ones in a batch x 2 tensor which represents all positive triples
+              corresponding to the batch. The first column denotes the index of a pair in the batch and the second
+              column retrieves the entity-id of the entity which completes the pair to an existing triple.)
             - is_sp (vector of size n, 1 if corresponding example_index is sp, 0 if po)
 
             """
