@@ -8,8 +8,10 @@ tucker3_relation_embedder:
     dropout: 0.               # dropout used for relation embeddings
     +++: +++
   dim: -1                     # set automatically to square of entity dimensionality
-  initialize: normal          # xavier, uniform, normal
-  initialize_arg: [0.0,0.1]   # gain for Xavier, range for uniform, stddev for Normal
+  initialize: normal_          # xavier, uniform, normal
+  initialize_args: 
+    mean: 0.0
+    std: 0.1                  # gain for xavier_uniform_ and xavier_normal_, a & b (bounds) for uniform_, mean & std for normal_
   dropout: 0.                 # dropout used for mixing matrices
   normalize: ''               # alternatively: normalize '', L2
   regularize: 'l2'              # '', 'l1', 'l2'

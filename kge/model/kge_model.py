@@ -15,30 +15,12 @@ class KgeBase(torch.nn.Module):
         self.dataset = dataset
         self.meta = dict()  #: meta-data stored with this module
 
-    def initialize(self, what, initialize: str, initialize_arg):
-        if initialize == "normal":
-            if initialize_arg == -1:
-                torch.nn.init.normal_(what)
-            else:
-                torch.nn.init.normal_(what, mean=initialize_arg[0], std=initialize_arg[1])
-        elif initialize == "uniform":
-            if initialize_arg == -1:
-                torch.nn.init.uniform_(what)
-            else:
-                torch.nn.init.uniform_(what, a=initialize_arg[0], b=initialize_arg[1])
-        elif initialize == "xavier_uniform":
-            if initialize_arg == -1:
-                torch.nn.init.xavier_uniform_(what)
-            else:
-                torch.nn.init.xavier_uniform_(what, gain=initialize_arg[0])
-        elif initialize == "xavier_normal":
-            if initialize_arg == -1:
-                torch.nn.init.xavier_normal_(what)
-            else:
-                torch.nn.init.xavier_normal_(what, gain=initialize_arg[0])
-
-        else:
-            raise ValueError("initialize")
+    def initialize(self, what, initialize: str, initialize_args):
+        try:
+            getattr(torch.nn.init, initialize)(what, **initialize_args)
+        except:
+            # perhaps TODO: try class with specified name -> extensibility
+            raise ValueError("train.optimizer")
 
     def prepare_job(self, job, **kwargs):
         r"""Prepares the given job to work with this model.

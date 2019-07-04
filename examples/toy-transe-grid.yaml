@@ -23,8 +23,7 @@ search.type: grid
 grid_search.parameters:
     # can be specified flattened
     train.optimizer_args.lr: [ 0.01, 0.1, 0.01 ]
-
     # or nested
     lookup_embedder: { dim: [ 100, 200, 300 ] }
 
-    train.loss.loss_arg: [0.5, 1.0, 2.0, 3.0, 4.0 ]
+    train.loss_arg: [0.5, 1.0, 2.0, 3.0, 4.0 ]
