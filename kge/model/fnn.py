@@ -37,7 +37,7 @@ class FnnScorer(RelationalScorer):
             self.initialize(
                 layer.weight,
                 self.config.get("fnn.hidden_layers.initialize"),
-                self.config.get("fnn.hidden_layers.initialize_arg"),
+                self.config.get("fnn.hidden_layers.initialize_args"),
             )
             layers["linear" + str(i + 1)] = layer
             layers["nonlinear" + str(i + 1)] = get_activation_function(
@@ -50,7 +50,7 @@ class FnnScorer(RelationalScorer):
         self.initialize(
             layers["output"].weight,
             self.config.get("fnn.hidden_layers.initialize"),
-            self.config.get("fnn.hidden_layers.initialize_arg"),
+            self.config.get("fnn.hidden_layers.initialize_args"),
         )
         self.model = nn.Sequential(layers)
 

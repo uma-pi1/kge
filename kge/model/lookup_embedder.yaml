@@ -1,8 +1,9 @@
 lookup_embedder:
   class_name: LookupEmbedder
   dim: 100                    # dimensionality
-  initialize: normal          # xavier, uniform, normal
-  initialize_arg: 0.1         # gain for Xavier, range for uniform, stddev for Normal
+  initialize: normal_          # xavier_uniform_, xavier_normal_, uniform_, normal_
+  initialize_args: 
+    +++: +++                  # xavier (both): gain: 1.0, uniform: a (lower_bound) & b (upper_bound), normal: mean & std, all floats
   dropout: 0.                 # dropout used for embeddings
   sparse: False               # ??
   normalize: ''               # alternatively: normalize '', L2

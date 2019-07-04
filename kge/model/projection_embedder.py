@@ -30,7 +30,7 @@ class ProjectionEmbedder(KgeEmbedder):
         self.initialize(
             self.projection.weight.data,
             self.get_option("initialize"),
-            self.get_option("initialize_arg"),
+            self.get_option("initialize_args"),
         )
 
     def _embed(self, embeddings):

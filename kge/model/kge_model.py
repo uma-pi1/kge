@@ -15,11 +15,11 @@ class KgeBase(torch.nn.Module):
         self.dataset = dataset
         self.meta = dict()  #: meta-data stored with this module
 
-    def initialize(self, what, initialize: str, initialize_arg):
-        if initialize == "normal":
-            torch.nn.init.normal_(what, std=initialize_arg)
-        else:
-            raise ValueError("initialize")
+    def initialize(self, what, initialize: str, initialize_args):
+        try:
+            getattr(torch.nn.init, initialize)(what, **initialize_args)
+        except:
+            raise ValueError("invalid initialization options")
 
     def prepare_job(self, job, **kwargs):
         r"""Prepares the given job to work with this model.

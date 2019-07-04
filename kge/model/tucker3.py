@@ -116,34 +116,37 @@ class RelationalTucker3(KgeModel):
 
             # entity embeddings -> unit norm in expectation
             config.set(
-                config.get("model") + ".entity_embedder.initialize", "normal", log=True
+                config.get("model") + ".entity_embedder.initialize", "normal_", log=True
             )
             config.set(
-                config.get("model") + ".entity_embedder.initialize_arg",
-                1.0 / math.sqrt(dim_e),
+                config.get("model") + ".entity_embedder.initialize_args",
+                {"mean": 0.0, "std": 1.0 / math.sqrt(dim_e)},
                 log=True,
             )
 
             # relation embeddings -> unit norm in expectation
             config.set(
                 config.get("model") + ".relation_embedder.base_embedder.initialize",
-                "normal",
+                "normal_",
                 log=True,
             )
             config.set(
-                config.get("model") + ".relation_embedder.base_embedder.initialize_arg",
-                1.0 / math.sqrt(dim_r),
+                config.get("model")
+                + ".relation_embedder.base_embedder.initialize_args",
+                {"mean": 0.0, "std": 1.0 / math.sqrt(dim_r)},
                 log=True,
             )
 
             # core tensor weight -> initial scores have var=1 (when no dropout / eval)
             config.set(
                 config.get("model") + ".relation_embedder.initialize",
-                "normal",
+                "normal_",
                 log=True,
             )
             config.set(
-                config.get("model") + ".relation_embedder.initialize_arg", 1.0, log=True
+                config.get("model") + ".relation_embedder.initialize_args",
+                {"mean": 0.0, "std": 1.0},
+                log=True,
             )
 
         super().__init__(
