@@ -1,0 +1,12 @@
+job.type: train
+dataset.name: toy
+model: inverse_relations_model              # set base_model to conve
+train:
+  optimizer: Adam
+  optimizer_args:
+    lr: 0.2
+    weight_decay: 0.4e-7
+lookup_embedder.dim: 200
+lookup_embedder.initialize: xavier_normal
+lookup_embedder.initialize_arg: [-1]
+
