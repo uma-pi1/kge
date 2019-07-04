@@ -9,9 +9,8 @@ tucker3_relation_embedder:
     +++: +++
   dim: -1                     # set automatically to square of entity dimensionality
   initialize: normal_          # xavier, uniform, normal
-  initialize_args: 
-    mean: 0.0
-    std: 0.1                  # gain for xavier_uniform_ and xavier_normal_, a & b (bounds) for uniform_, mean & std for normal_
+  initialize_args:
+    +++: +++
   dropout: 0.                 # dropout used for mixing matrices
   normalize: ''               # alternatively: normalize '', L2
   regularize: 'l2'              # '', 'l1', 'l2'

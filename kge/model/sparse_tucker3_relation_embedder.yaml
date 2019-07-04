@@ -3,16 +3,13 @@ import: [lookup_embedder]
 sparse_tucker3_relation_embedder:
   auto_initialization: True  # set all initialization parameters to suggested values
   class_name: SparseTucker3RelationEmbedder
-  base_embedder:
+  base_embedder: # set dim of relatin embeddings here
     type: lookup_embedder
-    dim: 100                  # dimensionality for relation embeddings
-    dropout: 0.               # dropout used for relation embeddings
     +++: +++
   dim: -1                     # set automatically to square of entity dimensionality
   initialize: normal_          # xavier, uniform, normal
   initialize_args: 
-    mean: 0.0
-    std: 0.1   # gain for Xavier, range for uniform, stddev for Normal
+    +++: +++
   dropout: 0.                 # dropout used for mixing matrices
   normalize: ''               # alternatively: normalize '', L2
   regularize: 'l2'              # '', 'l1', 'l2'

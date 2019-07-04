@@ -120,7 +120,7 @@ class RelationalTucker3(KgeModel):
             )
             config.set(
                 config.get("model") + ".entity_embedder.initialize_args",
-                1.0 / math.sqrt(dim_e),
+                {"mean": 0.0, "std": 1.0 / math.sqrt(dim_e)},
                 log=True,
             )
 
@@ -131,8 +131,9 @@ class RelationalTucker3(KgeModel):
                 log=True,
             )
             config.set(
-                config.get("model") + ".relation_embedder.base_embedder.initialize_args",
-                1.0 / math.sqrt(dim_r),
+                config.get("model")
+                + ".relation_embedder.base_embedder.initialize_args",
+                {"mean": 0.0, "std": 1.0 / math.sqrt(dim_r)},
                 log=True,
             )
 
@@ -143,7 +144,9 @@ class RelationalTucker3(KgeModel):
                 log=True,
             )
             config.set(
-                config.get("model") + ".relation_embedder.initialize_args", 1.0, log=True
+                config.get("model") + ".relation_embedder.initialize_args",
+                {"mean": 0.0, "std": 1.0},
+                log=True,
             )
 
         super().__init__(

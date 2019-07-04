@@ -19,8 +19,7 @@ class KgeBase(torch.nn.Module):
         try:
             getattr(torch.nn.init, initialize)(what, **initialize_args)
         except:
-            # perhaps TODO: try class with specified name -> extensibility
-            raise ValueError("train.optimizer")
+            raise ValueError("invalid initialization options")
 
     def prepare_job(self, job, **kwargs):
         r"""Prepares the given job to work with this model.

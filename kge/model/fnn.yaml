@@ -8,9 +8,8 @@ fnn:
     activation: tanh
     dropout: 0.0
     initialize: normal_
-    initialize_args:        # gain for xavier_normal_ and xavier_uniform, a and b for uniform_, mean and std for normal_
-      mean: 0.0
-      std: 0.1
+    initialize_args:
+      +++: +++
   entity_embedder:
     type: lookup_embedder
     +++: +++
