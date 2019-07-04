@@ -8,6 +8,7 @@ from kge.job import Job
 from kge.model import KgeModel
 from kge.util import KgeLoss, KgeOptimizer, KgeSampler, KgeLRScheduler
 import kge.job.util
+import yaml
 
 
 class TrainingJob(Job):
@@ -69,6 +70,14 @@ class TrainingJob(Job):
         #: Hooks run after a validation job.
         #: Signature: job, trace_entry
         self.post_valid_hooks = []
+
+        # Tensorboard integration
+        if self.config.get("tensorboard.run"):
+            self.tbrun = True
+        else:
+            self.tbrun = False
+
+
 
     @staticmethod
     def create(config, dataset, parent_job=None):
@@ -151,9 +160,14 @@ the dataset (if not present).
                 if self.metric_based_scheduler:
                     self.lr_scheduler.step(trace_entry[metric_name])
 
+                # Tensorboard tracking
+                if self.tbrun and self.config.get("tensorboard.scalars"):
+                    self.model.summary_writer.add_scalar(metric_name, trace_entry[metric_name], self.epoch)
+
             # epoch-based scheduler step
             if self.lr_scheduler and not self.metric_based_scheduler:
                 self.lr_scheduler.step(self.epoch)
+
 
             # create checkpoint and delete old one, if necessary
             self.save(self.config.checkpoint_file(self.epoch))
@@ -172,6 +186,23 @@ the dataset (if not present).
                         )
                     )
                     os.remove(self.config.checkpoint_file(checkpoint_epoch_file))
+
+
+        # training finished, handle Tensorboard do-once operations
+        if self.tbrun:
+            if self.config.get("tensorboard.embeddings"):
+                self.model.add_embeddings_to_tb(self.epoch)
+
+            if self.config.get("tensorboard.graph"):
+                self.model.add_graph_to_tb(self.device)
+
+            if self.config.get("tensorboard.config"):
+                # reformat config to markdown and save
+                self.model.summary_writer.add_text(
+                    "config",
+                    yaml.dump(self.config.options,).replace("  ", "&nbsp;&nbsp;").replace("\n", "  \n"),
+                )
+            self.model.summary_writer.close()
 
 
     def save(self, filename):
@@ -342,6 +373,12 @@ the dataset (if not present).
             optimizer_time=optimizer_time,
             other_time=other_time,
         )
+
+        # Tensorboard tracking
+        if self.tbrun and self.config.get("tensorboard.scalars"):
+            for key in ["avg_loss", "epoch_time", "forward_time", "backward_time","avg_cost"]:
+                self.model.summary_writer.add_scalar(key, trace_entry[key], self.epoch)
+
         for f in self.post_epoch_trace_hooks:
             f(self, trace_entry)
         trace_entry = self.trace(**trace_entry, echo=True, echo_prefix="  ", log=True)

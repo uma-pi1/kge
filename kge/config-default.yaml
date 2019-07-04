@@ -178,6 +178,20 @@ ax_search:
   parameters: []
   parameter_constraints: []
 
+# Control Tensorboard functionality
+tensorboard:
+  # If run is False, Tensorboard is not activated and other parameters have no effect
+  run: False
+  # Save the config file
+  config: True
+  # Tracks multiple scalar values (loss, valid metric...)
+  scalars: True
+  # Save the embeddings after training has finished
+  embeddings: True
+  # Save the computational graph
+  graph: True
+
+
 ## USER PARAMETERS #####################################################################
 
 # These parameters are not used by the kge framework itself. It can be used to
