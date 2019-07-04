@@ -27,4 +27,4 @@ grid_search.parameters:
     # or nested
     lookup_embedder: { dim: [ 100, 200, 300 ] }
 
-    margin_ranking.margin: [0.5, 1.0, 2.0, 3.0, 4.0 ]
+    train.loss.loss_arg: [0.5, 1.0, 2.0, 3.0, 4.0 ]

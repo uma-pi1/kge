@@ -18,10 +18,9 @@ train:
   optimizer_args:
     lr: 0.1
   loss: margin_ranking
+  loss_arg: 1.0  # margin
 negative_sampling:
   num_negatives_s: 3
   sampling_type: uniform
   filter_negatives: False
 
-margin_ranking:
-  margin: 1.0

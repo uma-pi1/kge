@@ -3,26 +3,21 @@ import torch
 
 class KgeLoss:
     """ Wraps torch loss functions """
+
     def __init__(self):
         self._loss = None
 
     @staticmethod
     def create(config):
         """ Factory method for loss creation """
-        if config.get("train.loss") == "ce":
-            return torch.nn.CrossEntropyLoss(reduction="mean")
-        elif config.get("train.loss") == "bce":
-            return BceKgeLoss(reduction="mean", pos_weight=None)
+        # perhaps TODO: try class with specified name -> extensibility
+        config.check("train.loss", ["bce", "margin_ranking"])
+        if config.get("train.loss") == "bce":
+            return BCEWithLogitsKgeLoss(reduction="mean", pos_weight=None)
         elif config.get("train.loss") == "margin_ranking":
-            # TODO decide where to put margin value in config
-            margin = config.get("margin_ranking.margin")
-            return MarginRankingKgeLoss(margin,
-                                        config,
-                                        reduction="mean")
-        elif config.get("train.loss") == "kl":
-            return torch.nn.KLDivLoss(reduction="mean")
+            margin = config.get("train.loss_arg")
+            return MarginRankingKgeLoss(margin, config, reduction="mean")
         else:
-            # perhaps TODO: try class with specified name -> extensibility
             raise ValueError("train.loss")
 
     def __call__(self, scores, labels):
@@ -32,7 +27,7 @@ class KgeLoss:
         raise NotImplementedError()
 
 
-class BceKgeLoss(KgeLoss):
+class BCEWithLogitsKgeLoss(KgeLoss):
     def __init__(self, reduction="mean", pos_weight=None):
         super().__init__()
         self._loss = torch.nn.BCEWithLogitsLoss(
@@ -49,9 +44,7 @@ class MarginRankingKgeLoss(KgeLoss):
         self._device = config.get("job.device")
         self._training_type = config.get("train.type")
         self._num_negatives = config.get("negative_sampling.num_negatives_s")
-        self._loss = torch.nn.MarginRankingLoss(
-            margin=margin, reduction=reduction
-        )
+        self._loss = torch.nn.MarginRankingLoss(margin=margin, reduction=reduction)
 
     def _compute_loss(self, scores, labels):
         # scores is (batch_size * num_negatives, 1)
@@ -61,7 +54,9 @@ class MarginRankingKgeLoss(KgeLoss):
             pos_positives = labels.view(-1).nonzero().to(self._device).view(-1)
             pos_negatives = (labels.view(-1) == 0).nonzero().to(self._device).view(-1)
             # repeat each positive score num_negatives times
-            pos_positives = pos_positives.view(-1, 1).repeat(1, self._num_negatives).view(-1)
+            pos_positives = (
+                pos_positives.view(-1, 1).repeat(1, self._num_negatives).view(-1)
+            )
             positives = scores[pos_positives].to(self._device).view(-1)
             negatives = scores[pos_negatives].to(self._device).view(-1)
             target = torch.ones(positives.size()).to(self._device)
@@ -72,6 +67,8 @@ class MarginRankingKgeLoss(KgeLoss):
             # Each row has 1s and 0s of a single sp or po tuple from training
             # How to combine them for pairs?
             # Each 1 with all 0s? Can memory handle this?
-            raise NotImplementedError("Margin ranking with 1toN training not yet supported.")
+            raise NotImplementedError(
+                "Margin ranking with 1toN training not yet supported."
+            )
         else:
             raise ValueError("train.type for margin ranking.")

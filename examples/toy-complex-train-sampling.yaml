@@ -8,11 +8,9 @@ train:
     lr: 0.2
     weight_decay: 0.4e-7
   loss: margin_ranking
+  loss_arg: 2.0  # margin
 negative_sampling:
   num_negatives_s: 1
   sampling_type: uniform
   filter_negatives: False
 lookup_embedder.dim: 100
-
-margin_ranking:
-  margin: 2.0
