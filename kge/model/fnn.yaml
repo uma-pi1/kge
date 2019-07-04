@@ -8,7 +8,7 @@ fnn:
     activation: tanh
     dropout: 0.0
     initialize: normal
-    initialize_arg: 0.1
+    initialize_arg: [0.0,0.1]
   entity_embedder:
     type: lookup_embedder
     +++: +++
