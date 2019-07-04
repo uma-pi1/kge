@@ -20,7 +20,7 @@ get_trace() {
 
 get_config() {
     cat \
-        | python -c "import yaml, sys; from kge import Config; options=yaml.load(sys.stdin, Loader=yaml.SafeLoader); print(yaml.dump({k:v for k,v in Config.flatten(options).items() if type(v) in [ str, int, float ]}, width=float('inf'), default_flow_style=True))"
+        | env python -c "import yaml, sys; from kge import Config; options=yaml.load(sys.stdin, Loader=yaml.SafeLoader); print(yaml.dump({k:v for k,v in Config.flatten(options).items() if type(v) in [ str, int, float ]}, width=float('inf'), default_flow_style=True))"
 }
 
 merge() {
