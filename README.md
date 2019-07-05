@@ -22,7 +22,7 @@
 ## Quick start
 - after installation run the script `download_all.sh` in the [data/](data/) directory to download the datasets
 - to train the [Complex](http://proceedings.mlr.press/v48/trouillon16.pdf) model on a toy dataset run `python kge.py start examples/toy-complex-train.yaml`
-- for training it on your CPU instead of GPU run `python kge.py start examples/toy-complex-train.yaml --job.device=CPU`
+- for training it on your CPU instead of GPU run `python kge.py start examples/toy-complex-train.yaml --job.device=cpu`
 
 
 ## Conceptual overview
@@ -34,14 +34,54 @@ Models and algorithms are executed by [jobs](kge/job). There are different types
 
 
 ## Config
-The framework is operated by the use of [configuration files](kge/config-default.yaml) where all the available options can be set.
+The framework is operated by the use of a [configuration file](kge/config-default.yaml) where one can select models, embedders, job types and all further available options. Models and embedders have specific sections in the configuration file. Below, you will find a list with the implemented models and embedders and their respective configuration defaults.
 
+### Models
+
+- [Rescal](kge/model/rescal.yaml)
+
+- [DistMult](kge/model/distmult.yaml)
+
+- [Complex model](kge/model/complex.yaml)
+
+- [Relational Tucker3](kge/model/relational_tucker3.yaml)
+
+- [Sparse Relational Tucker3](kge/model/sparse_relational_tucker3.yaml)
+
+- [TransE](kge/model/transe.yaml)
+
+- [ConvE](kge/model/conve.yaml)
+
+- [Feed Forward Neural Net](kge/model/fnn.py)
+
+
+### Embedders
+
+ - [Lookup Embedder](kge/model/lookup_embedder.yaml)
+ 
+ - [Projection Embedder](kge/model/projection_embedder.yaml)
+ 
 ## Miscellaneous
-### Training job options
-#### Training.type.1toN
-Negative examples are created by defining all non-existing triples as negative examples if they contain a (s,p) or (p,o) pair which forms an existing triple with some o or s respectively.
-This is implemented by the use of minibatches in a training epoch: (s,p) and (p,o) pairs are sampled randomly from the triples in the graph to form a minibatch. All existing triples in the graph containing these pairs are denoted as positive examples and all non-existing triples containing the pairs are denoted as negative examples.
-
+### Training jobs
+#### Types
+- train.type.1toN
+    - add short description
+- train.type.negative_sampling
+    - add short description
+### Evaluation jobs
+#### Types
+- eval.type.entity_ranking 
+    - add short description
+    
+### Search jobs
+#### Types
+- search.type.ax
+    - add short description
+- search.type.manual 
+    - add short description    
+- search.type.grid
+    - add short description
+     
 
 
 

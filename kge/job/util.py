@@ -40,10 +40,6 @@ def get_batch_sp_po_coords(
 def coord_to_sparse_tensor(nrows, ncols, coords, device, value=1.0):
     """Returns a sparse nrows x ncols tensor of labels from coordinates.
 
-    Commonly, nrows denotes the batch size and ncols denotes the overall
-    number of entities in a graph and coords holds batch indexes at the first
-    column and entity-ids at the second column.
-
     """
     if device == "cpu":
         labels = torch.sparse.FloatTensor(

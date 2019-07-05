@@ -354,14 +354,10 @@ the dataset (if not present).
 class TrainingJob1toN(TrainingJob):
     """Defines the 1toN training strategy.
 
-    Labels are created by defining non-existing triples as negative if they
-    contain a (s,p) or (p,o) pair which forms an existing triple with some o or s
-    respectively.
-
-    In a training epoch (s,p) and (p,o) pairs are sampled randomly from the triples of
-    the graph to form a batch of size n. For every pair in the batch, all existing
-    triples in the graph containing the pair are denoted as positive labels. All non-
-    existing triples containing the pair are denoted as negative labels.
+    In a training epoch (s,p) and (p,o) pairs are sampled randomly from the existing
+    pairs in the knowledge base to form a batch of size n. For every pair in the batch,
+    all existing triples in the knowledge base containing the pair are labeled as positives.
+    All non-existing triples containing the pair are labeled as negatives.
 
     Therefore, the overall number of triples that are associated with the optimization
     step of one batch is n x overall number of entities.
@@ -432,7 +428,7 @@ class TrainingJob1toN(TrainingJob):
             """For a batch of size n, returns a triple of:
 
             - pairs (nx2 tensor, row = sp or po indexes),
-            - label coordinates (number of ones in a batch x 2 tensor which represents all positive triples
+            - label coordinates (num_positives x 2 tensor which represents all positive triples
               corresponding to the batch. The first column denotes the index of a pair in the batch and the second
               column retrieves the entity-id of the entity which completes the pair to an existing triple.)
             - is_sp (vector of size n, 1 if corresponding example_index is sp, 0 if po)
