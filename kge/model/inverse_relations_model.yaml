@@ -3,5 +3,5 @@ import: [conve]
 inverse_relations_model:
   class_name: InverseRelationsModel
   base_model:
-    model: conve
+    type: conve
     +++: +++

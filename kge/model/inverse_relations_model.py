@@ -12,6 +12,8 @@ class InverseRelationsModel(KgeModel):
     """
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
+        self._init_configuration(config, configuration_key)
+
         # Initialize base model
         # Using a dataset with twice the number of relations to initialize base model
         alt_dataset = Dataset(dataset.config,
@@ -28,7 +30,7 @@ class InverseRelationsModel(KgeModel):
                               )
         base_model = KgeModel.create(config,
                                      alt_dataset,
-                                     config.get("model") + ".base_model")
+                                     self.configuration_key + ".base_model")
 
         # Initialize this model
         super().__init__(config, dataset, base_model.get_scorer(), initialize_embedders=False)

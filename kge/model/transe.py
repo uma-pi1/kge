@@ -2,6 +2,7 @@ import torch
 from kge import Config, Dataset
 from kge.model.kge_model import RelationalScorer, KgeModel
 
+# TODO rewrite to use get_option
 
 class TransEScorer(RelationalScorer):
     r"""Implementation of the TransE KGE scorer."""

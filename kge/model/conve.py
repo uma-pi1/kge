@@ -4,7 +4,6 @@ from kge import Config, Dataset
 from kge.model.kge_model import RelationalScorer, KgeModel
 from collections import OrderedDict
 
-
 class ConvEScorer(RelationalScorer):
     r"""Implementation of the ConvE KGE scorer.
 

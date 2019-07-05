@@ -1,6 +1,7 @@
 job.type: train
 dataset.name: toy
-model: inverse_relations_model              # set base_model to conve
+model: inverse_relations_model
+inverse_relations_model.base_model.type: conve # redundant since also default
 train:
   optimizer: Adam
   optimizer_args:

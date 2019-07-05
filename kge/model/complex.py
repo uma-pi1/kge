@@ -48,34 +48,36 @@ class ComplEx(KgeModel):
     r"""Implementation of the ComplEx KGE model."""
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
+        self._init_configuration(config, configuration_key)
+
         # auto initialize such that scores have unit variance
-        if config.get(config.get("model") + ".auto_initialization"):
-            # Var[score] = 4*(dim/2)*Var[e]^2*Var[r], where e/r are the entries in the
-            # embeddings and (dim/2) is the embedding size in complex space
+        if self.get_option("auto_initialization"):
+            # Var[score] = 4*(dim/2)*var_e^2*var_r, where var_e/var_r are the variances
+            # of the entries in the embeddings and (dim/2) is the embedding size in
+            # complex space
             #
-            # Thus we set Var[e]=Var[r]=(1.0/(2.0*dim))^(1/3)
-            dim = config.get_first(
-                config.get("model") + ".entity_embedder.dim",
-                config.get(config.get("model") + ".entity_embedder.type") + ".dim",
-            )
-            s = math.pow(1.0 / 2.0 / dim, 1.0 / 6.0)
+            # Thus we set var_e=var_r=(1.0/(2.0*dim))^(1/3)
+            dim = self.get_option("entity_embedder.dim")
+            std = math.pow(1.0 / 2.0 / dim, 1.0 / 6.0)
 
             config.set(
-                config.get("model") + ".entity_embedder.initialize", "normal_", log=True
-            )
-            config.set(
-                config.get("model") + ".entity_embedder.initialize_args",
-                {"mean": 0.0, "std": s},
-                log=True,
-            )
-            config.set(
-                config.get("model") + ".relation_embedder.initialize",
+                self.configuration_key + ".entity_embedder.initialize",
                 "normal_",
                 log=True,
             )
             config.set(
-                config.get("model") + ".relation_embedder.initialize_args",
-                {"mean": 0.0, "std": s},
+                self.configuration_key + ".entity_embedder.initialize_args",
+                {"mean": 0.0, "std": std},
+                log=True,
+            )
+            config.set(
+                self.configuration_key + ".relation_embedder.initialize",
+                "normal_",
+                log=True,
+            )
+            config.set(
+                self.configuration_key + ".relation_embedder.initialize_args",
+                {"mean": 0.0, "std": std},
                 log=True,
             )
 

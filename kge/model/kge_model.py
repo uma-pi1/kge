@@ -152,13 +152,18 @@ class KgeEmbedder(KgeBase):
 
         #: location of the configuration options of this embedder
         self.configuration_key = configuration_key
-
-        #: type of this embedder
-        self.embedder_type = config.get(configuration_key + ".type")
+        self.embedder_type = self.get_option("type")
+        if self.configuration_key + ".type" not in config.options:
+            self.config.set(
+                self.configuration_key + ".type",
+                self.embedder_type,
+                create=True,
+                log=True,
+            )
 
         # verify all custom options by trying to set them in a copy of this
         # configuration (quick and dirty, but works)
-        custom_options = Config.flatten(config.get(configuration_key))
+        custom_options = Config.flatten(config.get(self.configuration_key))
         del custom_options["type"]
         dummy_config = self.config.clone()
         for key, value in custom_options.items():
@@ -180,7 +185,7 @@ class KgeEmbedder(KgeBase):
         """Factory method for embedder creation."""
 
         try:
-            embedder_type = config.get(configuration_key + ".type")
+            embedder_type = config.get_default(configuration_key + ".type")
             class_name = config.get(embedder_type + ".class_name")
             module = importlib.import_module("kge.model")
         except:
@@ -211,16 +216,12 @@ class KgeEmbedder(KgeBase):
         raise NotImplementedError
 
     def get_option(self, name):
-        key = self.config.get_first_present_key(
-            self.configuration_key + "." + name, self.embedder_type + "." + name
-        )
-        return self.config.get(key)
+        return self.config.get_default(self.configuration_key + "." + name)
 
     def check_option(self, name, allowed_values):
-        key = self.config.get_first_present_key(
-            self.configuration_key + "." + name, self.embedder_type + "." + name
+        return self.config.check_default(
+            self.configuration_key + "." + name, allowed_values
         )
-        return self.config.check(key, allowed_values)
 
 
 class KgeModel(KgeBase):
@@ -241,11 +242,7 @@ class KgeModel(KgeBase):
         configuration_key=None,
     ):
         super().__init__(config, dataset)
-        self.configuration_key = configuration_key
-        if self.configuration_key:
-            self.model = config.get(self.configuration_key + ".model")
-        else:
-            self.model = config.get("model")
+        self._init_configuration(config, configuration_key)
 
         # TODO support different embedders for subjects and objects
 
@@ -259,7 +256,7 @@ class KgeModel(KgeBase):
             self._entity_embedder = KgeEmbedder.create(
                 config,
                 dataset,
-                self.get_option("model") + ".entity_embedder",
+                self.configuration_key + ".entity_embedder",
                 dataset.num_entities,
             )
 
@@ -268,12 +265,21 @@ class KgeModel(KgeBase):
             self._relation_embedder = KgeEmbedder.create(
                 config,
                 dataset,
-                self.get_option("model") + ".relation_embedder",
+                self.configuration_key + ".relation_embedder",
                 num_relations,
             )
 
         #: Scorer
         self._scorer = scorer
+
+    def _init_configuration(self, config, configuration_key):
+        self.config = config
+        self.configuration_key = configuration_key
+        if self.configuration_key:
+            self.model = config.get(self.configuration_key + ".type")
+        else:
+            self.model = config.get("model")
+            self.configuration_key = self.model
 
     @staticmethod
     def create(
@@ -283,13 +289,13 @@ class KgeModel(KgeBase):
 
         try:
             if configuration_key:
-                model_name = config.get(configuration_key + ".model")
+                model_name = config.get(configuration_key + ".type")
             else:
                 model_name = config.get("model")
             class_name = config.get(model_name + ".class_name")
             module = importlib.import_module("kge.model")
         except:
-            raise Exception("Can't find {}.model in config".format(configuration_key))
+            raise Exception("Can't find {}.type in config".format(configuration_key))
 
         try:
             model = getattr(module, class_name)(config, dataset, configuration_key)
@@ -369,6 +375,7 @@ class KgeModel(KgeBase):
 
         def append_num_parameter(job, trace):
             trace["num_parameters"] = sum(map(lambda p: p.numel(), self.parameters()))
+
         job.post_epoch_trace_hooks.append(append_num_parameter)
 
     def penalty(self, **kwargs):
@@ -391,38 +398,16 @@ class KgeModel(KgeBase):
         return self._scorer
 
     def get_option(self, name):
-        try:
-            # custom option
-            if self.configuration_key:
-                # TODO logic is wrong here
-                # This could give KeyError, then default option should kick in
-                return self.config.get(self.configuration_key + "." + name)
-            # default option
-            else:
-                return self.config.get(name)
-        except KeyError:
-            raise Exception(
-                "Can't find {} or {} in config".format(
-                    self.configuration_key + "." + name, name
-                )
-            )
+        if self.configuration_key:
+            return self.config.get_default(self.configuration_key + "." + name)
+        else:
+            return self.config.get_default(name)
 
     def check_option(self, name, allowed_values):
-        try:
-            # custom option
-            if self.configuration_key:
-                key = self.configuration_key + "." + name
-                self.config.get(key)
-            else:
-                key = name
-                self.config.get(key)
-        except KeyError:
-            raise Exception(
-                "Can't find {} or {} in config".format(
-                    self.configuration_key + "." + name, name
-                )
-            )
-        return self.config.check(key, allowed_values)
+        if self.configuration_key:
+            return self.config.check_default(self.configuration_key + "." + name)
+        else:
+            return self.config.check_default(name)
 
     def score_spo(self, s, p, o):
         r"""Compute scores for a set of triples.

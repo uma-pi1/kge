@@ -68,14 +68,54 @@ class Config:
         raise KeyError("None of the following keys found: ".format(keys))
 
     def get_first(self, *keys):
+        "Return value of the first key present or KeyError."
         return self.get(self.get_first_present_key(*keys))
 
+    def get_default(self, key):
+        """Returns the value of the key if present or default if not.
+
+        The default value is looked up as follows. If the key has form ``parent.field``,
+        see if there is a ``parent.type`` property. If so, try to look up ``field``
+        under the key specified there (proceeds recursively). If not, go up until a
+        `type` field is found, and then continue from there.
+
+        """
+        try:
+            return self.get(key)
+        except KeyError as e:
+            last_dot_index = key.rfind(".")
+            if last_dot_index < 0:
+                raise e
+            parent = key[:last_dot_index]
+            field = key[last_dot_index + 1 :]
+            while True:
+                try:
+                    parent_type = self.get(parent + "." + "type")
+                except KeyError:
+                    # try to lookup type further up
+                    last_dot_index = parent.rfind(".")
+                    if last_dot_index < 0:
+                        raise e
+                    field = parent[last_dot_index + 1 :] + "." + field
+                    parent = parent[:last_dot_index]
+                    continue
+                try:
+                    value = self.get(parent_type + "." + field)
+                    # uncomment this to see where defaults are taken from
+                    # self.log("Using value of {}={} for key {}".format(parent_type + "." + field, value, key))
+                    return value
+                except KeyError:
+                    # try further
+                    parent = parent_type
+                    continue
+
     def set(self, key, value, create=False, overwrite=Overwrite.Yes, log=False):
+
         """Set value of specified key.
 
         Nested dictionary values can be accessed via "." (e.g., "job.type").
 
-        If ``create`` is ``False``, raises :class:`ValueError` when the key
+        If ``create`` is ``False`` , raises :class:`ValueError` when the key
         does not exist already; otherwise, the new key-value pair is inserted
         into the configuration.
 
@@ -319,12 +359,7 @@ class Config:
 
     # -- CONVENIENCE METHODS --------------------------------------------------
 
-    def check(self, key, allowed_values):
-        """Raise an error if value of key is not in allowed.
-
-        If fine, returns value.
-        """
-        value = self.get(key)
+    def _check(self, key, value, allowed_values):
         if not value in allowed_values:
             raise ValueError(
                 "Illegal value {} for key {}; allowed values are {}".format(
@@ -332,6 +367,20 @@ class Config:
                 )
             )
         return value
+
+    def check(self, key, allowed_values):
+        """Raise an error if value of key is not in allowed.
+
+        If fine, returns value.
+        """
+        return self._check(key, self.get(key), allowed_values)
+
+    def check_default(self, key, allowed_values):
+        """Raise an error if value or default value of key is not in allowed.
+
+        If fine, returns value.
+        """
+        return self._check(key, self.get_default(key), allowed_values)
 
     def check_range(
         self, key, min_value, max_value, min_inclusive=True, max_inclusive=True

@@ -10,13 +10,13 @@ class ProjectionEmbedder(KgeEmbedder):
         super().__init__(config, dataset, configuration_key)
 
         # initialize base_embedder
-        if not configuration_key + ".base_embedder.type" in config.options:
+        if self.configuration_key + ".base_embedder.type" not in config.options:
             config.set(
-                configuration_key + ".base_embedder.type",
+                self.configuration_key + ".base_embedder.type",
                 self.get_option("base_embedder.type"),
             )
         self.base_embedder = KgeEmbedder.create(
-            config, dataset, configuration_key + ".base_embedder", vocab_size
+            config, dataset, self.configuration_key + ".base_embedder", vocab_size
         )
 
         # initialize projection

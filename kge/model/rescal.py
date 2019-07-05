@@ -54,7 +54,8 @@ class Rescal(KgeModel):
     r"""Implementation of the ComplEx KGE model."""
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
-        rescal_set_relation_embedder_dim(config, dataset, "rescal.relation_embedder")
+        self._init_configuration(config, configuration_key)
+        rescal_set_relation_embedder_dim(config, dataset, configuration_key + ".relation_embedder")
         super().__init__(
             config,
             dataset,
@@ -69,21 +70,14 @@ def rescal_set_relation_embedder_dim(config, dataset, rel_emb_conf_key):
     If -1, set it to the square of the size of the entity embedder. Else leave unchanged.
 
     """
-    dim = config.get_first(
-        rel_emb_conf_key + ".dim", config.get(rel_emb_conf_key + ".type") + ".dim"
-    )
+    dim = config.get_default(rel_emb_conf_key + ".dim")
     if dim < 0:  # autodetect relation embedding dimensionality
-        entity_dim_key = rel_emb_conf_key.replace(
+        ent_emb_conf_key = rel_emb_conf_key.replace(
             "relation_embedder", "entity_embedder"
         )
-        if entity_dim_key == rel_emb_conf_key:
+        if ent_emb_conf_key == rel_emb_conf_key:
             raise ValueError(
                 "Cannot determine relation embedding size; please set manually."
             )
-        dim = (
-            config.get_first(
-                entity_dim_key + ".dim", config.get(entity_dim_key + ".type") + ".dim"
-            )
-            ** 2
-        )
+        dim = config.get_default(ent_emb_conf_key + ".dim") ** 2
         config.set(rel_emb_conf_key + ".dim", dim, log=True)
