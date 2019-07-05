@@ -10,7 +10,7 @@ class LookupEmbedder(KgeEmbedder):
         # read config
         self.dropout = self.get_option("dropout")
         self.normalize = self.check_option("normalize", ["", "L2"])
-        self.regularize = self.check_option("regularize", ["", "l1", "l2"])
+        self.regularize = self.check_option("regularize", ["", "l1", "l2", "l3"])
         self.regularize_weight = self.get_option("regularize_weight")
         self.sparse = self.get_option("sparse")
         self.config.check("train.trace_level", ["batch", "epoch"])
@@ -51,14 +51,14 @@ class LookupEmbedder(KgeEmbedder):
             ]
         elif self.regularize == "l2":
             return super().penalty(**kwargs) + [
-                self.regularize_weight * self.embeddings.weight.norm(p=2)**2
+                self.regularize_weight * self.embeddings.weight.norm(p=2) ** 2
             ]
         elif self.regularize == "l3":
             # As in CP-N3 paper, Eq. (4): Timothée Lacroix, Nicolas Usunier, Guillaume
             # Obozinski. Canonical Tensor Decomposition for Knowledge Base Completion.
             # ICML 2018. https://arxiv.org/abs/1806.07297
             return super().penalty(**kwargs) + [
-                self.regularize_weight * self.embeddings.weight.norm(p=3)**3
+                self.regularize_weight * self.embeddings.weight.norm(p=3) ** 3
             ]
         else:
             raise ValueError("unknown penalty")
