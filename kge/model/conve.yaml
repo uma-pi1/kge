@@ -17,3 +17,4 @@ conve:
   projection_dropout: 0.3     # original value: 0.3
   convolution_bias: True      # original value: don't know
 
+# Original work uses xavier_normal with default values for all initializations
