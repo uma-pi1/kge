@@ -55,22 +55,6 @@ class Config:
 
         return result
 
-    Overwrite = Enum("Overwrite", "Yes No Error")
-
-    def get_first_present_key(self, *keys):
-        "Return the first key present or KeyError."
-        for key in keys:
-            try:
-                self.get(key)
-                return key
-            except KeyError:
-                pass
-        raise KeyError("None of the following keys found: ".format(keys))
-
-    def get_first(self, *keys):
-        "Return value of the first key present or KeyError."
-        return self.get(self.get_first_present_key(*keys))
-
     def get_default(self, key):
         """Returns the value of the key if present or default if not.
 
@@ -91,8 +75,13 @@ class Config:
             while True:
                 try:
                     parent_type = self.get(parent + "." + "type")
+                    # found a type -> go to this type and lookup there
+                    new_key = parent_type + "." + field
+                    last_dot_index = new_key.rfind(".")
+                    parent = new_key[:last_dot_index]
+                    field = new_key[last_dot_index + 1 :]
                 except KeyError:
-                    # try to lookup type further up
+                    # no type found -> go up hierarchy
                     last_dot_index = parent.rfind(".")
                     if last_dot_index < 0:
                         raise e
@@ -100,14 +89,34 @@ class Config:
                     parent = parent[:last_dot_index]
                     continue
                 try:
-                    value = self.get(parent_type + "." + field)
+                    value = self.get(parent + "." + field)
                     # uncomment this to see where defaults are taken from
-                    # self.log("Using value of {}={} for key {}".format(parent_type + "." + field, value, key))
+                    # self.log("Using value of {}={} for key {}".format(parent + "." + field, value, key))
                     return value
                 except KeyError:
                     # try further
-                    parent = parent_type
                     continue
+
+    def get_first_present_key(self, *keys, use_get_default=False):
+        "Return the first key for which ``get`` or ``get_default`` finds a value."
+        for key in keys:
+            try:
+                self.get_default(key) if use_get_default else self.get(key)
+                return key
+            except KeyError:
+                pass
+        raise KeyError("None of the following keys found: ".format(keys))
+
+    def get_first(self, *keys, use_get_default=False):
+        "Return value (or default value) of the first valid key present or KeyError."
+        if use_get_default:
+            return self.get_default(
+                self.get_first_present_key(*keys, use_get_default=True)
+            )
+        else:
+            return self.get(self.get_first_present_key(*keys))
+
+    Overwrite = Enum("Overwrite", "Yes No Error")
 
     def set(self, key, value, create=False, overwrite=Overwrite.Yes, log=False):
 
