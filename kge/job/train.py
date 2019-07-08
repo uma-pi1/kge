@@ -93,16 +93,14 @@ the dataset (if not present).
                 self.config.log("Maximum number of epochs reached.")
                 break
             if early_stopping > 0 and len(self.valid_trace) > early_stopping:
-                stop_now = True
-                last = self.valid_trace[-1][metric_name]
-                for i in range(early_stopping):
-                    if last > self.valid_trace[-2 - i][metric_name]:
-                        stop_now = False
-                        break
-                if stop_now:
+                best_index = max(
+                    range(len(self.valid_trace)),
+                    key=lambda index: self.valid_trace[index][metric_name],
+                )
+                if best_index < len(self.valid_trace) - early_stopping:
                     self.config.log(
                         (
-                            "Stopping early ({} did not improve "
+                            "Stopping early ({} did not improve over best result "
                             + "in the last {} validation runs)."
                         ).format(metric_name, early_stopping)
                     )
@@ -341,9 +339,16 @@ class TrainingJob1toN(TrainingJob):
         self.label_smoothing = config.check_range(
             "1toN.label_smoothing", float("-inf"), 1.0, max_inclusive=False
         )
-        if self.label_smoothing >= 0 and self.label_smoothing <= 1.0/dataset.num_entities:
+        if (
+            self.label_smoothing >= 0
+            and self.label_smoothing <= 1.0 / dataset.num_entities
+        ):
             # just to be sure it's used correctly
-            raise ValueError("1toN.label_smoothing needs to be at least 1.0/num_entitites={}".format(1.0/dataset.num_entities))
+            raise ValueError(
+                "1toN.label_smoothing needs to be at least 1.0/num_entitites={}".format(
+                    1.0 / dataset.num_entities
+                )
+            )
         config.log("Initializing 1-to-N training job...")
 
     def _prepare(self):

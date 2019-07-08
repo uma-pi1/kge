@@ -70,7 +70,8 @@ negative_sampling:
 
 # Configuration options for model validation/selection during training.
 valid:
-  # Validation is run every this many epochs (disable validation with 0)
+  # Validation is run every this many epochs during training (disable validation
+  # with 0).
   every: 5
 
   # Name of the trace entry that holds the validation metric (higher value is
@@ -83,9 +84,11 @@ valid:
   # Example: 'math.sqrt(mean_reciprocal_rank) + config.get("user.par")'
   metric_expr: ''
 
-  # Number of grace epochs before the training run is stopped early (disable
-  # early stopping with 0)
-  early_stopping: 2
+  # Grace period of validation runs before a training run is stopped early
+  # (disable early stopping with 0). If the value is set to n, then training is
+  # stopped when there has been no improvement (compared to the best overall
+  # result so far) in the validation metric during the last n validation runs.
+  early_stopping: 5
 
   # When to write a trace entry. Possible values: example, batch, epoch
   trace_level: epoch
