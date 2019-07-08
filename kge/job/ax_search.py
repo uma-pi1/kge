@@ -3,8 +3,6 @@ from kge import Config
 from ax.service.ax_client import AxClient
 from typing import List
 
-# TODO when resuming an experiment, run BO right away (instead of Sobol first)
-
 
 class AxSearchJob(AutoSearchJob):
     """Job for hyperparameter search using [ax](https://ax.dev/)."""
@@ -16,7 +14,7 @@ class AxSearchJob(AutoSearchJob):
     # Overridden such that instances of search job can be pickled to workers
     def __getstate__(self):
         state = super(AxSearchJob, self).__getstate__()
-        del state['ax_client']
+        del state["ax_client"]
         return state
 
     def init_search(self):
@@ -27,6 +25,24 @@ class AxSearchJob(AutoSearchJob):
             objective_name="metric_value",
             minimize=False,
         )
+
+        # By default, ax first uses a Sobol strategy for a certain number of arms,
+        # followed by Bayesian Optimization. If we resume this job, some of the Sobol
+        # arms may have already been generated. The corresponding arms will be
+        # registered later (when this job's run method is executed), but here we already
+        # change the generation strategy to take account of these configurations.
+        num_generated = len(self.parameters)
+        if num_generated > 0:
+            old_curr = self.ax_client.generation_strategy._curr
+            new_num_arms = max(0, old_curr.num_arms - num_generated)
+            new_curr = old_curr._replace(num_arms=new_num_arms)
+            self.ax_client.generation_strategy._curr = new_curr
+            self.config.log(
+                "Reduced number of arms for first generation step of "
+                + "ax_client from {} to {} due to prior data.".format(
+                    old_curr.num_arms, new_curr.num_arms
+                )
+            )
 
     def register_trial(self, parameters=None):
         try:
