@@ -147,10 +147,10 @@ class Config:
             if not create:
                 raise ValueError("key {} not present".format(key))
 
-            if isinstance(value, str) and is_number(value, float):
-                value = float(value)
-            elif isinstance(value, str) and is_number(value, int):
+            if isinstance(value, str) and is_number(value, int):
                 value = int(value)
+            elif isinstance(value, str) and is_number(value, float):
+                value = float(value)
         else:
             if (
                 isinstance(value, str)
