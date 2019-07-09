@@ -1,0 +1,11 @@
+import: [lookup_embedder]
+
+freex:
+  auto_initialization: True
+  class_name: Freex
+  entity_embedder:
+    type: lookup_embedder
+    +++: +++
+  relation_embedder:
+    type: lookup_embedder
+    +++: +++

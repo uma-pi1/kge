@@ -2,6 +2,7 @@ from kge.model.kge_model import KgeModel, KgeEmbedder
 from kge.model.lookup_embedder import LookupEmbedder
 from kge.model.projection_embedder import ProjectionEmbedder
 from kge.model.complex import ComplEx
+from kge.model.freex import Freex
 from kge.model.distmult import DistMult
 from kge.model.rescal import Rescal
 from kge.model.tucker3 import (
