@@ -34,8 +34,15 @@ class FreexScorer(RelationalScorer):
 
 class Freex(KgeModel):
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
-        # TODO auto set relatoin embedder dim when -1 (and put -1 in default config)
         self._init_configuration(config, configuration_key)
+
+        # set relation embedder dimensionality
+        if self.get_option("relation_embedder.dim") < 0:
+            self.config.set(
+                self.configuration_key + ".relation_embedder.dim",
+                2 * self.get_option("entity_embedder.dim"),
+                log=True,
+            )
 
         # auto initialize such that scores have unit variance
         if self.get_option("auto_initialization"):
