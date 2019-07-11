@@ -45,6 +45,7 @@ train:
   lr_scheduler:               # empty for no scheduler, ReduceLROnPlateau or anything in torch.optim.lr_scheduler
   lr_scheduler_args:          
     +++: +++
+    step_size: 0.1
   batch_size: 100
   loss: bce                   # bce, margin_ranking
   loss_arg: 1.0               # margin for margin_ranking

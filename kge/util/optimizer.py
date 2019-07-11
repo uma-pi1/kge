@@ -26,10 +26,14 @@ class KgeLRScheduler:
         """ Factory method for LR scheduler creation """
         try:
             name = config.get("train.lr_scheduler")
+            metric_based = False
             if not name:
-                return name
+                return name, metric_based
             args = config.get("train.lr_scheduler_args")
             scheduler = getattr(torch.optim.lr_scheduler, name)(optimizer, **args)
-            return scheduler
+            metric_based_schedulers = ['ReduceLROnPlateau']
+            if name in metric_based_schedulers:
+                metric_based = True
+            return scheduler, metric_based
         except:
             raise ValueError("invalid LR scheduler options")

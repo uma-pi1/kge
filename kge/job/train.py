@@ -25,7 +25,8 @@ class TrainingJob(Job):
         super().__init__(config, dataset, parent_job)
         self.model = KgeModel.create(config, dataset)
         self.optimizer = KgeOptimizer.create(config, self.model)
-        self.lr_scheduler = KgeLRScheduler.create(config, self.optimizer)
+        self.lr_scheduler, self.metric_based_scheduler = KgeLRScheduler.create(config,
+                                                                               self.optimizer)
         self.loss = KgeLoss.create(config)
         self.batch_size = config.get("train.batch_size")
         self.device = self.config.get("job.device")
@@ -133,12 +134,13 @@ the dataset (if not present).
                     f(self, trace_entry)
                 self.model.meta["valid_trace_entry"] = trace_entry
 
-                # scheduler step
-                if self.lr_scheduler:
-                    if type(self.lr_scheduler).__name__ == "ReduceLROnPlateau":
-                        self.lr_scheduler.step(trace_entry[metric_name])
-                    else:
-                        self.lr_scheduler.step(self.epoch)
+                # metric-based scheduler step
+                if self.metric_based_scheduler:
+                    self.lr_scheduler.step(trace_entry[metric_name])
+
+            # epoch-based scheduler step
+            if self.lr_scheduler and not self.metric_based_scheduler:
+                self.lr_scheduler.step(self.epoch)
 
             # create checkpoint and delete old one, if necessary
             self.save(self.config.checkpoint_file(self.epoch))
