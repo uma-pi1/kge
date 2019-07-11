@@ -1,4 +1,5 @@
 import torch.optim
+from torch.optim.lr_scheduler import _LRScheduler
 
 
 class KgeOptimizer:
@@ -27,8 +28,8 @@ class KgeLRScheduler:
         try:
             name = config.get("train.lr_scheduler")
             metric_based = False
-            if not name:
-                return name, metric_based
+            if name == 'ConstantLRScheduler':
+                return ConstantLRScheduler(optimizer), metric_based
             args = config.get("train.lr_scheduler_args")
             scheduler = getattr(torch.optim.lr_scheduler, name)(optimizer, **args)
             metric_based_schedulers = ['ReduceLROnPlateau']
@@ -36,4 +37,14 @@ class KgeLRScheduler:
                 metric_based = True
             return scheduler, metric_based
         except:
-            raise ValueError("invalid LR scheduler options")
+            raise ValueError("Invalid LR scheduler options. Could not find '{}' "
+                             "in torch.optim.lr_scheduler".format(name))
+
+class ConstantLRScheduler(_LRScheduler):
+    """Default LR scheduler that does nothing."""
+
+    def __init__(self, optimizer, last_epoch=-1):
+        super(ConstantLRScheduler, self).__init__(optimizer, last_epoch)
+
+    def get_lr(self):
+        return [group['lr'] for group in self.optimizer.param_groups]
