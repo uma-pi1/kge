@@ -5,7 +5,7 @@ import torch
 import torch.utils.data
 from kge.job import Job
 from kge.model import KgeModel
-from kge.util import KgeLoss, KgeOptimizer, KgeSampler
+from kge.util import KgeLoss, KgeOptimizer, KgeSampler, KgeLRScheduler
 import kge.job.util
 
 
@@ -25,6 +25,7 @@ class TrainingJob(Job):
         super().__init__(config, dataset, parent_job)
         self.model = KgeModel.create(config, dataset)
         self.optimizer = KgeOptimizer.create(config, self.model)
+        self.lr_scheduler = KgeLRScheduler.create(config, self.optimizer)
         self.loss = KgeLoss.create(config)
         self.batch_size = config.get("train.batch_size")
         self.device = self.config.get("job.device")
@@ -131,6 +132,10 @@ the dataset (if not present).
                 for f in self.post_valid_hooks:
                     f(self, trace_entry)
                 self.model.meta["valid_trace_entry"] = trace_entry
+
+            # scheduler step
+            if self.lr_scheduler:
+                self.lr_scheduler.step()
 
             # create checkpoint and delete old one, if necessary
             self.save(self.config.checkpoint_file(self.epoch))
