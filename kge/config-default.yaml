@@ -42,7 +42,7 @@ train:
     # No default arguments are specified. Here, +++ signals that this option
     # allows arbitrary additional key-value pairs.
     +++: +++
-  lr_scheduler:               # leave empty for no scheduler, or use anything in torch.optim.lr_scheduler
+  lr_scheduler:               # empty for no scheduler, ReduceLROnPlateau or anything in torch.optim.lr_scheduler
   lr_scheduler_args:          
     +++: +++
   batch_size: 100

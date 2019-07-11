@@ -133,9 +133,12 @@ the dataset (if not present).
                     f(self, trace_entry)
                 self.model.meta["valid_trace_entry"] = trace_entry
 
-            # scheduler step
-            if self.lr_scheduler:
-                self.lr_scheduler.step()
+                # scheduler step
+                if self.lr_scheduler:
+                    if type(self.lr_scheduler).__name__ == "ReduceLROnPlateau":
+                        self.lr_scheduler.step(trace_entry[metric_name])
+                    else:
+                        self.lr_scheduler.step(self.epoch)
 
             # create checkpoint and delete old one, if necessary
             self.save(self.config.checkpoint_file(self.epoch))
