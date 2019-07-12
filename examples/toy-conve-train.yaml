@@ -9,3 +9,5 @@ train:
     weight_decay: 0.4e-7
 lookup_embedder.dim: 200
 lookup_embedder.initialize: xavier_normal_
+conve.entity_embedder.dropout: 0.2
+conve.relation_embedder.dropout: 0.2

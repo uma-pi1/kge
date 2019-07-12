@@ -22,13 +22,6 @@ class ConvEScorer(RelationalScorer):
         self.filter_size = config.get("conve.filter_size")
         self.stride = config.get("conve.stride")
         self.padding = config.get("conve.padding")
-
-        # TODO remove input dropout, just here for testing
-        # We should use the dropout from the lookup embedders
-        # Also remove bn0 layer, should be in lookup embedder if it makes sense
-        self.input_dropout = torch.nn.Dropout(0.2)
-        self.bn0 = torch.nn.BatchNorm2d(1, affine=False)
-
         self.feature_map_dropout = torch.nn.Dropout2d(config.get("conve.feature_map_dropout"))
         self.projection_dropout = torch.nn.Dropout(config.get("conve.projection_dropout"))
         self.convolution = torch.nn.Conv2d(in_channels=1, out_channels=32,
@@ -49,12 +42,6 @@ class ConvEScorer(RelationalScorer):
         s_emb_2d = s_emb.view(-1, 1, int(self.emb_height), int(self.emb_width))
         p_emb_2d = p_emb.view(-1, 1, int(self.emb_height), int(self.emb_width))
         stacked_inputs = torch.cat([s_emb_2d, p_emb_2d], 2)
-
-        # TODO remove input dropout, just here for testing
-        # We should use the dropout from the lookup embedders
-        stacked_inputs = self.bn0(stacked_inputs)
-        stacked_inputs = self.input_dropout(stacked_inputs)
-
         out = self.convolution(stacked_inputs)
         out = self.bn1(out)
         out = self.non_linear(out)

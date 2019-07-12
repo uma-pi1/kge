@@ -8,6 +8,7 @@ conve:
     +++: +++
   relation_embedder:
     type: lookup_embedder
+    dropout: 0.2              # original value: 0.2
     +++: +++
   2D_aspect_ratio: 2          # original value: 2 for dim 200
   filter_size: 3              # original value: 3
