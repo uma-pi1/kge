@@ -69,7 +69,6 @@ class ConvEScorer(RelationalScorer):
         else:
             raise Exception("Combine {} not supported in ConvE's score function".format(combine))
         out += self.entity_bias.expand_as(out)
-        out = self.sigmoid(out)
 
         return out.view(batch_size, -1)
 
