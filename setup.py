@@ -9,16 +9,13 @@ setup(
     author_email="rgemulla@uni-mannheim.de",
     packages=["kge"],
     install_requires=[
-        "torch>=1.1.0",
+        "torch>=1.0.1",
         "pyyaml",
         "pandas",
         "argparse",
         "path.py",
         "ax-platform>=0.1.2",
         "sqlalchemy",
-        "tensorboard",
-        "future",
-        "pillow"
     ],
     zip_safe=False,
 )

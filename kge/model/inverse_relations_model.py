@@ -73,31 +73,3 @@ class InverseRelationsModel(KgeModel):
             all_subjects = self.get_s_embedder().embed_all()
             po_scores = self._scorer.score_emb(o, p_inv, all_subjects, combine="sp*")
         return torch.cat((sp_scores, po_scores), dim=1)
-
-
-    def add_embeddings_to_tb(self, step):
-        """ Adds the embeddings to Tensorboard.
-
-        As this model uses twice the amount of the relations in the dataset,
-        the original relation names cannot be used to label the embeddings.
-
-        """
-        self.summary_writer.add_embedding(
-            mat=self.get_s_embedder().embed_all(),
-            metadata=self.dataset.entities,
-            global_step=step,
-            tag="Subject embeddings"
-        )
-        self.summary_writer.add_embedding(
-            mat=self.get_o_embedder().embed_all(),
-            metadata=self.dataset.entities,
-            global_step=step,
-            tag="Object embeddings"
-        )
-        #TODO add relation names to metadata
-        self.summary_writer.add_embedding(
-            mat=self.get_p_embedder().embed_all(),
-            metadata=None,
-            global_step=step,
-            tag="Relation embeddings"
-        )

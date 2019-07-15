@@ -4,7 +4,6 @@ from kge.util.misc import filename_in_module
 import torch.nn
 import tempfile
 import importlib
-from torch.utils.tensorboard import SummaryWriter
 
 
 class KgeBase(torch.nn.Module):
@@ -272,8 +271,6 @@ class KgeModel(KgeBase):
 
         #: Scorer
         self._scorer = scorer
-        # Tensorboard summary writer
-        self.summary_writer = SummaryWriter(self.config.folder)
 
     def _init_configuration(self, config, configuration_key):
         self.config = config
@@ -500,63 +497,3 @@ class KgeModel(KgeBase):
             all_subjects = self.get_s_embedder().embed_all()
             po_scores = self._scorer.score_emb(all_subjects, p, o, combine="*po")
         return torch.cat((sp_scores, po_scores), dim=1)
-
-    def forward(self, s, p, o):
-        r""" Wrapper for Tensorboard computational graph integration.
-
-        """
-        return self.score_spo(s,p,o)
-
-
-    def add_graph_to_tb(self, device):
-        r""" Adds the computational graph to Tensorboard.
-
-        For some models the computational graph can fail according to a recent bug in
-        torch.jit (2019/7):
-        https://github.com/lanpa/tensorboardX/issues/220#issuecomment-508325874
-        https://github.com/pytorch/pytorch/issues/20101
-        If this can be resolved by special implementations these models can overwrite
-        this method.
-
-        """
-        try:
-            self.summary_writer.add_graph(
-                self,
-                (
-                    torch.FloatTensor([1], device=device),
-                    torch.FloatTensor([1], device=device),
-                    torch.FloatTensor([1], device=device),
-                ),
-                operator_export_type="RAW"
-            )
-        except Exception:
-            self.config.log(
-                "Graph converting to Tensorboard not supported for this model."
-            )
-
-    def add_embeddings_to_tb(self, epoch):
-        r""" Adds the model embeddings to Tensorboard.
-
-        Due to inherent differences between models, not every model supports
-        this base definition. These models can overwrite this method to still be
-        able to visualize the embeddings.
-
-        """
-        self.summary_writer.add_embedding(
-            mat=self.get_s_embedder().embed_all(),
-            metadata=self.dataset.entities,
-            global_step=epoch,
-            tag="Subject embeddings"
-        )
-        self.summary_writer.add_embedding(
-            mat=self.get_o_embedder().embed_all(),
-            metadata=self.dataset.entities,
-            global_step=epoch,
-            tag="Object embeddings"
-        )
-        self.summary_writer.add_embedding(
-            mat=self.get_p_embedder().embed_all(),
-            metadata=self.dataset.relations,
-            global_step=epoch,
-            tag="Relation embeddings"
-        )
