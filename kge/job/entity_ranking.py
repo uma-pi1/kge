@@ -274,6 +274,7 @@ class EntityRankingJob(EvaluationJob):
 
     def _filter_and_rank(self, s, p, o, scores_sp, scores_po, labels):
         num_entities = self.dataset.num_entities
+
         if labels is not None:
             for i in range(len(o)):  # remove current example from labels
                 labels[i, o[i]] = 0
@@ -294,6 +295,13 @@ class EntityRankingJob(EvaluationJob):
         return batch_hist, s_ranks, o_ranks, scores_sp, scores_po
 
     def _get_rank(self, scores, answers):
+        # Turn answers into size (batch_size, num_entities) to use it as indexes in torch.gather
+        # Get scores of answer given by each triple with torch.gather (multi-index selection)
+        # Add small number to all scores to avoid scores of zero
+        # Get tensor of 1s for each score which is higher than the true answer score.
+        # Add 1s in each row to get the rank of the corresponding row.
+        # Substract 1 from each rank with the lowest possible value, not sure why.
+
         answers = answers.reshape((-1, 1)).expand(-1, self.dataset.num_entities).long()
         true_scores = torch.gather(scores, 1, answers)
         scores = scores + 1e-40
