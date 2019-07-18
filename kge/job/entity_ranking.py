@@ -42,9 +42,22 @@ class EntityRankingJob(EvaluationJob):
             pin_memory=self.config.get("eval.pin_memory"),
         )
 
+        # add Tensorboard hooks
+        if self.config.get("tensorboard.run"):
+            summary_writer = self.model.create_summary_writer()
+
+            def track_tensorboard_metrics(job, trace_entry):
+                for metric in trace_entry.keys():
+                    if "rank" in metric:
+                        summary_writer.add_scalar(metric, trace_entry[metric], job.epoch)
+
+            self.post_epoch_hooks.append(track_tensorboard_metrics)
+
         # let the model add some hooks, if it wants to do so
         self.model.prepare_job(self)
         self.is_prepared = True
+
+
 
     def _collate(self, batch):
         "Looks up true triples for each triple in the batch"
@@ -269,6 +282,9 @@ class EntityRankingJob(EvaluationJob):
         if was_training:
             self.model.train()
         self.config.log("Finished evaluating on " + self.eval_data + " data.")
+
+        for f in self.post_epoch_hooks:
+            f(self,trace_entry)
 
         return trace_entry
 

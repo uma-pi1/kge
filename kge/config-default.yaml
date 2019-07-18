@@ -178,6 +178,10 @@ ax_search:
   parameters: []
   parameter_constraints: []
 
+# Tensorboard support
+tensorboard:
+  run: False
+
 ## USER PARAMETERS #####################################################################
 
 # These parameters are not used by the kge framework itself. It can be used to

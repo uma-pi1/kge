@@ -40,6 +40,10 @@ class EvaluationJob(Job):
         #: Signature: job, trace_entry
         self.post_valid_hooks = []
 
+        #: Hooks run after evaluation
+        #: Signature: job, trace_entry
+        self.post_epoch_hooks = []
+
     def create(config, dataset, parent_job=None, model=None):
         """Factory method to create an evaluation job """
         from kge.job import EntityRankingJob, EntityPairRankingJob

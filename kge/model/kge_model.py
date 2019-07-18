@@ -6,6 +6,7 @@ import tempfile
 import importlib
 
 
+
 class KgeBase(torch.nn.Module):
     r"""Base class for all KGE models, scorers, and embedders."""
 
@@ -272,6 +273,10 @@ class KgeModel(KgeBase):
         #: Scorer
         self._scorer = scorer
 
+        # Tensorboard support
+        self.summary_writer = None
+
+
     def _init_configuration(self, config, configuration_key):
         self.config = config
         self.configuration_key = configuration_key
@@ -377,6 +382,13 @@ class KgeModel(KgeBase):
             trace["num_parameters"] = sum(map(lambda p: p.numel(), self.parameters()))
 
         job.post_epoch_trace_hooks.append(append_num_parameter)
+
+        if self.config.get("tensorboard.run"):
+            if isinstance(job, kge.job.train.TrainingJob):
+                def close_tensorboard(job, trace):
+                    self.summary_writer.close()
+                # append the close command after all other Tensorboard commands
+                job.post_trace_hooks.append(close_tensorboard)
 
     def penalty(self, **kwargs):
         return (
@@ -497,3 +509,14 @@ class KgeModel(KgeBase):
             all_subjects = self.get_s_embedder().embed_all()
             po_scores = self._scorer.score_emb(all_subjects, p, o, combine="*po")
         return torch.cat((sp_scores, po_scores), dim=1)
+
+    def create_summary_writer(self):
+        r""" Creates and returns a summary writer for Tensorboard integration.
+
+        """
+        if not self.summary_writer:
+            from torch.utils.tensorboard import SummaryWriter
+            self.summary_writer = SummaryWriter(self.config.folder)
+            return self.summary_writer
+        else:
+            return self.summary_writer
