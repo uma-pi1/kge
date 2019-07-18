@@ -2,6 +2,10 @@ from kge.job import Job
 
 
 class EvaluationJob(Job):
+    """Abstract base job class to evaluate a single model with a fixed set of hyperparameters.
+
+    Subclasses need to implement specific evaluation functions.
+    """
     def __init__(self, config, dataset, parent_job, model):
         super().__init__(config, dataset, parent_job)
 

@@ -7,6 +7,8 @@ from kge.util.misc import kge_base_dir
 
 # TODO add support to pickle dataset (and indexes) and reload from there
 class Dataset:
+    """Class to load a specified dataset and process the data to create data objects
+    """
     def __init__(
         self,
         config,
@@ -42,6 +44,11 @@ class Dataset:
 
     @staticmethod
     def load(config):
+        """
+        Defines objects for entities and relations in test and train data from a dataset folder that contains data files
+        Outputs the created objects (numbers) as Log, when running a Job.
+        Returns the created data objects
+        """
         name = config.get("dataset.name")
         config.log("Loading dataset " + name + "...")
         base_dir = os.path.join(kge_base_dir(), "data/" + name)
@@ -86,6 +93,11 @@ class Dataset:
 
     @staticmethod
     def _load_map(filename):
+        """
+        Takes a file with entity or relation maps as Input
+        Returns the no. of entities/relations as an integer
+        and the entities/relations as an array of strings
+        """
         n = 0
         dictionary = {}
         with open(filename, "r") as file:
@@ -102,6 +114,11 @@ class Dataset:
 
     @staticmethod
     def _load_triples(filename):
+        """
+        Takes a file with train/test/val triples as input
+        Returns a 2-way-tensor (nx3) with SPO triples
+        and the triple row number as an array of strings
+        """
         n = 0
         dictionary = {}
         with open(filename, "r") as file:
@@ -121,8 +138,8 @@ class Dataset:
         return triples, meta
 
     def index_1toN(self, what: str, key: str):
-        """Return an index for the triples in what (''train'', ''valid'', ''test'')
-from the specified constituents (''sp'' or ''po'') to the indexes of the
+        """Return an index for the triples in what (''train'', ''valid'' or ''test'')
+from the specified constituents (key: ''sp'' or ''po'') to the indexes of the
 remaining constituent (''o'' or ''s'', respectively.)
 
         The index maps from `tuple' to `torch.LongTensor`.
@@ -131,6 +148,8 @@ remaining constituent (''o'' or ''s'', respectively.)
         this index is already present, does not recompute it.
 
         """
+
+        # Create dataset object
         if what == "train":
             triples = self.train
         elif what == "valid":
@@ -140,6 +159,7 @@ remaining constituent (''o'' or ''s'', respectively.)
         else:
             raise ValueError()
 
+        # Create key (SP or PO) object
         if key == "sp":
             key_columns = [0, 1]
             value_column = 2
@@ -149,6 +169,7 @@ remaining constituent (''o'' or ''s'', respectively.)
         else:
             raise ValueError()
 
+        # Create object for Dictionary SP: O or PO:S, save it as indexes in the Job, print no. of distinct tuples
         name = what + "_" + key
         if not self.indexes.get(name):
             index = Dataset._create_index_1toN(
@@ -163,6 +184,10 @@ remaining constituent (''o'' or ''s'', respectively.)
 
     @staticmethod
     def _create_index_1toN(key, value) -> dict:
+        """Input: Keys:SP/PO tuples and corresponding values: P/O entities
+        Output: Dictionary: SP: O or PO:S"""
+
+        # Create dictionary
         result = {}
         for i in range(len(key)):
             k = (key[i, 0].item(), key[i, 1].item())
@@ -171,6 +196,7 @@ remaining constituent (''o'' or ''s'', respectively.)
                 values = []
                 result[k] = values
             values.append(value[i].item())
+        # Make a (1-way) tensor out of the corresponding entity vector
         for key in result:
             result[key] = torch.LongTensor(sorted(result[key]))
         return result

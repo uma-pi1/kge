@@ -34,11 +34,12 @@ class Job:
         raise NotImplementedError
 
     def run(self):
+        """Run a previously created Job"""
         raise NotImplementedError
 
     def create(config, dataset, parent_job=None):
-        """Creates a job for a given configuration."""
-
+        """Creates a job for a given configuration.
+        The job is stored as an object with the job parameters"""
         from kge.job import TrainingJob, EvaluationJob, SearchJob
 
         if config.get("job.type") == "train":

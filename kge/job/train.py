@@ -17,7 +17,6 @@ class TrainingJob(Job):
 
     Subclasses for specific training methods need to implement `_prepare` and
     `_compute_batch_loss`.
-
     """
 
     def __init__(self, config, dataset, parent_job=None):
@@ -206,7 +205,7 @@ the dataset (if not present).
 
         # prepare the job is not done already
         if not self.is_prepared:
-            self._prepare()
+            self._prepare() # Prepare the data to be readable by the Jobs methods
             self.model.prepare_job(self)  # let the model add some hooks
             self.is_prepared = True
 
@@ -387,10 +386,10 @@ class TrainingJob1toN(TrainingJob):
         train_sp = self.dataset.index_1toN("train", "sp")
         train_po = self.dataset.index_1toN("train", "po")
 
-        # convert indexes to pytorch tensors: a nx2 keys tensor (rows = keys),
-        # an offset vector (row = starting offset in values for corresponding
-        # key), a values vector (entries correspond to values of original
-        # index)
+        # convert indexes to pytorch tensors:
+        # a nx2 keys tensor (rows = keys),
+        # an offset vector (row = starting offset in values for corresponding key),
+        # a values vector (entries correspond to values of original index)
         #
         # Afterwards, it holds:
         # index[keys[i]] = values[offsets[i]:offsets[i+1]]
