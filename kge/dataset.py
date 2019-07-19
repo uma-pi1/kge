@@ -40,6 +40,7 @@ class Dataset:
         )  # array: triple row number -> metadata array of strings
         self.indexes = {}  # map: name of index -> index (used mainly by training jobs)
 
+    @staticmethod
     def load(config):
         name = config.get("dataset.name")
         config.log("Loading dataset " + name + "...")
@@ -83,6 +84,7 @@ class Dataset:
             test_meta,
         )
 
+    @staticmethod
     def _load_map(filename):
         n = 0
         dictionary = {}
@@ -98,6 +100,7 @@ class Dataset:
             array[index] = meta
         return n, array
 
+    @staticmethod
     def _load_triples(filename):
         n = 0
         dictionary = {}
@@ -158,6 +161,7 @@ remaining constituent (''o'' or ''s'', respectively.)
 
         return self.indexes.get(name)
 
+    @staticmethod
     def _create_index_1toN(key, value) -> dict:
         result = {}
         for i in range(len(key)):
