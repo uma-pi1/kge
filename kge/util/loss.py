@@ -1,5 +1,7 @@
 import torch
 
+from kge.util.sampler import KgeSampler
+
 
 class KgeLoss:
     """ Wraps torch loss functions """
@@ -43,7 +45,7 @@ class MarginRankingKgeLoss(KgeLoss):
         super().__init__()
         self._device = config.get("job.device")
         self._training_type = config.get("train.type")
-        self._num_negatives = config.get("negative_sampling.num_negatives_s")
+        self._sampler = KgeSampler.create(config)
         self._loss = torch.nn.MarginRankingLoss(margin=margin, reduction=reduction)
 
     def _compute_loss(self, scores, labels):
@@ -54,9 +56,7 @@ class MarginRankingKgeLoss(KgeLoss):
             pos_positives = labels.view(-1).nonzero().to(self._device).view(-1)
             pos_negatives = (labels.view(-1) == 0).nonzero().to(self._device).view(-1)
             # repeat each positive score num_negatives times
-            pos_positives = (
-                pos_positives.view(-1, 1).repeat(1, self._num_negatives).view(-1)
-            )
+            pos_positives = pos_positives.view(-1, 1).repeat(1, self._sampler.num_negatives).view(-1)
             positives = scores[pos_positives].to(self._device).view(-1)
             negatives = scores[pos_negatives].to(self._device).view(-1)
             target = torch.ones(positives.size()).to(self._device)

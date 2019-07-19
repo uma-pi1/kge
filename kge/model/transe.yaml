@@ -8,5 +8,5 @@ transe:
   relation_embedder:
     type: lookup_embedder
     +++: +++
-  l_norm: 1                    
+  l_norm: 1.
 

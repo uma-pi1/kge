@@ -20,9 +20,25 @@ class EvaluationJob(Job):
         self.filter_valid_with_test = config.get("valid.filter_with_test")
         self.epoch = -1
 
+        #: Hooks run after training for an epoch.
+        #: Signature: job, trace_entry
+        self.post_epoch_hooks = []
+
+        #: Hooks run before starting a batch.
+        #: Signature: job
+        self.pre_batch_hooks = []
+
+        #: Hooks run before outputting the trace of a batch. Can modify trace entry.
+        #: Signature: job, trace_entry
+        self.post_batch_trace_hooks = []
+
         #: Hooks run before outputting the trace of an epoch. Can modify trace entry.
         #: Signature: job, trace_entry
         self.post_epoch_trace_hooks = []
+
+        #: Hooks run after a validation job.
+        #: Signature: job, trace_entry
+        self.post_valid_hooks = []
 
     def create(config, dataset, parent_job=None, model=None):
         """Factory method to create an evaluation job """

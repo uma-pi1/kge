@@ -1,26 +1,51 @@
-job.type: train
-dataset.name: toy
+job:
+  device: cuda
+  type: train
+
 model: transe
 
-transe:
-  entity_embedder:
-    dim: 200
-    normalize: 'L2'
-    regularize: ''
-  relation_embedder:
-    dim: 200
-    normalize: ''
-    regularize: ''
+dataset:
+  name: toy
+#  name: fb15k-237
 
 train:
-  type: negative_sampling
+  batch_size: 256
+  loss: margin_ranking
+  loss_arg: 4.0
+  max_epochs: 200
   optimizer: Adagrad
   optimizer_args:
     lr: 0.1
-  loss: margin_ranking
-  loss_arg: 1.0  # margin
+  type: negative_sampling
+
 negative_sampling:
+  filter_negatives: false
+  num_negatives_o: 3
+  num_negatives_p: 0
   num_negatives_s: 3
   sampling_type: uniform
-  filter_negatives: False
 
+valid:
+  filter_with_test: true
+  metric: mean_reciprocal_rank_filtered_with_test
+
+eval:
+  batch_size: 512
+
+transe:
+  class_name: TransE
+  entity_embedder:
+    dim: 100
+    initialize: uniform_
+    sparse: true
+    type: lookup_embedder
+    regularize: l2
+    regularize_weight: 1.e-05
+  relation_embedder:
+    dim: 100
+    initialize: uniform_
+    sparse: true
+    type: lookup_embedder
+    regularize: l2
+    regularize_weight: 1.e-05
+  l_norm: 1.

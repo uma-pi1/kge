@@ -1,5 +1,6 @@
 import torch.nn
 import torch.nn.functional
+
 from kge.model import KgeEmbedder
 
 
@@ -9,7 +10,8 @@ class LookupEmbedder(KgeEmbedder):
 
         # read config
         self.dropout = self.get_option("dropout")
-        self.normalize = self.check_option("normalize", ["", "L2"])
+        self.normalize_p = self.get_option("normalize.p")
+        self.normalize_with_grad = self.get_option("normalize.with_grad")
         self.regularize = self.check_option("regularize", ["", "l1", "l2", "l3"])
         self.regularize_weight = self.get_option("regularize_weight")
         self.sparse = self.get_option("sparse")
@@ -18,7 +20,7 @@ class LookupEmbedder(KgeEmbedder):
 
         # setup embedder
         self.embeddings = torch.nn.Embedding(
-            self.vocab_size, self.dim, sparse=self.sparse
+            self.vocab_size, self.dim, sparse=self.sparse,
         )
         self.initialize(
             self.embeddings.weight.data,
@@ -26,13 +28,24 @@ class LookupEmbedder(KgeEmbedder):
             self.get_option("initialize_args"),
         )
 
+    def prepare_job(self, job, **kwargs):
+        super().prepare_job(job, **kwargs)
+        if self.normalize_p > 0:
+            def normalize_embeddings(job):
+                if self.normalize_with_grad:
+                    self.embeddings.weight = torch.nn.functional.\
+                        normalize(self.embeddings.weight, p=self.normalize_p, dim=-1)
+                else:
+                    with torch.no_grad():
+                        self.embeddings.weight = torch.nn.Parameter(torch.nn.functional.
+                        normalize(self.embeddings.weight, p=self.normalize_p, dim=-1))
+            job.pre_batch_hooks.append(normalize_embeddings)
+
     def _embed(self, embeddings):
         if self.dropout > 0:
             embeddings = torch.nn.functional.dropout(
                 embeddings, p=self.dropout, training=self.training
             )
-        if self.normalize == "L2":
-            embeddings = torch.nn.functional.normalize(embeddings)
         return embeddings
 
     def embed(self, indexes):
