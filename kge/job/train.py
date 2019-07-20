@@ -71,8 +71,8 @@ class TrainingJob(Job):
         self.post_valid_hooks = []
 
         #: Hooks run after training
-        #: Signature: job, trace_entry
-        self.post_trace_hooks = []
+        #: Signature: job
+        self.post_train_hooks = []
 
     @staticmethod
     def create(config, dataset, parent_job=None):
@@ -176,10 +176,8 @@ the dataset (if not present).
                         )
                     )
                     os.remove(self.config.checkpoint_file(checkpoint_epoch_file))
-
-
-        for f in self.post_trace_hooks:
-            f(self, trace_entry)
+        for f in self.post_train_hooks:
+            f(self)
 
     def save(self, filename):
         """Save current state to specified file"""
@@ -367,10 +365,10 @@ the dataset (if not present).
         if self.config.get("tensorboard.run"):
             summary_writer = self.model.create_summary_writer()
 
-            def track_tensorboard_post_epoch(job, trace):
-                for key in ["avg_loss", "epoch_time", "forward_time", "backward_time", "avg_cost"]:
-                    summary_writer.add_scalar(key, trace[key], job.epoch)
-            self.post_epoch_hooks.append(track_tensorboard_post_epoch)
+            def track_tensorboard_metrics(job, trace):
+                for track_me in self.config.get("tensorboard.train_metrics"):
+                    summary_writer.add_scalar(track_me, trace[track_me], job.epoch)
+            self.post_epoch_hooks.append(track_tensorboard_metrics)
 
     def _compute_batch_loss(self, batch_index, batch):
         "Returns loss_value (avg over batch), batch size, prepare time, forward time."

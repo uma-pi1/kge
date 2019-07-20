@@ -18,7 +18,7 @@ class EntityRankingJob(EvaluationJob):
 
         if self.is_prepared:
             return
-
+        super()._prepare()
         # create indexes
         self.train_sp = self.dataset.index_1toN("train", "sp")
         self.train_po = self.dataset.index_1toN("train", "po")
@@ -41,17 +41,6 @@ class EntityRankingJob(EvaluationJob):
             num_workers=self.config.get("eval.num_workers"),
             pin_memory=self.config.get("eval.pin_memory"),
         )
-
-        # add Tensorboard hooks
-        if self.config.get("tensorboard.run"):
-            summary_writer = self.model.create_summary_writer()
-
-            def track_tensorboard_metrics(job, trace_entry):
-                for metric in trace_entry.keys():
-                    if "rank" in metric:
-                        summary_writer.add_scalar(metric, trace_entry[metric], job.epoch)
-
-            self.post_epoch_hooks.append(track_tensorboard_metrics)
 
         # let the model add some hooks, if it wants to do so
         self.model.prepare_job(self)
@@ -278,13 +267,13 @@ class EntityRankingJob(EvaluationJob):
         # write out trace
         trace_entry = self.trace(**trace_entry, echo=True, echo_prefix="  ", log=True)
 
+        for f in self.post_trace_hooks:
+            f(self, trace_entry)
+
         # reset model and return metrics
         if was_training:
             self.model.train()
         self.config.log("Finished evaluating on " + self.eval_data + " data.")
-
-        for f in self.post_epoch_hooks:
-            f(self,trace_entry)
 
         return trace_entry
 

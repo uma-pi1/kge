@@ -27,3 +27,15 @@ train:
 
 valid:
   filter_with_test: True
+
+tensorboard:
+  run: True
+  train_metrics: ["epoch_time",
+                  "forward_time",
+                  "avg_loss",
+                  "avg_cost",
+                  "avg_penalty",
+                  "core_tensor_density",
+                  "num_active_parameters"]
+  # Tracks all metrics which have 'rank' in their name
+  eval_metrics: ["rank"]

@@ -385,10 +385,12 @@ class KgeModel(KgeBase):
 
         if self.config.get("tensorboard.run"):
             if isinstance(job, kge.job.train.TrainingJob):
-                def close_tensorboard(job, trace):
-                    self.summary_writer.close()
+                def close_tensorboard(job):
+                    if self.summary_writer:
+                        self.summary_writer.close()
+                        self.summary_writer = None
                 # append the close command after all other Tensorboard commands
-                job.post_trace_hooks.append(close_tensorboard)
+                job.post_train_hooks.append(close_tensorboard)
 
     def penalty(self, **kwargs):
         return (

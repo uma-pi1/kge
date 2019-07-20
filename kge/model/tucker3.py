@@ -161,10 +161,3 @@ class RelationalTucker3(KgeModel):
                     trace["num_active_parameters"] = int(npars)
 
             job.post_epoch_trace_hooks.append(update_num_parameters)
-
-            if self.config.get("tensorboard.run"):
-                if isinstance(job, kge.job.train.TrainingJob):
-                    def track_tensorboard_metrics(job,trace):
-                        self.summary_writer.add_scalar("active_parameter", trace["num_active_parameters"], job.epoch)
-                        self.summary_writer.add_scalar("core_tensor_density", trace["core_tensor_density"], job.epoch)
-                    job.post_epoch_hooks.append(track_tensorboard_metrics)

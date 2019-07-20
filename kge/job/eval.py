@@ -40,9 +40,9 @@ class EvaluationJob(Job):
         #: Signature: job, trace_entry
         self.post_valid_hooks = []
 
-        #: Hooks run after evaluation
+        #: Hooks run after outputting the trace
         #: Signature: job, trace_entry
-        self.post_epoch_hooks = []
+        self.post_trace_hooks = []
 
     def create(config, dataset, parent_job=None, model=None):
         """Factory method to create an evaluation job """
@@ -57,6 +57,24 @@ class EvaluationJob(Job):
             )
         else:
             raise ValueError("eval.type")
+
+    def _prepare(self):
+        """Prepares this job for running """
+
+        # add Tensorboard hooks
+        if self.config.get("tensorboard.run") and not (self.parent_job == None):
+            # retrieves or creates the summary writer
+            summary_writer = self.model.create_summary_writer()
+
+            def track_tensorboard_metrics(job, trace_entry):
+                # track all eval metrics specified by the user
+                keys = trace_entry.keys()
+                for metric in trace_entry.keys():
+                    for track_me in self.config.get("tensorboard.eval_metrics"):
+                        if track_me in metric:
+                            summary_writer.add_scalar(metric, trace_entry[metric], job.epoch)
+
+            self.post_trace_hooks.append(track_tensorboard_metrics)
 
     def run(self) -> dict:
         """ Compute evaluation metrics, output results to trace file """
