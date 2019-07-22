@@ -1,0 +1,20 @@
+-TODO: Edit config file so it can contain information for BO, HB, BOHB, TPE
+-TODO: Edit config reader so it can parse new config file
+-TODO: Integrate optimizers into job structure
+-TODO: Console output of optimizers
+-TODO: Save optimizer status to file
+-TODO: Read optimizer status from file
+
+
+
+1. search.py create: set up new search algorithm
+2. config-default.yaml: set up config details for different algorithms
+3. auto_search.py: Only for ax?? How to add other methods?
+    Subclasses should implement :func:`init_search`, :func:`register_trial`,
+    :func:`register_trial_result`, :func:`get_best_parameters`.
+
+
+
+
+
+    Comparison of hyperparameter optimization frameworks in context of training knowledge base embeddings
