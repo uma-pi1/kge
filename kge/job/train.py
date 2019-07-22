@@ -89,22 +89,31 @@ the dataset (if not present).
         self.config.log("Starting training...")
         checkpoint = self.config.get("checkpoint.every")
         metric_name = self.config.get("valid.metric")
-        early_stopping = self.config.get("valid.early_stopping")
+        patience = self.config.get("valid.early_stopping.patience")
         while True:
             # should we stop?
             if self.epoch >= self.config.get("train.max_epochs"):
                 self.config.log("Maximum number of epochs reached.")
                 break
-            if early_stopping > 0 and len(self.valid_trace) > early_stopping:
+
+            if patience > 0 and len(self.valid_trace) > 0:
                 best_index = max(
                     range(len(self.valid_trace)),
                     key=lambda index: self.valid_trace[index][metric_name],
                 )
-                if best_index < len(self.valid_trace) - early_stopping:
+                if len(self.valid_trace) > patience \
+                        and best_index < len(self.valid_trace) - patience:
                     self.config.log(
                         "Stopping early ({} did not improve over best result "
                             + "in the last {} validation runs)."
-                        .format(metric_name, early_stopping))
+                        .format(metric_name, patience))
+                    break
+                if self.epoch > self.config.get("valid.early_stopping.min_threshold.epochs")\
+                        and self.valid_trace[best_index][metric_name] < \
+                            self.config.get("valid.early_stopping.min_threshold.metric_value"):
+                    self.config.log(
+                        "Stopping early ({} did not achieve min treshold after {} epochs"
+                            .format(metric_name, self.epoch))
                     break
 
             # start a new epoch

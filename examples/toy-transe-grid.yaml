@@ -5,8 +5,7 @@ job:
 model: transe
 
 dataset:
-#  name: toy
-  name: fb15k-237
+  name: toy
 
 train:
   batch_size: 256
@@ -26,7 +25,9 @@ negative_sampling:
   sampling_type: uniform
 
 valid:
-  filter_with_test: true
+  early_stopping.patience: 5
+  every: 5
+  filter_with_test: True
   metric: mean_reciprocal_rank_filtered_with_test
 
 eval:
