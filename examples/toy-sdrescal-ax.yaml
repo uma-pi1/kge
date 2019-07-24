@@ -1,0 +1,117 @@
+dataset:
+  entity_map: entity_map.del
+  name: toy
+#  name: fb15k-237
+  relation_map: relation_map.del
+  test: test.del
+  train: train.del
+  valid: valid.del
+
+job:
+  device: cuda
+  type: search
+
+search:
+  num_workers: 1
+  type: ax
+
+checkpoint:
+  every: 5
+
+1toN:
+  label_smoothing: -1.0
+
+train:
+  batch_size: 512
+  loss: bce
+  lr_scheduler: ReduceLROnPlateau
+  lr_scheduler_args:
+    +++: +++
+  max_epochs: 200
+  num_workers: 0
+  optimizer: Adagrad
+  optimizer_args:
+    +++: +++
+    lr: 0.1
+  pin_memory: false
+  trace_level: epoch
+  type: 1toN
+
+negative_sampling:
+  num_negatives_o: -1
+  num_negatives_p: 0
+  num_negatives_s: 16
+  sampling_type: uniform
+
+user:
+  +++: +++
+
+valid:
+  early_stopping:
+    min_threshold:
+      epochs: 25
+      metric_value: 0.05
+    patience: 5
+  every: 5
+  filter_with_test: true
+  metric: mean_reciprocal_rank_filtered_with_test
+  metric_expr: ''
+  trace_level: epoch
+
+eval:
+  batch_size: 100
+  data: valid
+  max_k: 10
+  num_workers: 0
+  pin_memory: false
+  trace_level: example
+  type: entity_ranking
+
+import: sd_rescal
+model: sd_rescal
+
+sd_rescal:
+  class_name: SparseDiagonalRescal
+  blocks: 4
+  block_size: 32
+  entity_embedder:
+    type: lookup_embedder
+    dropout: 0.2
+  relation_embedder:
+    type: lookup_embedder
+    dropout: 0.2
+
+ax_search:
+  num_trials: 50
+  parameters:
+    - name: train.max_epochs
+      type: fixed
+      value: 200
+    - name: train.optimizer_args.lr
+      type: range
+      bounds: [0.0, 1.0]
+    - name: sd_rescal.entity_embedder.dropout
+      type: range
+      bounds: [0., .5]
+    - name: sd_rescal.relation_embedder.dropout
+      type: range
+      bounds: [0., .5]
+    - name: sd_rescal.blocks
+      type: range
+      bounds: [2, 10]
+    - name: sd_rescal.block_size
+      type: choice
+      values: [16, 32, 48, 64, 80, 96, 112, 128, 256]
+      is_numerical: True
+      is_ordered: True
+    - name: 1toN.label_smoothing
+      type: range
+      bounds: [-0.5 , 0.5]
+    - name: lookup_embedder.regularize_weight
+      type: range
+      bounds: [0.0, 0.0000001]
+  parameter_constraints: ["sd_rescal.block_size * sd_rescal.blocks <= 512"]
+
+search.num_workers: 4
+train.num_workers: 4
+eval.num_workers: 4
