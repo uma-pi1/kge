@@ -358,15 +358,14 @@ class TrainingJob1toN(TrainingJob):
             "1toN.label_smoothing", float("-inf"), 1.0, max_inclusive=False
         )
         if (
-            self.label_smoothing >= 0
+            self.label_smoothing > 0
             and self.label_smoothing <= 1.0 / dataset.num_entities
         ):
             # just to be sure it's used correctly
-            raise ValueError(
-                "1toN.label_smoothing needs to be at least 1.0/num_entitites={}".format(
-                    1.0 / dataset.num_entities
-                )
-            )
+            config.log("Setting label_smoothing to 1/dataset.num_entities = {}, "
+            "was set to {}".format(1.0 / dataset.num_entities, self.label_smoothing))
+            self.label_smoothing = 1.0 / dataset.num_entities
+
         config.log("Initializing 1-to-N training job...")
 
     def _prepare(self):
