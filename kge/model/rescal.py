@@ -55,7 +55,7 @@ class Rescal(KgeModel):
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         self._init_configuration(config, configuration_key)
-        rescal_set_relation_embedder_dim(config, dataset, configuration_key + ".relation_embedder")
+        rescal_set_relation_embedder_dim(config, dataset, self.configuration_key + ".relation_embedder")
         super().__init__(
             config,
             dataset,
