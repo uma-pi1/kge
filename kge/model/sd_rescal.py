@@ -40,6 +40,7 @@ class SparseDiagonalRescalScorer(RelationalScorer):
         #
         #
         #   Computing the bilinear product for *po:
+        #   ---------------------------------------
         #
         #	l^T x M x r
         #
@@ -72,6 +73,7 @@ class SparseDiagonalRescalScorer(RelationalScorer):
         #
         #
         #   Computing the bilinear product for sp*:
+        #   ---------------------------------------
         #
         #	l x M^T x r^T
         #
@@ -105,7 +107,6 @@ class SparseDiagonalRescalScorer(RelationalScorer):
         if combine in ["*po", "sp*"]:
 
             if combine == "sp*":
-                # Transpose mixing matrix to left * M^T * right^T
                 p_emb = p_emb.\
                     view(batch_size, self.blocks, self.blocks, self.block_size).\
                     permute(0, 2, 1, 3).contiguous().\
@@ -117,7 +118,6 @@ class SparseDiagonalRescalScorer(RelationalScorer):
                 left = s_emb
                 right = o_emb
 
-            # Repeat right entity embedding to
             right_repeated = right.repeat(1, 1, self.blocks).\
                 view(batch_size, entity_size * self.blocks)
             p_r_strided = (p_emb*right_repeated).\
@@ -141,10 +141,12 @@ class SparseDiagonalRescal(KgeModel):
 
     This implementation of Sparse Diagonal Rescal is as fast as Complex,
     Distmult or RESCAL. The model is defined by the number of blocks and the
-    block size (i.e. the corresponding entity and relation embedding sizes are
-    computed based on those parameters).
+    block size. To define the model two out of the following hyper-parameters
+    have to be defined in the config: blocks, block_size and entity embedding
+    size; the third undefined parameter and relation embedding size will be
+    inferred automatically.
 
-    Here is a example that yields unconstrained ComplEx:
+    Here is an example that yields unconstrained ComplEx:
 
     blocks 2
     block size 2
@@ -169,7 +171,7 @@ class SparseDiagonalRescal(KgeModel):
     e13		M5		M7
     e14			M6		M8
 
-    Sparse Diagonal RESCAL contains Distmult with blocks = 1 and
+    Sparse Diagonal RESCAL contains: Distmult with blocks = 1 and
     block size = entity size, unconstrained ComplEx with blocks = 2 and
     block size is half of entity size RESCAL is blocks = entity size and
     block size is 1. See the score_emb function for details about the
@@ -194,8 +196,28 @@ class SparseDiagonalRescal(KgeModel):
         blocks = config.get_default(self.configuration_key + ".blocks")
         block_size = config.get_default(self.configuration_key + ".block_size")
 
-        config.set(ent_emb_conf_key + ".dim", blocks*block_size, log=True)
-        config.set(rel_emb_conf_key + ".dim", blocks**2*block_size, log=True)
+        if blocks <= 0 and block_size > 0 and entity_size > 0 \
+                and entity_size % block_size == 0:
+            blocks = entity_size // block_size
+        else:
+            raise ValueError(
+                "If blocks <= 0 then block_size and entity_size have to be "
+                "larger than 0 and entity_size has to be dividable by "
+                "block_size"
+            )
+
+        if block_size <= 0 and blocks > 0 and entity_size > 0 \
+                and entity_size % blocks == 0:
+            block_size = entity_size // blocks
+        else:
+            raise ValueError(
+                "If block_size <= 0 then blocks and entity_size have to be "
+                "larger than 0 and entity_size has to be dividable by "
+                "blocks"
+            )
+
+        config.set(entity_size, blocks*block_size, log=True)
+        config.set(rel_emb_dim, blocks**2*block_size, log=True)
 
         super().__init__(
             config,

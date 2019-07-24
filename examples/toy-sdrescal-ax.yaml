@@ -24,9 +24,7 @@ checkpoint:
 train:
   batch_size: 512
   loss: bce
-  lr_scheduler: ReduceLROnPlateau
-  lr_scheduler_args:
-    +++: +++
+  lr_scheduler: ConstantLRScheduler
   max_epochs: 200
   num_workers: 0
   optimizer: Adagrad
@@ -51,7 +49,7 @@ valid:
     min_threshold:
       epochs: 25
       metric_value: 0.05
-    patience: 5
+    patience: 6
   every: 5
   filter_with_test: true
   metric: mean_reciprocal_rank_filtered_with_test
