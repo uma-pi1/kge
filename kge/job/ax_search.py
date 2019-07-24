@@ -45,15 +45,11 @@ class AxSearchJob(AutoSearchJob):
             )
 
     def register_trial(self, parameters=None):
-        try:
-            if parameters is None:
-                parameters, trial_id = self.ax_client.get_next_trial()
-            else:
-                _, trial_id = self.ax_client.attach_trial(parameters)
-            return parameters, trial_id
-        except ValueError:
-            # error: ax needs more data
-            return None, None
+        if parameters is None:
+            parameters, trial_id = self.ax_client.get_next_trial()
+        else:
+            _, trial_id = self.ax_client.attach_trial(parameters)
+        return parameters, trial_id
 
     def register_trial_result(self, trial_id, parameters, trace_entry):
         # TODO: std dev shouldn't be fixed to 0.0
