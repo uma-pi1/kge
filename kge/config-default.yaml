@@ -170,6 +170,7 @@ ax_search:
   # Search space definition passed to ax. See create_experiment in
   # https://ax.dev/api/service.html#module-ax.service.ax_client
   parameters: []
+  parameter_constraints: []
 
 ## USER PARAMETERS #####################################################################
 
