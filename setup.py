@@ -14,7 +14,7 @@ setup(
         "pandas",
         "argparse",
         "path.py",
-        "ax-platform",
+        "ax-platform>=0.1.2",
         "sqlalchemy",
     ],
     zip_safe=False,
