@@ -1,9 +1,7 @@
-import concurrent.futures
 from typing import List
 import torch
 from kge import Config
 from kge.job import SearchJob
-import kge.job.search
 
 # TODO handle "max_epochs" in some sensible way
 
@@ -74,11 +72,11 @@ class AutoSearchJob(SearchJob):
         raise NotImplementedError
 
     def get_best_parameters(self):
-        "Return a (best parameters, estimated objective value) tuple."
+        """"Return a (best parameters, estimated objective value) tuple."""
         raise NotImplementedError
 
     def run(self):
-        "Runs the HPO algorithm"
+        """Runs the HPO algorithm."""
         raise NotImplementedError
 
     # -- Main --------------------------------------------------------------------------

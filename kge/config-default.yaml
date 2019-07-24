@@ -123,8 +123,9 @@ eval:
 ## HYPERPARAMETER SEARCH ###############################################################
 
 search:
-  # the type of search to run (see descriptions below): manual, grid, ax
-  type: ax
+  # the type of search to run (see descriptions below): manual, random, grid, ax, hyperband,
+  # bohb, tpe
+  type: hyperband
 
   # (maximum) number of parallel training jobs to run during a search
   num_workers: 1
@@ -139,6 +140,9 @@ manual_search:
   # fields that define the search configuration (e.g.
   # 'train.optimizer_args.lr').
   configurations: []
+
+#TODO Random search parameters
+random_search:
 
 
 # Metajob for a grid search. Creates a manual search job with all points on the
@@ -163,6 +167,18 @@ ax_search:
   # Search space definition passed to ax. See create_experiment in
   # https://ax.dev/api/service.html#module-ax.service.ax_client
   parameters: []
+
+
+#TODO Hyperband Parameters
+hyperband_search:
+
+
+#TODO BOHB Parameters
+bohb_search:
+
+
+#TODO TPE Parameters
+tpe_search:
 
 ## USER PARAMETERS #####################################################################
 

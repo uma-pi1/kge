@@ -7,5 +7,9 @@ from kge.job.search import SearchJob
 from kge.job.manual_search import ManualSearchJob
 from kge.job.auto_search import AutoSearchJob
 from kge.job.ax_search import AxSearchJob
+from kge.job.random_search import RandomSearchJob
+from kge.job.hyperband_search import HyperbandSearchJob
+from kge.job.bohb_search import BOHBSearchJob
+from kge.job.tpe_search import TPESearchJob
 from kge.job.entity_ranking import EntityRankingJob
 from kge.job.entity_pair_ranking import EntityPairRankingJob

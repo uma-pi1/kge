@@ -2,8 +2,8 @@ from kge.job import AutoSearchJob
 from kge import Config
 
 
-class HyperbandSearchJob(AutoSearchJob):
-    """Job for hyperparameter search using hyperband TODO Website"""
+class TPESearchJob(AutoSearchJob):
+    """Job for hyperparameter search using TPE TODO Website"""
 
     def _init_(self, config: Config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)

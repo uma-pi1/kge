@@ -71,7 +71,7 @@ class Config:
             if last_dot_index < 0:
                 raise e
             parent = key[:last_dot_index]
-            field = key[last_dot_index + 1 :]
+            field = key[last_dot_index + 1:]
             while True:
                 try:
                     parent_type = self.get(parent + "." + "type")
@@ -98,7 +98,7 @@ class Config:
                     continue
 
     def get_first_present_key(self, *keys, use_get_default=False):
-        "Return the first key for which ``get`` or ``get_default`` finds a value."
+        """"Return the first key for which ``get`` or ``get_default`` finds a value."""
         for key in keys:
             try:
                 self.get_default(key) if use_get_default else self.get(key)
@@ -108,7 +108,7 @@ class Config:
         raise KeyError("None of the following keys found: ".format(keys))
 
     def get_first(self, *keys, use_get_default=False):
-        "Return value (or default value) of the first valid key present or KeyError."
+        """"Return value (or default value) of the first valid key present or KeyError."""
         if use_get_default:
             return self.get_default(
                 self.get_first_present_key(*keys, use_get_default=True)
@@ -349,11 +349,11 @@ class Config:
         return False
 
     def checkpoint_file(self, epoch):
-        "Return path of checkpoint file for given epoch"
+        """"Return path of checkpoint file for given epoch"""
         return os.path.join(self.folder, "checkpoint_{:05d}.pt".format(epoch))
 
     def last_checkpoint(self):
-        "Return epoch number of latest checkpoint"
+        """"Return epoch number of latest checkpoint"""
         # stupid implementation, but works
         tried_epoch = 0
         found_epoch = 0

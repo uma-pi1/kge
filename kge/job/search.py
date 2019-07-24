@@ -29,16 +29,32 @@ class SearchJob(Job):
 
         if config.get("search.type") == "manual":
             from kge.job import ManualSearchJob
-
             return ManualSearchJob(config, dataset, parent_job)
+
+        elif config.get("search.type") == "random":
+            from kge.job import RandomSearchJob
+            return RandomSearchJob(config, dataset, parent_job)
+
         elif config.get("search.type") == "grid":
             from kge.job import GridSearchJob
-
             return GridSearchJob(config, dataset, parent_job)
+
         elif config.get("search.type") == "ax":
             from kge.job import AxSearchJob
-
             return AxSearchJob(config, dataset, parent_job)
+
+        elif config.get("search.type") == "hyperband":
+            from kge.job import HyperbandSearchJob
+            return HyperbandSearchJob(config, dataset, parent_job)
+
+        elif config.get("search.type") == "bohb":
+            from kge.job import BOHBSearchJob
+            return BOHBSearchJob(config, dataset, parent_job)
+
+        elif config.get("search.type") == "tpe":
+            from kge.job import TPESearchJob
+            return TPESearchJob(config, dataset, parent_job)
+
         else:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError("search.type")
