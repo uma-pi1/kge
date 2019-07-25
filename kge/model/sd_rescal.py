@@ -196,28 +196,26 @@ class SparseDiagonalRescal(KgeModel):
         blocks = config.get_default(self.configuration_key + ".blocks")
         block_size = config.get_default(self.configuration_key + ".block_size")
 
-        if blocks <= 0 and block_size > 0 and entity_size > 0 \
-                and entity_size % block_size == 0:
+        if blocks <= 0 and block_size > 0 and entity_size > 0:
+            if entity_size % block_size != 0:
+                raise ValueError(
+                    "If blocks <= 0 then block_size ({}) and entity_size ({}) have "
+                    "to be larger than 0 and entity_size has to be dividable by "
+                    "block_size".format(block_size, entity_size)
+                )
             blocks = entity_size // block_size
-        else:
-            raise ValueError(
-                "If blocks <= 0 then block_size and entity_size have to be "
-                "larger than 0 and entity_size has to be dividable by "
-                "block_size"
-            )
 
-        if block_size <= 0 and blocks > 0 and entity_size > 0 \
-                and entity_size % blocks == 0:
+        if block_size <= 0 and blocks > 0 and entity_size > 0:
+            if entity_size % blocks != 0:
+                raise ValueError(
+                    "If block_size <= 0 then blocks ({}) and entity_size ({}) have "
+                    "to be larger than 0 and entity_size has to be dividable by "
+                    "blocks".format(block_size, entity_size)
+                )
             block_size = entity_size // blocks
-        else:
-            raise ValueError(
-                "If block_size <= 0 then blocks and entity_size have to be "
-                "larger than 0 and entity_size has to be dividable by "
-                "blocks"
-            )
 
-        config.set(ent_emb_conf_key, blocks*block_size, log=True)
-        config.set(rel_emb_conf_key, blocks**2*block_size, log=True)
+        config.set(ent_emb_conf_key + ".dim", blocks*block_size, log=True)
+        config.set(rel_emb_conf_key + ".dim", blocks**2*block_size, log=True)
 
         super().__init__(
             config,
