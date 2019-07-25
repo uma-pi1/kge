@@ -216,8 +216,8 @@ class SparseDiagonalRescal(KgeModel):
                 "blocks"
             )
 
-        config.set(entity_size, blocks*block_size, log=True)
-        config.set(rel_emb_dim, blocks**2*block_size, log=True)
+        config.set(ent_emb_conf_key, blocks*block_size, log=True)
+        config.set(rel_emb_conf_key, blocks**2*block_size, log=True)
 
         super().__init__(
             config,
