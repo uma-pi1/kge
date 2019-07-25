@@ -289,9 +289,9 @@ class EntityRankingJob(EvaluationJob):
         # need for loop because batch_hist[o_ranks]+=1 ignores repeated
         # entries in o_ranks
         for r in o_ranks:
-            batch_hist[r] += 1
+            batch_hist[r-1] += 1
         for r in s_ranks:
-            batch_hist[r] += 1
+            batch_hist[r-1] += 1
         return batch_hist, s_ranks, o_ranks, scores_sp, scores_po
 
     def _get_rank(self, scores, answers):
@@ -300,23 +300,18 @@ class EntityRankingJob(EvaluationJob):
         # Add small number to all scores to avoid scores of zero
         # Get tensor of 1s for each score which is higher than the true answer score.
         # Add 1s in each row to get the rank of the corresponding row.
-        # Substract 1 from each rank with the lowest possible value, not sure why.
 
         answers = answers.reshape((-1, 1)).expand(-1, self.dataset.num_entities).long()
         true_scores = torch.gather(scores, 1, answers)
         scores = scores + 1e-40
         ranks = torch.sum((scores > true_scores).long(), dim=1)
-        ranks = ranks - (ranks == self.dataset.num_entities).long()
         return ranks
 
     def _compute_metrics(self, rank_hist, suffix=""):
         metrics = {}
         n = torch.sum(rank_hist).item()
 
-        ranks = (
-            torch.tensor(range(self.dataset.num_entities), device=self.device).float()
-            + 1.0
-        )
+        ranks = torch.arange(1, self.dataset.num_entities+1).float().to(self.device)
         metrics["mean_rank" + suffix] = torch.sum(rank_hist * ranks).item() / n
 
         reciprocal_ranks = 1.0 / ranks
@@ -325,7 +320,7 @@ class EntityRankingJob(EvaluationJob):
         )
 
         metrics["hits_at_k" + suffix] = (
-            torch.cumsum(rank_hist[: self.max_k], dim=0) * 1 / n
+            torch.cumsum(rank_hist[: self.max_k], dim=0) / n
         ).tolist()
 
         return metrics
