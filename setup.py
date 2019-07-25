@@ -12,6 +12,8 @@ setup(
         "torch>=1.0.1",
         "pyyaml",
         "pandas",
+        "numpy",
+        "hyperopt",
         "argparse",
         "path.py",
         "ax-platform",

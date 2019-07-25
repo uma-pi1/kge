@@ -125,7 +125,7 @@ eval:
 search:
   # the type of search to run (see descriptions below): manual, random, grid, ax, hyperband,
   # bohb, tpe
-  type: hyperband
+  type: random
 
   # (maximum) number of parallel training jobs to run during a search
   num_workers: 1
@@ -143,6 +143,9 @@ manual_search:
 
 #TODO Random search parameters
 random_search:
+  max_evals: 5
+  num_trials: 10
+  parameters: []
 
 
 # Metajob for a grid search. Creates a manual search job with all points on the

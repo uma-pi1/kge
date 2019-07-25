@@ -3,11 +3,11 @@ dataset.name: toy
 train.optimizer: Adagrad
 model: complex
 
-train.max_epochs: 10
+train.max_epochs: 5
 
 search.type: ax
 ax_search:
-  num_trials: 20
+  num_trials: 6
   parameters:
     - name: train.optimizer_args.lr
       type: range

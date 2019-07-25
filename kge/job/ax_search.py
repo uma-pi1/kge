@@ -82,10 +82,8 @@ class AxSearchJob(AutoSearchJob):
             # determine next trial
             if trial_no >= len(self.parameters):
                 # create a new trial
-                if trial_no >= 5:
-                    parameters, trial_id = self.register_trial(parameters)
-                else:
-                    parameters, trial_id = self.register_trial()
+                parameters, trial_id = self.register_trial()
+
                 if trial_id is None:
                     self.config.log(
                         "Cannot generate trial parameters. Will try again after a "
@@ -111,6 +109,10 @@ class AxSearchJob(AutoSearchJob):
 
             # run or schedule the trial
             if trial_id is not None:
+
+                import sys
+                print(parameters.keys())
+
                 self.submit_task(
                     kge.job.search._run_train_job,
                     (
