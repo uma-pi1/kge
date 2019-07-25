@@ -5,6 +5,7 @@ from kge.model.complex import ComplEx
 from kge.model.freex import Freex
 from kge.model.distmult import DistMult
 from kge.model.rescal import Rescal
+from kge.model.sfnn import SFNN
 from kge.model.sd_rescal import SparseDiagonalRescal
 from kge.model.tucker3 import (
     Tucker3RelationEmbedder,
