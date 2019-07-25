@@ -9,7 +9,7 @@ class LookupEmbedder(KgeEmbedder):
         super().__init__(config, dataset, configuration_key)
 
         # read config
-        self.dropout = self.get_option("dropout")
+        self.dropout = torch.nn.Dropout(self.get_option("dropout"))
         self.normalize_p = self.get_option("normalize.p")
         self.normalize_with_grad = self.get_option("normalize.with_grad")
         self.regularize = self.check_option("regularize", ["", "l1", "l2", "l3"])
@@ -42,10 +42,8 @@ class LookupEmbedder(KgeEmbedder):
             job.pre_batch_hooks.append(normalize_embeddings)
 
     def _embed(self, embeddings):
-        if self.dropout > 0:
-            embeddings = torch.nn.functional.dropout(
-                embeddings, p=self.dropout, training=self.training
-            )
+        if self.dropout.p > 0:
+            embeddings = self.dropout(embeddings)
         return embeddings
 
     def embed(self, indexes):
