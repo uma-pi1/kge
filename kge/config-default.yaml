@@ -141,11 +141,26 @@ manual_search:
   # 'train.optimizer_args.lr').
   configurations: []
 
-#TODO Random search parameters
+# Dynamic search job that picks configurations using random search
 random_search:
-  max_evals: 5
-  num_trials: 10
+  num_train_trials: 1 # This is not the number of HPO trials!
+  max_evals: 10 # This is the number of HPO trials
   parameters: []
+# Possible parameter alternatives and choices
+#  -name: xx
+#   type: [fixed, range, choice]
+#   value: x                      # (if type=fixed)
+#   bounds: [lower, upper]        # (if type=range)
+#   values: [choice1, choice2]    # (if type=choice)
+#   Choices should be in the form of hyperopt parameters
+#   # Can only have an integer_space OR be log_scale
+#   integer_space: 4     # (not necessary) Natural number > 0, if parameter is integer
+#   log_scale: True      # (not neccessary) boolean
+#
+#   Selected Hyperopt Parameters:
+#   {'name': hp.quniform('name', lower_bound, upper_bound, spacing)}   # For integer values
+#   {'name': hp.uniform('name', lower_bound, upper_bound)}             # For real values
+#   {'name': hp.choice('name', [choice1, choice2]}                     # For choices
 
 
 # Metajob for a grid search. Creates a manual search job with all points on the
@@ -180,8 +195,12 @@ hyperband_search:
 bohb_search:
 
 
-#TODO TPE Parameters
+# Dynamic search job that picks configurations using Tree Parzen Estimators
 tpe_search:
+  num_train_trials: 1 # This is not the number of HPO trials!
+  max_evals: 10 # This is the number of HPO trials
+  parameters: []
+# Possibilities and alternatives are the same as in random search
 
 ## USER PARAMETERS #####################################################################
 

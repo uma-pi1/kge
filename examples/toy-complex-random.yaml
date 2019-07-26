@@ -5,8 +5,8 @@ model: complex
 
 search.type: random
 random_search:
-  num_trials: 5
-  max_evals: 50
+  num_train_trials: 1 # This is not the number of HPO trials!
+  max_evals: 3 # This is the number of HPO trials
   parameters:
     - name: train.optimizer_args.lr
       type: range
@@ -18,22 +18,4 @@ random_search:
     - name: lookup_embedder.dim
       type: range
       bounds: [10, 50]
-
-# Possible parameter alternatives and choices
-#
-#  -name: xx
-#   type: fixed
-#   value: x
-#  -name: xx
-#   type: range
-#   integer_space: 4     # Natural number > 0    Can only have an integer_space OR be log_scale
-#   log_scale: True      # Can only have an integer_space OR be log_scale
-#  -name: xx
-#   type: choice
-#   values: [choice1, choice2]   # Choices can also be in the form of hyperopt parameters
-#
-#
-#   Hyperopt Parameters:
-#   {'name': hp.quniform('name', lower_bound, upper_bound, spacing)}   # For integer values
-#   {'name': hp.uniform('name', lower_bound, upper_bound)}             # For real values
-#   {'name': hp.choice('name', [choice1, choice2]}                     # For choices
+      integer_space: 1

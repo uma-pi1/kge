@@ -14,6 +14,7 @@ setup(
         "pandas",
         "numpy",
         "hyperopt",
+        "hpbandster",
         "argparse",
         "path.py",
         "ax-platform",

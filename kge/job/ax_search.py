@@ -109,10 +109,6 @@ class AxSearchJob(AutoSearchJob):
 
             # run or schedule the trial
             if trial_id is not None:
-
-                import sys
-                print(parameters.keys())
-
                 self.submit_task(
                     kge.job.search._run_train_job,
                     (
@@ -172,8 +168,8 @@ class AxSearchJob(AutoSearchJob):
                    scope="search",
                    **self.results[best_trial_index])
 
-        # DISABLED FOR NOW SINCE IDENTICAL TO BEST TRIAL
-        # output parameter estimates
+        # # DISABLED FOR NOW SINCE IDENTICAL TO BEST TRIAL
+        # # output parameter estimates
         # best_parameters, best_value_estimate = self.get_best_parameters()
         # self.config.log(
         #     "Search result (estimate): {}={}".format(metric_name, best_value_estimate)

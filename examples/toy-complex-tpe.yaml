@@ -3,11 +3,10 @@ dataset.name: toy
 train.optimizer: Adagrad
 model: complex
 
-train.max_epochs: 5
-
-search.type: ax
-ax_search:
-  num_trials: 2
+search.type: tpe
+tpe_search:
+  num_train_trials: 1 # This is not the number of HPO trials!
+  max_evals: 3 # This is the number of HPO trials
   parameters:
     - name: train.optimizer_args.lr
       type: range
@@ -19,3 +18,4 @@ ax_search:
     - name: lookup_embedder.dim
       type: range
       bounds: [10, 50]
+      integer_space: 1
