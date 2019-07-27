@@ -54,7 +54,7 @@ class RandomSearchJob(AutoSearchJob):
 
     def register_trial(self, parameters=None):
         # Hyperopt does this itself
-        return None, None
+        pass
 
     def register_trial_result(self, trial_id, parameters, trace_entry):
         # Hyperopt does this itself
@@ -62,7 +62,7 @@ class RandomSearchJob(AutoSearchJob):
 
     def get_best_parameters(self):
         # Hyperopt does this itself
-        return None, None
+        pass
 
     def objective(self, x):
         trial_no = self.trial_no

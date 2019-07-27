@@ -19,6 +19,7 @@ setup(
         "path.py",
         "ax-platform",
         "sqlalchemy",
+        'ConfigSpace'
     ],
     zip_safe=False,
 )

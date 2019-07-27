@@ -1,0 +1,32 @@
+job.type: search
+dataset.name: toy
+train.optimizer: Adagrad
+model: complex
+
+search.type: bohb
+bohb_search:
+  run_id: 'Toy_Complex'
+  host: '127.0.0.1'
+  port: "None"
+  sleep_interval: 0
+  min_budget: 1
+  max_budget: 4
+  n_iter: 1
+  num_train_trials: 1
+  parameters:
+    - name: train.optimizer_args.lr
+      type: float
+      uniform: True
+      bounds: [0.0, 1.0]
+      log_scale: False
+    - name: train.optimizer_args.weight_decay
+      type: float
+      uniform: True
+      bounds: [1.0e-8, 1.0]
+      log_scale: True
+    - name: lookup_embedder.dim
+      type: integer
+      uniform: True
+      bounds: [10, 50]
+      log_scale: False
+

@@ -44,8 +44,8 @@ class SearchJob(Job):
             return AxSearchJob(config, dataset, parent_job)
 
         elif config.get("search.type") == "hyperband":
-            from kge.job import HyperbandSearchJob
-            return HyperbandSearchJob(config, dataset, parent_job)
+            from kge.job import HyperBandSearchJob
+            return HyperBandSearchJob(config, dataset, parent_job)
 
         elif config.get("search.type") == "bohb":
             from kge.job import BOHBSearchJob
