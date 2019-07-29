@@ -1,0 +1,16 @@
+job.type: train
+dataset.name: toy
+model: distmult
+train:
+  optimizer: Adagrad
+  optimizer_args:
+    lr: 0.2
+    weight_decay: 0.4e-7
+lookup_embedder.dim: 100
+#lookup_embedder.initialize: normal_
+lookup_embedder.initialize: xavier_uniform_
+eval.type: triple_classification
+valid.metric: Accuracy
+eval.thresholds: valid
+eval.test: test
+
