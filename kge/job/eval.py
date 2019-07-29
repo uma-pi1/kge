@@ -72,13 +72,17 @@ class EvaluationJob(Job):
     @staticmethod
     def create(config, dataset, parent_job=None, model=None):
         """Factory method to create an evaluation job """
-        from kge.job import EntityRankingJob, EntityPairRankingJob
+        from kge.job import EntityRankingJob, EntityPairRankingJob, TripleClassificationJob
 
         # create the job
         if config.get("eval.type") == "entity_ranking":
             return EntityRankingJob(config, dataset, parent_job=parent_job, model=model)
         elif config.get("eval.type") == "entity_pair_ranking":
             return EntityPairRankingJob(
+                config, dataset, parent_job=parent_job, model=model
+            )
+        elif config.get("eval.type") == "triple_classification":
+            return TripleClassificationJob(
                 config, dataset, parent_job=parent_job, model=model
             )
         else:
