@@ -17,7 +17,7 @@ setup(
         "hpbandster",
         "argparse",
         "path.py",
-        "ax-platform",
+        "ax-platform>=0.1.2",
         "sqlalchemy",
         'ConfigSpace'
     ],

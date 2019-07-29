@@ -12,5 +12,4 @@ train:
 negative_sampling:
   num_negatives_s: 1
   sampling_type: uniform
-  filter_negatives: False
 lookup_embedder.dim: 100

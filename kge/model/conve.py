@@ -1,8 +1,8 @@
 import torch
 import math
+
 from kge import Config, Dataset
 from kge.model.kge_model import RelationalScorer, KgeModel
-from collections import OrderedDict
 
 
 class ConvEScorer(RelationalScorer):
@@ -12,7 +12,7 @@ class ConvEScorer(RelationalScorer):
 
     def __init__(self, config: Config, dataset: Dataset):
         super().__init__(config, dataset)
-        self.emb_dim = config.get("lookup_embedder.dim")
+        self.emb_dim = config.get("lookup_embedder.dim")-1
         aspect_ratio = config.get("conve.2D_aspect_ratio")
         self.emb_height = math.sqrt(self.emb_dim/aspect_ratio)
         self.emb_width = self.emb_height * aspect_ratio
@@ -33,14 +33,12 @@ class ConvEScorer(RelationalScorer):
         conv_output_height = (((self.emb_height * 2) - self.filter_size + (2 * self.padding))/self.stride) + 1
         conv_output_width = ((self.emb_width - self.filter_size + (2 * self.padding))/self.stride) + 1
         self.projection = torch.nn.Linear(32 * int(conv_output_height * conv_output_width), int(self.emb_dim))
-        self.register_parameter('entity_bias', torch.nn.Parameter(torch.zeros(int(self.dataset.num_entities))))
         self.non_linear = torch.nn.ReLU()
-        self.sigmoid = torch.nn.Sigmoid()
 
     def score_emb(self, s_emb, p_emb, o_emb, combine: str):
         batch_size = p_emb.size(0)
-        s_emb_2d = s_emb.view(-1, 1, int(self.emb_height), int(self.emb_width))
-        p_emb_2d = p_emb.view(-1, 1, int(self.emb_height), int(self.emb_width))
+        s_emb_2d = s_emb[:,1:].view(-1, 1, int(self.emb_height), int(self.emb_width))
+        p_emb_2d = p_emb[:,1:].view(-1, 1, int(self.emb_height), int(self.emb_width))
         stacked_inputs = torch.cat([s_emb_2d, p_emb_2d], 2)
         out = self.convolution(stacked_inputs)
         out = self.bn1(out)
@@ -52,10 +50,12 @@ class ConvEScorer(RelationalScorer):
         out = self.bn2(out)
         out = self.non_linear(out)
         if combine == "sp*":
-            out = torch.mm(out, o_emb.transpose(1, 0))
+            out = torch.mm(out, o_emb[:,1:].transpose(1, 0))
+        elif combine == "spo":
+            out = (out * o_emb[:,1:]).sum(-1)
         else:
             raise Exception("Combine {} not supported in ConvE's score function".format(combine))
-        out += self.entity_bias.expand_as(out)
+        out += o_emb[:,0]
 
         return out.view(batch_size, -1)
 
@@ -64,6 +64,7 @@ class ConvE(KgeModel):
     r"""Implementation of the ConvE KGE model."""
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
+        config.set("lookup_embedder.dim", config.get("lookup_embedder.dim")+1)
         super().__init__(config,
                          dataset,
                          ConvEScorer(config, dataset),

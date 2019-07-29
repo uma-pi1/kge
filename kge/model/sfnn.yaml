@@ -1,12 +1,18 @@
 import: [lookup_embedder]
 
-transe:
-  class_name: TransE
+sfnn:
+  class_name: SFNN
   entity_embedder:
     type: lookup_embedder
+    dropout: -1.
+    dim: -1
     +++: +++
   relation_embedder:
     type: lookup_embedder
+    dropout: -1.
+    dim: -1
     +++: +++
-  l_norm: 1.
+  hidden_dim: -1
+  h1_dropout: -1.
+  h2_dropout: -1.
 

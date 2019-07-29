@@ -1,3 +1,4 @@
+import itertools
 import os
 import math
 import time
@@ -88,24 +89,31 @@ the dataset (if not present).
         self.config.log("Starting training...")
         checkpoint = self.config.get("checkpoint.every")
         metric_name = self.config.get("valid.metric")
-        early_stopping = self.config.get("valid.early_stopping")
+        patience = self.config.get("valid.early_stopping.patience")
         while True:
             # should we stop?
             if self.epoch >= self.config.get("train.max_epochs"):
                 self.config.log("Maximum number of epochs reached.")
                 break
-            if early_stopping > 0 and len(self.valid_trace) > early_stopping:
+
+            if patience > 0 and len(self.valid_trace) > 0:
                 best_index = max(
                     range(len(self.valid_trace)),
                     key=lambda index: self.valid_trace[index][metric_name],
                 )
-                if best_index < len(self.valid_trace) - early_stopping:
+                if len(self.valid_trace) > patience \
+                        and best_index < len(self.valid_trace) - patience:
                     self.config.log(
-                        (
-                            "Stopping early ({} did not improve over best result "
+                        "Stopping early ({} did not improve over best result "
                             + "in the last {} validation runs)."
-                        ).format(metric_name, early_stopping)
-                    )
+                        .format(metric_name, patience))
+                    break
+                if self.epoch > self.config.get("valid.early_stopping.min_threshold.epochs")\
+                        and self.valid_trace[best_index][metric_name] < \
+                            self.config.get("valid.early_stopping.min_threshold.metric_value"):
+                    self.config.log(
+                        "Stopping early ({} did not achieve min treshold after {} epochs"
+                            .format(metric_name, self.epoch))
                     break
 
             # start a new epoch
@@ -350,15 +358,14 @@ class TrainingJob1toN(TrainingJob):
             "1toN.label_smoothing", float("-inf"), 1.0, max_inclusive=False
         )
         if (
-            self.label_smoothing >= 0
+            self.label_smoothing > 0
             and self.label_smoothing <= 1.0 / dataset.num_entities
         ):
             # just to be sure it's used correctly
-            raise ValueError(
-                "1toN.label_smoothing needs to be at least 1.0/num_entitites={}".format(
-                    1.0 / dataset.num_entities
-                )
-            )
+            config.log("Setting label_smoothing to 1/dataset.num_entities = {}, "
+            "was set to {}".format(1.0 / dataset.num_entities, self.label_smoothing))
+            self.label_smoothing = 1.0 / dataset.num_entities
+
         config.log("Initializing 1-to-N training job...")
 
     def _prepare(self):
@@ -468,7 +475,7 @@ class TrainingJob1toN(TrainingJob):
         labels = kge.job.util.coord_to_sparse_tensor(
             batch_size, self.dataset.num_entities, label_coords, self.device
         ).to_dense()
-        if self.label_smoothing >= 0.0:
+        if self.label_smoothing > 0.0:
             # as in ConvE: https://github.com/TimDettmers/ConvE
             labels = (1.0 - self.label_smoothing) * labels + 1.0 / labels.size(1)
         batch_prepare_time += time.time()
@@ -492,11 +499,12 @@ class TrainingJob1toN(TrainingJob):
         return loss_value, batch_size, batch_prepare_time, batch_forward_time
 
 
+
 class TrainingJobNegativeSampling(TrainingJob):
+
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
         self._sampler = KgeSampler.create(config, dataset)
-
         config.log("Initializing negative sampling training job...")
         self.is_prepared = False
 
@@ -507,14 +515,14 @@ class TrainingJobNegativeSampling(TrainingJob):
             return
 
         self.loader = torch.utils.data.DataLoader(
-            range(self.dataset.train.size(0) * 2),
+            range(self.dataset.train.size(0)),
             collate_fn=self._get_collate_fun(),
             shuffle=True,
             batch_size=self.batch_size,
             num_workers=self.config.get("train.num_workers"),
             pin_memory=self.config.get("train.pin_memory"),
         )
-        self.num_examples = self.dataset.train.size(0) * 2
+        self.num_examples = self.dataset.train.size(0)
 
         # let the model add some hooks, if it wants to do so
         self.model.prepare_job(self)
@@ -529,36 +537,27 @@ class TrainingJobNegativeSampling(TrainingJob):
             - labels (tensor of [n * num_negatives] with labels for triples)
 
             """
-
             triples = []
             labels = []
-            training_size = self.dataset.train.size(0)
-
             for batch_index, example_index in enumerate(batch):
-                if example_index < training_size:
-                    triples.append(self.dataset.train[example_index].type(torch.float))
-                    labels.append(1)
-                    sub = triples[-1][0]
-                    rel = triples[-1][1]
-                    negative_candidates = self._sampler((sub.item(), rel.item()), "sp")
-                    for obj in negative_candidates:
-                        triples.append(torch.tensor([sub, rel, obj], dtype=torch.float))
-                        labels.append(0)
-                else:
-                    triples.append(
-                        self.dataset.train[example_index - training_size].type(
-                            torch.float
-                        )
-                    )
-                    labels.append(1)
-                    rel = triples[-1][1]
-                    obj = triples[-1][2]
-                    negative_candidates = self._sampler((rel.item(), obj.item()), "po")
-                    for sub in negative_candidates:
-                        triples.append(torch.tensor([sub, rel, obj], dtype=torch.float))
-                        labels.append(0)
+                triples.append(self.dataset.train[example_index].type(torch.long))
+                labels.extend([1]+[0]*(self._sampler.num_negatives))
 
-            return torch.stack(triples), torch.tensor(labels, dtype=torch.float)
+            triples = torch.stack(triples).repeat(1, 1+self._sampler.num_negatives).view(-1, 3)
+
+            offset = 0
+            for slot, slot_num_negatives, voc_size in [
+                ([0], self._sampler._num_negatives_s, self.dataset.num_entities),
+                ([1], self._sampler._num_negatives_p, self.dataset.num_relations),
+                ([2], self._sampler._num_negatives_o, self.dataset.num_entities),
+            ]:
+                triples[list(itertools.chain(
+                    *map(lambda x: range(x+1, x+ slot_num_negatives+1),
+                        range(offset, triples.size(0), 1 + self._sampler.num_negatives)))),
+                        (slot * slot_num_negatives)*len(batch)
+                    ] = self._sampler.sample(voc_size, slot_num_negatives*len(batch))
+                offset += slot_num_negatives
+            return triples, torch.tensor(labels, dtype=torch.float)
 
         return collate
 
