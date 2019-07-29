@@ -9,12 +9,12 @@ valid.filter_with_test: True
 valid.early_stopping.patience: 50
 valid.early_stopping.min_threshold.epochs: 50
 valid.early_stopping.min_threshold.metric_value: 0.05
-train.max_epochs: 500 
+train.max_epochs: 10
 valid.every: 5
 
 # AX SETTINGS
 ax_search:
-  num_trials: 500 
+  num_trials: 10
   parameters:
     # TRAIN
     - name: train.batch_size
