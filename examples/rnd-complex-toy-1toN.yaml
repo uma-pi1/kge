@@ -1,0 +1,80 @@
+job.type: search
+search.type: random
+dataset.name: toy
+model: complex
+
+# FIXED SETTINGS
+valid.metric: mean_reciprocal_rank_filtered_with_test
+valid.filter_with_test: True
+valid.early_stopping.patience: 50
+valid.early_stopping.min_threshold.epochs: 50
+valid.early_stopping.min_threshold.metric_value: 0.05
+train.max_epochs: 500 
+valid.every: 5
+
+# RANDOM SEARCH SETTINGS
+random_search:
+  num_train_trials: 1
+  max_evals: 10
+  parameters:
+    # TRAIN
+    - name: train.batch_size
+      type: choice   
+      values: [256, 512, 1024]
+    - name: train.type
+      type: fixed
+      value: 1toN
+    - name: train.optimizer
+      type: choice
+      values: [Adagrad, Adam]
+    - name: train.loss
+      type: fixed
+      value: bce            # add MR once support for it with 1toN is added  
+    - name: train.optimizer_args.lr
+      type: range
+      bounds: [0.0003, 1.0]
+    - name: train.lr_scheduler
+      type: choice
+      values: [ConstantLRScheduler, ReduceLROnPlateau]
+    - name: train.lr_scheduler_args.mode
+      type: fixed
+      value: max  
+    - name: train.lr_scheduler_args.patience
+      type: fixed
+      value: 4  
+    - name: 1toN.label_smoothing
+      type: choice
+      values: [-1.0, 0.1, 0.2, 0.3]
+    - name: negative_sampling.num_negatives_s
+      type: range
+      bounds: [1, 100] 
+    - name: negative_sampling.num_negatives_o
+      type: range
+      bounds: [1, 100] 
+    - name: negative_sampling.num_negatives_p
+      type: range
+      bounds: [1, 10] 
+    # EMBEDDINGS
+    - name: lookup_embedder.dim
+      type: choice 
+      values: [98, 200, 512]
+    - name: lookup_embedder.initialize
+      type: choice
+      values: [xavier_normal_, xavier_uniform_, normal_, uniform_]  
+    - name: lookup_embedder.regularize
+      type: choice
+      values: ['', 'l1', 'l2', 'l3']
+    - name: complex.entity_embedder.regularize_weight
+      type: range
+      bounds: [0.0, 0.001]
+    - name: complex.entity_embedder.dropout
+      type: range
+      bounds: [0., .5]
+    - name: complex.relation_embedder.dropout
+      type: range
+      bounds: [0., .5]
+    # COMPLEX
+    - name: complex.auto_initialization
+      type: fixed
+      value: False
+

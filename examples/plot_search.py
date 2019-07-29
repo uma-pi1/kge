@@ -4,11 +4,11 @@ from kge.job import Trace
 import matplotlib.pyplot as plt
 from IPython import get_ipython
 
-get_ipython().magic("matplotlib")
+# get_ipython().magic("matplotlib")
 
 # put tracefile and job id of your search job here
-tracefile = "/home/rgemulla/extern/kge/local/experiments/20190506-182257-fb15k-237-complex/trace.yaml"
-job_id = "a1f0efad"
+tracefile = "/home/felix/PycharmProjects/kge/local/experiments/20190728-153856-toy-complex-bohb/trace.yaml"
+job_id = "b84123a0-5e13-4cb4-bbe8-4eb88b4786d2"
 
 # load the trace (i.e., the part completed by now)
 trace = Trace(tracefile, job_id)

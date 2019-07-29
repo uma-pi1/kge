@@ -1,6 +1,6 @@
 job:
   type: train                 # train, eval, grid, ...
-  device: 'cpu'
+  device: 'cuda'
 
 ## INPUT/OUTPUT ################################################################
 
