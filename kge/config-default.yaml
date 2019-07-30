@@ -194,8 +194,6 @@ ax_search:
   parameters: []
   parameter_constraints: []
 
-
-#TODO Hyperband Parameters
 # Dynamic search job that uses a bandit approach and picks hyperparameters at random
 hyperband_search:
   run_id: 'example'
@@ -209,17 +207,15 @@ hyperband_search:
   parameters: []
 # Possible hyperparameter choices and alternatives
 #    - name:              # string, mandatory
-#      type:              # [ordinal, categorical, integer, float] mandatory
+#      type:              # [ordinal, choice, integer, float] mandatory
 #      uniform            # bool, mandatory for integer and float
 #      log_scale          # bool, mandatory for integer and float
 #      bounds             # [%f, %f], mandatory if uniform = True
 #      mu                 # float, mandatory if uniform = False, mean of normal distribution
 #      sigma              # float, mandatory if uniform = False, std. div. of normal distribution
-#      choices            # list of strings, mandatory if type = categorical
+#      values            # list of strings, mandatory if type = categorical
 #      values             # list of floats, mandatory if type = ordinal
 
-
-#TODO BOHB Parameters
 # Dynamic search job that uses a bandit approach and picks hyperparameters at random using bayesian statistics
 bohb_search:
   run_id: 'example'

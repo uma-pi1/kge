@@ -9,13 +9,13 @@ valid.filter_with_test: True
 valid.early_stopping.patience: 50
 valid.early_stopping.min_threshold.epochs: 50
 valid.early_stopping.min_threshold.metric_value: 0.05
-train.max_epochs: 500 
+train.max_epochs: 500
 valid.every: 5
 
 # RANDOM SEARCH SETTINGS
 random_search:
-  num_train_trials: 1
-  max_evals: 10
+  num_train_trials: 20
+  max_evals: 500
   parameters:
     # TRAIN
     - name: train.batch_size
@@ -47,13 +47,16 @@ random_search:
       values: [-1.0, 0.1, 0.2, 0.3]
     - name: negative_sampling.num_negatives_s
       type: range
-      bounds: [1, 100] 
+      bounds: [1, 100]
+      integer_space: 1
     - name: negative_sampling.num_negatives_o
       type: range
-      bounds: [1, 100] 
+      bounds: [1, 100]
+      integer_space: 1
     - name: negative_sampling.num_negatives_p
       type: range
-      bounds: [1, 10] 
+      bounds: [1, 10]
+      integer_space: 1
     # EMBEDDINGS
     - name: lookup_embedder.dim
       type: choice 

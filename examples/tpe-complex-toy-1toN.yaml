@@ -1,7 +1,7 @@
 job.type: search
-search.type: bohb
+search.type: tpe
 dataset.name: toy
-model: distmult
+model: complex
 
 # FIXED SETTINGS
 valid.metric: mean_reciprocal_rank_filtered_with_test
@@ -12,79 +12,72 @@ valid.early_stopping.min_threshold.metric_value: 0.05
 train.max_epochs: 500
 valid.every: 5
 
-# FIXED VALUES
-train.type: 1toN
-train.loss: bce
-train.lr_scheduler_args.mode: max
-train.lr_scheduler_args.patience: 4
-
-# BOHB SETTINGS
-bohb_search:
-  run_id: 'complex-toy-1toN'
-  host: '127.0.0.1'
-  port: "None"
-  sleep_interval: 0
-  min_budget: 100W
-  max_budget: 200
-  n_iter: 500
+# TPE SEARCH SETTINGS
+tpe_search:
   num_train_trials: 20
+  max_evals: 500
   parameters:
     # TRAIN
     - name: train.batch_size
-      type: ordinal
+      type: choice   
       values: [256, 512, 1024]
-      is_numerical: True
+    - name: train.type
+      type: fixed
+      value: 1toN
     - name: train.optimizer
       type: choice
       values: [Adagrad, Adam]
+    - name: train.loss
+      type: fixed
+      value: bce            # add MR once support for it with 1toN is added  
     - name: train.optimizer_args.lr
-      type: float
-      uniform: True
-      log_scale: False
+      type: range
       bounds: [0.0003, 1.0]
     - name: train.lr_scheduler
       type: choice
       values: [ConstantLRScheduler, ReduceLROnPlateau]
+    - name: train.lr_scheduler_args.mode
+      type: fixed
+      value: max  
+    - name: train.lr_scheduler_args.patience
+      type: fixed
+      value: 4  
     - name: 1toN.label_smoothing
-      type: ordinal
+      type: choice
       values: [-1.0, 0.1, 0.2, 0.3]
     - name: negative_sampling.num_negatives_s
-      type: integer
-      uniform: True
-      log_scale: False
+      type: range
       bounds: [1, 100]
+      integer_space: 1
     - name: negative_sampling.num_negatives_o
-      type: integer
-      uniform: True
-      log_scale: False
+      type: range
       bounds: [1, 100]
+      integer_space: 1
     - name: negative_sampling.num_negatives_p
-      type: integer
-      uniform: True
-      log_scale: False
+      type: range
       bounds: [1, 10]
+      integer_space: 1
     # EMBEDDINGS
     - name: lookup_embedder.dim
-      type: ordinal
+      type: choice 
       values: [98, 200, 512]
     - name: lookup_embedder.initialize
       type: choice
-      values: [xavier_normal_, xavier_uniform_, normal_, uniform_]
+      values: [xavier_normal_, xavier_uniform_, normal_, uniform_]  
     - name: lookup_embedder.regularize
       type: choice
       values: ['', 'l1', 'l2', 'l3']
-    - name: distmult.entity_embedder.regularize_weight
-      type: float
-      uniform: True
-      log_scale: False
+    - name: complex.entity_embedder.regularize_weight
+      type: range
       bounds: [0.0, 0.001]
-    - name: distmult.entity_embedder.dropout
-      type: float
-      uniform: True
-      log_scale: False
+    - name: complex.entity_embedder.dropout
+      type: range
       bounds: [0., .5]
-    - name: distmult.relation_embedder.dropout
-      type: float
-      uniform: True
-      log_scale: False
+    - name: complex.relation_embedder.dropout
+      type: range
       bounds: [0., .5]
+    # COMPLEX
+    - name: complex.auto_initialization
+      type: fixed
+      value: False
+

@@ -132,10 +132,10 @@ class BOHBWorker(Worker):
             v_name = p['name']
             v_type = p['type']
 
-            if v_type == 'categorical':
+            if v_type == 'choice':
                 config_space.add_hyperparameter(CSH.CategoricalHyperparameter(
                     v_name,
-                    choices=p['choices']
+                    choices=p['values']
                 ))
             elif v_type == 'ordinal':
                 config_space.add_hyperparameter(CSH.OrdinalHyperparameter(
