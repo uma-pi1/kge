@@ -20,8 +20,8 @@ train.lr_scheduler_args.patience: 4
 
 # BOHB SETTINGS
 bohb_search:
-  run_id: 'complex-toy-1toN'
-  host: '127.0.0.1'
+  run_id: 'distmult-toy-1toN'
+  host: '127.0.0.3'
   port: "None"
   sleep_interval: 0
   min_budget: 100W
@@ -31,7 +31,7 @@ bohb_search:
   parameters:
     # TRAIN
     - name: train.batch_size
-      type: ordinal
+      type: choice
       values: [256, 512, 1024]
       is_numerical: True
     - name: train.optimizer
@@ -46,7 +46,7 @@ bohb_search:
       type: choice
       values: [ConstantLRScheduler, ReduceLROnPlateau]
     - name: 1toN.label_smoothing
-      type: ordinal
+      type: choice
       values: [-1.0, 0.1, 0.2, 0.3]
     - name: negative_sampling.num_negatives_s
       type: integer
@@ -65,7 +65,7 @@ bohb_search:
       bounds: [1, 10]
     # EMBEDDINGS
     - name: lookup_embedder.dim
-      type: ordinal
+      type: choice
       values: [98, 200, 512]
     - name: lookup_embedder.initialize
       type: choice

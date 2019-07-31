@@ -20,8 +20,8 @@ train.lr_scheduler_args.patience: 4
 
 # HYPERBAND SETTINGS
 hyperband_search:
-  run_id: 'complex-toy-1toN'
-  host: '127.0.0.1'
+  run_id: 'distmult-toy-1toN'
+  host: '127.0.0.4'
   port: "None"
   sleep_interval: 0
   min_budget: 100W

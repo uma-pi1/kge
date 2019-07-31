@@ -22,17 +22,17 @@ complex.auto_initialization: False
 # BOHB SETTINGS
 bohb_search:
   run_id: 'complex-toy-1toN'
-  host: '127.0.0.1'
+  host: '127.0.0.2'
   port: "None"
   sleep_interval: 0
-  min_budget: 100W
+  min_budget: 100
   max_budget: 200
   n_iter: 500
   num_train_trials: 20
   parameters:
     # TRAIN
     - name: train.batch_size
-      type: ordinal
+      type: choice
       values: [256, 512, 1024]
       is_numerical: True
     - name: train.optimizer
@@ -47,7 +47,7 @@ bohb_search:
       type: choice
       values: [ConstantLRScheduler, ReduceLROnPlateau]
     - name: 1toN.label_smoothing
-      type: ordinal
+      type: choice
       values: [-1.0, 0.1, 0.2, 0.3]
     - name: negative_sampling.num_negatives_s
       type: integer
@@ -66,7 +66,7 @@ bohb_search:
       bounds: [1, 10]
     # EMBEDDINGS
     - name: lookup_embedder.dim
-      type: ordinal
+      type: choice
       values: [98, 200, 512]
     - name: lookup_embedder.initialize
       type: choice
