@@ -1,6 +1,8 @@
 job:
   type: train                 # train, eval, grid, ...
   device: 'cuda'
+#  device: 'cpu'
+
 
 ## INPUT/OUTPUT ################################################################
 
@@ -95,7 +97,7 @@ valid:
     # A minimum validation metric value threshold that should be reached after
     # n epochs, set to 0 epoch to turn off. Should be set very very conservatively
     # and the main purpose is for pruning completely useless hyperparameter
-    # settings hyper-parameter optimization.
+    # settings during hyper-parameter optimization.
     min_threshold:
       epochs: 0
       metric_value: 0.0
@@ -103,7 +105,7 @@ valid:
   # When to write a trace entry. Possible values: example, batch, epoch
   trace_level: epoch
 
-  # Whether test data should be leaked into validation (seriously!). Filtered
+  # Whether test data should used during validation. Filtered
   # metrics by default only use train and validation data. When this is set to
   # True, additionally produces "filtered_with_test" validation metrics (such as
   # MRR or HITS@k). Apparently, many existing models have been trained with this
@@ -113,6 +115,7 @@ valid:
 
 checkpoint:
   every: 5                    # epochs (disable with 0)
+  keep: 3                     # number of checkpoints to keep
 
 ## EVALUATION ##################################################################
 ## Used for evaluation jobs.

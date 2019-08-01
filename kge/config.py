@@ -348,9 +348,12 @@ class Config:
             return True
         return False
 
-    def checkpoint_file(self, epoch):
-        "Return path of checkpoint file for given epoch"
-        return os.path.join(self.folder, "checkpoint_{:05d}.pt".format(epoch))
+    def checkpoint_file(self, cpt_id):
+        "Return path of checkpoint file for given checkpoint id"
+        if is_number(cpt_id, int):
+            return os.path.join(self.folder, "checkpoint_{:05d}.pt".format(cpt_id))
+        else:
+            return os.path.join(self.folder, "checkpoint_{}.pt".format(cpt_id))
 
     def last_checkpoint(self):
         "Return epoch number of latest checkpoint"
