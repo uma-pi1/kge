@@ -1,6 +1,6 @@
 dataset:
-#  name: toy
-  name: fb15k-237
+  name: toy
+#  name: fb15k-237
 
 job:
   device: cuda
@@ -81,6 +81,12 @@ sfnn:
 ax_search:
   num_trials: 50
   parameters:
+    - name: inverse_relations_model.base_model.entity_embedder.initialize
+      type: fixed
+      value: uniform_
+    - name: inverse_relations_model.base_model.relation_embedder.initialize
+      type: fixed
+      value: uniform_
     - name: train.optimizer_args.lr
       type: range
       bounds: [0.0, 1.0]
