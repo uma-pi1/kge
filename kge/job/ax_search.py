@@ -1,3 +1,8 @@
+from math import ceil
+
+from ax import Models
+from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+
 from kge.job import AutoSearchJob
 from kge import Config
 from ax.service.ax_client import AxClient
@@ -18,19 +23,42 @@ class AxSearchJob(AutoSearchJob):
         return state
 
     def init_search(self):
-        self.ax_client = AxClient()
+
+        sobol_arms = self.config.get("ax_search.sobol_trials")
+        gpei_arms = self.config.get("ax_search.gpei_trials")
+
+        # BEGIN: from /ax/service/utils/dispatch.py
+
+        generation_strategy = GenerationStrategy(
+            name="Sobol+GPEI",
+            steps=[
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_arms=sobol_arms,
+                    min_arms_observed=ceil(sobol_arms / 2),
+                    enforce_num_arms=True,
+                ),
+                GenerationStep(
+                    model=Models.GPEI, num_arms=gpei_arms, recommended_max_parallelism=3
+                ),
+            ],
+        )
+
+        self.ax_client = AxClient(generation_strategy=generation_strategy)
         self.ax_client.create_experiment(
             name=self.job_id,
             parameters=self.config.get("ax_search.parameters"),
             objective_name="metric_value",
             minimize=False,
         )
+        # END: from /ax/service/utils/dispatch.py
 
         # By default, ax first uses a Sobol strategy for a certain number of arms,
-        # followed by Bayesian Optimization. If we resume this job, some of the Sobol
-        # arms may have already been generated. The corresponding arms will be
-        # registered later (when this job's run method is executed), but here we already
-        # change the generation strategy to take account of these configurations.
+        # and is maybe followed by Bayesian Optimization. If we resume this job,
+        # some of the Sobol arms may have already been generated. The corresponding
+        # arms will be registered later (when this job's run method is executed),
+        # but here we already change the generation strategy to take account of
+        # these configurations.
         num_generated = len(self.parameters)
         if num_generated > 0:
             old_curr = self.ax_client.generation_strategy._curr
@@ -45,10 +73,17 @@ class AxSearchJob(AutoSearchJob):
             )
 
     def register_trial(self, parameters=None):
-        if parameters is None:
-            parameters, trial_id = self.ax_client.get_next_trial()
-        else:
-            _, trial_id = self.ax_client.attach_trial(parameters)
+        trial_id = None
+        try:
+            if parameters is None:
+                parameters, trial_id = self.ax_client.get_next_trial()
+            else:
+                _, trial_id = self.ax_client.attach_trial(parameters)
+        except Exception as e:
+            self.config.log(
+                "Cannot generate trial parameters. Will try again after a "
+                + "running trial has completed. message was: {}".format(e)
+            )
         return parameters, trial_id
 
     def register_trial_result(self, trial_id, parameters, trace_entry):

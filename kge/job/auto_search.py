@@ -84,7 +84,7 @@ class AutoSearchJob(SearchJob):
 
         # let's go
         trial_no = 0
-        num_trials = self.config.get("ax_search.num_trials")
+        num_trials = self.config.get("search.num_trials")
         while trial_no < num_trials:
             self.config.log(
                 "Registering trial {}/{}...".format(trial_no, num_trials - 1)
@@ -125,7 +125,7 @@ class AutoSearchJob(SearchJob):
                         self,
                         trial_no,
                         config,
-                        self.config.get("ax_search.num_trials"),
+                        self.config.get("search.num_trials"),
                         list(parameters.keys()),
                     ),
                 )

@@ -11,10 +11,6 @@ job:
   device: cuda
   type: search
 
-search:
-  num_workers: 1
-  type: ax
-
 checkpoint:
   every: 5
 
@@ -79,8 +75,14 @@ sd_rescal:
     type: lookup_embedder
     dropout: 0.2
 
+search:
+  num_workers: 1
+  type: ax
+  num_trials: 4
+
 ax_search:
-  num_trials: 50
+  sobol_trials: 2
+  gpei_trials: 2
   parameters:
     - name: train.max_epochs
       type: fixed
@@ -110,6 +112,6 @@ ax_search:
       bounds: [0.0, 0.0000001]
   parameter_constraints: ["sd_rescal.block_size * sd_rescal.blocks <= 512"]
 
-search.num_workers: 4
-train.num_workers: 4
-eval.num_workers: 4
+search.num_workers: 2
+train.num_workers: 2
+eval.num_workers: 2
