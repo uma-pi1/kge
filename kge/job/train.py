@@ -87,7 +87,8 @@ the dataset (if not present).
     def run(self):
         """Start/resume the training job and run to completion."""
         self.config.log("Starting training...")
-        checkpoint = self.config.get("checkpoint.every")
+        checkpoint_every = self.config.get("checkpoint.every")
+        checkpoint_keep = self.config.get("checkpoint.keep")
         metric_name = self.config.get("valid.metric")
         patience = self.config.get("valid.early_stopping.patience")
         while True:
@@ -96,12 +97,16 @@ the dataset (if not present).
                 self.config.log("Maximum number of epochs reached.")
                 break
 
-            if patience > 0 and len(self.valid_trace) > 0:
+            # checking for model improvement according to metric_name
+            # and do early stopping and keep the best checkpoint
+            if len(self.valid_trace) > 0:
                 best_index = max(
                     range(len(self.valid_trace)),
                     key=lambda index: self.valid_trace[index][metric_name],
                 )
-                if len(self.valid_trace) > patience \
+                if best_index == len(self.valid_trace)-1:
+                    self.save(self.config.checkpoint_file('best'))
+                if patience > 0 and len(self.valid_trace) > patience \
                         and best_index < len(self.valid_trace) - patience:
                     self.config.log(
                         "Stopping early ({} did not improve over best result "
@@ -152,14 +157,22 @@ the dataset (if not present).
 
             # create checkpoint and delete old one, if necessary
             self.save(self.config.checkpoint_file(self.epoch))
-            if self.epoch > 1:
-                if not (checkpoint > 0 and ((self.epoch - 1) % checkpoint == 0)):
+            if self.epoch > 0:
+                checkpoint_epoch_file = -1
+                # delete checkpoints that are not in the checkpoint.every schedule
+                if checkpoint_every > 0 and self.epoch % checkpoint_every != 0:
+                    checkpoint_epoch_file = self.epoch
+                # keep a maximum number of checkpoint_keep checkpoints
+                if checkpoint_keep > 0 and self.epoch % checkpoint_every == 0:
+                    checkpoint_epoch_file = self.epoch - checkpoint_every*checkpoint_keep
+                if checkpoint_epoch_file > 0:
                     self.config.log(
                         "Removing old checkpoint {}...".format(
-                            self.config.checkpoint_file(self.epoch - 1)
+                            self.config.checkpoint_file(checkpoint_epoch_file)
                         )
                     )
-                    os.remove(self.config.checkpoint_file(self.epoch - 1))
+                    os.remove(self.config.checkpoint_file(checkpoint_epoch_file))
+
 
     def save(self, filename):
         """Save current state to specified file"""

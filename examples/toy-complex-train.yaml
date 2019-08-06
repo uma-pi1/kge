@@ -9,3 +9,9 @@ train:
 lookup_embedder.dim: 100
 #lookup_embedder.initialize: normal_
 lookup_embedder.initialize: xavier_uniform_
+
+train.lr_scheduler: ReduceLROnPlateau
+train.lr_scheduler_args: 
+  mode: max
+  patience: 4
+
