@@ -300,11 +300,13 @@ class EntityRankingJob(EvaluationJob):
         # Add small number to all scores to avoid scores of zero
         # Get tensor of 1s for each score which is higher than the true answer score.
         # Add 1s in each row to get the rank of the corresponding row.
+        # Substract 1 from each rank with the lowest possible value. TODO: unclear at the moment why we get self.dataset.num_entities ranks
 
         answers = answers.reshape((-1, 1)).expand(-1, self.dataset.num_entities).long()
         true_scores = torch.gather(scores, 1, answers)
         scores = scores + 1e-40
         ranks = torch.sum((scores > true_scores).long(), dim=1)
+        ranks = ranks - (ranks == self.dataset.num_entities).long()
         return ranks
 
     def _compute_metrics(self, rank_hist, suffix=""):
