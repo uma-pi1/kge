@@ -7,9 +7,10 @@ train:
     lr: 0.2
     weight_decay: 0.4e-7
 lookup_embedder.dim: 100
-#lookup_embedder.initialize: normal_
-lookup_embedder.initialize: xavier_uniform_
-
+complex.auto_initialization: False  
+lookup_embedder.initialize: uniform_
+lookup_embedder.uniform_args:
+  a: 0.5
 train.lr_scheduler: ReduceLROnPlateau
 train.lr_scheduler_args: 
   mode: max

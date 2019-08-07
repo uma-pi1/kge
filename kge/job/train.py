@@ -537,8 +537,6 @@ class TrainingJobNegativeSampling(TrainingJob):
         )
         self.num_examples = self.dataset.train.size(0)
 
-        # let the model add some hooks, if it wants to do so
-        self.model.prepare_job(self)
         self.is_prepared = True
 
     def _get_collate_fun(self):
