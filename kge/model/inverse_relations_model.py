@@ -16,26 +16,30 @@ class InverseRelationsModel(KgeModel):
 
         # Initialize base model
         # Using a dataset with twice the number of relations to initialize base model
-        alt_dataset = Dataset(dataset.config,
-                              dataset.num_entities,
-                              dataset.entities,
-                              dataset.num_relations * 2,
-                              dataset.relations,
-                              dataset.train,
-                              dataset.train_meta,
-                              dataset.valid,
-                              dataset.valid_meta,
-                              dataset.test,
-                              dataset.test_meta,
-                              )
-        base_model = KgeModel.create(config,
-                                     alt_dataset,
-                                     self.configuration_key + ".base_model")
+        alt_dataset = Dataset(
+            dataset.config,
+            dataset.num_entities,
+            dataset.entities,
+            dataset.num_relations * 2,
+            dataset.relations,
+            dataset.train,
+            dataset.train_meta,
+            dataset.valid,
+            dataset.valid_meta,
+            dataset.test,
+            dataset.test_meta,
+        )
+        base_model = KgeModel.create(
+            config, alt_dataset, self.configuration_key + ".base_model"
+        )
 
         # Initialize this model
-        super().__init__(config, dataset, base_model.get_scorer(), initialize_embedders=False)
+        super().__init__(
+            config, dataset, base_model.get_scorer(), initialize_embedders=False
+        )
         self._base_model = base_model
-        # TODO change entity_embedder assignment to sub and obj embedders when support for that is added
+        # TODO change entity_embedder assignment to sub and obj embedders when support
+        # for that is added
         self._entity_embedder = self._base_model.get_s_embedder()
         self._relation_embedder = self._base_model.get_p_embedder()
 
