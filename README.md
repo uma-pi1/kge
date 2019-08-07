@@ -16,3 +16,7 @@
   [example](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html)
 - Do not use type annotation `torch.Tensor`; it is a synonym for
   torch.FloatTensor and thus does not mean "any tensor".
+- Unspecified configuration values are indicated by
+  - `''` for strings
+  - `-1` for non-negative integers
+  - `.nan` for floats
