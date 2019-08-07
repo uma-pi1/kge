@@ -155,18 +155,12 @@ class KgeEmbedder(KgeBase):
         #: location of the configuration options of this embedder
         self.configuration_key = configuration_key
         self.embedder_type = self.get_option("type")
-        if self.configuration_key + ".type" not in config.options:
-            self.config.set(
-                self.configuration_key + ".type",
-                self.embedder_type,
-                create=True,
-                log=True,
-            )
 
         # verify all custom options by trying to set them in a copy of this
         # configuration (quick and dirty, but works)
         custom_options = Config.flatten(config.get(self.configuration_key))
-        del custom_options["type"]
+        if "type" in custom_options:
+            del custom_options["type"]
         dummy_config = self.config.clone()
         for key, value in custom_options.items():
             try:
