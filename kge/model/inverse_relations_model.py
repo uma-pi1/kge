@@ -44,7 +44,6 @@ class InverseRelationsModel(KgeModel):
         self._relation_embedder = self._base_model.get_p_embedder()
 
     def prepare_job(self, job, **kwargs):
-        super().prepare_job(job, **kwargs)
         self._base_model.prepare_job(job, **kwargs)
 
     def penalty(self, **kwargs):
