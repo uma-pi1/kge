@@ -19,6 +19,7 @@ class AutoSearchJob(SearchJob):
     def __init__(self, config: Config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
 
+        self.num_trials = None # needs to be set in subclasses
         self.trial_ids: List = []  #: backend-specific identifiers for each trial
         self.parameters: List[dict] = []  #: hyper-parameters of each trial
         self.results: List[dict] = []  #: trace entry of best result of each trial
@@ -84,10 +85,9 @@ class AutoSearchJob(SearchJob):
 
         # let's go
         trial_no = 0
-        num_trials = self.config.get("search.num_trials")
-        while trial_no < num_trials:
+        while trial_no < self.num_trials:
             self.config.log(
-                "Registering trial {}/{}...".format(trial_no, num_trials - 1)
+                "Registering trial {}/{}...".format(trial_no, self.num_trials - 1)
             )
 
             # determine next trial
@@ -125,13 +125,13 @@ class AutoSearchJob(SearchJob):
                         self,
                         trial_no,
                         config,
-                        self.config.get("search.num_trials"),
+                        self.num_trials,
                         list(parameters.keys()),
                     ),
                 )
 
                 # on last iteration, wait for all running trials to complete
-                if trial_no == num_trials - 1:
+                if trial_no == self.num_trials - 1:
                     self.wait_task(return_when=concurrent.futures.ALL_COMPLETED)
             else:
                 # couldn't generate a new trial since data is lacking; so wait

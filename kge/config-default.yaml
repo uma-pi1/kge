@@ -133,8 +133,6 @@ eval:
 ## HYPERPARAMETER SEARCH ###############################################################
 
 search:
-  num_trials: 10
-
   # the type of search to run (see descriptions below): manual, grid, ax
   type: ax
 
@@ -170,8 +168,11 @@ grid_search:
 
 # Dynamic search job that picks configurations using ax
 ax_search:
-  sobol_trials: 5
-  gpei_trials: 5
+  # Total number of trials to run
+  num_trials: 10
+
+  # Number of sobol trials to run (-1: automatic); remaining trials are GP+EI
+  num_sobol_trials: -1
 
   # Search space definition passed to ax. See create_experiment in
   # https://ax.dev/api/service.html#module-ax.service.ax_client
