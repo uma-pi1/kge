@@ -30,7 +30,7 @@ class SparseDiagonalRescalScorer(RelationalScorer):
         #
         #   Relation embedding:
         #
-        #	M =	[	M1	M2	M3	M4	M5	M6	M7	M8	]
+        #	M =	[	m1	m2	m3	m4	m5	m6	m7	m8	]
         #
         #   Entity embeddings (called left and right for the left and right hand side
         #   of the bilinear product):
@@ -46,26 +46,26 @@ class SparseDiagonalRescalScorer(RelationalScorer):
         #
         #			r1	r2	r3	r4
         #
-        #	l1		M1		M3
-        #	l2			M2		M4
-        #	l3		M5		M7
-        #	l4			M6		M8
+        #	l1		m1		m3
+        #	l2			m2		m4
+        #	l3		m5		m7
+        #	l4			m6		m8
         #
         #   We compute M x r with the following
         #
-        #	M * r   =   M1	M2	M3	M4	M5	M6	M7	M8  *   r1	r2	r3	r4	r1	r2	r3	r4
+        #	M * r   =   m1	m2	m3	m4	m5	m6	m7	m8  *   r1	r2	r3	r4	r1	r2	r3	r4
         #
-        #	View(1,2,2,2) →	M1*r1		M2*r2
-        #					M3*r3		M4*r4
+        #	View(1,2,2,2) →	m1*r1		m2*r2
+        #					m3*r3		m4*r4
         #
-        #					M5*r1		M6*r2
-        #					M7*r3		M8*r4
+        #					m5*r1		m6*r2
+        #					m7*r3		m8*r4
         #
-        #	Sum(-2)			M1*r1+M3*r3
-        #					M2*r2+M4*r4
+        #	Sum(-2)			m1*r1+m3*r3
+        #					m2*r2+m4*r4
         #
-        #					M5*r1+M7*r3
-        #					M6*r2+M8*r4
+        #					m5*r1+m7*r3
+        #					m6*r2+m8*r4
         #
         #
         #   l^T x M x r =
@@ -79,26 +79,26 @@ class SparseDiagonalRescalScorer(RelationalScorer):
         #
         #   first transpose M and flatten it to compute l x M^T
         #
-        #	M.View(1,2,2,2) →	M1		M2
-        #						M3		M4
+        #	M.View(1,2,2,2) →	m1		m2
+        #						m3		m4
         #
-        #						M5		M6
-        #						M7		M8
+        #						m5		m6
+        #						m7		m8
         #
-        #	Permute(0,2,1,3) →	M1		M2
-        #						M5		M6
+        #	Permute(0,2,1,3) →	m1		m2
+        #						m5		m6
         #
-        #						M3		M4
-        #						M7		M8
+        #						m3		m4
+        #						m7		m8
         #
-        #	View(1,-1) →	M1	M2	M5	M6	M3	M4	M7	M8
+        #	View(1,-1) →	m1	m2	m5	m6	m3	m4	m7	m8
         #
         #			l1	l2	l3	l4
         #
-        #	r1		M1		M5
-        #	r2			M2		M6
-        #	r3		M3		M7
-        #	r4			M4		M8
+        #	r1		m1		m5
+        #	r2			m2		m6
+        #	r3		m3		m7
+        #	r4			m4		m8
         #
         #   now we can compute l x M^T
         #
@@ -155,7 +155,7 @@ class SparseDiagonalRescal(KgeModel):
 
     Relation embedding:
 
-    M =	[	M1	M2	M3	M4	M5	M6	M7	M8	]
+    M =	[	m1	m2	m3	m4	m5	m6	m7	m8	]
 
     e1  = 	[	e11	e12	e13	e14	]
     e2 = 	[	e21	e22	e23	e24	]
@@ -166,10 +166,10 @@ class SparseDiagonalRescal(KgeModel):
 
             e21	e22	e23	e24
 
-    e11		M1		M3
-    e12			M2		M4
-    e13		M5		M7
-    e14			M6		M8
+    e11		m1		m3
+    e12			m2		m4
+    e13		m5		m7
+    e14			m6		m8
 
     Sparse Diagonal RESCAL contains: Distmult with blocks = 1 and
     block size = entity size, unconstrained ComplEx with blocks = 2 and
