@@ -1,9 +1,11 @@
+import importlib
+import tempfile
+
+import torch.nn
+
 import kge
 from kge import Config, Dataset
 from kge.util.misc import filename_in_module
-import torch.nn
-import tempfile
-import importlib
 
 
 class KgeBase(torch.nn.Module):
@@ -273,6 +275,14 @@ class KgeModel(KgeBase):
         self._scorer = scorer
 
     def _init_configuration(self, config, configuration_key):
+        r"""Initializes self.config and self.configuration_key.
+
+        Only after this method has been called, `get_option`, `check_option`, and
+        `set_option` should be used. This method is automatically called in the
+        constructor of this class, but can also be called by subclasses before calling
+        the superclass constructor to allow access to these three methods.
+
+        """
         self.config = config
         self.configuration_key = configuration_key
         if self.configuration_key:
@@ -396,6 +406,12 @@ class KgeModel(KgeBase):
 
     def get_scorer(self) -> RelationalScorer:
         return self._scorer
+
+    def set_option(self, name, value):
+        if self.configuration_key:
+            self.config.set(self.configuration_key + "." + name, value)
+        else:
+            self.config.set(name, value)
 
     def get_option(self, name):
         if self.configuration_key:

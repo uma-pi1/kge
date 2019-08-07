@@ -91,7 +91,11 @@ class Config:
                 try:
                     value = self.get(parent + "." + field)
                     # uncomment this to see where defaults are taken from
-                    # self.log("Using value of {}={} for key {}".format(parent + "." + field, value, key))
+                    # self.log(
+                    #     "Using value of {}={} for key {}".format(
+                    #         parent + "." + field, value, key
+                    #     )
+                    # )
                     return value
                 except KeyError:
                     # try further
