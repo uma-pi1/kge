@@ -289,9 +289,9 @@ class EntityRankingJob(EvaluationJob):
         # need for loop because batch_hist[o_ranks]+=1 ignores repeated
         # entries in o_ranks
         for r in o_ranks:
-            batch_hist[r-1] += 1
+            batch_hist[r] += 1
         for r in s_ranks:
-            batch_hist[r-1] += 1
+            batch_hist[r] += 1
         return batch_hist, s_ranks, o_ranks, scores_sp, scores_po
 
     def _get_rank(self, scores, answers):
