@@ -14,6 +14,8 @@ class AxSearchJob(AutoSearchJob):
 
     def __init__(self, config: Config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
+        self.num_trials = self.config.get("ax_search.num_trials")
+        self.num_sobol_trials = self.config.get("ax_search.num_sobol_trials")
         self.ax_client = None
 
     # Overridden such that instances of search job can be pickled to workers
@@ -23,35 +25,37 @@ class AxSearchJob(AutoSearchJob):
         return state
 
     def init_search(self):
-
-        sobol_arms = self.config.get("ax_search.sobol_trials")
-        gpei_arms = self.config.get("ax_search.gpei_trials")
-
-        # BEGIN: from /ax/service/utils/dispatch.py
-
-        generation_strategy = GenerationStrategy(
-            name="Sobol+GPEI",
-            steps=[
-                GenerationStep(
-                    model=Models.SOBOL,
-                    num_arms=sobol_arms,
-                    min_arms_observed=ceil(sobol_arms / 2),
-                    enforce_num_arms=True,
-                ),
-                GenerationStep(
-                    model=Models.GPEI, num_arms=gpei_arms, recommended_max_parallelism=3
-                ),
-            ],
-        )
-
-        self.ax_client = AxClient(generation_strategy=generation_strategy)
+        if self.num_sobol_trials != -1:
+            # BEGIN: from /ax/service/utils/dispatch.py
+            generation_strategy = GenerationStrategy(
+                name="Sobol+GPEI",
+                steps=[
+                    GenerationStep(
+                        model=Models.SOBOL,
+                        num_arms=self.num_sobol_trials,
+                        min_arms_observed=ceil(self.num_sobol_trials / 2),
+                        enforce_num_arms=True,
+                    ),
+                    GenerationStep(
+                        model=Models.GPEI, num_arms=-1, recommended_max_parallelism=3
+                    ),
+                ],
+            )
+            # END: from /ax/service/utils/dispatch.py
+            self.ax_client = AxClient(generation_strategy=generation_strategy)
+        else:
+            self.ax_client = AxClient()
         self.ax_client.create_experiment(
             name=self.job_id,
             parameters=self.config.get("ax_search.parameters"),
             objective_name="metric_value",
             minimize=False,
         )
-        # END: from /ax/service/utils/dispatch.py
+        self.config.log(
+            "ax search initialized with {}".format(
+                self.ax_client.generation_strategy
+            )
+        )
 
         # By default, ax first uses a Sobol strategy for a certain number of arms,
         # and is maybe followed by Bayesian Optimization. If we resume this job,
