@@ -94,6 +94,7 @@ valid:
     # stopped when there has been no improvement (compared to the best overall
     # result so far) in the validation metric during the last n validation runs.
     patience: 5
+
     # A minimum validation metric value threshold that should be reached after
     # n epochs, set to 0 epoch to turn off. Should be set very very conservatively
     # and the main purpose is for pruning completely useless hyperparameter
@@ -113,9 +114,15 @@ valid:
   # mean_reciprocal_rank_filtered_with_test.
   filter_with_test: False
 
+
 checkpoint:
-  every: 5                    # epochs (disable with 0)
-  keep: 3                     # number of checkpoints to keep
+  # In addition the the checkpoint of the last epoch (which is transient),
+  # create an additional checkpoint every this many epochs. Disable additional
+  # checkpoints with 0.
+  every: 5
+
+  # Keep this many most recent additional checkpoints.
+  keep: 3
 
 ## EVALUATION ##################################################################
 ## Used for evaluation jobs.
