@@ -4,6 +4,7 @@ sd_rescal:
   class_name: SparseDiagonalRescal
   blocks: 4
   block_size: 32
+  auto_initialization: True
   entity_embedder:
     type: lookup_embedder
     dim: -1  # determine automatically
