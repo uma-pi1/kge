@@ -1,6 +1,7 @@
 import: [lookup_embedder]
 
 sd_rescal:
+  auto_initialization: True
   class_name: SparseDiagonalRescal
   blocks: 4
   block_size: 32
