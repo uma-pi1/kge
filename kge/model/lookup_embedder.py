@@ -28,9 +28,11 @@ class LookupEmbedder(KgeEmbedder):
 
         try:
             init_args = self.get_option(init_ + "args")
-            # TODO remove this hack while keeping the feature
-            if init_ == "uniform_":
+            # Automatically set arg b for uniform_ if not given
+            if "b" not in init_args:
                 init_args["b"] = init_args["a"] * -1
+                self.config.set(init_ + "args.b", init_args["b"], log=True)
+
         except KeyError:
             init_args = self.get_option("initialize_args")
 
