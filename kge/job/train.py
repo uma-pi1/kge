@@ -157,22 +157,26 @@ the dataset (if not present).
 
             # create checkpoint and delete old one, if necessary
             self.save(self.config.checkpoint_file(self.epoch))
-            if self.epoch > 0:
-                checkpoint_epoch_file = -1
-                # delete checkpoints that are not in the checkpoint.every schedule
-                if checkpoint_every > 0 and self.epoch % checkpoint_every != 0:
-                    checkpoint_epoch_file = self.epoch
-                # keep a maximum number of checkpoint_keep checkpoints
-                if checkpoint_keep > 0 and self.epoch % checkpoint_every == 0:
-                    checkpoint_epoch_file = self.epoch - checkpoint_every*checkpoint_keep
-                if checkpoint_epoch_file > 0:
+            if self.epoch > 1:
+                delete_checkpoint_epoch = -1
+                if checkpoint_every == 0:
+                    # do not keep any old checkpoints
+                    delete_checkpoint_epoch = self.epoch - 1
+                elif (self.epoch - 1) % checkpoint_every != 0:
+                    # delete checkpoints that are not in the checkpoint.every schedule
+                    delete_checkpoint_epoch = self.epoch - 1
+                elif checkpoint_keep > 0:
+                    # keep a maximum number of checkpoint_keep checkpoints
+                    delete_checkpoint_epoch = (
+                        self.epoch - 1 - checkpoint_every * checkpoint_keep
+                    )
+                if delete_checkpoint_epoch > 0:
                     self.config.log(
                         "Removing old checkpoint {}...".format(
-                            self.config.checkpoint_file(checkpoint_epoch_file)
+                            self.config.checkpoint_file(delete_checkpoint_epoch)
                         )
                     )
-                    os.remove(self.config.checkpoint_file(checkpoint_epoch_file))
-
+                    os.remove(self.config.checkpoint_file(delete_checkpoint_epoch))
 
     def save(self, filename):
         """Save current state to specified file"""
