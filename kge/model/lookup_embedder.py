@@ -30,6 +30,13 @@ class LookupEmbedder(KgeEmbedder):
         except KeyError:
             init_args = self.get_option("initialize_args")
 
+        # TODO temporal hack to remove entries which belong to other initializers
+        # Needed so we can set specific ranges for all of the in ax
+        initializers = ["normal_", "uniform_", "xavier_normal_", "xavier_uniform_"]
+        for initializer in initializers:
+            if initializer in init_args:
+                del init_args[initializer]
+
         # Automatically set arg b for uniform_ if not given
         # TODO can we avoid the hacky if "uniform_"?
         if init_ == "uniform_" and "b" not in init_args:
