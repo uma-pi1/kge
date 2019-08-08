@@ -9,15 +9,17 @@ lookup_embedder:
   regularize: 'l2'            # '', 'l1', 'l2'
   regularize_weight: 0.0
   initialize: normal_         # xavier_uniform_, xavier_normal_, uniform_, normal_
-  initialize_args:            # this is default if specific option below are not used
+  initialize_args:            # this is default if specific option below are not specified
     +++: +++
-  normal_args: 
-    mean: 0.0
-    std: 0.1
-  uniform_args:
-    a: 0.0
-    b: 1.0
-  xavier_normal_args:
-    gain: 1.0
-  xavier_uniform_args:
-    gain: 1.0
+  # examples for specifying args for specific initializers (useful for ax search)
+  #  normal_:
+  #    mean: 0.0
+  #    std: 0.1
+  #  uniform_:
+  #    a: 0.5
+  #    #b: -0.5    
+  #  xavier_normal_:
+  #    gain: 1.0
+  #  xavier_uniform_:
+  #    gain: 1.0
+
