@@ -26,8 +26,9 @@ class TrainingJob(Job):
         super().__init__(config, dataset, parent_job)
         self.model = KgeModel.create(config, dataset)
         self.optimizer = KgeOptimizer.create(config, self.model)
-        self.lr_scheduler, self.metric_based_scheduler = KgeLRScheduler.create(config,
-                                                                               self.optimizer)
+        self.lr_scheduler, self.metric_based_scheduler = KgeLRScheduler.create(
+            config, self.optimizer
+        )
         self.loss = KgeLoss.create(config)
         self.batch_size = config.get("train.batch_size")
         self.device = self.config.get("job.device")
@@ -104,21 +105,30 @@ the dataset (if not present).
                     range(len(self.valid_trace)),
                     key=lambda index: self.valid_trace[index][metric_name],
                 )
-                if best_index == len(self.valid_trace)-1:
-                    self.save(self.config.checkpoint_file('best'))
-                if patience > 0 and len(self.valid_trace) > patience \
-                        and best_index < len(self.valid_trace) - patience:
+                if best_index == len(self.valid_trace) - 1:
+                    self.save(self.config.checkpoint_file("best"))
+                if (
+                    patience > 0
+                    and len(self.valid_trace) > patience
+                    and best_index < len(self.valid_trace) - patience
+                ):
                     self.config.log(
                         "Stopping early ({} did not improve over best result "
-                            + "in the last {} validation runs)."
-                        .format(metric_name, patience))
+                        + "in the last {} validation runs).".format(
+                            metric_name, patience
+                        )
+                    )
                     break
-                if self.epoch > self.config.get("valid.early_stopping.min_threshold.epochs")\
-                        and self.valid_trace[best_index][metric_name] < \
-                            self.config.get("valid.early_stopping.min_threshold.metric_value"):
+                if self.epoch > self.config.get(
+                    "valid.early_stopping.min_threshold.epochs"
+                ) and self.valid_trace[best_index][metric_name] < self.config.get(
+                    "valid.early_stopping.min_threshold.metric_value"
+                ):
                     self.config.log(
-                        "Stopping early ({} did not achieve min treshold after {} epochs"
-                            .format(metric_name, self.epoch))
+                        "Stopping early ({} did not achieve min treshold after {} epochs".format(
+                            metric_name, self.epoch
+                        )
+                    )
                     break
 
             # start a new epoch
@@ -188,12 +198,15 @@ the dataset (if not present).
                 "valid_trace": self.valid_trace,
                 "model": self.model.save(),
                 "optimizer_state_dict": self.optimizer.state_dict(),
+                "job_id": self.job_id,
             },
             filename,
         )
 
     def load(self, filename):
-        """Load job state from specified file"""
+        """Load job state from specified file.
+
+        Returns job id of the job that created the checkpoint."""
         self.config.log("Loading checkpoint from {}...".format(filename))
         checkpoint = torch.load(filename)
         if "model" in checkpoint:
@@ -206,6 +219,7 @@ the dataset (if not present).
         self.epoch = checkpoint["epoch"]
         self.valid_trace = checkpoint["valid_trace"]
         self.model.train()
+        return checkpoint["job_id"]
 
     def resume(self):
         """Load job state from last checkpoint.
@@ -214,7 +228,8 @@ the dataset (if not present).
         last_checkpoint = self.config.last_checkpoint()
         if last_checkpoint is not None:
             checkpoint_file = self.config.checkpoint_file(last_checkpoint)
-            self.load(checkpoint_file)
+            self.resumed_from_job = self.load(checkpoint_file)
+            self.config.log("Resumed from job {}".format(self.resumed_from_job))
         else:
             self.config.log("No checkpoint found, starting from scratch...")
 
@@ -379,8 +394,10 @@ class TrainingJob1toN(TrainingJob):
             and self.label_smoothing <= 1.0 / dataset.num_entities
         ):
             # just to be sure it's used correctly
-            config.log("Setting label_smoothing to 1/dataset.num_entities = {}, "
-            "was set to {}".format(1.0 / dataset.num_entities, self.label_smoothing))
+            config.log(
+                "Setting label_smoothing to 1/dataset.num_entities = {}, "
+                "was set to {}".format(1.0 / dataset.num_entities, self.label_smoothing)
+            )
             self.label_smoothing = 1.0 / dataset.num_entities
 
         config.log("Initializing 1-to-N training job...")
@@ -516,9 +533,7 @@ class TrainingJob1toN(TrainingJob):
         return loss_value, batch_size, batch_prepare_time, batch_forward_time
 
 
-
 class TrainingJobNegativeSampling(TrainingJob):
-
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
         self._sampler = KgeSampler.create(config, dataset)
@@ -556,9 +571,13 @@ class TrainingJobNegativeSampling(TrainingJob):
             labels = []
             for batch_index, example_index in enumerate(batch):
                 triples.append(self.dataset.train[example_index].type(torch.long))
-                labels.extend([1]+[0]*(self._sampler.num_negatives))
+                labels.extend([1] + [0] * (self._sampler.num_negatives))
 
-            triples = torch.stack(triples).repeat(1, 1+self._sampler.num_negatives).view(-1, 3)
+            triples = (
+                torch.stack(triples)
+                .repeat(1, 1 + self._sampler.num_negatives)
+                .view(-1, 3)
+            )
 
             offset = 0
             for slot, slot_num_negatives, voc_size in [
@@ -566,11 +585,21 @@ class TrainingJobNegativeSampling(TrainingJob):
                 ([1], self._sampler._num_negatives_p, self.dataset.num_relations),
                 ([2], self._sampler._num_negatives_o, self.dataset.num_entities),
             ]:
-                triples[list(itertools.chain(
-                    *map(lambda x: range(x+1, x+ slot_num_negatives+1),
-                        range(offset, triples.size(0), 1 + self._sampler.num_negatives)))),
-                        (slot * slot_num_negatives)*len(batch)
-                    ] = self._sampler.sample(voc_size, slot_num_negatives*len(batch))
+                triples[
+                    list(
+                        itertools.chain(
+                            *map(
+                                lambda x: range(x + 1, x + slot_num_negatives + 1),
+                                range(
+                                    offset,
+                                    triples.size(0),
+                                    1 + self._sampler.num_negatives,
+                                ),
+                            )
+                        )
+                    ),
+                    (slot * slot_num_negatives) * len(batch),
+                ] = self._sampler.sample(voc_size, slot_num_negatives * len(batch))
                 offset += slot_num_negatives
             return triples, torch.tensor(labels, dtype=torch.float)
 
