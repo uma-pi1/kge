@@ -78,11 +78,10 @@ sd_rescal:
 search:
   num_workers: 1
   type: ax
-  num_trials: 4
 
 ax_search:
-  sobol_trials: 2
-  gpei_trials: 2
+  num_trials: 20
+  num_sobol_trials: 10
   parameters:
     - name: train.max_epochs
       type: fixed
@@ -110,7 +109,6 @@ ax_search:
     - name: lookup_embedder.regularize_weight
       type: range
       bounds: [0.0, 0.0000001]
-  parameter_constraints: ["sd_rescal.block_size * sd_rescal.blocks <= 512"]
 
 search.num_workers: 2
 train.num_workers: 2

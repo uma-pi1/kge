@@ -50,6 +50,8 @@ class AxSearchJob(AutoSearchJob):
             parameters=self.config.get("ax_search.parameters"),
             objective_name="metric_value",
             minimize=False,
+            parameter_constraints=self.config.get("ax_search.parameter_constraints"),
+
         )
         self.config.log(
             "ax search initialized with {}".format(
