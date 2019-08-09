@@ -29,7 +29,7 @@ class AutoSearchJob(SearchJob):
         checkpoint = torch.load(filename)
         self.parameters = checkpoint["parameters"]
         self.results = checkpoint["results"]
-        return checkpoint["job_id"]
+        return checkpoint.get("job_id")
 
     def save(self, filename):
         self.config.log("Saving checkpoint to {}...".format(filename))

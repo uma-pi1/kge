@@ -219,7 +219,7 @@ the dataset (if not present).
         self.epoch = checkpoint["epoch"]
         self.valid_trace = checkpoint["valid_trace"]
         self.model.train()
-        return checkpoint["job_id"]
+        return checkpoint.get("job_id")
 
     def resume(self):
         """Load job state from last checkpoint.
