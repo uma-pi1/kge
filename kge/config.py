@@ -364,7 +364,7 @@ class Config:
         # stupid implementation, but works
         tried_epoch = 0
         found_epoch = 0
-        while tried_epoch < found_epoch + 100:
+        while tried_epoch < found_epoch + 500:
             tried_epoch += 1
             if os.path.exists(self.checkpoint_file(tried_epoch)):
                 found_epoch = tried_epoch
