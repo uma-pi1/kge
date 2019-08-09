@@ -1,4 +1,8 @@
+import math
+
 import torch
+from pandas.core.internals import blocks
+
 from kge import Config, Dataset
 from kge.model.kge_model import KgeEmbedder, KgeModel, RelationalScorer
 
@@ -62,6 +66,35 @@ class Rescal(KgeModel):
             scorer=RescalScorer(config=config, dataset=dataset),
             configuration_key=configuration_key
         )
+
+        # auto initialize such that scores have unit variance
+        if self.get_option("auto_initialization"):
+            # Var[score] = blocks^2*block_size*var_e^2*var_r, where var_e/var_r are the variances
+            # of the entries
+            #
+            # Thus we set var_e=var_r=(1.0/(blocks^2*block_size))^(1/6)
+            std = math.pow(1.0 / self.get_option("entity_embedder.dim") ** 2, 1.0 / 6.0)
+
+            config.set(
+                self.configuration_key + ".entity_embedder.initialize",
+                "normal_",
+                log=True,
+            )
+            config.set(
+                self.configuration_key + ".entity_embedder.initialize_args",
+                {"mean": 0.0, "std": std},
+                log=True,
+            )
+            config.set(
+                self.configuration_key + ".relation_embedder.initialize",
+                "normal_",
+                log=True,
+            )
+            config.set(
+                self.configuration_key + ".relation_embedder.initialize_args",
+                {"mean": 0.0, "std": std},
+                log=True,
+            )
 
 
 def rescal_set_relation_embedder_dim(config, dataset, rel_emb_conf_key):
