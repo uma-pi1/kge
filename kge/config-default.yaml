@@ -53,6 +53,7 @@ train:
   num_workers: 0
   pin_memory: False
   trace_level: epoch          # batch or epoch
+  auto_correct: False         # True: allows for trainer to adjust certain setting, False: throws exception
 
 1toN:
   # Amount of label smoothing (disabled when <0). Disencourages models to
