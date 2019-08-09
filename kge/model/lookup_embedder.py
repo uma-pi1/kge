@@ -25,14 +25,23 @@ class LookupEmbedder(KgeEmbedder):
 
         # initialize weights
         init_ = self.get_option("initialize")
-
         try:
-            init_args = self.get_option(init_ + "args")
-            # TODO remove this hack while keeping the feature
-            if init_ == "uniform_":
-                init_args["b"] = init_args["a"] * -1
+            init_args = self.get_option("initialize_args." + init_)
         except KeyError:
             init_args = self.get_option("initialize_args")
+
+        # TODO temporal hack to remove entries which belong to other initializers
+        # Needed so we can set specific ranges for all of the in ax
+        initializers = ["normal_", "uniform_", "xavier_normal_", "xavier_uniform_"]
+        for initializer in initializers:
+            if initializer in init_args:
+                del init_args[initializer]
+
+        # Automatically set arg b for uniform_ if not given
+        # TODO can we avoid the hacky if "uniform_"?
+        if init_ == "uniform_" and "b" not in init_args:
+            init_args["b"] = init_args["a"] * -1
+            self.config.set(configuration_key + ".initialize_args.b", init_args["b"], log=True)
 
         self.initialize(
             self.embeddings.weight.data,

@@ -259,7 +259,7 @@ class EntityRankingJob(EvaluationJob):
             trace_entry[metric_name] = eval(
                 self.config.get("valid.metric_expr"),
                 None,
-                {"config": self.config, **trace_entry},
+                dict(config=self.config, **trace_entry),
             )
 
         # write out trace

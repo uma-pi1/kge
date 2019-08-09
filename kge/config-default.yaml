@@ -86,7 +86,7 @@ valid:
   # should be used), a Python expression to compute the metric. Can refer to
   # trace entries directly and to configuration options via config.
   # Example: 'math.sqrt(mean_reciprocal_rank) + config.get("user.par")'
-  metric_expr: ''
+  metric_expr: 'float("nan")'
 
   early_stopping:
     # Grace period of validation runs before a training run is stopped early

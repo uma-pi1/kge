@@ -12,6 +12,7 @@ class Job:
         self.dataset = dataset
         self.job_id = str(uuid.uuid4())
         self.parent_job = parent_job
+        self.resumed_from_job = None
         userhome = os.path.expanduser("~")
         username = os.path.split(userhome)[-1]
         self.trace_entry = self.trace(
@@ -27,6 +28,8 @@ class Job:
 
     def resume(self):
         """Restores all relevant state to resume a previous job.
+
+        Should set `resumed_from_job` to the job ID of the previous job.
 
         To run the restored job, use :func:`run`.
 
@@ -60,6 +63,8 @@ class Job:
         information about this job. See `Config.trace` for more information."""
         if self.parent_job is not None:
             kwargs["parent_job_id"] = self.parent_job.job_id
+        if self.resumed_from_job is not None:
+            kwargs["resumed_from_job_id"] = self.resumed_from_job
 
         return self.config.trace(
             job_id=self.job_id, job=self.config.get("job.type"), **kwargs

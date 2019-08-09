@@ -19,7 +19,7 @@ class AutoSearchJob(SearchJob):
     def __init__(self, config: Config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
 
-        self.num_trials = None # needs to be set in subclasses
+        self.num_trials = None  # needs to be set in subclasses
         self.trial_ids: List = []  #: backend-specific identifiers for each trial
         self.parameters: List[dict] = []  #: hyper-parameters of each trial
         self.results: List[dict] = []  #: trace entry of best result of each trial
@@ -29,16 +29,25 @@ class AutoSearchJob(SearchJob):
         checkpoint = torch.load(filename)
         self.parameters = checkpoint["parameters"]
         self.results = checkpoint["results"]
+        return checkpoint.get("job_id")
 
     def save(self, filename):
         self.config.log("Saving checkpoint to {}...".format(filename))
-        torch.save({"parameters": self.parameters, "results": self.results}, filename)
+        torch.save(
+            {
+                "parameters": self.parameters,
+                "results": self.results,
+                "job_id": self.job_id,
+            },
+            filename,
+        )
 
     def resume(self):
         last_checkpoint = self.config.last_checkpoint()
         if last_checkpoint is not None:
             checkpoint_file = self.config.checkpoint_file(last_checkpoint)
-            self.load(checkpoint_file)
+            self.resumed_from_job = self.load(checkpoint_file)
+            self.config.log("Resumed from job {}".format(self.resumed_from_job))
         else:
             self.config.log("No checkpoint found, starting from scratch...")
 
@@ -121,13 +130,7 @@ class AutoSearchJob(SearchJob):
             if trial_id is not None:
                 self.submit_task(
                     kge.job.search._run_train_job,
-                    (
-                        self,
-                        trial_no,
-                        config,
-                        self.num_trials,
-                        list(parameters.keys()),
-                    ),
+                    (self, trial_no, config, self.num_trials, list(parameters.keys())),
                 )
 
                 # on last iteration, wait for all running trials to complete
@@ -172,11 +175,13 @@ class AutoSearchJob(SearchJob):
                 metric_name, trial_metric_values[best_trial_index]
             )
         )
-        self.trace(echo=True,
-                   echo_prefix="  ",
-                   log=True,
-                   scope="search",
-                   **self.results[best_trial_index])
+        self.trace(
+            echo=True,
+            echo_prefix="  ",
+            log=True,
+            scope="search",
+            **self.results[best_trial_index]
+        )
 
         # DISABLED FOR NOW SINCE IDENTICAL TO BEST TRIAL
         # output parameter estimates

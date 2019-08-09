@@ -8,11 +8,26 @@ train:
     weight_decay: 0.4e-7
 lookup_embedder.dim: 100
 complex.auto_initialization: False  
-lookup_embedder.initialize: uniform_
-lookup_embedder.uniform_args:
-  a: 0.5
 train.lr_scheduler: ReduceLROnPlateau
 train.lr_scheduler_args: 
   mode: max
   patience: 4
+
+lookup_embedder.initialize: normal_
+# example for using initialize args generically (might result in error if args do not matchj initializer)
+lookup_embedder.initialize_args:
+  mean: 0.0
+  std: 0.1
+  # examples for specifying args for specific initializers (useful for ax search)
+  # will be passed to the initializer if key matches
+  normal_:
+    mean: 1.0
+    std: 0.1
+  #uniform_:
+  #  a: 0.5
+  #  #b: -0.5    
+  # xavier_normal_:
+  #   gain: 1.0
+  # xavier_uniform_:
+  #   gain: 1.0
 
