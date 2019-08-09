@@ -396,10 +396,6 @@ class TrainingJob1toN(TrainingJob):
                     "was set to {}.".format(self.label_smoothing)
                 )
                 self.label_smoothing = 0
-
-                ## REMOVE THIS PAUSE
-                input()
-
             else:
                 raise Exception("Label_smoothing was set to {}, "
                                 "should be at least 0.".format(self.label_smoothing))
@@ -412,10 +408,6 @@ class TrainingJob1toN(TrainingJob):
                     "was set to {}.".format(1.0 / dataset.num_entities, self.label_smoothing)
                 )
                 self.label_smoothing = 1.0 / dataset.num_entities
-
-                ## REMOVE THIS PAUSE
-                input()
-
             else:
                 raise Exception("Label_smoothing was set to {}, "
                                 "should be at least {}.".format(self.label_smoothing,
