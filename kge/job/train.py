@@ -389,16 +389,29 @@ class TrainingJob1toN(TrainingJob):
         self.label_smoothing = config.check_range(
             "1toN.label_smoothing", float("-inf"), 1.0, max_inclusive=False
         )
-        if (
-            self.label_smoothing > 0
-            and self.label_smoothing <= 1.0 / dataset.num_entities
-        ):
-            # just to be sure it's used correctly
-            config.log(
-                "Setting label_smoothing to 1/dataset.num_entities = {}, "
-                "was set to {}".format(1.0 / dataset.num_entities, self.label_smoothing)
-            )
-            self.label_smoothing = 1.0 / dataset.num_entities
+        if self.label_smoothing < 0:
+            if config.get("train.auto_correct"):
+                config.log(
+                    "Setting label_smoothing to 0, "
+                    "was set to {}.".format(self.label_smoothing)
+                )
+                self.label_smoothing = 0
+            else:
+                raise Exception("Label_smoothing was set to {}, "
+                                "should be at least 0.".format(self.label_smoothing))
+        elif (self.label_smoothing > 0 and
+              self.label_smoothing <= (1.0 / dataset.num_entities)):
+            if config.get("train.auto_correct"):
+                # just to be sure it's used correctly
+                config.log(
+                    "Setting label_smoothing to 1/dataset.num_entities = {}, "
+                    "was set to {}.".format(1.0 / dataset.num_entities, self.label_smoothing)
+                )
+                self.label_smoothing = 1.0 / dataset.num_entities
+            else:
+                raise Exception("Label_smoothing was set to {}, "
+                                "should be at least {}.".format(self.label_smoothing,
+                                                                1.0 / dataset.num_entities))
 
         config.log("Initializing 1-to-N training job...")
 
