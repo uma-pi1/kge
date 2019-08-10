@@ -1,6 +1,7 @@
 from math import ceil
 
 from ax import Models
+from ax.core import ObservationFeatures
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 
 from kge.job import AutoSearchJob
@@ -37,7 +38,16 @@ class AxSearchJob(AutoSearchJob):
                         enforce_num_arms=True,
                     ),
                     GenerationStep(
-                        model=Models.GPEI, num_arms=-1, recommended_max_parallelism=3
+                        model=Models.GPEI, num_arms=-1, recommended_max_parallelism=3,
+                        model_gen_kwargs=
+                            {'fixed_features':
+                                ObservationFeatures(
+                                    parameters={
+                                        kv['name']:kv['value']
+                                        for kv in self.config.get("ax_search.fixed_parameters")
+                                    }
+                                )
+                        }
                     ),
                 ],
             )

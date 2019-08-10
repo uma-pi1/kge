@@ -187,6 +187,30 @@ ax_search:
   parameters: []
   parameter_constraints: []
 
+  # 'fixed_parameters' is a dictionary of parameters and the values these
+  # parameters should be fixed to for *generating* trials during BO. The purpose
+  # of 'fixed_parameters' is to initialize a search (f.ex. with Sobol) and then
+  # fix a range or choice parameter when generating new trials with BO to a
+  # certain value. The names and values should correspond with the definitions
+  # in 'ax_search.parameters'.
+  # Attention: there is a name clash with regards to the meaning of 'fixed' in Ax
+  # and Botorch! The difference to 'ax_search.parameters#type = fixed' is, that
+  # those are filtered out for fitting a BO model, while the parameters for
+  # 'fixed_parameters' are not. This setting is used in /botorch/gen.py
+  #
+  # Example:
+  #
+  #  parameters:
+  #    - name: rescal.entity_embedder.dim
+  #      type: choice
+  #      values: [100, 200]
+  #
+  #  fixed_parameters:
+  #    - name: rescal.entity_embedder.dim
+  #      value: 100
+
+  fixed_parameters: []
+
 ## USER PARAMETERS #####################################################################
 
 # These parameters are not used by the kge framework itself. It can be used to
