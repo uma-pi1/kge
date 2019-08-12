@@ -68,10 +68,10 @@ class Rescal(KgeModel):
 
         # auto initialize such that scores have unit variance
         if self.get_option("auto_initialization"):
-            # Var[score] = blocks^2*block_size*var_e^2*var_r, where var_e/var_r are the variances
+            # Var[score] = block_size^2*var_e^2*var_r, where var_e/var_r are the variances
             # of the entries
             #
-            # Thus we set var_e=var_r=(1.0/(blocks^2*block_size))^(1/6)
+            # Thus we set var_e=var_r=(1.0/(entity_embedder.dim^2*))^(1/6)
             std = math.pow(1.0 / self.get_option("entity_embedder.dim") ** 2, 1.0 / 6.0)
 
             config.set(
