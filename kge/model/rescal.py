@@ -54,17 +54,11 @@ class RescalScorer(RelationalScorer):
 
 
 class Rescal(KgeModel):
-    r"""Implementation of the ComplEx KGE model."""
+    r"""Implementation of the RÉSCAL KGE model."""
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         self._init_configuration(config, configuration_key)
         rescal_set_relation_embedder_dim(config, dataset, self.configuration_key + ".relation_embedder")
-        super().__init__(
-            config,
-            dataset,
-            scorer=RescalScorer(config=config, dataset=dataset),
-            configuration_key=configuration_key
-        )
 
         # auto initialize such that scores have unit variance
         if self.get_option("auto_initialization"):
@@ -94,6 +88,14 @@ class Rescal(KgeModel):
                 {"mean": 0.0, "std": std},
                 log=True,
             )
+
+        super().__init__(
+            config,
+            dataset,
+            scorer=RescalScorer(config=config, dataset=dataset),
+            configuration_key=configuration_key
+        )
+
 
 
 def rescal_set_relation_embedder_dim(config, dataset, rel_emb_conf_key):
