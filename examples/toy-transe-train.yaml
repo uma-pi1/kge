@@ -18,7 +18,6 @@ train:
   type: negative_sampling
 
 negative_sampling:
-  filter_negatives: false
   num_negatives_o: 3
   num_negatives_p: 0
   num_negatives_s: 3
@@ -38,14 +37,20 @@ transe:
   entity_embedder:
     dim: 100
     initialize: uniform_
-    sparse: true
+    initialize_args:
+      uniform_ :
+        a: -1.0
+    sparse: false
     type: lookup_embedder
     regularize: l2
     regularize_weight: 1.e-05
   relation_embedder:
     dim: 100
     initialize: uniform_
-    sparse: true
+    initialize_args:
+      uniform_ :
+        a: -1.0
+    sparse: false
     type: lookup_embedder
     regularize: l2
     regularize_weight: 1.e-05
