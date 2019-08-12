@@ -1,7 +1,6 @@
 import math
 
 import torch
-from pandas.core.internals import blocks
 
 from kge import Config, Dataset
 from kge.model.kge_model import KgeEmbedder, KgeModel, RelationalScorer
