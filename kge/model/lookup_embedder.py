@@ -72,18 +72,18 @@ class LookupEmbedder(KgeEmbedder):
             return super().penalty(**kwargs)
         elif self.regularize == "l1":
             return super().penalty(**kwargs) + [
-                self.regularize_weight * self.embeddings.weight.norm(p=1)
+                self.regularize_weight * self.embeddings.weight.norm(p=1) / kwargs['num_batches']
             ]
         elif self.regularize == "l2":
             return super().penalty(**kwargs) + [
-                self.regularize_weight * self.embeddings.weight.norm(p=2) ** 2
+                self.regularize_weight * self.embeddings.weight.norm(p=2) ** 2 / kwargs['num_batches']
             ]
         elif self.regularize == "l3":
             # As in CP-N3 paper, Eq. (4): Timothée Lacroix, Nicolas Usunier, Guillaume
             # Obozinski. Canonical Tensor Decomposition for Knowledge Base Completion.
             # ICML 2018. https://arxiv.org/abs/1806.07297
             return super().penalty(**kwargs) + [
-                self.regularize_weight * self.embeddings.weight.norm(p=3) ** 3
+                self.regularize_weight * self.embeddings.weight.norm(p=3) ** 3 / kwargs['num_batches']
             ]
         else:
             raise ValueError("unknown penalty")
