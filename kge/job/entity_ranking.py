@@ -81,8 +81,8 @@ class EntityRankingJob(EvaluationJob):
         hist_filt = torch.zeros([num_entities], device=self.device, dtype=torch.float)
 
         # we also filter with test data during validation if requested
-        evil = self.eval_data == "valid" and self.filter_valid_with_test
-        if evil:
+        filtered_valid_with_test = self.eval_data == "valid" and self.filter_valid_with_test
+        if filtered_valid_with_test:
             hist_filt_test = torch.zeros(
                 [num_entities], device=self.device, dtype=torch.float
             )
@@ -102,7 +102,7 @@ class EntityRankingJob(EvaluationJob):
                 )
             else:  # it's valid
                 label_coords = torch.cat([train_label_coords, valid_label_coords])
-                if evil:
+                if filtered_valid_with_test:
                     test_labels = kge.job.util.coord_to_sparse_tensor(
                         len(batch),
                         2 * num_entities,
@@ -131,7 +131,7 @@ class EntityRankingJob(EvaluationJob):
             )
 
             # and for filtered_with_test ranks
-            if evil:
+            if filtered_valid_with_test:
                 batch_hist_filt_test, s_ranks_filt_test, o_ranks_filt_test, _, _ = self._filter_and_rank(
                     s, p, o, scores_sp_filt, scores_po_filt, test_labels
                 )
@@ -139,7 +139,7 @@ class EntityRankingJob(EvaluationJob):
             # update global rank histograms
             hist += batch_hist
             hist_filt += batch_hist_filt
-            if evil:
+            if filtered_valid_with_test:
                 hist_filt_test += batch_hist_filt_test
 
             # optionally: trace ranks of each example
@@ -159,7 +159,7 @@ class EntityRankingJob(EvaluationJob):
                         p[i].item(),
                         o[i].item(),
                     )
-                    if evil:
+                    if filtered_valid_with_test:
                         entry["rank_filtered_with_test"] = (
                             o_ranks_filt_test[i].item() + 1
                         )
@@ -169,7 +169,7 @@ class EntityRankingJob(EvaluationJob):
                         rank_filtered=o_ranks_filt[i].item() + 1,
                         **entry,
                     )
-                    if evil:
+                    if filtered_valid_with_test:
                         entry["rank_filtered_with_test"] = (
                             s_ranks_filt_test[i].item() + 1
                         )
@@ -183,7 +183,7 @@ class EntityRankingJob(EvaluationJob):
             # now compute the metrics
             metrics = self._compute_metrics(batch_hist)
             metrics.update(self._compute_metrics(batch_hist_filt, suffix="_filtered"))
-            if evil:
+            if filtered_valid_with_test:
                 metrics.update(
                     self._compute_metrics(
                         batch_hist_filt_test, suffix="_filtered_with_test"
@@ -219,11 +219,11 @@ class EntityRankingJob(EvaluationJob):
                     len(self.loader) - 1,
                     metrics["mean_reciprocal_rank"],
                     metrics["mean_reciprocal_rank_filtered"],
-                    metrics["hits_at_k"][0],
-                    metrics["hits_at_k_filtered"][0],
-                    self.max_k,
-                    metrics["hits_at_k"][self.max_k - 1],
-                    metrics["hits_at_k_filtered"][self.max_k - 1],
+                    metrics["hits_at_1"],
+                    metrics["hits_at_1_filtered"],
+                    self.hits_at_k_s[-1],
+                    metrics["hits_at_{}".format(self.hits_at_k_s[-1])],
+                    metrics["hits_at_{}_filtered".format(self.hits_at_k_s[-1])],
                 ),
                 end="",
                 flush=True,
@@ -233,7 +233,7 @@ class EntityRankingJob(EvaluationJob):
         print("\033[2K\r", end="", flush=True)  # clear line and go back
         metrics = self._compute_metrics(hist)
         metrics.update(self._compute_metrics(hist_filt, suffix="_filtered"))
-        if evil:
+        if filtered_valid_with_test:
             metrics.update(
                 self._compute_metrics(hist_filt_test, suffix="_filtered_with_test")
             )
@@ -276,9 +276,10 @@ class EntityRankingJob(EvaluationJob):
         num_entities = self.dataset.num_entities
 
         if labels is not None:
-            for i in range(len(o)):  # remove current example from labels
-                labels[i, o[i]] = 0
-                labels[i, num_entities + s[i]] = 0
+            # remove current example from labels
+            indices = torch.arange(0, len(o)).long()
+            labels[indices, o.long()] = 0
+            labels[indices, (s + num_entities).long()] = 0
             labels_sp = labels[:, :num_entities]
             labels_po = labels[:, num_entities:]
             scores_sp = scores_sp - labels_sp
@@ -297,10 +298,10 @@ class EntityRankingJob(EvaluationJob):
     def _get_rank(self, scores, answers):
         # Turn answers into size (batch_size, num_entities) to use it as indexes in torch.gather
         # Get scores of answer given by each triple with torch.gather (multi-index selection)
-        # Add small number to all scores to avoid scores of zero
+        # Add small number to all scores to avoid scores of zero.
         # Get tensor of 1s for each score which is higher than the true answer score.
         # Add 1s in each row to get the rank of the corresponding row.
-        # Substract 1 from each rank with the lowest possible value. TODO: unclear at the moment why we get self.dataset.num_entities ranks
+        # Fix for the add small number fix we substract 1 from each rank with the lowest possible.
 
         answers = answers.reshape((-1, 1)).expand(-1, self.dataset.num_entities).long()
         true_scores = torch.gather(scores, 1, answers)
@@ -321,8 +322,11 @@ class EntityRankingJob(EvaluationJob):
             torch.sum(rank_hist * reciprocal_ranks).item() / n
         )
 
-        metrics["hits_at_k" + suffix] = (
-            torch.cumsum(rank_hist[: self.max_k], dim=0) / n
+        hits_at_k = (
+                torch.cumsum(rank_hist[: max(self.hits_at_k_s)], dim=0) / n
         ).tolist()
+
+        for i,k in enumerate(self.hits_at_k_s):
+            metrics["hits_at_{}{}".format(k, suffix)] = hits_at_k[k-1]
 
         return metrics

@@ -10,7 +10,8 @@ class EvaluationJob(Job):
         self.model = model
         self.batch_size = config.get("eval.batch_size")
         self.device = self.config.get("job.device")
-        self.max_k = self.config.get("eval.max_k")
+        max_k = min(self.dataset.num_entities, max(self.config.get("eval.hits_at_k_s")))
+        self.hits_at_k_s = list(filter(lambda x: x <= max_k, self.config.get("eval.hits_at_k_s")))
         self.config.check("train.trace_level", ["example", "batch", "epoch"])
         self.trace_examples = self.config.get("eval.trace_level") == "example"
         self.trace_batch = (

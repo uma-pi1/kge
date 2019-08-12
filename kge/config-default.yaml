@@ -132,13 +132,13 @@ checkpoint:
 eval:
   data: valid
   type: entity_ranking
-  max_k: 10                       # maximum k for HITS@k
+  hits_at_k_s: [1, 3, 10, 50, 100, 200, 300, 400, 500, 1000]     # k for HITS@k
   batch_size: 100
   num_workers: 0
   pin_memory: False
   trace_level: example            # example or batch or epoch
 
-## HYPERPARAMETER SEARCH ###############################################################
+## HYPERPARAMETER SEARCH #######################################################
 
 search:
   # the type of search to run (see descriptions below): manual, grid, ax
