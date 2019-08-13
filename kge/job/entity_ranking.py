@@ -24,6 +24,7 @@ class EntityRankingJob(EvaluationJob):
         self.train_po = self.dataset.index_1toN("train", "po")
         self.valid_sp = self.dataset.index_1toN("valid", "sp")
         self.valid_po = self.dataset.index_1toN("valid", "po")
+
         if self.eval_data == "test":
             self.triples = self.dataset.test
         else:
@@ -48,14 +49,14 @@ class EntityRankingJob(EvaluationJob):
 
     def _collate(self, batch):
         "Looks up true triples for each triple in the batch"
-        train_label_coords = kge.job.util.get_batch_sp_po_coords(
+        train_label_coords = kge.job.util.get_sp_po_coords_from_spo_batch(
             batch, self.dataset.num_entities, self.train_sp, self.train_po
         )
-        valid_label_coords = kge.job.util.get_batch_sp_po_coords(
+        valid_label_coords = kge.job.util.get_sp_po_coords_from_spo_batch(
             batch, self.dataset.num_entities, self.valid_sp, self.valid_po
         )
         if self.eval_data == "test" or self.filter_valid_with_test:
-            test_label_coords = kge.job.util.get_batch_sp_po_coords(
+            test_label_coords = kge.job.util.get_sp_po_coords_from_spo_batch(
                 batch, self.dataset.num_entities, self.test_sp, self.test_po
             )
         else:

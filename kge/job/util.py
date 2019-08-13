@@ -1,7 +1,7 @@
 import torch
 
 
-def get_batch_sp_po_coords(
+def get_sp_po_coords_from_spo_batch(
     batch, num_entities, sp_index: dict, po_index: dict
 ) -> torch.LongTensor:
     """Given a set of triples , lookup matches for (s,p,?) and (?,p,o).

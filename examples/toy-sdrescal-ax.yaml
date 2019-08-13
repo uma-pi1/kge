@@ -55,7 +55,6 @@ valid:
 eval:
   batch_size: 100
   data: valid
-  max_k: 10
   num_workers: 0
   pin_memory: false
   trace_level: example
@@ -105,7 +104,7 @@ ax_search:
       is_ordered: True
     - name: 1toN.label_smoothing
       type: range
-      bounds: [-0.5 , 0.5]
+      bounds: [0.0, 0.5]
     - name: lookup_embedder.regularize_weight
       type: range
       bounds: [0.0, 0.0000001]

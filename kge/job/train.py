@@ -4,6 +4,8 @@ import math
 import time
 import torch
 import torch.utils.data
+
+from kge import Dataset
 from kge.job import Job
 from kge.model import KgeModel
 from kge.util import KgeLoss, KgeOptimizer, KgeSampler, KgeLRScheduler
@@ -429,20 +431,11 @@ class TrainingJob1toN(TrainingJob):
         #
         # Afterwards, it holds:
         # index[keys[i]] = values[offsets[i]:offsets[i+1]]
-        def prepare_index(index):
-            keys = torch.tensor(list(index.keys()), dtype=torch.int)
-            values = torch.cat(list(index.values()))
-            offsets = torch.cumsum(
-                torch.tensor([0] + list(map(len, index.values())), dtype=torch.int), 0
-            )
-            return keys, values, offsets
 
-        self.train_sp_keys, self.train_sp_values, self.train_sp_offsets = prepare_index(
-            train_sp
-        )
-        self.train_po_keys, self.train_po_values, self.train_po_offsets = prepare_index(
-            train_po
-        )
+        self.train_sp_keys, self.train_sp_values, self.train_sp_offsets = \
+            Dataset.prepare_index(train_sp)
+        self.train_po_keys, self.train_po_values, self.train_po_offsets = \
+            Dataset.prepare_index(train_po)
 
         # create dataloader
         self.loader = torch.utils.data.DataLoader(
@@ -479,7 +472,7 @@ class TrainingJob1toN(TrainingJob):
                     num_ones -= self.train_po_offsets[example_index]
 
             # now create the results
-            pairs = torch.zeros([len(batch), 2], dtype=torch.long)
+            sp_po_batch = torch.zeros([len(batch), 2], dtype=torch.long)
             is_sp = torch.zeros([len(batch)], dtype=torch.long)
             label_coords = torch.zeros([num_ones, 2], dtype=torch.long)
             current_index = 0
@@ -495,7 +488,7 @@ class TrainingJob1toN(TrainingJob):
                     offsets = self.train_po_offsets
                     values = self.train_po_values
 
-                pairs[batch_index,] = keys[example_index]
+                sp_po_batch[batch_index,] = keys[example_index]
                 start = offsets[example_index]
                 end = offsets[example_index + 1]
                 size = end - start
@@ -506,15 +499,15 @@ class TrainingJob1toN(TrainingJob):
                 current_index += size
 
             # all done
-            return pairs, label_coords, is_sp
+            return sp_po_batch, label_coords, is_sp
 
         return collate
 
     def _compute_batch_loss(self, batch_index, batch):
         # prepare
         batch_prepare_time = -time.time()
-        pairs = batch[0].to(self.device)
-        batch_size = len(pairs)
+        sp_po_batch = batch[0].to(self.device)
+        batch_size = len(sp_po_batch)
         label_coords = batch[1].to(self.device)
         is_sp = batch[2]
         sp_indexes = is_sp.nonzero().to(self.device).view(-1)
@@ -532,12 +525,12 @@ class TrainingJob1toN(TrainingJob):
         self.optimizer.zero_grad()
         loss_value = torch.zeros(1, device=self.device)
         if len(sp_indexes) > 0:
-            scores_sp = self.model.score_sp(pairs[sp_indexes, 0], pairs[sp_indexes, 1])
+            scores_sp = self.model.score_sp(sp_po_batch[sp_indexes, 0], sp_po_batch[sp_indexes, 1])
             loss_value = loss_value + self.loss(
                 scores_sp.view(-1), labels[sp_indexes,].view(-1)
             )
         if len(po_indexes) > 0:
-            scores_po = self.model.score_po(pairs[po_indexes, 0], pairs[po_indexes, 1])
+            scores_po = self.model.score_po(sp_po_batch[po_indexes, 0], sp_po_batch[po_indexes, 1])
             loss_value = loss_value + self.loss(
                 scores_po.view(-1), labels[po_indexes,].view(-1)
             )
