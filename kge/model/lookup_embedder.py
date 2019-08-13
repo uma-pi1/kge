@@ -9,7 +9,7 @@ class LookupEmbedder(KgeEmbedder):
         super().__init__(config, dataset, configuration_key)
 
         # read config
-        self.dropout = torch.nn.Dropout(self.get_option("dropout"))
+        # self.dropout = torch.nn.Dropout(self.get_option("dropout"))
         self.normalize_p = self.get_option("normalize.p")
         self.normalize_with_grad = self.get_option("normalize.with_grad")
         self.regularize = self.check_option("regularize", ["", "l1", "l2", "l3"])
@@ -41,6 +41,18 @@ class LookupEmbedder(KgeEmbedder):
             init_,
             init_args
         )
+
+        # TODO handling negative dropout because using it with ax searches for now
+        dropout = self.get_option("dropout")
+        if dropout < 0:
+            if config.get("train.auto_correct"):
+                config.log(
+                    "Setting {}.dropout to 0, "
+                    "was set to {}.".format(configuration_key, dropout)
+                )
+                dropout = 0
+                input()
+        self.dropout = torch.nn.Dropout(dropout)
 
     def prepare_job(self, job, **kwargs):
         super().prepare_job(job, **kwargs)
