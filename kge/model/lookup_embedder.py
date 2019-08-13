@@ -51,7 +51,6 @@ class LookupEmbedder(KgeEmbedder):
                     "was set to {}.".format(configuration_key, dropout)
                 )
                 dropout = 0
-                input()
         self.dropout = torch.nn.Dropout(dropout)
 
     def prepare_job(self, job, **kwargs):
