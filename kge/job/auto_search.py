@@ -125,6 +125,9 @@ class AutoSearchJob(SearchJob):
                 config.set("job.type", "train")
                 config.set_all(parameters)
                 config.init_folder()
+                # save checkpoint here so that trial is not lost
+                # TODO make atomic (may corrupt good checkpoint when canceled!)
+                self.save(self.config.checkpoint_file(1))
 
             # run or schedule the trial
             if trial_id is not None:
