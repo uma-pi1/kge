@@ -38,16 +38,19 @@ class AxSearchJob(AutoSearchJob):
                         enforce_num_arms=True,
                     ),
                     GenerationStep(
-                        model=Models.GPEI, num_arms=-1, recommended_max_parallelism=3,
-                        model_gen_kwargs=
-                            {'fixed_features':
-                                ObservationFeatures(
-                                    parameters={
-                                        kv['name']:kv['value']
-                                        for kv in self.config.get("ax_search.fixed_parameters")
-                                    }
-                                )
-                        }
+                        model=Models.GPEI,
+                        num_arms=-1,
+                        recommended_max_parallelism=3,
+                        model_gen_kwargs={
+                            "fixed_features": ObservationFeatures(
+                                parameters={
+                                    kv["name"]: kv["value"]
+                                    for kv in self.config.get(
+                                        "ax_search.fixed_parameters"
+                                    )
+                                }
+                            )
+                        },
                     ),
                 ],
             )
@@ -61,32 +64,37 @@ class AxSearchJob(AutoSearchJob):
             objective_name="metric_value",
             minimize=False,
             parameter_constraints=self.config.get("ax_search.parameter_constraints"),
-
         )
         self.config.log(
-            "ax search initialized with {}".format(
-                self.ax_client.generation_strategy
-            )
+            "ax search initialized with {}".format(self.ax_client.generation_strategy)
         )
 
-        # By default, ax first uses a Sobol strategy for a certain number of arms,
-        # and is maybe followed by Bayesian Optimization. If we resume this job,
-        # some of the Sobol arms may have already been generated. The corresponding
-        # arms will be registered later (when this job's run method is executed),
-        # but here we already change the generation strategy to take account of
-        # these configurations.
-        num_generated = len(self.parameters)
-        if num_generated > 0:
-            old_curr = self.ax_client.generation_strategy._curr
-            new_num_arms = max(0, old_curr.num_arms - num_generated)
-            new_curr = old_curr._replace(num_arms=new_num_arms)
-            self.ax_client.generation_strategy._curr = new_curr
-            self.config.log(
-                "Reduced number of arms for first generation step of "
-                + "ax_client from {} to {} due to prior data.".format(
-                    old_curr.num_arms, new_curr.num_arms
-                )
+        # Make sure sobol models are resumed correctly
+        if self.ax_client.generation_strategy._curr.model == Models.SOBOL:
+            # Fix seed for sobol. We do this by generating the model right away (instead
+            # of automatically once first trial is generated).
+            self.ax_client.generation_strategy._set_current_model(
+                experiment=self.ax_client.experiment, data=None, seed=0
             )
+
+            # Regenerate and drop SOBOL arms already generated. Since we fixed the seed,
+            # we will skip exactly the arms already generated in the job being resumed.
+            num_generated = len(self.parameters)
+            if num_generated > 0:
+                num_sobol_generated = min(
+                    self.ax_client.generation_strategy._curr.num_arms, num_generated
+                )
+                for i in range(num_sobol_generated):
+                    generator_run = self.ax_client.generation_strategy.gen(
+                        experiment=self.ax_client.experiment
+                    )
+                    # self.config.log("Skipped parameters: {}".format(generator_run.arms))
+                self.config.log(
+                    "Skipped {} of {} Sobol trials due to prior data.".format(
+                        num_sobol_generated,
+                        self.ax_client.generation_strategy._curr.num_arms,
+                    )
+                )
 
     def register_trial(self, parameters=None):
         trial_id = None

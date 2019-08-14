@@ -113,10 +113,18 @@ class AutoSearchJob(SearchJob):
                     self.trial_ids.append(trial_id)
                     self.parameters.append(parameters)
                     self.results.append(None)
+                    self.config.log(
+                        "Created trial {} with parameters: {}".format(
+                            trial_no, parameters
+                        )
+                    )
             else:
                 # use the trial of a resumed run of this job
                 parameters, trial_id = self.register_trial(self.parameters[trial_no])
                 self.trial_ids.append(trial_id)
+                self.config.log(
+                    "Resumed trial {} with parameters: {}".format(trial_no, parameters)
+                )
 
             # create job for trial
             if trial_id is not None:
