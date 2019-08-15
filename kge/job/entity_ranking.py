@@ -271,6 +271,9 @@ class EntityRankingJob(EvaluationJob):
             self.model.train()
         self.config.log("Finished evaluating on " + self.eval_data + " data.")
 
+        for f in self.post_valid_hooks:
+            f(self,trace_entry)
+
         return trace_entry
 
     def _filter_and_rank(self, s, p, o, scores_sp, scores_po, labels):

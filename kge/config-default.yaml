@@ -230,6 +230,16 @@ ax_search:
 
 ## USER PARAMETERS #####################################################################
 
+
+visdom:
+  # if enable=False all other parameters have no effect
+  enable: False
+  # attributes to include
+  include:
+    train: ["avg_loss", "avg_cost", "avg_penalty","forward_time","epoch_time"]
+    eval: ["rank"]
+
+
 # These parameters are not used by the kge framework itself. It can be used to
 # add additional configuration options or information to this config.
 user:

@@ -78,6 +78,10 @@ class TrainingJob(Job):
         #: Signature: job, trace_entry
         self.post_valid_hooks = []
 
+        #: Hooks run after training
+        #: Signature: job, trace_entry
+        self.post_train_hooks = []
+
     @staticmethod
     def create(config, dataset, parent_job=None):
         """Factory method to create a training job and add necessary label_coords to
@@ -191,6 +195,8 @@ the dataset (if not present).
                         )
                     )
                     os.remove(self.config.checkpoint_file(delete_checkpoint_epoch))
+        for f in self.post_train_hooks:
+            f(self, trace_entry)
 
     def save(self, filename):
         """Save current state to specified file"""
@@ -383,7 +389,10 @@ the dataset (if not present).
         Guaranteed to be called exactly once before running the first epoch.
 
         """
-        raise NotImplementedError
+        if self.config.get("visdom.enable"):
+            from kge.util.vis_support import VisdomHandler
+            vd = VisdomHandler(self)
+            vd.prepare()
 
     def _compute_batch_loss(self, batch_index, batch):
         "Returns loss_value (avg over batch), batch size, prepare time, forward time."
@@ -425,7 +434,7 @@ class TrainingJob1toN(TrainingJob):
 
     def _prepare(self):
         self.type_str = "1toN"
-
+        super()._prepare()
         # create sp and po label_coords (if not done before)
         train_sp = self.dataset.index_1toN("train", "sp")
         train_po = self.dataset.index_1toN("train", "po")
