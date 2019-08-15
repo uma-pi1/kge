@@ -1,7 +1,8 @@
 job:
   type: train                 # train, eval, grid, ...
+
+  # Main device to use for this job (e.g., 'cpu', 'cuda', 'cuda:0')
   device: 'cuda'
-#  device: 'cpu'
 
 
 ## INPUT/OUTPUT ################################################################
@@ -141,11 +142,19 @@ eval:
 ## HYPERPARAMETER SEARCH #######################################################
 
 search:
-  # the type of search to run (see descriptions below): manual, grid, ax
+  # The type of search to run (see descriptions below). Possible values: manual,
+  # grid, ax
   type: ax
 
-  # (maximum) number of parallel training jobs to run during a search
+  # Maximum number of parallel training jobs to run during a search.
   num_workers: 1
+
+  # Device pool to use for training jobs. If this list is empty, `job.device` is
+  # used for all parallel searches. Otherwise, the first `search.num_workers`
+  # devices from this list are used. If the number of devices specified here is
+  # less than `search.num_workers`, the list wraps around so that devices are
+  # used by multiple jobs in parallel.
+  device_pool: [ ]
 
 # Manually specify all configurations to try
 manual_search:

@@ -15,6 +15,15 @@ class SearchJob(Job):
 
         # create data structures for parallel job submission
         self.num_workers = self.config.get("search.num_workers")
+        self.device_pool = self.config.get("search.device_pool")
+        if len(self.device_pool) == 0:
+            self.device_pool = [self.config.get("job.device")]
+        if len(self.device_pool) < self.num_workers:
+            self.device_pool = self.device_pool * self.num_workers
+        self.device_pool = self.device_pool[: self.num_workers]
+        self.config.log("Using device pool: {}".format(self.device_pool))
+        self.free_devices = copy.deepcopy(self.device_pool)
+
         self.running_tasks = set()  #: set of futures currently runnning
         self.ready_task_results = list()  #: set of results
         if self.num_workers > 1:
@@ -50,9 +59,12 @@ class SearchJob(Job):
         schedules the task at a free worker. If no worker is free, either waits
         (`wait_when_full` true) or throws an error (`wait_when_full` false).
 
+        In addition to task_arg, the task is given a keyword argument `device`, holding
+        the device on which it should run.
+
         """
         if self.process_pool is None:
-            self.ready_task_results.append(task(task_arg))
+            self.ready_task_results.append(task(task_arg, device=self.free_devices[0]))
         else:
             if len(self.running_tasks) >= self.num_workers:
                 if wait_when_full:
@@ -60,7 +72,10 @@ class SearchJob(Job):
                     self.wait_task()
                 else:
                     raise ValueError("no more free workers for running the task")
-            self.running_tasks.add(self.process_pool.submit(task, task_arg))
+            task_device = self.free_devices.pop(0)
+            future = self.process_pool.submit(task, task_arg, device=task_device)
+            future.add_done_callback(lambda _: self.free_devices.append(task_device))
+            self.running_tasks.add(future)
 
     def wait_task(self, return_when=concurrent.futures.FIRST_COMPLETED):
         """Waits for one or more running tasks to complete.
@@ -81,14 +96,14 @@ class SearchJob(Job):
     # Overridden such that instances of search job can be pickled to workers
     def __getstate__(self):
         state = dict(self.__dict__)
-        del state['process_pool']
-        del state['running_tasks']
+        del state["process_pool"]
+        del state["running_tasks"]
         return state
 
 
-# TODO add job submission (to devices/cpus) etc. to SearchJob main class with a simpler
-# API
-def _run_train_job(sicnk):
+# TODO add job submission (to device_pool/cpus) etc. to SearchJob main class with a
+# simpler API
+def _run_train_job(sicnk, device=None):
     """Runs a training job and returns the trace entry of its best validation result.
 
     Also takes are of appropriate tracing.
@@ -98,9 +113,14 @@ def _run_train_job(sicnk):
     search_job, train_job_index, train_job_config, train_job_count, trace_keys = sicnk
 
     # load the job
+    if device is not None:
+        train_job_config.set("job.device", device)
     search_job.config.log(
-        "Starting training job {} ({}/{})...".format(
-            train_job_config.folder, train_job_index + 1, train_job_count
+        "Starting training job {} ({}/{}) on device {}...".format(
+            train_job_config.folder,
+            train_job_index + 1,
+            train_job_count,
+            train_job_config.get("job.device"),
         )
     )
     job = Job.create(train_job_config, search_job.dataset, parent_job=search_job)
