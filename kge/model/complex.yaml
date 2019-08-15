@@ -1,7 +1,6 @@
 import: [lookup_embedder]
 
 complex:
-  auto_initialization: True
   class_name: ComplEx
   entity_embedder:
     type: lookup_embedder

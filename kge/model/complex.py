@@ -51,7 +51,8 @@ class ComplEx(KgeModel):
         self._init_configuration(config, configuration_key)
 
         # auto initialize such that scores have unit variance
-        if self.get_option("auto_initialization"):
+        if self.get_option("entity_embedder.initialize") == "auto_initialization" and \
+                self.get_option("relation_embedder.initialize") == "auto_initialization":
             # Var[score] = 4*(dim/2)*var_e^2*var_r, where var_e/var_r are the variances
             # of the entries in the embeddings and (dim/2) is the embedding size in
             # complex space
@@ -80,6 +81,10 @@ class ComplEx(KgeModel):
                 {"mean": 0.0, "std": std},
                 log=True,
             )
+        elif self.get_option("entity_embedder.initialize") == "auto_initialization" or \
+                self.get_option("relation_embedder.initialize") == "auto_initialization":
+            raise ValueError("Both entity and relation embedders must be set to auto_initialization "
+                             "in order to use it.")
 
         super().__init__(
             config,

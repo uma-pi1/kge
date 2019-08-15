@@ -21,7 +21,10 @@ class KgeBase(torch.nn.Module):
         try:
             getattr(torch.nn.init, initialize)(what, **initialize_args)
         except:
-            raise ValueError("invalid initialization options")
+            if initialize == "auto_initialization":
+                raise ValueError("{} does not support auto initialization.".format(self.config.get('model')))
+            else:
+                raise ValueError("invalid initialization options")
 
     def prepare_job(self, job, **kwargs):
         r"""Prepares the given job to work with this model.
