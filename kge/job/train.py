@@ -539,6 +539,44 @@ class TrainingJob1toN(TrainingJob):
         return loss_value, batch_size, batch_prepare_time, batch_forward_time
 
 
+class TrainingJobNegativeSamplingFrom1ToN(TrainingJob1toN):
+
+    def _compute_batch_loss(self, batch_index, batch):
+        # prepare
+        batch_prepare_time = -time.time()
+        sp_po_batch = batch[0].to(self.device)
+        batch_size = len(sp_po_batch)
+        label_coords = batch[1].to(self.device)
+        is_sp = batch[2]
+        sp_indexes = is_sp.nonzero().to(self.device).view(-1)
+        po_indexes = (is_sp == 0).nonzero().to(self.device).view(-1)
+        labels = kge.job.util.coord_to_sparse_tensor(
+            batch_size, self.dataset.num_entities, label_coords, self.device
+        ).to_dense()
+        if self.label_smoothing > 0.0:
+            # as in ConvE: https://github.com/TimDettmers/ConvE
+            labels = (1.0 - self.label_smoothing) * labels + 1.0 / labels.size(1)
+        batch_prepare_time += time.time()
+
+        # forward pass
+        batch_forward_time = -time.time()
+        self.optimizer.zero_grad()
+        loss_value = torch.zeros(1, device=self.device)
+        if len(sp_indexes) > 0:
+            scores_sp = self.model.score_sp(sp_po_batch[sp_indexes, 0], sp_po_batch[sp_indexes, 1])
+            loss_value = loss_value + self.loss(
+                scores_sp.view(-1), labels[sp_indexes,].view(-1)
+            )
+        if len(po_indexes) > 0:
+            scores_po = self.model.score_po(sp_po_batch[po_indexes, 0], sp_po_batch[po_indexes, 1])
+            loss_value = loss_value + self.loss(
+                scores_po.view(-1), labels[po_indexes,].view(-1)
+            )
+        batch_forward_time += time.time()
+
+        return loss_value, batch_size, batch_prepare_time, batch_forward_time
+
+
 class TrainingJobNegativeSampling(TrainingJob):
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
@@ -569,8 +607,10 @@ class TrainingJobNegativeSampling(TrainingJob):
         def collate(batch):
             """For a batch of size n, returns a tuple of:
 
-            - triples (tensor of shape [n * num_negatives, 3], row = sp or po indexes),
+            - triples (tensor of shape [n * num_negatives, 3], ),
             - labels (tensor of [n * num_negatives] with labels for triples)
+
+            where num_negatives = num_negatives_s + num_negatives_p + num_negatives_o
 
             """
             triples = []

@@ -30,6 +30,7 @@ train:
   pin_memory: false
   trace_level: epoch
   type: 1toN
+  auto_correct: true
 
 negative_sampling:
   num_negatives_o: -1
@@ -82,32 +83,50 @@ ax_search:
   num_trials: 20
   num_sobol_trials: 10
   parameters:
-    - name: train.max_epochs
-      type: fixed
-      value: 200
-    - name: train.optimizer_args.lr
-      type: range
-      bounds: [0.0, 1.0]
-    - name: sd_rescal.entity_embedder.dropout
-      type: range
-      bounds: [0., .5]
-    - name: sd_rescal.relation_embedder.dropout
-      type: range
-      bounds: [0., .5]
-    - name: sd_rescal.blocks
-      type: range
-      bounds: [2, 10]
-    - name: sd_rescal.block_size
-      type: choice
-      values: [16, 32, 48, 64, 80, 96, 112, 128, 256]
-      is_numerical: True
-      is_ordered: True
-    - name: 1toN.label_smoothing
-      type: range
-      bounds: [0.0, 0.5]
-    - name: lookup_embedder.regularize_weight
-      type: range
-      bounds: [0.0, 0.0000001]
+  - is_ordered: true
+    name: train.batch_size
+    type: choice
+    values: [256, 512, 1024]
+  - {name: train.type, type: fixed, value: 1toN}
+  - name: train.optimizer
+    type: choice
+    values: [Adam, Adagrad]
+  - {name: train.loss, type: fixed, value: bce}
+  - bounds: [0.0003, 1.0]
+    log_scale: true
+    name: train.optimizer_args.lr
+    type: range
+  - {name: train.lr_scheduler, type: fixed, value: ReduceLROnPlateau}
+  - {name: train.lr_scheduler_args.mode, type: fixed, value: max}
+  - bounds: [1, 10]
+    name: train.lr_scheduler_args.patience
+    type: range
+  - bounds: [-0.3, 0.3]
+    name: 1toN.label_smoothing
+    type: range
+  - name: lookup_embedder.regularize
+    type: choice
+    values: ['', l3, l2, l1 ]
+    is_ordered: true
+  - bounds: [1.0e-20, 1.0e-05]
+    log_scale: true
+    name: lookup_embedder.regularize_weight
+    type: range
+  - bounds: [-0.5, 0.5]
+    name: sd_rescal.entity_embedder.dropout
+    type: range
+  - bounds: [-0.5, 0.5]
+    name: sd_rescal.relation_embedder.dropout
+    type: range
+  - {name: sd_rescal.auto_initialization, type: fixed, value: true}
+  - name: sd_rescal.blocks
+    type: range
+    bounds: [2, 10]
+  - name: sd_rescal.block_size
+    type: choice
+    values: [16, 32, 48, 64, 80, 96, 112, 128, 256]
+    is_numerical: True
+    is_ordered: True
 
 search.num_workers: 2
 train.num_workers: 2
