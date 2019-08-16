@@ -85,40 +85,19 @@ class LookupEmbedder(KgeEmbedder):
         if self.regularize == "" or self.regularize_args['weight'] == 0.0:
             return super().penalty(**kwargs)
         elif self.regularize == "l1":
-            if not self.regularize_args['sparse']:
-                return super().penalty(**kwargs) + [
-                    self.regularize_args['weight'] * self.embeddings.weight.norm(p=1)
-                ]
-            else:
-                result = super().penalty(**kwargs) + [
-                    self.regularize_args['weight'] * self.penalized_params_cache.norm(p=1)
-                ]
-                self.penalized_params_cache = None
-                return result
+            return super().penalty(**kwargs) + [
+                self.regularize_args['weight'] * self.embeddings.weight.norm(p=1)
+            ]
         elif self.regularize == "l2":
-            if not self.regularize_args['sparse']:
-                return super().penalty(**kwargs) + [
-                    self.regularize_args['weight'] * self.embeddings.weight.norm(p=2) ** 2
-                ]
-            else:
-                result = super().penalty(**kwargs) + [
-                    self.regularize_args['weight'] * self.penalized_params_cache.norm(p=2) ** 2
-                ]
-                self.penalized_params_cache = None
-                return result
+            return super().penalty(**kwargs) + [
+                self.regularize_args['weight'] * self.embeddings.weight.norm(p=2) ** 2
+            ]
         elif self.regularize == "l3":
             # As in CP-N3 paper, Eq. (4): Timothée Lacroix, Nicolas Usunier, Guillaume
             # Obozinski. Canonical Tensor Decomposition for Knowledge Base Completion.
             # ICML 2018. https://arxiv.org/abs/1806.07297
-            if not self.regularize_args['sparse']:
-                return super().penalty(**kwargs) + [
-                    self.regularize_args['weight'] * self.embeddings.weight.norm(p=3) ** 3
-                ]
-            else:
-                result = super().penalty(**kwargs) + [
-                    self.regularize_args['weight'] * self.penalized_params_cache.norm(p=3) ** 3
-                ]
-                self.penalized_params_cache = None
-                return result
+            return super().penalty(**kwargs) + [
+                self.regularize_args['weight'] * self.embeddings.weight.norm(p=3) ** 3
+            ]
         else:
             raise ValueError("unknown penalty")
