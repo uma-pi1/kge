@@ -9,8 +9,8 @@ from kge.model.kge_model import KgeEmbedder, KgeModel, RelationalScorer
 class RescalScorer(RelationalScorer):
     r"""Implementation of the RESCAL KGE scorer."""
 
-    def __init__(self, config: Config, dataset: Dataset):
-        super().__init__(config, dataset)
+    def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
+        super().__init__(config, dataset, configuration_key)
 
     def score_emb(
         self,
@@ -94,10 +94,19 @@ class Rescal(KgeModel):
             raise ValueError("Both entity and relation embedders must be set to auto_initialization "
                              "in order to use it.")
 
+        # HACK to make inverse relations work
+        # TODO figure out why and remove
+        self.set_option(
+            "entity_embedder.dim", self.get_option("entity_embedder.dim")
+        )
+        self.set_option(
+            "relation_embedder.dim", self.get_option("relation_embedder.dim")
+        )
+
         super().__init__(
             config,
             dataset,
-            scorer=RescalScorer(config=config, dataset=dataset),
+            scorer=RescalScorer(config=config, dataset=dataset, configuration_key=configuration_key),
             configuration_key=configuration_key
         )
 

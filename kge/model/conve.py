@@ -11,8 +11,8 @@ class ConvEScorer(RelationalScorer):
     Must be used with InverseRelationsModel."""
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
-        super().__init__(config, dataset)
-        self.configuration_key = configuration_key
+        super().__init__(config, dataset, configuration_key)
+        # self.configuration_key = configuration_key
         self.emb_dim = self.get_option("entity_embedder.dim") - 1
         aspect_ratio = self.get_option("2D_aspect_ratio")
         self.emb_height = math.sqrt(self.emb_dim / aspect_ratio)
@@ -91,16 +91,17 @@ class ConvEScorer(RelationalScorer):
 
         return out.view(batch_size, -1)
 
-    # TODO: move up for all scorers?
-    def get_option(self, name):
-        return self.config.get_default(self.configuration_key + "." + name)
+    # # TODO: move up for all scorers?
+    # def get_option(self, name):
+    #     return self.config.get_default(self.configuration_key + "." + name)
+    #
+    # # TODO: move up for all scorers?
+    # def set_option(self, name, value):
+    #     if self.configuration_key:
+    #         self.config.set(self.configuration_key + "." + name, value)
+    #     else:
+    #         self.config.set(name, value)
 
-    # TODO: move up for all scorers?
-    def set_option(self, name, value):
-        if self.configuration_key:
-            self.config.set(self.configuration_key + "." + name, value)
-        else:
-            self.config.set(name, value)
 
 class ConvE(KgeModel):
     r"""Implementation of the ConvE KGE model."""

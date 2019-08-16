@@ -73,8 +73,9 @@ class RelationalScorer(KgeBase):
 
     """
 
-    def __init__(self, config: Config, dataset: Dataset):
+    def __init__(self, config: Config, dataset: Dataset, configuration_key: str):
         super().__init__(config, dataset)
+        self.configuration_key = configuration_key
 
     def score_emb_spo(self, s_emb, p_emb, o_emb):
         r"""Scores a set of triples specified by their embeddings.
@@ -143,6 +144,15 @@ class RelationalScorer(KgeBase):
             raise ValueError('cannot handle combine="{}".format(combine)')
 
         return out.view(n, -1)
+
+    def get_option(self, name):
+        return self.config.get_default(self.configuration_key + "." + name)
+
+    def set_option(self, name, value):
+        if self.configuration_key:
+            self.config.set(self.configuration_key + "." + name, value)
+        else:
+            self.config.set(name, value)
 
 
 class KgeEmbedder(KgeBase):

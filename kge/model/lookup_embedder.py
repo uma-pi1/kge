@@ -9,7 +9,6 @@ class LookupEmbedder(KgeEmbedder):
         super().__init__(config, dataset, configuration_key)
 
         # read config
-        # self.dropout = torch.nn.Dropout(self.get_option("dropout"))
         self.normalize_p = self.get_option("normalize.p")
         self.normalize_with_grad = self.get_option("normalize.with_grad")
         self.regularize = self.check_option("regularize", ["", "l1", "l2", "l3"])
