@@ -63,7 +63,7 @@ class Rescal(KgeModel):
         # auto initialize such that scores have unit variance
         if self.get_option("entity_embedder.initialize") == "auto_initialization" and \
                 self.get_option("relation_embedder.initialize") == "auto_initialization":
-            # Var[score] = block_size^2*var_e^2*var_r, where var_e/var_r are the variances
+            # Var[score] = entity_embedder.dim^2*var_e^2*var_r, where var_e/var_r are the variances
             # of the entries
             #
             # Thus we set var_e=var_r=(1.0/(entity_embedder.dim^2*))^(1/6)
