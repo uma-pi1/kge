@@ -613,7 +613,7 @@ class TrainingJobNegativeSampling(TrainingJob1toN):
             #         [ 1., 11.,  1., 11.,  1., 11.,  1., 11.,  1., 11.],
             #         [ 2., 12.,  2., 12.,  2., 12.,  2., 12.,  2., 12.]])
             #
-            # then overwrite the true ids beginning in row 1 with sampled
+            # then overwrite the true ids beginning in column 3 with sampled
             # ids (instead of sample we use 99 for simplicity in this example)
             #
             # label_coords_pick = []
