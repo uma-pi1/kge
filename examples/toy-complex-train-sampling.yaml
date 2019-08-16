@@ -1,6 +1,7 @@
 job.type: train
-dataset.name: toy
+#dataset.name: toy
 model: complex
+
 train:
   type: negative_sampling
   optimizer: Adagrad
@@ -8,8 +9,12 @@ train:
     lr: 0.2
     weight_decay: 0.4e-7
   loss: margin_ranking
+#  loss: bce
   loss_arg: 2.0  # margin
-negative_sampling:
-  num_negatives_s: 1
-  sampling_type: uniform
+  batch_size: 512
+
 lookup_embedder.dim: 100
+
+negative_sampling:
+  num_negatives_s: 1000
+  num_negatives_o: -1

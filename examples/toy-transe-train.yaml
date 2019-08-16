@@ -5,10 +5,11 @@ job:
 model: transe
 
 dataset:
-  name: toy
+  name: fb15k-237
+#  name: toy
 
 train:
-  batch_size: 256
+  batch_size: 512
   loss: margin_ranking
   loss_arg: 4.0
   max_epochs: 200
@@ -19,7 +20,6 @@ train:
 
 negative_sampling:
   num_negatives_o: 3
-  num_negatives_p: 0
   num_negatives_s: 3
   sampling_type: uniform
 
