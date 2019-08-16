@@ -388,8 +388,9 @@ class KgeModel(KgeBase):
     def penalty(self, **kwargs):
         return (
             super().penalty(**kwargs)
-            + self._entity_embedder.penalty(**kwargs)
-            + self._relation_embedder.penalty(**kwargs)
+            + self.get_s_embedder().penalty(**kwargs)
+            + self.get_p_embedder().penalty(**kwargs)
+            + self.get_o_embedder().penalty(**kwargs)
         )
 
     def get_s_embedder(self) -> KgeEmbedder:
