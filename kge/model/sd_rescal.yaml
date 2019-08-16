@@ -1,11 +1,9 @@
 import: [lookup_embedder]
 
 sd_rescal:
-  auto_initialization: True
   class_name: SparseDiagonalRescal
   blocks: 4
   block_size: 32
-  auto_initialization: True
   entity_embedder:
     type: lookup_embedder
     dim: -1  # determine automatically

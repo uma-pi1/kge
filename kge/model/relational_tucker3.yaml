@@ -1,7 +1,6 @@
 import: [lookup_embedder, tucker3_relation_embedder]
 
 relational_tucker3:
-  auto_initialization: True  # set all initialization parameters to suggested values
   class_name: RelationalTucker3
   entity_embedder:
     type: lookup_embedder

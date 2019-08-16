@@ -17,12 +17,23 @@ class ConvEScorer(RelationalScorer):
         aspect_ratio = self.get_option("2D_aspect_ratio")
         self.emb_height = math.sqrt(self.emb_dim / aspect_ratio)
         self.emb_width = self.emb_height * aspect_ratio
-        if self.emb_dim % self.emb_height or self.emb_dim % self.emb_width:
+
+        # round embedding dimension to match aspect ratio
+        rounded_height = math.ceil(self.emb_height)
+        if self.get_option("round_dim") and rounded_height != self.emb_height:
+            self.emb_height = rounded_height
+            self.emb_width = self.emb_height * aspect_ratio
+            self.emb_dim = self.emb_height * self.emb_width
+            self.set_option("entity_embedder.dim", self.emb_dim + 1)
+            self.set_option("relation_embedder.dim", self.emb_dim + 1)
+            config.log("Rounded embedding dimension up to {} to match given aspect ratio.".format(self.emb_dim))
+        elif self.emb_dim % self.emb_height or self.emb_dim % self.emb_width:
             raise Exception(
                 "Aspect ratio {} does not produce 2D integers for dimension {}.".format(
                     aspect_ratio, self.emb_dim
                 )
             )
+
         self.filter_size = self.get_option("filter_size")
         self.stride = self.get_option("stride")
         self.padding = self.get_option("padding")
@@ -84,6 +95,12 @@ class ConvEScorer(RelationalScorer):
     def get_option(self, name):
         return self.config.get_default(self.configuration_key + "." + name)
 
+    # TODO: move up for all scorers?
+    def set_option(self, name, value):
+        if self.configuration_key:
+            self.config.set(self.configuration_key + "." + name, value)
+        else:
+            self.config.set(name, value)
 
 class ConvE(KgeModel):
     r"""Implementation of the ConvE KGE model."""

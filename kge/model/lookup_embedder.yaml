@@ -8,7 +8,7 @@ lookup_embedder:
     with_grad: False          #
   regularize: 'l2'            # '', 'l1', 'l2'
   regularize_weight: 0.0
-  initialize: normal_         # xavier_uniform_, xavier_normal_, uniform_, normal_
+  initialize: normal_         # xavier_uniform_, xavier_normal_, uniform_, normal_, auto_initialization
   initialize_args:            # this is default if specific option below are not specified
     +++: +++
   # examples for specifying args for specific initializers (useful for ax search)

@@ -2,6 +2,7 @@ import: [lookup_embedder]
 
 conve:
   class_name: ConvE
+  round_dim: False
   entity_embedder:
     type: lookup_embedder
     dropout: 0.2              # original value: 0.2

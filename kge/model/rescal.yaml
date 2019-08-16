@@ -1,7 +1,6 @@
 import: [lookup_embedder]
 
 rescal:
-  auto_initialization: True
   class_name: Rescal
   entity_embedder:
     type: lookup_embedder

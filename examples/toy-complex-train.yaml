@@ -7,7 +7,7 @@ train:
     lr: 0.2
     weight_decay: 0.4e-7
 lookup_embedder.dim: 100
-complex.auto_initialization: False  
+#complex.auto_initialization: False  
 train.lr_scheduler: ReduceLROnPlateau
 train.lr_scheduler_args: 
   mode: max
@@ -30,4 +30,11 @@ lookup_embedder.initialize_args:
   #   gain: 1.0
   # xavier_uniform_:
   #   gain: 1.0
+
+# example for using auto_initialization
+#lookup_embedder.initialize: auto_initialization
+# one can also set both entity and relation embedders to auto_initialization
+# but both must be set together, else there is an error
+#complex.entity_embedder.initialize: auto_initialization
+#complex.relation_embedder.initialize: auto_initialization
 
