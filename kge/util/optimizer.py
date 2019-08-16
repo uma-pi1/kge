@@ -36,9 +36,9 @@ class KgeLRScheduler:
             if name in metric_based_schedulers:
                 metric_based = True
             return scheduler, metric_based
-        except:
+        except Exception as e:
             raise ValueError("Invalid LR scheduler options. Could not find '{}' "
-                             "in torch.optim.lr_scheduler".format(name))
+                             "in torch.optim.lr_scheduler, error was {}".format(name, e))
 
 class ConstantLRScheduler(_LRScheduler):
     """Default LR scheduler that does nothing."""
