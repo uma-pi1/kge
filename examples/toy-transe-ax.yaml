@@ -43,7 +43,8 @@ transe:
     sparse: false
     type: lookup_embedder
     regularize: l2
-    regularize_weight: 1.e-05
+    regularize_args:
+      weight: 1.e-05
   relation_embedder:
     dim: 100
     initialize: uniform_
@@ -53,7 +54,8 @@ transe:
     sparse: false
     type: lookup_embedder
     regularize: l2
-    regularize_weight: 1.e-05
+    regularize_args:
+      weight: 1.e-05
   l_norm: 1.
 
 ax_search:
@@ -79,7 +81,7 @@ ax_search:
       values: [-1., 2.]
       is_numerical: False
       is_ordered: False
-    - name: lookup_embedder.regularize_weight
+    - name: lookup_embedder.regularize_args.weight
       type: range
       bounds: [0.0, 0.001]
 

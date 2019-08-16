@@ -13,7 +13,7 @@ class LookupEmbedder(KgeEmbedder):
         self.normalize_p = self.get_option("normalize.p")
         self.normalize_with_grad = self.get_option("normalize.with_grad")
         self.regularize = self.check_option("regularize", ["", "l1", "l2", "l3"])
-        self.regularize_weight = self.get_option("regularize_weight")
+        self.regularize_args = self.get_option("regularize_args")
         self.sparse = self.get_option("sparse")
         self.config.check("train.trace_level", ["batch", "epoch"])
         self.vocab_size = vocab_size
@@ -53,6 +53,8 @@ class LookupEmbedder(KgeEmbedder):
                 dropout = 0
         self.dropout = torch.nn.Dropout(dropout)
 
+        self.penalized_params_cache = None
+
     def prepare_job(self, job, **kwargs):
         super().prepare_job(job, **kwargs)
         if self.normalize_p > 0:
@@ -72,29 +74,51 @@ class LookupEmbedder(KgeEmbedder):
         return embeddings
 
     def embed(self, indexes):
-        return self._embed(self.embeddings(indexes.long()))
+        self.penalized_params_cache = self._embed(self.embeddings(indexes.long()))
+        return self.penalized_params_cache
 
     def embed_all(self):
         return self._embed(self.embeddings.weight)
 
     def penalty(self, **kwargs):
         # TODO factor out to a utility method
-        if self.regularize == "" or self.regularize_weight == 0.0:
+        if self.regularize == "" or self.regularize_args['weight'] == 0.0:
             return super().penalty(**kwargs)
         elif self.regularize == "l1":
-            return super().penalty(**kwargs) + [
-                self.regularize_weight * self.embeddings.weight.norm(p=1)
-            ]
+            if not self.regularize_args['sparse']:
+                return super().penalty(**kwargs) + [
+                    self.regularize_args['weight'] * self.embeddings.weight.norm(p=1)
+                ]
+            else:
+                result = super().penalty(**kwargs) + [
+                    self.regularize_args['weight'] * self.penalized_params_cache.norm(p=1)
+                ]
+                self.penalized_params_cache = None
+                return result
         elif self.regularize == "l2":
-            return super().penalty(**kwargs) + [
-                self.regularize_weight * self.embeddings.weight.norm(p=2) ** 2
-            ]
+            if not self.regularize_args['sparse']:
+                return super().penalty(**kwargs) + [
+                    self.regularize_args['weight'] * self.embeddings.weight.norm(p=2) ** 2
+                ]
+            else:
+                result = super().penalty(**kwargs) + [
+                    self.regularize_args['weight'] * self.penalized_params_cache.norm(p=2) ** 2
+                ]
+                self.penalized_params_cache = None
+                return result
         elif self.regularize == "l3":
             # As in CP-N3 paper, Eq. (4): Timothée Lacroix, Nicolas Usunier, Guillaume
             # Obozinski. Canonical Tensor Decomposition for Knowledge Base Completion.
             # ICML 2018. https://arxiv.org/abs/1806.07297
-            return super().penalty(**kwargs) + [
-                self.regularize_weight * self.embeddings.weight.norm(p=3) ** 3
-            ]
+            if not self.regularize_args['sparse']:
+                return super().penalty(**kwargs) + [
+                    self.regularize_args['weight'] * self.embeddings.weight.norm(p=3) ** 3
+                ]
+            else:
+                result = super().penalty(**kwargs) + [
+                    self.regularize_args['weight'] * self.penalized_params_cache.norm(p=3) ** 3
+                ]
+                self.penalized_params_cache = None
+                return result
         else:
             raise ValueError("unknown penalty")

@@ -12,4 +12,5 @@ projection_embedder:
   dropout: 0.                 # dropout used for embeddings
   normalize: ''               # alternatively: normalize '', L2
   regularize: 'l2'              # '', 'l1', 'l2'
-  regularize_weight: 0.0
+  regularize_args:
+    weight: 0.0

@@ -7,17 +7,20 @@ relational_tucker3:
     dim: 50
     dropout: 0.02
     regularize: 'l2'
-    regularize_weight: 4e-12
+    regularize_args:
+      weight: 4e-12
 
   relation_embedder:
     dropout: 0.3
     regularize: 'l2'
-    regularize_weight: 6e-16
+    regularize_args:
+      weight: 6e-16
     base_embedder:
       dim: 50
       dropout: 0.3
       regularize: 'l2'
-      regularize_weight: 6e-12
+      regularize_args:
+        weight: 6e-12
 
 train:
   max_epochs: 50

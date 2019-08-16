@@ -7,7 +7,8 @@ sparse_relational_tucker3:
     dim: 50
     dropout: 2e-19
     regularize: 'l2'
-    regularize_weight: 1e-8
+    regularize_args:
+      weight: 1e-8
 
   relation_embedder:
     dropout: 0.25
@@ -16,7 +17,8 @@ sparse_relational_tucker3:
       dim: 50
       dropout: 0.3
       regularize: 'l2'
-      regularize_weight: 1e-9
+      regularize_args:
+        weight: 1e-9
 
 train:
   max_epochs: 50
