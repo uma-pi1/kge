@@ -146,7 +146,12 @@ class Config:
             data = data[splits[i]]
 
         # check correctness of value
-        current_value = data.get(splits[-1])
+
+        try:
+            current_value = data.get(splits[-1])
+        except:
+            raise Exception("This config entry {} caused an error.".format(data))
+
         if current_value is None:
             if not create:
                 raise ValueError("key {} not present".format(key))
