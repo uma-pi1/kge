@@ -8,8 +8,8 @@ from kge.model.kge_model import RelationalScorer, KgeModel
 class TransEScorer(RelationalScorer):
     r"""Implementation of the TransE KGE scorer."""
 
-    def __init__(self, config: Config, dataset: Dataset):
-        super().__init__(config, dataset)
+    def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
+        super().__init__(config, dataset, configuration_key)
         self._norm = config.get("transe.l_norm")
 
     def score_emb(self, s_emb, p_emb, o_emb, combine: str):
@@ -75,9 +75,20 @@ class TransE(KgeModel):
     r"""Implementation of the TransE KGE model."""
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
+        self._init_configuration(config, configuration_key)
+
+        # HACK to make inverse relations work
+        # TODO figure out why and remove
+        self.set_option(
+            "entity_embedder.dim", self.get_option("entity_embedder.dim")
+        )
+        self.set_option(
+            "relation_embedder.dim", self.get_option("relation_embedder.dim")
+        )
+
         super().__init__(
             config,
             dataset,
-            TransEScorer(config, dataset),
+            TransEScorer(config, dataset, configuration_key),
             configuration_key=configuration_key,
         )

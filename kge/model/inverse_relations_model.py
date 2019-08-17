@@ -49,8 +49,8 @@ class InverseRelationsModel(KgeModel):
     def penalty(self, **kwargs):
         return super().penalty(**kwargs) + self._base_model.penalty(**kwargs)
 
-    # def score_spo(self, s, p, o):
-    #     raise Exception("The inverse relations model cannot compute spo scores.")
+    def score_spo(self, s, p, o):
+        raise Exception("The inverse relations model cannot compute spo scores.")
 
     def score_po(self, p, o, s=None):
         if s is None:
