@@ -162,6 +162,8 @@ if __name__ == "__main__":
         if key in ["command", "config", "run", "folder"]:
             continue
         if value is not None:
+            if key == "search.device_pool":
+                value = ''.join(value).split(',')
             config.set(key, value)
             if key == "model":
                 config._import(value)
