@@ -1,11 +1,5 @@
 dataset:
-  entity_map: entity_map.del
   name: toy
-#  name: fb15k-237
-  relation_map: relation_map.del
-  test: test.del
-  train: train.del
-  valid: valid.del
 
 job:
   device: cuda
@@ -20,23 +14,22 @@ checkpoint:
 train:
   batch_size: 512
   loss: bce
-  lr_scheduler: ConstantLRScheduler
+  lr_scheduler: ReduceLROnPlateau
+  lr_scheduler_args:
+    mode: max
+    factor: 0.95
+    patience: 0
+    threshold: 0.0001
   max_epochs: 200
   num_workers: 0
-  optimizer: Adagrad
+  optimizer: Adam
   optimizer_args:
     +++: +++
     lr: 0.1
   pin_memory: false
   trace_level: epoch
   type: 1toN
-  auto_correct: true
-
-negative_sampling:
-  num_negatives_o: -1
-  num_negatives_p: 0
-  num_negatives_s: 16
-  sampling_type: uniform
+  auto_correct: True
 
 user:
   +++: +++
@@ -46,7 +39,7 @@ valid:
     min_threshold:
       epochs: 25
       metric_value: 0.05
-    patience: 6
+    patience: 10
   every: 5
   filter_with_test: true
   metric: mean_reciprocal_rank_filtered_with_test
@@ -54,7 +47,7 @@ valid:
   trace_level: epoch
 
 eval:
-  batch_size: 100
+  batch_size: 256
   data: valid
   num_workers: 0
   pin_memory: false
@@ -75,59 +68,66 @@ sd_rescal:
     type: lookup_embedder
     dropout: 0.2
 
+lookup_embedder:
+  class_name: LookupEmbedder
+  dim: 1
+  dropout: 0.0
+  regularize: 'l2'
+  regularize_args:
+    weighted: True
+    weight: 1.0e-10
+  sparse: false
+
 search:
-  num_workers: 1
+  num_workers: 2
   type: ax
+  device_pool: [cuda:0]
 
 ax_search:
   num_trials: 20
   num_sobol_trials: 10
+  fixed_parameters:
+    - name: lookup_embedder.dim
+      value: 128
   parameters:
-  - is_ordered: true
-    name: train.batch_size
-    type: choice
-    values: [256, 512, 1024]
-  - {name: train.type, type: fixed, value: 1toN}
-  - name: train.optimizer
-    type: choice
-    values: [Adam, Adagrad]
-  - {name: train.loss, type: fixed, value: bce}
-  - bounds: [0.0003, 1.0]
-    log_scale: true
-    name: train.optimizer_args.lr
-    type: range
-  - {name: train.lr_scheduler, type: fixed, value: ReduceLROnPlateau}
-  - {name: train.lr_scheduler_args.mode, type: fixed, value: max}
-  - bounds: [1, 10]
-    name: train.lr_scheduler_args.patience
-    type: range
-  - bounds: [-0.3, 0.3]
-    name: 1toN.label_smoothing
-    type: range
-  - name: lookup_embedder.regularize
-    type: choice
-    values: ['', l3, l2, l1 ]
-    is_ordered: true
-  - bounds: [1.0e-20, 1.0e-05]
-    log_scale: true
-    name: lookup_embedder.regularize_args.weight
-    type: range
-  - bounds: [-0.5, 0.5]
-    name: sd_rescal.entity_embedder.dropout
-    type: range
-  - bounds: [-0.5, 0.5]
-    name: sd_rescal.relation_embedder.dropout
-    type: range
-  - {name: sd_rescal.auto_initialization, type: fixed, value: true}
-  - name: sd_rescal.blocks
-    type: range
-    bounds: [2, 10]
-  - name: sd_rescal.block_size
-    type: choice
-    values: [16, 32, 48, 64, 80, 96, 112, 128, 256]
-    is_numerical: True
-    is_ordered: True
-
-search.num_workers: 2
-train.num_workers: 2
-eval.num_workers: 2
+    - name: train.batch_size
+      type: fixed
+      value: 386
+    - name: train.max_epochs
+      type: fixed
+      value: 300
+    - name: train.optimizer_args.lr
+      type: range
+      log_scale: true
+      bounds: [1.e-4, 1.0]
+    - name: train.lr_scheduler_args.patience
+      type: range
+      bounds: [1,10]
+    - name: train.optimizer
+      type: choice
+      values: [Adam, Adagrad]
+    - name: sd_rescal.entity_embedder.dropout
+      type: range
+      bounds: [-0.5, 0.5]
+    - name: sd_rescal.relation_embedder.dropout
+      type: range
+      bounds: [-0.5, 0.5]
+    - name: 1toN.label_smoothing
+      type: range
+      bounds: [-0.5, 0.5]
+    - name: lookup_embedder.regularize_args.weight
+      type: range
+      log_scale: true
+      bounds: [1.e-20, 1.e-5]
+    - name: lookup_embedder.dim
+      type: choice
+      is_ordered: True
+      values: [128, 256, 512]
+    #  - name: sd_rescal.blocks
+    #    type: range
+    #    bounds: [2, 10]
+    - name: sd_rescal.block_size
+      type: choice
+      values: [16, 32, 64, 128, 256, 512]
+      is_numerical: True
+      is_ordered: True

@@ -386,11 +386,13 @@ class KgeModel(KgeBase):
         job.post_epoch_trace_hooks.append(append_num_parameter)
 
     def penalty(self, **kwargs):
+        if 'batch' in kwargs and 'triples' in kwargs['batch']:
+            kwargs['batch']['triples'] = kwargs['batch']['triples'].to(self.config.get('job.device'))
         return (
             super().penalty(**kwargs)
-            + self.get_s_embedder().penalty(**kwargs)
-            + self.get_p_embedder().penalty(**kwargs)
-            + self.get_o_embedder().penalty(**kwargs)
+            + self.get_s_embedder().penalty(slot=0, **kwargs)
+            + self.get_p_embedder().penalty(slot=1, **kwargs)
+            + self.get_o_embedder().penalty(slot=2, **kwargs)
         )
 
     def get_s_embedder(self) -> KgeEmbedder:

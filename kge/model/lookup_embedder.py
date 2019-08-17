@@ -53,8 +53,6 @@ class LookupEmbedder(KgeEmbedder):
                 dropout = 0
         self.dropout = torch.nn.Dropout(dropout)
 
-        self.penalized_params_cache = None
-
     def prepare_job(self, job, **kwargs):
         super().prepare_job(job, **kwargs)
         if self.normalize_p > 0:
@@ -74,8 +72,7 @@ class LookupEmbedder(KgeEmbedder):
         return embeddings
 
     def embed(self, indexes):
-        self.penalized_params_cache = self._embed(self.embeddings(indexes.long()))
-        return self.penalized_params_cache
+        return self._embed(self.embeddings(indexes.long()))
 
     def embed_all(self):
         return self._embed(self.embeddings.weight)
@@ -85,19 +82,46 @@ class LookupEmbedder(KgeEmbedder):
         if self.regularize == "" or self.regularize_args['weight'] == 0.0:
             return super().penalty(**kwargs)
         elif self.regularize == "l1":
-            return super().penalty(**kwargs) + [
-                self.regularize_args['weight'] * self.embeddings.weight.norm(p=1)
-            ]
+            if self.regularize_args['weighted']:
+                result = super().penalty(**kwargs)
+                if 'batch' in kwargs and 'triples' in kwargs['batch']:
+                    parameters = self.embed(kwargs['batch']['triples'][:, kwargs['slot']])
+                    result += [
+                        self.regularize_args['weight'] * parameters.norm(p=1) / parameters.size(0)
+                    ]
+                return result
+            else:
+                return super().penalty(**kwargs) + [
+                    self.regularize_args['weight'] * self.embeddings.weight.norm(p=1)
+                ]
         elif self.regularize == "l2":
-            return super().penalty(**kwargs) + [
-                self.regularize_args['weight'] * self.embeddings.weight.norm(p=2) ** 2
-            ]
+            if self.regularize_args['weighted']:
+                result = super().penalty(**kwargs)
+                if 'batch' in kwargs and 'triples' in kwargs['batch']:
+                    parameters = self.embed(kwargs['batch']['triples'][:, kwargs['slot']])
+                    result += [
+                        self.regularize_args['weight'] * parameters.norm(p=2) ** 2 / parameters.size(0)
+                    ]
+                return result
+            else:
+                return super().penalty(**kwargs) + [
+                    self.regularize_args['weight'] * self.embeddings.weight.norm(p=2) ** 2
+                ]
         elif self.regularize == "l3":
-            # As in CP-N3 paper, Eq. (4): Timothée Lacroix, Nicolas Usunier, Guillaume
-            # Obozinski. Canonical Tensor Decomposition for Knowledge Base Completion.
-            # ICML 2018. https://arxiv.org/abs/1806.07297
-            return super().penalty(**kwargs) + [
-                self.regularize_args['weight'] * self.embeddings.weight.norm(p=3) ** 3
-            ]
+            if self.regularize_args['weighted']:
+                result = super().penalty(**kwargs)
+                if 'batch' in kwargs and 'triples' in kwargs['batch']:
+                    parameters = self.embed(kwargs['batch']['triples'][:, kwargs['slot']])
+                    result += [
+                        self.regularize_args['weight'] * parameters.norm(p=3) ** 3 / parameters.size(0)
+                    ]
+                return result
+            else:
+                # As in CP-N3 paper, Eq. (4): Timothée Lacroix, Nicolas Usunier, Guillaume
+                # Obozinski. Canonical Tensor Decomposition for Knowledge Base Completion.
+                # ICML 2018. https://arxiv.org/abs/1806.07297
+                return super().penalty(**kwargs) + [
+                    self.regularize_args['weight'] * self.embeddings.weight.norm(p=3) ** 3
+                ]
         else:
             raise ValueError("unknown penalty")

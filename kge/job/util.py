@@ -40,13 +40,13 @@ def get_sp_po_coords_from_spo_batch(
 def coord_to_sparse_tensor(nrows, ncols, coords, device, value=1.0):
     if device == "cpu":
         labels = torch.sparse.FloatTensor(
-            coords.t(),
+            coords.long().t(),
             torch.ones([len(coords)], dtype=torch.float, device=device) * value,
             torch.Size([nrows, ncols]),
         )
     else:
         labels = torch.cuda.sparse.FloatTensor(
-            coords.t(),
+            coords.long().t(),
             torch.ones([len(coords)], dtype=torch.float, device=device) * value,
             torch.Size([nrows, ncols]),
             device=device,

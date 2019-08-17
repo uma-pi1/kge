@@ -120,11 +120,8 @@ the dataset (if not present).
                     and best_index < len(self.valid_trace) - patience
                 ):
                     self.config.log(
-                        "Stopping early ({} did not improve over best result "
-                        + "in the last {} validation runs).".format(
-                            metric_name, patience
-                        )
-                    )
+                    "Stopping early ({} did not improve over best result ".format(metric_name)
+                    + "in the last {} validation runs).".format(patience))
                     break
                 if self.epoch > self.config.get(
                     "valid.early_stopping.min_threshold.epochs"
@@ -275,7 +272,10 @@ the dataset (if not present).
             batch_forward_time -= time.time()
             penalty_value = torch.zeros(1, device=self.device)
             penalty_values = self.model.penalty(
-                epoch=self.epoch, batch_index=batch_index, num_batches=len(self.loader)
+                epoch=self.epoch,
+                batch_index=batch_index,
+                num_batches=len(self.loader),
+                batch=batch,
             )
             for pv_index, pv_value in enumerate(penalty_values):
                 penalty_value = penalty_value + pv_value
@@ -480,19 +480,22 @@ class TrainingJob1toN(TrainingJob):
             # now create the results
             sp_po_batch = torch.zeros([len(batch), 2], dtype=torch.long)
             is_sp = torch.zeros([len(batch)], dtype=torch.long)
-            label_coords = torch.zeros([num_ones, 2], dtype=torch.long)
+            label_coords = torch.zeros([num_ones, 2], dtype=torch.int)
             current_index = 0
+            triples = torch.zeros([num_ones, 3], dtype=torch.long)
             for batch_index, example_index in enumerate(batch):
                 is_sp[batch_index] = 1 if example_index < num_sp else 0
                 if is_sp[batch_index]:
                     keys = self.train_sp_keys
                     offsets = self.train_sp_offsets
                     values = self.train_sp_values
+                    sp_po_col_1, sp_po_col_2, o_s_col = 0, 1, 2
                 else:
                     example_index -= num_sp
                     keys = self.train_po_keys
                     offsets = self.train_po_offsets
                     values = self.train_po_values
+                    o_s_col, sp_po_col_1, sp_po_col_2 = 0, 1, 2
 
                 sp_po_batch[batch_index,] = keys[example_index]
                 start = offsets[example_index]
@@ -502,20 +505,28 @@ class TrainingJob1toN(TrainingJob):
                 label_coords[current_index : (current_index + size), 1] = values[
                     start:end
                 ]
+                triples[current_index : (current_index + size), sp_po_col_1] = keys[example_index][0]
+                triples[current_index : (current_index + size), sp_po_col_2] = keys[example_index][1]
+                triples[current_index : (current_index + size), o_s_col] = values[start:end]
                 current_index += size
 
             # all done
-            return sp_po_batch, label_coords, is_sp
+            return {
+                'sp_po_batch': sp_po_batch,
+                'label_coords': label_coords,
+                'is_sp': is_sp,
+                'triples': triples,
+            }
 
         return collate
 
     def _compute_batch_loss(self, batch_index, batch):
         # prepare
         batch_prepare_time = -time.time()
-        sp_po_batch = batch[0].to(self.device)
+        sp_po_batch = batch['sp_po_batch'].to(self.device)
         batch_size = len(sp_po_batch)
-        label_coords = batch[1].to(self.device)
-        is_sp = batch[2]
+        label_coords = batch['label_coords'].to(self.device)
+        is_sp = batch['is_sp']
         sp_indexes = is_sp.nonzero().to(self.device).view(-1)
         po_indexes = (is_sp == 0).nonzero().to(self.device).view(-1)
         labels = kge.job.util.coord_to_sparse_tensor(
@@ -570,10 +581,10 @@ class TrainingJobNegativeSampling(TrainingJob1toN):
 
         # prepare
         batch_prepare_time = -time.time()
-        sp_po_batch = batch[0].to(self.device)
+        sp_po_batch = batch['sp_po_batch'].to(self.device)
         batch_size = len(sp_po_batch)
-        batch_label_coords = batch[1].to(self.device)
-        is_sp = batch[2]
+        batch_label_coords = batch['label_coords'].to(self.device)
+        is_sp = batch['is_sp']
         sp_indexes = is_sp.nonzero().to(self.device).view(-1)
         po_indexes = (is_sp == 0).nonzero().to(self.device).view(-1)
 
@@ -616,7 +627,10 @@ class TrainingJobNegativeSampling(TrainingJob1toN):
             # then overwrite the true ids beginning in column 3 with sampled
             # ids (instead of sample we use 99 for simplicity in this example)
             #
-            # label_coords_pick = []
+            # label_coords_pick = [
+            #   [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2],
+            #   [3, 5, 7, 9, 3, 5, 7, 9, 3, 5, 7, 9]
+            # ]
             #
             # repeated[label_coords_pick[0], label_coords_pick[1],] = 99
             #
