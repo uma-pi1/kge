@@ -40,8 +40,8 @@ class TransEScorer(RelationalScorer):
 # class TransEScorer(RelationalScorer, torch.jit.ScriptModule):
 #     r"""Implementation of the TransE KGE scorer."""
 #
-#     def __init__(self, config: Config, dataset: Dataset):
-#         super().__init__(config, dataset)
+#     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
+#         super().__init__(config, dataset, configuration_key=configuration_key)
 #         self.combines = {"spo": 0, "sp*": 1, "*po": 2}
 #
 #     def score_emb(self, s_emb, p_emb, o_emb, combine: int):
