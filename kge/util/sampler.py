@@ -10,6 +10,8 @@ class KgeNegativeSampler:
 
         # if num_s < 0 set num_s to num_o
         self._num_negatives_s = config.get("negative_sampling.num_negatives_s")
+        self._num_negatives_o = config.get("negative_sampling.num_negatives_o")
+
         if self._num_negatives_s < 0:
             if self._num_negatives_o > 0:
                 self._num_negatives_s = self._num_negatives_o
@@ -21,7 +23,6 @@ class KgeNegativeSampler:
         #     self._num_negatives_p = 0
 
         # if num_o < 0 set num_o to num_s
-        self._num_negatives_o = config.get("negative_sampling.num_negatives_o")
         if self._num_negatives_o < 0:
             if self._num_negatives_s > 0:
                 self._num_negatives_o = self._num_negatives_s
