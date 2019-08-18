@@ -253,7 +253,11 @@ class Config:
 
         # import model configurations
         if "model" in new_options:
-            self._import(new_options.get("model"))
+            model = new_options.get("model")
+            # TODO not sure why this can be empty when resuming an ax
+            # search with model as a search parameter
+            if model:
+                self._import(model)
         if "import" in new_options:
             imports = new_options.get("import")
             if not isinstance(imports, list):
