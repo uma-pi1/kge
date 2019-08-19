@@ -73,6 +73,12 @@ negative_sampling:
   num_negatives_s: 3          # this is default value if others are -1, must not be -1
   num_negatives_o: -1
 
+negative_sampling_spo:
+  sampling_type: uniform
+  num_negatives_s: 3          # this is default value if others are -1, must not be -1
+  num_negatives_p: -1
+  num_negatives_o: -1
+
 # Configuration options for model validation/selection during training.
 valid:
   # Validation is run every this many epochs during training (disable validation

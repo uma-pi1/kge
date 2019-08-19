@@ -84,7 +84,7 @@ the dataset (if not present).
         """
         if config.get("train.type") == "1toN":
             return TrainingJob1toN(config, dataset, parent_job)
-        elif config.get("train.type") == "negative_sampling_legacy":
+        elif config.get("train.type") == "negative_sampling_spo":
             return TrainingJobNegativeSamplingLegacy(config, dataset, parent_job)
         elif config.get("train.type") == "negative_sampling":
             return TrainingJobNegativeSampling(config, dataset, parent_job)
@@ -560,7 +560,7 @@ class TrainingJobNegativeSampling(TrainingJob1toN):
 
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job=parent_job)
-        self._sampler = KgeNegativeSampler.create(config, dataset)
+        self._sampler = KgeNegativeSampler.create(config, 'negative_sampling', dataset)
         # if num_s < 0 set num_s to num_o
         self._num_negatives_s = config.get("negative_sampling.num_negatives_s")
         if self._num_negatives_s < 0:
@@ -677,7 +677,7 @@ class TrainingJobNegativeSampling(TrainingJob1toN):
 class TrainingJobNegativeSamplingLegacy(TrainingJob):
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
-        self._sampler = KgeNegativeSampler.create(config, dataset)
+        self._sampler = KgeNegativeSampler.create(config, "negative_sampling_spo", dataset)
         config.log("Initializing negative sampling training job...")
         self.is_prepared = False
 
@@ -716,8 +716,9 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
                 triples.append(self.dataset.train[example_index].type(torch.long))
                 labels.extend([1] + [0] * (self._sampler.num_negatives))
 
-            triples = (
-                torch.stack(triples)
+            triples = torch.stack(triples)
+            triples_input = (
+                triples
                 .repeat(1, 1 + self._sampler.num_negatives)
                 .view(-1, 3)
             )
@@ -728,14 +729,14 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
                 ([1], self._sampler._num_negatives_p, self.dataset.num_relations),
                 ([2], self._sampler._num_negatives_o, self.dataset.num_entities),
             ]:
-                triples[
+                triples_input[
                     list(
                         itertools.chain(
                             *map(
                                 lambda x: range(x + 1, x + slot_num_negatives + 1),
                                 range(
                                     offset,
-                                    triples.size(0),
+                                    triples_input.size(0),
                                     1 + self._sampler.num_negatives,
                                 ),
                             )
@@ -744,16 +745,20 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
                     (slot * slot_num_negatives) * len(batch),
                 ] = self._sampler.sample(voc_size, slot_num_negatives * len(batch))
                 offset += slot_num_negatives
-            return triples, torch.tensor(labels, dtype=torch.float)
+            return {
+                'labels': torch.tensor(labels, dtype=torch.float),
+                'triples_input': triples_input,
+                'triples': triples,
+            }
 
         return collate
 
     def _compute_batch_loss(self, batch_index, batch):
         # prepare
         batch_prepare_time = -time.time()
-        triples = batch[0].to(self.device)
+        triples = batch['triples_input'].to(self.device)
         batch_size = len(triples)
-        labels = batch[1].to(self.device)
+        labels = batch['labels'].to(self.device)
         batch_prepare_time += time.time()
 
         # forward pass
@@ -761,7 +766,7 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
         self.optimizer.zero_grad()
         loss_value = torch.zeros(1, device=self.device)
         scores = self.model.score_spo(triples[:, 0], triples[:, 1], triples[:, 2])
-        loss_value = loss_value + self.loss(scores, labels)
+        loss_value = loss_value + self.loss(scores, labels, num_negatives=self._sampler.num_negatives)
         batch_forward_time += time.time()
 
         return loss_value, batch_size, batch_prepare_time, batch_forward_time

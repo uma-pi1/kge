@@ -9,7 +9,7 @@ dataset:
 #  name: toy
 
 train:
-  batch_size: 512
+  batch_size: 256
   loss: margin_ranking
   loss_arg: 4.0
   max_epochs: 200
@@ -19,8 +19,8 @@ train:
   type: negative_sampling
 
 negative_sampling:
-  num_negatives_o: 3
-  num_negatives_s: 3
+  num_negatives_o: 1000
+  num_negatives_s: 1000
   sampling_type: uniform
 
 valid:
@@ -35,7 +35,7 @@ eval:
 transe:
   class_name: TransE
   entity_embedder:
-    dim: 100
+    dim: 512
     initialize: uniform_
     initialize_args:
       uniform_ :
@@ -45,8 +45,9 @@ transe:
     regularize: l2
     regularize_args:
       weight: 1.e-05
+      weighted: False
   relation_embedder:
-    dim: 100
+    dim: 512
     initialize: uniform_
     initialize_args:
       uniform_ :
@@ -56,4 +57,5 @@ transe:
     regularize: l2
     regularize_args:
       weight: 1.e-05
+      weighted: False
   l_norm: 1.
