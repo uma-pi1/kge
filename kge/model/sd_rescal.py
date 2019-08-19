@@ -8,8 +8,8 @@ from kge.model.kge_model import KgeModel, RelationalScorer
 class SparseDiagonalRescalScorer(RelationalScorer):
     r"""Implementation of the Sparse Diagonal RESCAL KGE scorer."""
 
-    def __init__(self, config: Config, dataset: Dataset, blocks, block_size):
-        super().__init__(config, dataset)
+    def __init__(self, config: Config, dataset: Dataset, blocks, block_size, configuration_key=None):
+        super().__init__(config, dataset, configuration_key)
         self.blocks = blocks
         self.block_size = block_size
 
