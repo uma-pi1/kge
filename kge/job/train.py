@@ -595,6 +595,8 @@ class TrainingJobNegativeSampling(TrainingJob1toN):
         sp_label_coords = labels[sp_indexes].nonzero()
         po_label_coords = labels[po_indexes].nonzero()
 
+        batch_prepare_time += time.time()
+
         # forward pass
         batch_forward_time = -time.time()
         self.optimizer.zero_grad()
