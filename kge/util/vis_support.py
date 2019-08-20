@@ -3,6 +3,7 @@ from kge.job import TrainingJob
 from kge.job import SearchJob
 import numpy as np
 import yaml
+import json
 
 
 
@@ -14,6 +15,9 @@ class VisdomHandler():
         # train config is appended to every window once
         self.config_appended_eval = False
         self.config_appended_train = False
+
+        self.full_summary_env_name = None
+        self.train_envname = None
 
     # TODO: some duplicate code, change when all jobs are specified
     def prepare(self):
@@ -39,12 +43,12 @@ class VisdomHandler():
 
             # create a summary env (you might want to have an A at the beginning)
             summary_env_name = "A.summary plots"
-            full_summary_env_name = envname[-2] + "_" + summary_env_name
-            visdom.Visdom(env=full_summary_env_name)
+            self.full_summary_env_name = envname[-2] + "_" + summary_env_name
+            visdom.Visdom(env=self.full_summary_env_name)
             # underscores to generate subenvs
-            train_envname = envname[-2] + "_" + envname[-1]
-            self._prepare_training_job(train_envname)
-            self._prepare_search_job(full_summary_env_name)
+            self.train_envname = envname[-2] + "_" + envname[-1]
+            self._prepare_training_job(self.train_envname, from_search=True)
+            self._prepare_search_job(self.full_summary_env_name)
 
     def _prepare_search_job(self, envname):
 
@@ -57,12 +61,20 @@ class VisdomHandler():
             for param in list(params):
                 x = job.config.get("train.optimizer_args.{}".format(param))
                 y = trace[job.config.get("valid.metric")]
-                vis.scatter(X=[[x,y]], update="append" , win=param , opts={"xlabel": param , "ylabel": job.config.get("valid.metric")  })
+                vis.scatter(
+                    X=[[x,y]],
+                    update="append",
+                    win=param,
+                    opts={
+                        "xlabel": param,
+                        "ylabel": job.config.get("valid.metric")
+                    }
+                )
                 #TODO adjust saving behavior
                 vis.save([envname])
         self.job.post_train_hooks.append(collect_hyperparam_and_valid)
 
-    def _prepare_training_job(self, envname):
+    def _prepare_training_job(self, envname, from_search=False):
 
         vis = visdom.Visdom(env=envname)
 
@@ -74,7 +86,8 @@ class VisdomHandler():
                     X=[job.epoch],
                     Y=[trace[track_me]],
                     win=track_me,
-                    title=track_me
+                    opts=self._get_opts(track_me),
+
                 )
                 if not self.config_appended_train:
                     # appends the config as meta data to the window this updates opts and does not override it
@@ -103,14 +116,13 @@ class VisdomHandler():
                             X=[job.epoch],
                             Y=[trace[metric]],
                             win=metric,
-                            title=metric
+                            opts = self._get_opts(title=metric)
                         )
                         # appends the config as meta data to the window this updates opts and does not override it
                         # meta data will appear as a key "config":{} in the "layout" dic e. g. in vis.get_window_data(winid)
                         # it is fine to "abuse" opts in that way, see:
                         # https://github.com/facebookresearch/visdom/issues/661
                         if not self.config_appended_eval:
-                            # append the config
                             vis.line(
                                 X=[None],
                                 Y=[None],
@@ -129,7 +141,49 @@ class VisdomHandler():
             vis.save([envname])
         self.job.post_train_hooks.append(add_config)
 
-    def _vis_line(self, vis, X, Y, win, title):
+        if from_search:
+            def track_best_valid(job, trace_entry):
+                # whenever a better valid.metric is reached a corresponding plot is updated in the summary env
+                # this could potentially be done in one of the main hooks
+                # but their metrics are user definable; also this is more modular
+
+                vis.env = self.full_summary_env_name
+                valid_metric_name = self.job.config.get("valid.metric")
+                valid_metric = trace_entry[valid_metric_name]
+                title = "progress_best_{}".format(valid_metric_name)
+
+                # TODO: the ops somehow lead to a weird appearance
+                # opts = self._get_opts(title)
+                # opts["layoutopts"]["plotly"]["xaxis"].pop("range")
+                # opts["layoutopts"]["plotly"]["xaxis"]["autorange"] = True
+
+                if (vis.win_exists(title)):
+                    data = vis.get_window_data(title)
+                    js = json.loads(data)
+                    last_val = js["content"]["data"][0]["y"][-1]
+                    step_num = js["content"]["data"][0]["x"][-1]
+                    if valid_metric > last_val:
+                        self._vis_line(
+                            vis=vis,
+                            X=[step_num + 1],
+                            Y=[valid_metric],
+                            win=title,
+                            opts={"title": title}
+                        )
+                else:
+                    self._vis_line(
+                        vis=vis,
+                        X=[self.job.epoch],
+                        Y=[valid_metric],
+                        win=title,
+                        opts={"title": title}
+                    )
+
+                vis.env = self.train_envname
+
+            self.job.valid_job.post_valid_hooks.append(track_best_valid)
+
+    def _vis_line(self, vis, X, Y, win, opts):
         """ Wraps vis.line(). """
         vis.line(
             X=X,
@@ -138,7 +192,7 @@ class VisdomHandler():
             update="append",
             # TODO add name for legend
             name="add param config here",
-            opts=self._get_opts(title=title))
+            opts=opts)
 
     def _get_opts(self, title):
         opts = {
