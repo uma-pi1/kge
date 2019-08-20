@@ -77,15 +77,6 @@ class TransE(KgeModel):
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         self._init_configuration(config, configuration_key)
 
-        # HACK to make inverse relations work
-        # TODO figure out why and remove
-        self.set_option(
-            "entity_embedder.dim", self.get_option("entity_embedder.dim")
-        )
-        self.set_option(
-            "relation_embedder.dim", self.get_option("relation_embedder.dim")
-        )
-
         super().__init__(
             config,
             dataset,

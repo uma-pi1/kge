@@ -94,15 +94,6 @@ class Rescal(KgeModel):
             raise ValueError("Both entity and relation embedders must be set to auto_initialization "
                              "in order to use it.")
 
-        # HACK to make inverse relations work
-        # TODO figure out why and remove
-        self.set_option(
-            "entity_embedder.dim", self.get_option("entity_embedder.dim")
-        )
-        self.set_option(
-            "relation_embedder.dim", self.get_option("relation_embedder.dim")
-        )
-
         super().__init__(
             config,
             dataset,

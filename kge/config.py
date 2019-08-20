@@ -73,6 +73,7 @@ class Config:
             parent = key[:last_dot_index]
             field = key[last_dot_index + 1 :]
             while True:
+                # self.log("Looking up {}/{}".format(parent, field))
                 try:
                     parent_type = self.get(parent + "." + "type")
                     # found a type -> go to this type and lookup there
@@ -150,7 +151,9 @@ class Config:
         try:
             current_value = data.get(splits[-1])
         except:
-            raise Exception("These config entries {} {} caused an error.".format(data, splits[-1]))
+            raise Exception(
+                "These config entries {} {} caused an error.".format(data, splits[-1])
+            )
 
         if current_value is None:
             if not create:
