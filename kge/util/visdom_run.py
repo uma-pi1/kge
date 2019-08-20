@@ -1,7 +1,7 @@
 import visdom
 import json
 import os
-from kge.config import  Config
+from kge.config import Config
 from os.path import dirname, abspath
 
 
@@ -68,6 +68,7 @@ class VisEnvParser():
         # holds tuples (envid, windowid)
         result_list = []
         for env in list(cls.envdic.keys()):
+            #TODO search key in dic to make this faster
             for window_title in list(cls.envdic[env]):
                 if window_title != plot:
                     continue
