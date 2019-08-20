@@ -171,7 +171,11 @@ class KgeEmbedder(KgeBase):
 
         # verify all custom options by trying to set them in a copy of this
         # configuration (quick and dirty, but works)
-        custom_options = Config.flatten(config.get(self.configuration_key))
+        try:
+            custom_options = Config.flatten(config.get(self.configuration_key))
+        except KeyError:
+            # there are no custom options
+            custom_options = {}
         if "type" in custom_options:
             del custom_options["type"]
         dummy_config = self.config.clone()
