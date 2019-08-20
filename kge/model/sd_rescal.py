@@ -32,7 +32,7 @@ class SparseDiagonalRescalScorer(RelationalScorer):
         #
         #   Relation embedding:
         #
-        #	M =	[	m1	m2	m3	m4	m5	m6	m7	m8	]
+        #	M =	[m1	m2	m3	m4	m5	m6	m7	m8	]
         #
         #   Entity embeddings (called left and right for the left and right hand side
         #   of the bilinear product):
@@ -238,16 +238,34 @@ class SparseDiagonalRescal(KgeModel):
                 {"mean": 0.0, "std": std},
                 log=True,
             )
+
+            if config.get(self.configuration_key + ".relation_embedder.type") == 'projection_embedder':
+                relation_embedder = ".base_embedder.relation_embedder"
+                # core tensor weight -> initial scores have var=1 (when no dropout / eval)
+                config.set(
+                    self.configuration_key + ".relation_embedder.initialize",
+                    "normal_",
+                    log=True,
+                )
+                config.set(
+                    self.configuration_key + ".relation_embedder.initialize_args",
+                    {"mean": 0.0, "std": 1.0},
+                    log=True,
+                )
+            else:
+                relation_embedder = ".relation_embedder"
+
             config.set(
-                self.configuration_key + ".relation_embedder.initialize",
+                self.configuration_key + relation_embedder + ".initialize",
                 "normal_",
                 log=True,
             )
             config.set(
-                self.configuration_key + ".relation_embedder.initialize_args",
+                self.configuration_key + relation_embedder + ".initialize_args",
                 {"mean": 0.0, "std": std},
                 log=True,
             )
+
         elif self.get_option("entity_embedder.initialize") == "auto_initialization" or \
                 self.get_option("relation_embedder.initialize") == "auto_initialization":
             raise ValueError("Both entity and relation embedders must be set to auto_initialization "
@@ -260,3 +278,4 @@ class SparseDiagonalRescal(KgeModel):
                                               blocks=blocks, block_size=block_size),
             configuration_key=configuration_key
         )
+

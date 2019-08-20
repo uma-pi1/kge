@@ -1,6 +1,6 @@
-import: [lookup_embedder]
+import: [lookup_embedder, projection_embedder]
 
-sd_rescal:
+sd_rescal_tucker3:
   class_name: SparseDiagonalRescal
   blocks: -1
   block_size: -1
@@ -9,6 +9,6 @@ sd_rescal:
     dim: -1  # determine automatically
     +++: +++
   relation_embedder:
-    type: lookup_embedder
+    type: projection_embedder
     dim: -1  # determine automatically
     +++: +++
