@@ -205,6 +205,8 @@ eval:
   num_workers: 0
   pin_memory: False
   trace_level: example            # example or batch or epoch
+  thresholds: valid
+  test: test
 
 
   # Metrics are always computed over the entire evaluation data. Optionally,
@@ -219,8 +221,7 @@ eval:
   metric_per_relation_type: False
   metric_per_head_and_tail: False
   metric_per_argument_frequency_perc: False
-  thresholds: valid
-  test: test
+
 
 
 
