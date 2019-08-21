@@ -84,7 +84,7 @@ class LookupEmbedder(KgeEmbedder):
             if self.regularize_args['weighted']:
                 result = super().penalty(**kwargs)
                 if 'batch' in kwargs and 'triples' in kwargs['batch']:
-                    parameters = self.embed(kwargs['batch']['triples'][:, kwargs['slot']])
+                    parameters = self.embeddings(kwargs['batch']['triples'][:, kwargs['slot']])
                     result += [
                         self.regularize_args['weight'] * parameters.norm(p=1) / parameters.size(0)
                     ]
@@ -97,7 +97,7 @@ class LookupEmbedder(KgeEmbedder):
             if self.regularize_args['weighted']:
                 result = super().penalty(**kwargs)
                 if 'batch' in kwargs and 'triples' in kwargs['batch']:
-                    parameters = self.embed(kwargs['batch']['triples'][:, kwargs['slot']])
+                    parameters = self.embeddings(kwargs['batch']['triples'][:, kwargs['slot']])
                     result += [
                         self.regularize_args['weight'] * parameters.norm(p=2) ** 2 / parameters.size(0)
                     ]
@@ -110,7 +110,7 @@ class LookupEmbedder(KgeEmbedder):
             if self.regularize_args['weighted']:
                 result = super().penalty(**kwargs)
                 if 'batch' in kwargs and 'triples' in kwargs['batch']:
-                    parameters = self.embed(kwargs['batch']['triples'][:, kwargs['slot']])
+                    parameters = self.embeddings(kwargs['batch']['triples'][:, kwargs['slot']])
                     result += [
                         self.regularize_args['weight'] * parameters.norm(p=3) ** 3 / parameters.size(0)
                     ]

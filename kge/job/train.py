@@ -576,6 +576,8 @@ class TrainingJobNegativeSampling(TrainingJob1toN):
                 self._num_negatives_o = self._num_negatives_s
             else:
                 self._num_negatives_o = 0
+        config.log("Sampling from 1-to-N ...")
+
 
     def _compute_batch_loss(self, batch_index, batch):
 
