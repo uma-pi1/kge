@@ -212,7 +212,7 @@ the dataset (if not present).
 
         Returns job id of the job that created the checkpoint."""
         self.config.log("Loading checkpoint from {}...".format(filename))
-        checkpoint = torch.load(filename)
+        checkpoint = torch.load(filename, map_location='cpu')
         if "model" in checkpoint:
             # new format
             self.model.load(checkpoint["model"])
