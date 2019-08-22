@@ -5,7 +5,7 @@ job:
 model: transe
 
 dataset:
-  name: fb15k
+  name: toy
 
 train:
   batch_size: 256
@@ -19,24 +19,21 @@ train:
 
 negative_sampling:
   num_negatives_o: 3
-  num_negatives_p: 0
   num_negatives_s: 3
   sampling_type: uniform
 
 valid:
   early_stopping.patience: 5
   every: 5
-  filter_with_test: True
   metric: Accuracy
 
 eval:
-  batch_size: 512
   type: triple_classification
 
 transe:
   class_name: TransE
   entity_embedder:
-    dim: 100
+    dim: 128
     initialize: uniform_
     initialize_args:
       uniform_ :
@@ -44,9 +41,11 @@ transe:
     sparse: false
     type: lookup_embedder
     regularize: l2
-    regularize_weight: 1.e-05
+    regularize_args:
+      weight: 1.e-05
+      weighted: False
   relation_embedder:
-    dim: 100
+    dim: 128
     initialize: uniform_
     initialize_args:
       uniform_ :
@@ -54,5 +53,7 @@ transe:
     sparse: false
     type: lookup_embedder
     regularize: l2
-    regularize_weight: 1.e-05
+    regularize_args:
+      weight: 1.e-05
+      weighted: False
   l_norm: 1.
