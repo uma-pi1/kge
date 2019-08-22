@@ -390,8 +390,8 @@ the dataset (if not present).
 
         """
         if self.config.get("visdom.enable"):
-            from kge.util.vis_support import VisdomHandler
-            vd = VisdomHandler(self)
+            from kge.util.vis_support import VisdomBroadcastHandler
+            vd = VisdomBroadcastHandler(self)
             vd.prepare()
 
     def _compute_batch_loss(self, batch_index, batch):

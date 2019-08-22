@@ -7,7 +7,7 @@ import json
 
 
 
-class VisdomHandler():
+class VisdomBroadcastHandler():
     """ Handles functionalities of interactive visualizations of job executions."""
 
     def __init__(self, job):
@@ -292,6 +292,4 @@ class VisdomHandler():
                 }
             }
         return opts
-
-
 
