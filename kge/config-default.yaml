@@ -71,13 +71,16 @@ train:
 negative_sampling:
   sampling_type: uniform
   num_negatives_s: 3          # this is default value if others are -1, must not be -1
-  num_negatives_o: -1
-
-negative_sampling_spo:
-  sampling_type: uniform
-  num_negatives_s: 3          # this is default value if others are -1, must not be -1
   num_negatives_p: -1
   num_negatives_o: -1
+  filter_true_s: False        # default is not filtering
+  filter_true_p: False
+  filter_true_o: False
+  # set to spo (for small negative samples), sp_po (for large negative samples),
+  # or set to auto which sets spo or sp_po automatically if the
+  # max(num_negatives_s, num_negatives_p, num_negatives_o) > 30, only recommended
+  # for models which compute sp_po with an inner product (not TransE, f.ex.).
+  score_func_type: spo
 
 # Configuration options for model validation/selection during training.
 valid:

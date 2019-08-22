@@ -7,6 +7,8 @@ import kge
 from kge import Config, Dataset
 from kge.util.misc import filename_in_module
 
+SLOTS = [0, 1, 2]
+S, P, O = SLOTS
 
 class KgeBase(torch.nn.Module):
     r"""Base class for all KGE models, scorers, and embedders."""
@@ -404,9 +406,9 @@ class KgeModel(KgeBase):
             kwargs['batch']['triples'] = kwargs['batch']['triples'].to(self.config.get('job.device'))
         return (
             super().penalty(**kwargs)
-            + self.get_s_embedder().penalty(slot=0, **kwargs)
-            + self.get_p_embedder().penalty(slot=1, **kwargs)
-            + self.get_o_embedder().penalty(slot=2, **kwargs)
+            + self.get_s_embedder().penalty(slot=S, **kwargs)
+            + self.get_p_embedder().penalty(slot=P, **kwargs)
+            + self.get_o_embedder().penalty(slot=O, **kwargs)
         )
 
     def get_s_embedder(self) -> KgeEmbedder:
