@@ -137,17 +137,25 @@ class Config:
         splits = key.split(".")
         data = self.options
 
-        # flatten path
+        # flatten path and see if it is valid to be set
         path = []
         for i in range(len(splits) - 1):
-            create = create or "+++" in data[splits[i]]
-            if create and splits[i] not in data:
-                data[splits[i]] = dict()
+            if splits[i] in data:
+                create = create or "+++" in data[splits[i]]
+            else:
+                if create:
+                    data[splits[i]] = dict()
+                else:
+                    raise KeyError(
+                        (
+                            "{} cannot be set because creation of "
+                            + "{} is not permitted"
+                        ).format(key, ".".join(splits[: (i + 1)]))
+                    )
             path.append(splits[i])
             data = data[splits[i]]
 
         # check correctness of value
-
         try:
             current_value = data.get(splits[-1])
         except:
