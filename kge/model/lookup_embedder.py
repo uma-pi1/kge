@@ -12,7 +12,6 @@ class LookupEmbedder(KgeEmbedder):
         self.normalize_p = self.get_option("normalize.p")
         self.normalize_with_grad = self.get_option("normalize.with_grad")
         self.regularize = self.check_option("regularize", ["", "l1", "l2", "l3"])
-        self.regularize_args = self.get_option("regularize_args")
         self.sparse = self.get_option("sparse")
         self.config.check("train.trace_level", ["batch", "epoch"])
         self.vocab_size = vocab_size
@@ -78,41 +77,41 @@ class LookupEmbedder(KgeEmbedder):
 
     def penalty(self, **kwargs):
         # TODO factor out to a utility method
-        if self.regularize == "" or self.regularize_args['weight'] == 0.0:
+        if self.regularize == "" or self.get_option("regularize_args.weight") == 0.0:
             return super().penalty(**kwargs)
         elif self.regularize == "l1":
-            if self.regularize_args['weighted']:
+            if self.get_option("regularize_args.weighted"):
                 result = super().penalty(**kwargs)
                 if 'batch' in kwargs and 'triples' in kwargs['batch']:
                     parameters = self.embeddings(kwargs['batch']['triples'][:, kwargs['slot']])
                     result += [
-                        self.regularize_args['weight'] * parameters.norm(p=1) / parameters.size(0)
+                        self.get_option("regularize_args.weight") * parameters.norm(p=1) / parameters.size(0)
                     ]
                 return result
             else:
                 return super().penalty(**kwargs) + [
-                    self.regularize_args['weight'] * self.embeddings.weight.norm(p=1)
+                    self.get_option("regularize_args.weight") * self.embeddings.weight.norm(p=1)
                 ]
         elif self.regularize == "l2":
-            if self.regularize_args['weighted']:
+            if self.get_option("regularize_args.weighted"):
                 result = super().penalty(**kwargs)
                 if 'batch' in kwargs and 'triples' in kwargs['batch']:
                     parameters = self.embeddings(kwargs['batch']['triples'][:, kwargs['slot']])
                     result += [
-                        self.regularize_args['weight'] * parameters.norm(p=2) ** 2 / parameters.size(0)
+                        self.get_option("regularize_args.weight") * parameters.norm(p=2) ** 2 / parameters.size(0)
                     ]
                 return result
             else:
                 return super().penalty(**kwargs) + [
-                    self.regularize_args['weight'] * self.embeddings.weight.norm(p=2) ** 2
+                    self.get_option("regularize_args.weight") * self.embeddings.weight.norm(p=2) ** 2
                 ]
         elif self.regularize == "l3":
-            if self.regularize_args['weighted']:
+            if self.get_option("regularize_args.weighted"):
                 result = super().penalty(**kwargs)
                 if 'batch' in kwargs and 'triples' in kwargs['batch']:
                     parameters = self.embeddings(kwargs['batch']['triples'][:, kwargs['slot']])
                     result += [
-                        self.regularize_args['weight'] * parameters.norm(p=3) ** 3 / parameters.size(0)
+                        self.get_option("regularize_args.weight") * parameters.norm(p=3) ** 3 / parameters.size(0)
                     ]
                 return result
             else:
@@ -120,7 +119,7 @@ class LookupEmbedder(KgeEmbedder):
                 # Obozinski. Canonical Tensor Decomposition for Knowledge Base Completion.
                 # ICML 2018. https://arxiv.org/abs/1806.07297
                 return super().penalty(**kwargs) + [
-                    self.regularize_args['weight'] * self.embeddings.weight.norm(p=3) ** 3
+                    self.get_option("regularize_args.weight") * self.embeddings.weight.norm(p=3) ** 3
                 ]
         else:
             raise ValueError("unknown penalty")
