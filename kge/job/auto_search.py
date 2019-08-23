@@ -126,60 +126,60 @@ class AutoSearchJob(SearchJob):
                     "Resumed trial {} with parameters: {}".format(trial_no, parameters)
                 )
 
-            if self.results[trial_id] is not None:
+            if trial_id is None:
+                # couldn't generate a new trial since data is lacking; so wait for data
+                self.wait_task()
+            elif self.results[trial_no] is not None:
+                # trial result is in checkpoint, use it (from prior run of this job)
                 self.config.log(
                     "Registering trial {} result: {}".format(
-                        trial_id, self.results[trial_id]
+                        trial_no, self.results[trial_no]
                     )
                 )
                 self.register_trial_result(
-                    self.trial_ids[trial_id],
-                    self.parameters[trial_id],
-                    self.results[trial_id],
+                    self.trial_ids[trial_no],
+                    self.parameters[trial_no],
+                    self.results[trial_no],
                 )
-            else:
-                # create job for trial
-                if trial_id is not None:
-                    folder = str("{:05d}".format(trial_no))
-                    config = self.config.clone(folder)
-                    config.set("job.type", "train")
-                    config.set_all(parameters)
-                    config.init_folder()
-                    # save checkpoint here so that trial is not lost
-                    # TODO make atomic (may corrupt good checkpoint when canceled!)
-                    self.save(self.config.checkpoint_file(1))
+            else:  # trial_id is valid, but no result yet
+                # create/resume job for trial
+                folder = str("{:05d}".format(trial_no))
+                config = self.config.clone(folder)
+                config.set("job.type", "train")
+                config.set_all(parameters)
+                config.init_folder()
+
+                # save checkpoint here so that trial is not lost
+                # TODO make atomic (may corrupt good checkpoint when canceled!)
+                self.save(self.config.checkpoint_file(1))
 
                 # run or schedule the trial
-                if trial_id is not None:
-                    self.submit_task(
-                        kge.job.search._run_train_job,
-                        (self, trial_no, config, self.num_trials, list(parameters.keys())),
-                    )
+                self.submit_task(
+                    kge.job.search._run_train_job,
+                    (self, trial_no, config, self.num_trials, list(parameters.keys())),
+                )
 
-                    # on last iteration, wait for all running trials to complete
-                    if trial_no == self.num_trials - 1:
-                        self.wait_task(return_when=concurrent.futures.ALL_COMPLETED)
-                else:
-                    # couldn't generate a new trial since data is lacking; so wait
-                    self.wait_task()
+            # on last iteration, wait for all running trials to complete
+            if trial_id is not None and trial_no == self.num_trials - 1:
+                self.wait_task(return_when=concurrent.futures.ALL_COMPLETED)
 
-                # for each ready trial, store its results
-                for ready_trial_no, ready_trial_best, _ in self.ready_task_results:
-                    self.config.log(
-                        "Registering trial {} result: {}".format(
-                            ready_trial_no, ready_trial_best["metric_value"]
-                        )
+            # for each ready trial, store its results
+            for ready_trial_no, ready_trial_best, _ in self.ready_task_results:
+                self.config.log(
+                    "Registering trial {} result: {}".format(
+                        ready_trial_no, ready_trial_best["metric_value"]
                     )
-                    self.results[ready_trial_no] = ready_trial_best
-                    self.register_trial_result(
-                        self.trial_ids[ready_trial_no],
-                        self.parameters[ready_trial_no],
-                        ready_trial_best,
-                    )
+                )
+                self.results[ready_trial_no] = ready_trial_best
+                self.register_trial_result(
+                    self.trial_ids[ready_trial_no],
+                    self.parameters[ready_trial_no],
+                    ready_trial_best,
+                )
 
-                    # save checkpoint
-                    # TODO make atomic (may corrupt good checkpoint when canceled!)
-                    self.save(self.config.checkpoint_file(1))
+                # save checkpoint
+                # TODO make atomic (may corrupt good checkpoint when canceled!)
+                self.save(self.config.checkpoint_file(1))
 
             # clean up
             self.ready_task_results.clear()
