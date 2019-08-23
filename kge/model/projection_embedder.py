@@ -25,7 +25,6 @@ class ProjectionEmbedder(KgeEmbedder):
         self.dropout = self.get_option("dropout")
         self.normalize = self.check_option("normalize", ["", "L2"])
         self.regularize = self.check_option("regularize", ["", "l1", "l2"])
-        self.regularize_args = self.get_option("regularize_args")
         self.projection = torch.nn.Linear(self.base_embedder.dim, self.dim, bias=False)
         self.initialize(
             self.projection.weight.data,
@@ -51,12 +50,12 @@ class ProjectionEmbedder(KgeEmbedder):
 
     def penalty(self, **kwargs):
         # TODO factor out to a utility method
-        if self.regularize == "" or self.regularize_args['weight'] == 0.0:
+        if self.regularize == "" or self.get_option("regularize_args.weight") == 0.0:
             p = []
         elif self.regularize == "l1":
-            p = [self.regularize_args['weight'] * self.projection.weight.norm(p=1)]
+            p = [self.get_option("regularize_args.weight") * self.projection.weight.norm(p=1)]
         elif self.regularize == "l2":
-            p = [self.regularize_args['weight'] * self.projection.weight.norm(p=2) ** 2]
+            p = [self.get_option("regularize_args.weight") * self.projection.weight.norm(p=2) ** 2]
         else:
             raise ValueError("unknown penalty")
 

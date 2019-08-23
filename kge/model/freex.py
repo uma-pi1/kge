@@ -10,8 +10,8 @@ class FreexScorer(RelationalScorer):
     Initial sandbox model for experimentation with sparsity patterns.
     """
 
-    def __init__(self, config: Config, dataset: Dataset):
-        super().__init__(config, dataset)
+    def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
+        super().__init__(config, dataset, configuration_key)
 
     def score_emb(self, s_emb, p_emb, o_emb, combine: str):
         n = p_emb.size(0)
