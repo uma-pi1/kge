@@ -220,8 +220,14 @@ class SparseDiagonalRescal(KgeModel):
         config.set(rel_emb_conf_key + ".dim", blocks**2*block_size, log=True)
 
         # auto initialize such that scores have unit variance
+
+        if self.get_option("relation_embedder.type") == 'projection_embedder':
+            relation_embedder = "relation_embedder.base_embedder"
+        else:
+            relation_embedder = "relation_embedder"
+
         if self.get_option("entity_embedder.initialize") == "auto_initialization" and \
-                self.get_option("relation_embedder.initialize") == "auto_initialization":
+                self.get_option(relation_embedder + ".initialize") == "auto_initialization":
             # Var[score] = blocks^2*block_size*var_e^2*var_r, where var_e/var_r are the variances
             # of the entries
             #
@@ -240,7 +246,6 @@ class SparseDiagonalRescal(KgeModel):
             )
 
             if config.get(self.configuration_key + ".relation_embedder.type") == 'projection_embedder':
-                relation_embedder = ".relation_embedder.base_embedder"
                 # core tensor weight -> initial scores have var=1 (when no dropout / eval)
                 config.set(
                     self.configuration_key + ".relation_embedder.initialize",
@@ -252,22 +257,20 @@ class SparseDiagonalRescal(KgeModel):
                     {"mean": 0.0, "std": 1.0},
                     log=True,
                 )
-            else:
-                relation_embedder = ".relation_embedder"
 
             config.set(
-                self.configuration_key + relation_embedder + ".initialize",
+                self.configuration_key + "." + relation_embedder + ".initialize",
                 "normal_",
                 log=True,
             )
             config.set(
-                self.configuration_key + relation_embedder + ".initialize_args",
+                self.configuration_key + "." + relation_embedder + ".initialize_args",
                 {"mean": 0.0, "std": std},
                 log=True,
             )
 
         elif self.get_option("entity_embedder.initialize") == "auto_initialization" or \
-                self.get_option("relation_embedder.initialize") == "auto_initialization":
+                self.get_option(relation_embedder + ".initialize") == "auto_initialization":
             raise ValueError("Both entity and relation embedders must be set to auto_initialization "
                              "in order to use it.")
 
