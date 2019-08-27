@@ -55,6 +55,7 @@ train:
   pin_memory: False
   trace_level: epoch          # batch or epoch
   auto_correct: False         # True: allows for trainer to adjust certain setting, False: throws exception
+  visualize_graph: False      # create PDF of compute graph (of first batch of first epoch)
 
 1toN:
   # Amount of label smoothing (disabled when 0). Disencourages models to

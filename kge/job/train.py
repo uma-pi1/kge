@@ -285,11 +285,26 @@ the dataset (if not present).
                     sum_penalties.append(pv_value.item())
             sum_penalty += penalty_value.item()
             batch_forward_time += time.time()
+
+            # determine full cost
+            cost_value = loss_value + penalty_value
             forward_time += batch_forward_time
+
+            # visualize graph
+            if (
+                self.epoch == 1
+                and batch_index == 0
+                and self.config.get("train.visualize_graph")
+            ):
+                from torchviz import make_dot
+                f = os.path.join(self.config.folder, "cost_value")
+                graph = make_dot(cost_value, params=dict(self.model.named_parameters()))
+                graph.save(f"{f}.gv")
+                graph.render(f)  # needs graphviz installed
+                self.config.log("Exported compute graph to " + f + ".{gv,pdf}")
 
             # backward pass
             batch_backward_time = -time.time()
-            cost_value = loss_value + penalty_value
             cost_value.backward()
             batch_backward_time += time.time()
             backward_time += batch_backward_time

@@ -16,6 +16,7 @@ setup(
         "path.py",
         "ax-platform>=0.1.2",
         "sqlalchemy",
+        "torchviz"
     ],
     zip_safe=False,
 )
