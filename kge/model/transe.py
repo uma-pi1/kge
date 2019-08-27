@@ -11,13 +11,19 @@ class TransEScorer(RelationalScorer):
         self._norm = self.get_option("l_norm")
 
     def score_emb(self, s_emb, p_emb, o_emb, combine: str):
+        # TODO drop [None,:,:] everywhere once the cdist bug (
+        # https://github.com/pytorch/pytorch/issues/22353) has been fixed. The fix is
+        # https://github.com/pytorch/pytorch/commit/c33adf539c82fe26ed678a2aea4427fbbcbd7c97,
+        # but has not been released (released in pytorch 1.2.1?).
         n = p_emb.size(0)
         if combine == "spo":
             out = -F.pairwise_distance(s_emb + p_emb, o_emb, p=self._norm)
         elif combine == "sp*":
-            out = -torch.cdist(s_emb + p_emb, o_emb, p=self._norm)
+            sp_emb = s_emb + p_emb
+            out = -torch.cdist(sp_emb[None,:,:], o_emb[None,:,:], p=self._norm)
         elif combine == "*po":
-            out = -torch.cdist(o_emb - p_emb, s_emb, p=self._norm)
+            po_emb = o_emb - p_emb
+            out = -torch.cdist(po_emb[None,:,:], s_emb[None,:,:], p=self._norm)
         else:
             raise ValueError('cannot handle combine="{}".format(combine)')
         return out.view(n, -1)
