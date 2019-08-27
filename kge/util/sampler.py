@@ -3,6 +3,7 @@ import torch
 SLOTS = [0, 1, 2]
 S, P, O = SLOTS
 
+
 class KgeNegativeSampler:
     """ Negative sampler """
 
@@ -22,11 +23,7 @@ class KgeNegativeSampler:
             self._filter_true[slot] = config.get(configuration_key + filter_true_key)
             self.voc_size[slot] = voc_size
 
-        for slot, copy_from in [
-            (S, O),
-            (P, None),
-            (O, S),
-        ]:
+        for slot, copy_from in [(S, O), (P, None), (O, S)]:
             if self.num_negatives[slot] < 0:
                 if copy_from is not None and self.num_negatives[copy_from] > 0:
                     self.num_negatives[slot] = self.num_negatives[copy_from]
@@ -34,7 +31,6 @@ class KgeNegativeSampler:
                     self.num_negatives[slot] = 0
 
         self.num_negatives_total = sum(self.num_negatives.values())
-
 
     @staticmethod
     def create(config, configuration_key, dataset=None):
@@ -50,11 +46,11 @@ class KgeNegativeSampler:
     def sample(self, spo, slot, num_samples=None):
         raise NotImplementedError()
 
-    def _filter(self, result ):
+    def _filter(self, result):
         raise NotImplementedError()
 
-class UniformSampler(KgeNegativeSampler):
 
+class UniformSampler(KgeNegativeSampler):
     def __init__(self, config, configuration_key, dataset):
         super().__init__(config, configuration_key, dataset)
 
@@ -65,4 +61,3 @@ class UniformSampler(KgeNegativeSampler):
         if self._filter_true[slot]:
             result = self._filter(result)
         return result
-

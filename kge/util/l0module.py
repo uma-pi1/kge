@@ -9,13 +9,22 @@ from torch.nn import functional as F
 def hard_sigmoid(x):
     return torch.min(torch.max(x, torch.zeros_like(x)), torch.ones_like(x))
 
+
 class L0(nn.Module):
     pass
 
-class _L0Norm(L0):
 
-    def __init__(self, origin, loc_mean=0, loc_sdev=1e-2, beta=2 / 3, gamma=-0.1,
-                 zeta=1.1, fix_temp=True):
+class _L0Norm(L0):
+    def __init__(
+        self,
+        origin,
+        loc_mean=0,
+        loc_sdev=1e-2,
+        beta=2 / 3,
+        gamma=-0.1,
+        zeta=1.1,
+        fix_temp=True,
+    ):
         """
         Base class of layers using L0 Norm
         :param origin: original layer such as nn.Linear(..), nn.Conv2d(..)
@@ -40,14 +49,23 @@ class _L0Norm(L0):
         self.gamma_zeta_ratio = math.log(-gamma / zeta)
 
     def __repr__(self):
-        return self.__class__.__name__ + '(' \
-            + 'loc_mean=' + str(self.loc_mean) \
-            + ', loc_sdev=' + str(self.loc_sdev) \
-            + ', beta=' + str(self.beta) \
-            + ', gamma=' + str(self.gamma) \
-            + ', zeta=' + str(self.zeta) + str('\n\t') \
-            + self._origin.__repr__() \
-            + '\n)'
+        return (
+            self.__class__.__name__
+            + "("
+            + "loc_mean="
+            + str(self.loc_mean)
+            + ", loc_sdev="
+            + str(self.loc_sdev)
+            + ", beta="
+            + str(self.beta)
+            + ", gamma="
+            + str(self.gamma)
+            + ", zeta="
+            + str(self.zeta)
+            + str("\n\t")
+            + self._origin.__repr__()
+            + "\n)"
+        )
 
     def _get_mask(self):
         min_eps = 1e-8
@@ -56,9 +74,13 @@ class _L0Norm(L0):
             self.uniform.uniform_()
             u = Variable(self.uniform)
             self.loc.data = self.loc.data.clamp(min=min_eps, max=max_eps)
-            s = torch.sigmoid((torch.log(u) - torch.log(1 - u) + torch.log(self.loc)) / self.temp)
+            s = torch.sigmoid(
+                (torch.log(u) - torch.log(1 - u) + torch.log(self.loc)) / self.temp
+            )
             s = s * (self.zeta - self.gamma) + self.gamma
-            penalty = torch.sigmoid(torch.log(self.loc) - self.temp * self.gamma_zeta_ratio).sum()
+            penalty = torch.sigmoid(
+                torch.log(self.loc) - self.temp * self.gamma_zeta_ratio
+            ).sum()
             if isnan(penalty.data):
                 print(self.loc)
         else:
@@ -67,11 +89,19 @@ class _L0Norm(L0):
             penalty = 0
         return hard_sigmoid(s), penalty
 
+
 # no clamping; TODO document
 class _L0Norm_orig(L0):
-
-    def __init__(self, origin, loc_mean=0, loc_sdev=1e-2, beta=2 / 3, gamma=-0.1,
-                 zeta=1.1, fix_temp=True):
+    def __init__(
+        self,
+        origin,
+        loc_mean=0,
+        loc_sdev=1e-2,
+        beta=2 / 3,
+        gamma=-0.1,
+        zeta=1.1,
+        fix_temp=True,
+    ):
         """
         Base class of layers using L0 Norm
         :param origin: original layer such as nn.Linear(..), nn.Conv2d(..)
@@ -96,14 +126,23 @@ class _L0Norm_orig(L0):
         self.gamma_zeta_ratio = math.log(-gamma / zeta)
 
     def __repr__(self):
-        return self.__class__.__name__ + '(' \
-            + 'loc_mean=' + str(self.loc_mean) \
-            + ', loc_sdev=' + str(self.loc_sdev) \
-            + ', beta=' + str(self.beta) \
-            + ', gamma=' + str(self.gamma) \
-            + ', zeta=' + str(self.zeta) + str('\n\t') \
-            + self._origin.__repr__() \
-            + '\n)'
+        return (
+            self.__class__.__name__
+            + "("
+            + "loc_mean="
+            + str(self.loc_mean)
+            + ", loc_sdev="
+            + str(self.loc_sdev)
+            + ", beta="
+            + str(self.beta)
+            + ", gamma="
+            + str(self.gamma)
+            + ", zeta="
+            + str(self.zeta)
+            + str("\n\t")
+            + self._origin.__repr__()
+            + "\n)"
+        )
 
     def _get_mask(self):
 
@@ -122,20 +161,32 @@ class _L0Norm_orig(L0):
 def isnan(x):
     return (x != x).long().sum() > 0
 
+
 class L0Linear(_L0Norm):
     def __init__(self, in_features, out_features, bias=True, **kwargs):
-        super(L0Linear, self).__init__(nn.Linear(in_features, out_features, bias=bias), **kwargs)
+        super(L0Linear, self).__init__(
+            nn.Linear(in_features, out_features, bias=bias), **kwargs
+        )
 
     def forward(self, input):
         mask, penalty = self._get_mask()
-        return F.linear(input, self._origin.weight * mask, self._origin.bias), penalty, ((mask>0).float().sum()/mask.numel()).item()
+        return (
+            F.linear(input, self._origin.weight * mask, self._origin.bias),
+            penalty,
+            ((mask > 0).float().sum() / mask.numel()).item(),
+        )
+
 
 class L0Linear_orig(_L0Norm_orig):
     def __init__(self, in_features, out_features, bias=True, **kwargs):
-        super(L0Linear_orig, self).__init__(nn.Linear(in_features, out_features, bias=bias), **kwargs)
+        super(L0Linear_orig, self).__init__(
+            nn.Linear(in_features, out_features, bias=bias), **kwargs
+        )
 
     def forward(self, input):
         mask, penalty = self._get_mask()
-        return F.linear(input, self._origin.weight * mask, self._origin.bias), penalty, ((mask>0).float().sum()/mask.numel()).item()
-
-
+        return (
+            F.linear(input, self._origin.weight * mask, self._origin.bias),
+            penalty,
+            ((mask > 0).float().sum() / mask.numel()).item(),
+        )

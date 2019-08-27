@@ -54,8 +54,9 @@ class Job:
             raise ValueError("unknown job type")
 
         # save the configs of all jobs we created
-        job.config.save(os.path.join(job.config.folder,
-                                     "config/{}.yaml".format(job.job_id[0:8])))
+        job.config.save(
+            os.path.join(job.config.folder, "config/{}.yaml".format(job.job_id[0:8]))
+        )
         return job
 
     def trace(self, **kwargs):

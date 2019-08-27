@@ -26,7 +26,11 @@ class ConvEScorer(RelationalScorer):
             self.emb_dim = self.emb_height * self.emb_width
             self.set_option("entity_embedder.dim", self.emb_dim + 1)
             self.set_option("relation_embedder.dim", self.emb_dim + 1)
-            config.log("Rounded embedding dimension up to {} to match given aspect ratio.".format(self.emb_dim))
+            config.log(
+                "Rounded embedding dimension up to {} to match given aspect ratio.".format(
+                    self.emb_dim
+                )
+            )
         elif self.emb_dim % self.emb_height or self.emb_dim % self.emb_width:
             raise Exception(
                 "Aspect ratio {} does not produce 2D integers for dimension {}.".format(

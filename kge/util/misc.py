@@ -18,18 +18,23 @@ def is_number(s, number_type):
 # from https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script
 def get_git_revision_hash():
     try:
-        if which('git') is not None:
+        if which("git") is not None:
             with Path(kge_base_dir()):
-                return subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode()
+                return (
+                    subprocess.check_output(["git", "rev-parse", "HEAD"])
+                    .strip()
+                    .decode()
+                )
         else:
-            return 'No git binary found'
+            return "No git binary found"
     except:
-        return 'No working git repository found.'
+        return "No working git repository found."
+
 
 # from https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script
 def get_git_revision_short_hash():
     try:
-        if which('git') is not None:
+        if which("git") is not None:
             with Path(kge_base_dir()):
                 return (
                     subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
@@ -37,13 +42,15 @@ def get_git_revision_short_hash():
                     .decode()
                 )
         else:
-            return 'No git binary found'
+            return "No git binary found"
     except:
-        return 'No working git repository found.'
+        return "No working git repository found."
+
 
 # from https://stackoverflow.com/questions/377017/test-if-executable-exists-in-python
 def which(program):
     import os
+
     def is_exe(fpath):
         return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 
@@ -58,6 +65,7 @@ def which(program):
                 return exe_file
 
     return None
+
 
 def kge_base_dir():
     return os.path.abspath(filename_in_module(kge, ".."))

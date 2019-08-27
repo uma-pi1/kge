@@ -157,7 +157,10 @@ class Dataset:
                 triples[:, sp_po_cols], triples[:, value_column]
             )
             self.config.log(
-                "{} distinct {} pairs in {}".format(len(self.indexes[name]), sp_po, split), prefix="  "
+                "{} distinct {} pairs in {}".format(
+                    len(self.indexes[name]), sp_po, split
+                ),
+                prefix="  ",
             )
 
         return self.indexes.get(name)
@@ -165,7 +168,7 @@ class Dataset:
     @staticmethod
     def group_by_sp_po(sp_po_list, o_s_list) -> dict:
         result = defaultdict(list)
-        for sp_po,o_s in zip(sp_po_list.tolist(), o_s_list.tolist()):
+        for sp_po, o_s in zip(sp_po_list.tolist(), o_s_list.tolist()):
             result[tuple(sp_po)].append(o_s)
         for sp_po, o_s in result.items():
             result[sp_po] = torch.IntTensor(sorted(o_s))

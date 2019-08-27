@@ -120,8 +120,11 @@ the dataset (if not present).
                     and best_index < len(self.valid_trace) - patience
                 ):
                     self.config.log(
-                    "Stopping early ({} did not improve over best result ".format(metric_name)
-                    + "in the last {} validation runs).".format(patience))
+                        "Stopping early ({} did not improve over best result ".format(
+                            metric_name
+                        )
+                        + "in the last {} validation runs).".format(patience)
+                    )
                     break
                 if self.epoch > self.config.get(
                     "valid.early_stopping.min_threshold.epochs"
@@ -212,7 +215,7 @@ the dataset (if not present).
 
         Returns job id of the job that created the checkpoint."""
         self.config.log("Loading checkpoint from {}...".format(filename))
-        checkpoint = torch.load(filename, map_location='cpu')
+        checkpoint = torch.load(filename, map_location="cpu")
         if "model" in checkpoint:
             # new format
             self.model.load(checkpoint["model"])
@@ -297,6 +300,7 @@ the dataset (if not present).
                 and self.config.get("train.visualize_graph")
             ):
                 from torchviz import make_dot
+
                 f = os.path.join(self.config.folder, "cost_value")
                 graph = make_dot(cost_value, params=dict(self.model.named_parameters()))
                 graph.save(f"{f}.gv")
@@ -406,7 +410,6 @@ the dataset (if not present).
 
 
 class TrainingJob1toN(TrainingJob):
-
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
         self.label_smoothing = config.check_range(
@@ -420,21 +423,29 @@ class TrainingJob1toN(TrainingJob):
                 )
                 self.label_smoothing = 0
             else:
-                raise Exception("Label_smoothing was set to {}, "
-                                "should be at least 0.".format(self.label_smoothing))
-        elif (self.label_smoothing > 0 and
-              self.label_smoothing <= (1.0 / dataset.num_entities)):
+                raise Exception(
+                    "Label_smoothing was set to {}, "
+                    "should be at least 0.".format(self.label_smoothing)
+                )
+        elif self.label_smoothing > 0 and self.label_smoothing <= (
+            1.0 / dataset.num_entities
+        ):
             if config.get("train.auto_correct"):
                 # just to be sure it's used correctly
                 config.log(
                     "Setting label_smoothing to 1/dataset.num_entities = {}, "
-                    "was set to {}.".format(1.0 / dataset.num_entities, self.label_smoothing)
+                    "was set to {}.".format(
+                        1.0 / dataset.num_entities, self.label_smoothing
+                    )
                 )
                 self.label_smoothing = 1.0 / dataset.num_entities
             else:
-                raise Exception("Label_smoothing was set to {}, "
-                                "should be at least {}.".format(self.label_smoothing,
-                                                                1.0 / dataset.num_entities))
+                raise Exception(
+                    "Label_smoothing was set to {}, "
+                    "should be at least {}.".format(
+                        self.label_smoothing, 1.0 / dataset.num_entities
+                    )
+                )
 
         config.log("Initializing 1-to-N training job...")
 
@@ -453,10 +464,12 @@ class TrainingJob1toN(TrainingJob):
         # Afterwards, it holds:
         # index[keys[i]] = values[offsets[i]:offsets[i+1]]
 
-        self.train_sp_keys, self.train_sp_values, self.train_sp_offsets = \
-            Dataset.prepare_index(train_sp)
-        self.train_po_keys, self.train_po_values, self.train_po_offsets = \
-            Dataset.prepare_index(train_po)
+        self.train_sp_keys, self.train_sp_values, self.train_sp_offsets = Dataset.prepare_index(
+            train_sp
+        )
+        self.train_po_keys, self.train_po_values, self.train_po_offsets = Dataset.prepare_index(
+            train_po
+        )
 
         # create dataloader
         self.loader = torch.utils.data.DataLoader(
@@ -520,17 +533,23 @@ class TrainingJob1toN(TrainingJob):
                 label_coords[current_index : (current_index + size), 1] = values[
                     start:end
                 ]
-                triples[current_index : (current_index + size), sp_po_col_1] = keys[example_index][0]
-                triples[current_index : (current_index + size), sp_po_col_2] = keys[example_index][1]
-                triples[current_index : (current_index + size), o_s_col] = values[start:end]
+                triples[current_index : (current_index + size), sp_po_col_1] = keys[
+                    example_index
+                ][0]
+                triples[current_index : (current_index + size), sp_po_col_2] = keys[
+                    example_index
+                ][1]
+                triples[current_index : (current_index + size), o_s_col] = values[
+                    start:end
+                ]
                 current_index += size
 
             # all done
             return {
-                'sp_po_batch': sp_po_batch,
-                'label_coords': label_coords,
-                'is_sp': is_sp,
-                'triples': triples,
+                "sp_po_batch": sp_po_batch,
+                "label_coords": label_coords,
+                "is_sp": is_sp,
+                "triples": triples,
             }
 
         return collate
@@ -538,10 +557,10 @@ class TrainingJob1toN(TrainingJob):
     def _compute_batch_loss(self, batch_index, batch):
         # prepare
         batch_prepare_time = -time.time()
-        sp_po_batch = batch['sp_po_batch'].to(self.device)
+        sp_po_batch = batch["sp_po_batch"].to(self.device)
         batch_size = len(sp_po_batch)
-        label_coords = batch['label_coords'].to(self.device)
-        is_sp = batch['is_sp']
+        label_coords = batch["label_coords"].to(self.device)
+        is_sp = batch["is_sp"]
         sp_indexes = is_sp.nonzero().to(self.device).view(-1)
         po_indexes = (is_sp == 0).nonzero().to(self.device).view(-1)
         labels = kge.job.util.coord_to_sparse_tensor(
@@ -557,12 +576,16 @@ class TrainingJob1toN(TrainingJob):
         self.optimizer.zero_grad()
         loss_value = torch.zeros(1, device=self.device)
         if len(sp_indexes) > 0:
-            scores_sp = self.model.score_sp(sp_po_batch[sp_indexes, 0], sp_po_batch[sp_indexes, 1])
+            scores_sp = self.model.score_sp(
+                sp_po_batch[sp_indexes, 0], sp_po_batch[sp_indexes, 1]
+            )
             loss_value = loss_value + self.loss(
                 scores_sp.view(-1), labels[sp_indexes,].view(-1)
             )
         if len(po_indexes) > 0:
-            scores_po = self.model.score_po(sp_po_batch[po_indexes, 0], sp_po_batch[po_indexes, 1])
+            scores_po = self.model.score_po(
+                sp_po_batch[po_indexes, 0], sp_po_batch[po_indexes, 1]
+            )
             loss_value = loss_value + self.loss(
                 scores_po.view(-1), labels[po_indexes,].view(-1)
             )
@@ -572,10 +595,9 @@ class TrainingJob1toN(TrainingJob):
 
 
 class TrainingJobNegativeSampling(TrainingJob1toN):
-
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job=parent_job)
-        self._sampler = KgeNegativeSampler.create(config, 'negative_sampling', dataset)
+        self._sampler = KgeNegativeSampler.create(config, "negative_sampling", dataset)
         # if num_s < 0 set num_s to num_o
         self._num_negatives_s = config.get("negative_sampling.num_negatives_s")
         if self._num_negatives_s < 0:
@@ -593,15 +615,14 @@ class TrainingJobNegativeSampling(TrainingJob1toN):
                 self._num_negatives_o = 0
         config.log("Sampling from 1-to-N ...")
 
-
     def _compute_batch_loss(self, batch_index, batch):
 
         # prepare
         batch_prepare_time = -time.time()
-        sp_po_batch = batch['sp_po_batch'].to(self.device)
+        sp_po_batch = batch["sp_po_batch"].to(self.device)
         batch_size = len(sp_po_batch)
-        batch_label_coords = batch['label_coords'].to(self.device)
-        is_sp = batch['is_sp']
+        batch_label_coords = batch["label_coords"].to(self.device)
+        is_sp = batch["is_sp"]
         sp_indexes = is_sp.nonzero().to(self.device).view(-1)
         po_indexes = (is_sp == 0).nonzero().to(self.device).view(-1)
 
@@ -621,8 +642,20 @@ class TrainingJobNegativeSampling(TrainingJob1toN):
         loss_value = torch.zeros(1, device=self.device)
 
         for slot_num_negatives, voc_size, indexes, score_fn, label_coords in [
-            (self._num_negatives_o, self.dataset.num_entities, sp_indexes, self.model.score_sp, sp_label_coords),
-            (self._num_negatives_s, self.dataset.num_entities, po_indexes, self.model.score_po, po_label_coords),
+            (
+                self._num_negatives_o,
+                self.dataset.num_entities,
+                sp_indexes,
+                self.model.score_sp,
+                sp_label_coords,
+            ),
+            (
+                self._num_negatives_s,
+                self.dataset.num_entities,
+                po_indexes,
+                self.model.score_po,
+                po_label_coords,
+            ),
         ]:
 
             # Example
@@ -676,16 +709,26 @@ class TrainingJobNegativeSampling(TrainingJob1toN):
                 label_coords_pick = label_coords.repeat(1, 1 + slot_num_negatives)
 
                 label_coords_pick[
-                    torch.arange(0, label_coords.size(0)).repeat(slot_num_negatives, 1).t().contiguous().view(-1),
-                    torch.arange(3, (slot_num_negatives+1)*2, 2).repeat(label_coords.size(0), 1).view(-1)
-                ] = torch.randint( self.dataset.num_entities, (slot_num_negatives*label_coords.size(0),), device=self.device)
+                    torch.arange(0, label_coords.size(0))
+                    .repeat(slot_num_negatives, 1)
+                    .t()
+                    .contiguous()
+                    .view(-1),
+                    torch.arange(3, (slot_num_negatives + 1) * 2, 2)
+                    .repeat(label_coords.size(0), 1)
+                    .view(-1),
+                ] = torch.randint(
+                    self.dataset.num_entities,
+                    (slot_num_negatives * label_coords.size(0),),
+                    device=self.device,
+                )
 
                 label_coords_pick = label_coords_pick.view(-1, 2)
 
                 loss_value = loss_value + self.loss(
-                    slot_scores[label_coords_pick[:,0], label_coords_pick[:,1]],
-                    labels[indexes][label_coords_pick[:,0], label_coords_pick[:,1]],
-                    num_negatives=slot_num_negatives
+                    slot_scores[label_coords_pick[:, 0], label_coords_pick[:, 1]],
+                    labels[indexes][label_coords_pick[:, 0], label_coords_pick[:, 1]],
+                    num_negatives=slot_num_negatives,
                 )
 
         batch_forward_time += time.time()
@@ -694,21 +737,22 @@ class TrainingJobNegativeSampling(TrainingJob1toN):
 
 
 class TrainingJobNegativeSamplingLegacy(TrainingJob):
-
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
         self._sampler = KgeNegativeSampler.create(config, "negative_sampling", dataset)
         self.is_prepared = False
         self._score_func_type = self.config.get("negative_sampling.score_func_type")
-        if self._score_func_type == 'auto':
+        if self._score_func_type == "auto":
             max_nr_of_negs = max(self._sampler.num_negatives.values())
             if max_nr_of_negs <= 30:
-                self._score_func_type = 'spo'
+                self._score_func_type = "spo"
             elif max_nr_of_negs > 30:
-                self._score_func_type = 'sp_po'
+                self._score_func_type = "sp_po"
 
-        config.log("Initializing negative sampling training job with "
-                   "'{}' scoring function ...".format(self._score_func_type))
+        config.log(
+            "Initializing negative sampling training job with "
+            "'{}' scoring function ...".format(self._score_func_type)
+        )
 
     def _prepare(self):
         """Construct dataloader"""
@@ -746,20 +790,17 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
             # labels = labels.view(-1)
 
             negative_samples = list()
-            for slot in [S, P, O,]:
+            for slot in [S, P, O]:
                 negative_samples.append(self._sampler.sample(triples, slot))
-            return {
-                'triples': triples,
-                'negative_samples': negative_samples,
-            }
+            return {"triples": triples, "negative_samples": negative_samples}
 
         return collate
 
     def _compute_batch_loss(self, batch_index, batch):
         # prepare
         batch_prepare_time = -time.time()
-        triples = batch['triples'].to(self.device)
-        negative_samples = [ns.to(self.device) for ns in batch['negative_samples']]
+        triples = batch["triples"].to(self.device)
+        negative_samples = [ns.to(self.device) for ns in batch["negative_samples"]]
         batch_size = len(triples)
         batch_prepare_time += time.time()
 
@@ -769,17 +810,17 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
 
         loss_value = torch.zeros(1, device=self.device)
 
-        if self._score_func_type == 'spo':
+        if self._score_func_type == "spo":
 
-            labels = torch.zeros((batch_size, self._sampler.num_negatives_total + 1), device=self.device)
+            labels = torch.zeros(
+                (batch_size, self._sampler.num_negatives_total + 1), device=self.device
+            )
             labels[:, 0] = 1
             labels = labels.view(-1)
 
-            triples_input = (
-                triples
-                    .repeat(1, 1 + self._sampler.num_negatives_total)
-                    .view(-1, 3)
-            )
+            triples_input = triples.repeat(
+                1, 1 + self._sampler.num_negatives_total
+            ).view(-1, 3)
             offset = 0
             for slot in [S, P, O]:
                 if self._sampler.num_negatives[slot] > 0:
@@ -787,7 +828,9 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
                         list(
                             itertools.chain(
                                 *map(
-                                    lambda x: range(x + 1, x + self._sampler.num_negatives[slot] + 1),
+                                    lambda x: range(
+                                        x + 1, x + self._sampler.num_negatives[slot] + 1
+                                    ),
                                     range(
                                         offset,
                                         triples_input.size(0),
@@ -800,10 +843,14 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
                     ] = negative_samples[slot].view(-1)
                     offset += self._sampler.num_negatives[slot]
 
-            scores = self.model.score_spo(triples_input[:, 0], triples_input[:, 1], triples_input[:, 2])
-            loss_value = self.loss(scores, labels, num_negatives=self._sampler.num_negatives_total)
+            scores = self.model.score_spo(
+                triples_input[:, 0], triples_input[:, 1], triples_input[:, 2]
+            )
+            loss_value = self.loss(
+                scores, labels, num_negatives=self._sampler.num_negatives_total
+            )
 
-        elif self._score_func_type == 'sp_po':
+        elif self._score_func_type == "sp_po":
 
             for score_fn, target_slot, slot_1, slot_2 in [
                 (self.model.score_sp, O, S, P),
@@ -812,7 +859,9 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
 
                 num_negatives = self._sampler.num_negatives[target_slot]
 
-                labels = torch.zeros((batch_size, num_negatives + 1), device=self.device)
+                labels = torch.zeros(
+                    (batch_size, num_negatives + 1), device=self.device
+                )
                 labels[:, 0] = 1
                 labels = labels.view(-1)
 
@@ -824,8 +873,14 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
                 label_coords_pick = target_labels_coords.repeat(1, 1 + num_negatives)
 
                 label_coords_pick[
-                    torch.arange(0, target_labels_coords.size(0)).repeat(num_negatives, 1).t().contiguous().view(-1),
-                    torch.arange(3, (num_negatives + 1) * 2, 2).repeat(target_labels_coords.size(0), 1).view(-1)
+                    torch.arange(0, target_labels_coords.size(0))
+                    .repeat(num_negatives, 1)
+                    .t()
+                    .contiguous()
+                    .view(-1),
+                    torch.arange(3, (num_negatives + 1) * 2, 2)
+                    .repeat(target_labels_coords.size(0), 1)
+                    .view(-1),
                 ] = negative_samples[target_slot].view(-1)
 
                 label_coords_pick = label_coords_pick.view(-1, 2)
@@ -833,7 +888,7 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
                 loss_value = loss_value + self.loss(
                     slot_scores[label_coords_pick[:, 0], label_coords_pick[:, 1]],
                     labels,
-                    num_negatives=num_negatives
+                    num_negatives=num_negatives,
                 )
 
         batch_forward_time += time.time()

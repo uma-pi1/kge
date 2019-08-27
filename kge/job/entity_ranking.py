@@ -82,7 +82,9 @@ class EntityRankingJob(EvaluationJob):
         hist_filt = torch.zeros([num_entities], device=self.device, dtype=torch.float)
 
         # we also filter with test data during validation if requested
-        filtered_valid_with_test = self.eval_data == "valid" and self.filter_valid_with_test
+        filtered_valid_with_test = (
+            self.eval_data == "valid" and self.filter_valid_with_test
+        )
         if filtered_valid_with_test:
             hist_filt_test = torch.zeros(
                 [num_entities], device=self.device, dtype=torch.float
@@ -315,7 +317,7 @@ class EntityRankingJob(EvaluationJob):
         metrics = {}
         n = torch.sum(rank_hist).item()
 
-        ranks = torch.arange(1, self.dataset.num_entities+1).float().to(self.device)
+        ranks = torch.arange(1, self.dataset.num_entities + 1).float().to(self.device)
         metrics["mean_rank" + suffix] = torch.sum(rank_hist * ranks).item() / n
 
         reciprocal_ranks = 1.0 / ranks
@@ -324,10 +326,10 @@ class EntityRankingJob(EvaluationJob):
         )
 
         hits_at_k = (
-                torch.cumsum(rank_hist[: max(self.hits_at_k_s)], dim=0) / n
+            torch.cumsum(rank_hist[: max(self.hits_at_k_s)], dim=0) / n
         ).tolist()
 
-        for i,k in enumerate(self.hits_at_k_s):
-            metrics["hits_at_{}{}".format(k, suffix)] = hits_at_k[k-1]
+        for i, k in enumerate(self.hits_at_k_s):
+            metrics["hits_at_{}{}".format(k, suffix)] = hits_at_k[k - 1]
 
         return metrics

@@ -3,6 +3,7 @@ from kge import Config, Dataset
 from kge.model.kge_model import RelationalScorer, KgeModel
 from torch.nn import functional as F
 
+
 class TransEScorer(RelationalScorer):
     r"""Implementation of the TransE KGE scorer."""
 
@@ -20,10 +21,10 @@ class TransEScorer(RelationalScorer):
             out = -F.pairwise_distance(s_emb + p_emb, o_emb, p=self._norm)
         elif combine == "sp*":
             sp_emb = s_emb + p_emb
-            out = -torch.cdist(sp_emb[None,:,:], o_emb[None,:,:], p=self._norm)
+            out = -torch.cdist(sp_emb[None, :, :], o_emb[None, :, :], p=self._norm)
         elif combine == "*po":
             po_emb = o_emb - p_emb
-            out = -torch.cdist(po_emb[None,:,:], s_emb[None,:,:], p=self._norm)
+            out = -torch.cdist(po_emb[None, :, :], s_emb[None, :, :], p=self._norm)
         else:
             raise ValueError('cannot handle combine="{}".format(combine)')
         return out.view(n, -1)

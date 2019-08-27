@@ -10,6 +10,7 @@ from kge.util.misc import filename_in_module
 SLOTS = [0, 1, 2]
 S, P, O = SLOTS
 
+
 class KgeBase(torch.nn.Module):
     r"""Base class for all KGE models, scorers, and embedders."""
 
@@ -24,7 +25,11 @@ class KgeBase(torch.nn.Module):
             getattr(torch.nn.init, initialize)(what, **initialize_args)
         except:
             if initialize == "auto_initialization":
-                raise ValueError("{} does not support auto initialization.".format(self.config.get('model')))
+                raise ValueError(
+                    "{} does not support auto initialization.".format(
+                        self.config.get("model")
+                    )
+                )
             else:
                 raise ValueError("invalid initialization options")
 
@@ -402,8 +407,10 @@ class KgeModel(KgeBase):
         job.post_epoch_trace_hooks.append(append_num_parameter)
 
     def penalty(self, **kwargs):
-        if 'batch' in kwargs and 'triples' in kwargs['batch']:
-            kwargs['batch']['triples'] = kwargs['batch']['triples'].to(self.config.get('job.device'))
+        if "batch" in kwargs and "triples" in kwargs["batch"]:
+            kwargs["batch"]["triples"] = kwargs["batch"]["triples"].to(
+                self.config.get("job.device")
+            )
         return (
             super().penalty(**kwargs)
             + self.get_s_embedder().penalty(slot=S, **kwargs)

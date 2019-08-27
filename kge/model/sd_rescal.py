@@ -8,7 +8,14 @@ from kge.model.kge_model import KgeModel, RelationalScorer
 class SparseDiagonalRescalScorer(RelationalScorer):
     r"""Implementation of the Sparse Diagonal RESCAL KGE scorer."""
 
-    def __init__(self, config: Config, dataset: Dataset, blocks, block_size, configuration_key=None):
+    def __init__(
+        self,
+        config: Config,
+        dataset: Dataset,
+        blocks,
+        block_size,
+        configuration_key=None,
+    ):
         super().__init__(config, dataset, configuration_key)
         self.blocks = blocks
         self.block_size = block_size
@@ -25,49 +32,49 @@ class SparseDiagonalRescalScorer(RelationalScorer):
 
         #   We explain the implementation by example as follows:
         #
-        #	blocks 2
-        #	block size 2
-        #	 →	entity embedding size 4
-        #	 →	relation embedding size 8
+        # 	blocks 2
+        # 	block size 2
+        # 	 →	entity embedding size 4
+        # 	 →	relation embedding size 8
         #
         #   Relation embedding:
         #
-        #	M =	[m1	m2	m3	m4	m5	m6	m7	m8	]
+        # 	M =	[m1	m2	m3	m4	m5	m6	m7	m8	]
         #
         #   Entity embeddings (called left and right for the left and right hand side
         #   of the bilinear product):
         #
-        #	l(eft)  = 	[	l1	l2	l3	l4	]
-        #	r(ight) = 	[	r1	r2	r3	r4	]
+        # 	l(eft)  = 	[	l1	l2	l3	l4	]
+        # 	r(ight) = 	[	r1	r2	r3	r4	]
         #
         #
         #   Computing the bilinear product for *po:
         #   ---------------------------------------
         #
-        #	l^T x M x r
+        # 	l^T x M x r
         #
-        #			r1	r2	r3	r4
+        # 			r1	r2	r3	r4
         #
-        #	l1		m1		m3
-        #	l2			m2		m4
-        #	l3		m5		m7
-        #	l4			m6		m8
+        # 	l1		m1		m3
+        # 	l2			m2		m4
+        # 	l3		m5		m7
+        # 	l4			m6		m8
         #
         #   We compute M x r with the following
         #
-        #	M * r   =   m1	m2	m3	m4	m5	m6	m7	m8  *   r1	r2	r3	r4	r1	r2	r3	r4
+        # 	M * r   =   m1	m2	m3	m4	m5	m6	m7	m8  *   r1	r2	r3	r4	r1	r2	r3	r4
         #
-        #	View(1,2,2,2) →	m1*r1		m2*r2
-        #					m3*r3		m4*r4
+        # 	View(1,2,2,2) →	m1*r1		m2*r2
+        # 					m3*r3		m4*r4
         #
-        #					m5*r1		m6*r2
-        #					m7*r3		m8*r4
+        # 					m5*r1		m6*r2
+        # 					m7*r3		m8*r4
         #
-        #	Sum(-2)			m1*r1+m3*r3
-        #					m2*r2+m4*r4
+        # 	Sum(-2)			m1*r1+m3*r3
+        # 					m2*r2+m4*r4
         #
-        #					m5*r1+m7*r3
-        #					m6*r2+m8*r4
+        # 					m5*r1+m7*r3
+        # 					m6*r2+m8*r4
         #
         #
         #   l^T x M x r =
@@ -77,30 +84,30 @@ class SparseDiagonalRescalScorer(RelationalScorer):
         #   Computing the bilinear product for sp*:
         #   ---------------------------------------
         #
-        #	l x M^T x r^T
+        # 	l x M^T x r^T
         #
         #   first transpose M and flatten it to compute l x M^T
         #
-        #	M.View(1,2,2,2) →	m1		m2
-        #						m3		m4
+        # 	M.View(1,2,2,2) →	m1		m2
+        # 						m3		m4
         #
-        #						m5		m6
-        #						m7		m8
+        # 						m5		m6
+        # 						m7		m8
         #
-        #	Permute(0,2,1,3) →	m1		m2
-        #						m5		m6
+        # 	Permute(0,2,1,3) →	m1		m2
+        # 						m5		m6
         #
-        #						m3		m4
-        #						m7		m8
+        # 						m3		m4
+        # 						m7		m8
         #
-        #	View(1,-1) →	m1	m2	m5	m6	m3	m4	m7	m8
+        # 	View(1,-1) →	m1	m2	m5	m6	m3	m4	m7	m8
         #
-        #			l1	l2	l3	l4
+        # 			l1	l2	l3	l4
         #
-        #	r1		m1		m5
-        #	r2			m2		m6
-        #	r3		m3		m7
-        #	r4			m4		m8
+        # 	r1		m1		m5
+        # 	r2			m2		m6
+        # 	r3		m3		m7
+        # 	r4			m4		m8
         #
         #   now we can compute l x M^T
         #
@@ -109,10 +116,12 @@ class SparseDiagonalRescalScorer(RelationalScorer):
         if combine in ["*po", "sp*"]:
 
             if combine == "sp*":
-                p_emb = p_emb.\
-                    view(batch_size, self.blocks, self.blocks, self.block_size).\
-                    permute(0, 2, 1, 3).contiguous().\
-                    view(batch_size, -1)
+                p_emb = (
+                    p_emb.view(batch_size, self.blocks, self.blocks, self.block_size)
+                    .permute(0, 2, 1, 3)
+                    .contiguous()
+                    .view(batch_size, -1)
+                )
                 left = o_emb
                 right = s_emb
 
@@ -120,12 +129,15 @@ class SparseDiagonalRescalScorer(RelationalScorer):
                 left = s_emb
                 right = o_emb
 
-            right_repeated = right.repeat(1, 1, self.blocks).\
-                view(batch_size, entity_size * self.blocks)
-            p_r_strided = (p_emb*right_repeated).\
-                view(batch_size, self.blocks, self.blocks, self.block_size).\
-                sum(-2).\
-                view(batch_size,-1)
+            right_repeated = right.repeat(1, 1, self.blocks).view(
+                batch_size, entity_size * self.blocks
+            )
+            p_r_strided = (
+                (p_emb * right_repeated)
+                .view(batch_size, self.blocks, self.blocks, self.block_size)
+                .sum(-2)
+                .view(batch_size, -1)
+            )
 
             out = p_r_strided.mm(left.transpose(0, 1))
 
@@ -216,23 +228,26 @@ class SparseDiagonalRescal(KgeModel):
                 )
             block_size = entity_size // blocks
 
-        config.set(ent_emb_conf_key + ".dim", blocks*block_size, log=True)
-        config.set(rel_emb_conf_key + ".dim", blocks**2*block_size, log=True)
+        config.set(ent_emb_conf_key + ".dim", blocks * block_size, log=True)
+        config.set(rel_emb_conf_key + ".dim", blocks ** 2 * block_size, log=True)
 
         # auto initialize such that scores have unit variance
 
-        if self.get_option("relation_embedder.type") == 'projection_embedder':
+        if self.get_option("relation_embedder.type") == "projection_embedder":
             relation_embedder = "relation_embedder.base_embedder"
         else:
             relation_embedder = "relation_embedder"
 
-        if self.get_option("entity_embedder.initialize") == "auto_initialization" and \
-                self.get_option(relation_embedder + ".initialize") == "auto_initialization":
+        if (
+            self.get_option("entity_embedder.initialize") == "auto_initialization"
+            and self.get_option(relation_embedder + ".initialize")
+            == "auto_initialization"
+        ):
             # Var[score] = blocks^2*block_size*var_e^2*var_r, where var_e/var_r are the variances
             # of the entries
             #
             # Thus we set var_e=var_r=(1.0/(blocks^2*block_size))^(1/6)
-            std = math.pow(1.0 / (blocks**2*block_size), 1.0 / 6.0)
+            std = math.pow(1.0 / (blocks ** 2 * block_size), 1.0 / 6.0)
 
             config.set(
                 self.configuration_key + ".entity_embedder.initialize",
@@ -245,7 +260,10 @@ class SparseDiagonalRescal(KgeModel):
                 log=True,
             )
 
-            if config.get_default(self.configuration_key + ".relation_embedder.type") == 'projection_embedder':
+            if (
+                config.get_default(self.configuration_key + ".relation_embedder.type")
+                == "projection_embedder"
+            ):
                 # core tensor weight -> initial scores have var=1 (when no dropout / eval)
                 config.set(
                     self.configuration_key + ".relation_embedder.initialize",
@@ -269,16 +287,21 @@ class SparseDiagonalRescal(KgeModel):
                 log=True,
             )
 
-        elif self.get_option("entity_embedder.initialize") == "auto_initialization" or \
-                self.get_option(relation_embedder + ".initialize") == "auto_initialization":
-            raise ValueError("Both entity and relation embedders must be set to auto_initialization "
-                             "in order to use it.")
+        elif (
+            self.get_option("entity_embedder.initialize") == "auto_initialization"
+            or self.get_option(relation_embedder + ".initialize")
+            == "auto_initialization"
+        ):
+            raise ValueError(
+                "Both entity and relation embedders must be set to auto_initialization "
+                "in order to use it."
+            )
 
         super().__init__(
             config,
             dataset,
-            scorer=SparseDiagonalRescalScorer(config=config, dataset=dataset,
-                                              blocks=blocks, block_size=block_size),
-            configuration_key=configuration_key
+            scorer=SparseDiagonalRescalScorer(
+                config=config, dataset=dataset, blocks=blocks, block_size=block_size
+            ),
+            configuration_key=configuration_key,
         )
-

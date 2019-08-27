@@ -18,7 +18,7 @@ class LookupEmbedder(KgeEmbedder):
 
         # setup embedder
         self.embeddings = torch.nn.Embedding(
-            self.vocab_size, self.dim, sparse=self.sparse,
+            self.vocab_size, self.dim, sparse=self.sparse
         )
 
         # initialize weights
@@ -32,13 +32,11 @@ class LookupEmbedder(KgeEmbedder):
         # TODO can we avoid the hacky if "uniform_"?
         if init_ == "uniform_" and "b" not in init_args:
             init_args["b"] = init_args["a"] * -1
-            self.config.set(configuration_key + ".initialize_args.b", init_args["b"], log=True)
+            self.config.set(
+                configuration_key + ".initialize_args.b", init_args["b"], log=True
+            )
 
-        self.initialize(
-            self.embeddings.weight.data,
-            init_,
-            init_args
-        )
+        self.initialize(self.embeddings.weight.data, init_, init_args)
 
         # TODO handling negative dropout because using it with ax searches for now
         dropout = self.get_option("dropout")
@@ -54,14 +52,20 @@ class LookupEmbedder(KgeEmbedder):
     def prepare_job(self, job, **kwargs):
         super().prepare_job(job, **kwargs)
         if self.normalize_p > 0:
+
             def normalize_embeddings(job):
                 if self.normalize_with_grad:
-                    self.embeddings.weight = torch.nn.functional.\
-                        normalize(self.embeddings.weight, p=self.normalize_p, dim=-1)
+                    self.embeddings.weight = torch.nn.functional.normalize(
+                        self.embeddings.weight, p=self.normalize_p, dim=-1
+                    )
                 else:
                     with torch.no_grad():
-                        self.embeddings.weight = torch.nn.Parameter(torch.nn.functional.
-                        normalize(self.embeddings.weight, p=self.normalize_p, dim=-1))
+                        self.embeddings.weight = torch.nn.Parameter(
+                            torch.nn.functional.normalize(
+                                self.embeddings.weight, p=self.normalize_p, dim=-1
+                            )
+                        )
+
             job.pre_batch_hooks.append(normalize_embeddings)
 
     def _embed(self, embeddings):
@@ -82,36 +86,50 @@ class LookupEmbedder(KgeEmbedder):
         elif self.regularize == "l1":
             if self.get_option("regularize_args.weighted"):
                 result = super().penalty(**kwargs)
-                if 'batch' in kwargs and 'triples' in kwargs['batch']:
-                    parameters = self.embeddings(kwargs['batch']['triples'][:, kwargs['slot']])
+                if "batch" in kwargs and "triples" in kwargs["batch"]:
+                    parameters = self.embeddings(
+                        kwargs["batch"]["triples"][:, kwargs["slot"]]
+                    )
                     result += [
-                        self.get_option("regularize_args.weight") * parameters.norm(p=1) / parameters.size(0)
+                        self.get_option("regularize_args.weight")
+                        * parameters.norm(p=1)
+                        / parameters.size(0)
                     ]
                 return result
             else:
                 return super().penalty(**kwargs) + [
-                    self.get_option("regularize_args.weight") * self.embeddings.weight.norm(p=1)
+                    self.get_option("regularize_args.weight")
+                    * self.embeddings.weight.norm(p=1)
                 ]
         elif self.regularize == "l2":
             if self.get_option("regularize_args.weighted"):
                 result = super().penalty(**kwargs)
-                if 'batch' in kwargs and 'triples' in kwargs['batch']:
-                    parameters = self.embeddings(kwargs['batch']['triples'][:, kwargs['slot']])
+                if "batch" in kwargs and "triples" in kwargs["batch"]:
+                    parameters = self.embeddings(
+                        kwargs["batch"]["triples"][:, kwargs["slot"]]
+                    )
                     result += [
-                        self.get_option("regularize_args.weight") * parameters.norm(p=2) ** 2 / parameters.size(0)
+                        self.get_option("regularize_args.weight")
+                        * parameters.norm(p=2) ** 2
+                        / parameters.size(0)
                     ]
                 return result
             else:
                 return super().penalty(**kwargs) + [
-                    self.get_option("regularize_args.weight") * self.embeddings.weight.norm(p=2) ** 2
+                    self.get_option("regularize_args.weight")
+                    * self.embeddings.weight.norm(p=2) ** 2
                 ]
         elif self.regularize == "l3":
             if self.get_option("regularize_args.weighted"):
                 result = super().penalty(**kwargs)
-                if 'batch' in kwargs and 'triples' in kwargs['batch']:
-                    parameters = self.embeddings(kwargs['batch']['triples'][:, kwargs['slot']])
+                if "batch" in kwargs and "triples" in kwargs["batch"]:
+                    parameters = self.embeddings(
+                        kwargs["batch"]["triples"][:, kwargs["slot"]]
+                    )
                     result += [
-                        self.get_option("regularize_args.weight") * parameters.norm(p=3) ** 3 / parameters.size(0)
+                        self.get_option("regularize_args.weight")
+                        * parameters.norm(p=3) ** 3
+                        / parameters.size(0)
                     ]
                 return result
             else:
@@ -119,7 +137,8 @@ class LookupEmbedder(KgeEmbedder):
                 # Obozinski. Canonical Tensor Decomposition for Knowledge Base Completion.
                 # ICML 2018. https://arxiv.org/abs/1806.07297
                 return super().penalty(**kwargs) + [
-                    self.get_option("regularize_args.weight") * self.embeddings.weight.norm(p=3) ** 3
+                    self.get_option("regularize_args.weight")
+                    * self.embeddings.weight.norm(p=3) ** 3
                 ]
         else:
             raise ValueError("unknown penalty")

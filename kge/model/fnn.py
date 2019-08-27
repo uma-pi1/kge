@@ -7,6 +7,7 @@ from collections import OrderedDict
 
 # TODO use get_option throughout
 
+
 class FnnScorer(RelationalScorer):
     r"""Implementation of a simple feedforward neural network KGE scorer.
 
