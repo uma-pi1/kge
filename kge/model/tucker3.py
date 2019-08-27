@@ -90,9 +90,7 @@ class RelationalTucker3(KgeModel):
             config, dataset, self.configuration_key + ".relation_embedder"
         )
         if self.get_option("entity_embedder.initialize") == "auto_initialization" and \
-                ( self.get_option("relation_embedder.base_embedder.initialize") == "auto_initialization" or
-                  self.get_option("relation_embedder.initialize") == "auto_initialization"
-                ):
+                self.get_option("relation_embedder.base_embedder.initialize") == "auto_initialization":
             dim_e = self.get_option("entity_embedder.dim")
             dim_r = self.get_option("relation_embedder.base_embedder.dim")
             dim_core = self.get_option("relation_embedder.dim")
@@ -134,8 +132,7 @@ class RelationalTucker3(KgeModel):
                 log=True,
             )
         elif self.get_option("entity_embedder.initialize") == "auto_initialization" or\
-             self.get_option("relation_embedder.base_embedder.initialize") == "auto_initialization" or\
-             self.get_option("relation_embedder.initialize") == "auto_initialization":
+             self.get_option("relation_embedder.base_embedder.initialize") == "auto_initialization":
             raise ValueError("Both entity and relation embedders must be set to auto_initialization "
                              "in order to use it.")
 

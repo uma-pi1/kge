@@ -245,7 +245,7 @@ class SparseDiagonalRescal(KgeModel):
                 log=True,
             )
 
-            if config.get(self.configuration_key + ".relation_embedder.type") == 'projection_embedder':
+            if config.get_default(self.configuration_key + ".relation_embedder.type") == 'projection_embedder':
                 # core tensor weight -> initial scores have var=1 (when no dropout / eval)
                 config.set(
                     self.configuration_key + ".relation_embedder.initialize",
