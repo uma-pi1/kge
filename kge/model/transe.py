@@ -1,36 +1,25 @@
 import torch
 from kge import Config, Dataset
 from kge.model.kge_model import RelationalScorer, KgeModel
-
-# TODO rewrite to use get_option
-
+from torch.nn import functional as F
 
 class TransEScorer(RelationalScorer):
     r"""Implementation of the TransE KGE scorer."""
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         super().__init__(config, dataset, configuration_key)
-        self._norm = config.get("transe.l_norm")
+        self._norm = self.get_option("l_norm")
 
     def score_emb(self, s_emb, p_emb, o_emb, combine: str):
         n = p_emb.size(0)
         if combine == "spo":
-            out = -torch.norm(s_emb + p_emb - o_emb, p=self._norm, dim=1)
+            out = -F.pairwise_distance(s_emb + p_emb, o_emb, p=self._norm)
         elif combine == "sp*":
-            out = torch.zeros(n, o_emb.size(0)).to(self.config.get("job.device"))
-            for i in range(n):
-                out[i, :] = -torch.norm(
-                    (s_emb[i, :] + p_emb[i, :]) - o_emb, p=self._norm, dim=1
-                )
+            out = -torch.cdist(s_emb + p_emb, o_emb, p=self._norm)
         elif combine == "*po":
-            out = torch.zeros(n, s_emb.size(0)).to(self.config.get("job.device"))
-            for i in range(n):
-                out[i, :] = -torch.norm(
-                    s_emb + (p_emb[i, :] - o_emb[i, :]), p=self._norm, dim=1
-                )
+            out = -torch.cdist(o_emb - p_emb, s_emb, p=self._norm)
         else:
             raise ValueError('cannot handle combine="{}".format(combine)')
-
         return out.view(n, -1)
 
 
@@ -80,6 +69,6 @@ class TransE(KgeModel):
         super().__init__(
             config,
             dataset,
-            TransEScorer(config, dataset, configuration_key),
+            TransEScorer(config, dataset, self.configuration_key),
             configuration_key=configuration_key,
         )
