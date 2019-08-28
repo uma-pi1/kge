@@ -307,11 +307,33 @@ the dataset (if not present).
                 graph.render(f)  # needs graphviz installed
                 self.config.log("Exported compute graph to " + f + ".{gv,pdf}")
 
+            # print memory stats
+            if self.epoch == 1 and batch_index == 0:
+                if self.device.startswith("cuda"):
+                    self.config.log(
+                        "CUDA memory after forward pass: allocated={:14,} cached={:14,} max_allocated={:14,}".format(
+                            torch.cuda.memory_allocated(self.device),
+                            torch.cuda.memory_cached(self.device),
+                            torch.cuda.max_memory_allocated(self.device),
+                        )
+                    )
+
             # backward pass
             batch_backward_time = -time.time()
             cost_value.backward()
             batch_backward_time += time.time()
             backward_time += batch_backward_time
+
+            # print memory stats
+            if self.epoch == 1 and batch_index == 0:
+                if self.device.startswith("cuda"):
+                    self.config.log(
+                        "CUDA memory after backwrd pass: allocated={:14,} cached={:14,} max_allocated={:14,}".format(
+                            torch.cuda.memory_allocated(self.device),
+                            torch.cuda.memory_cached(self.device),
+                            torch.cuda.max_memory_allocated(self.device),
+                        )
+                    )
 
             # update parameters
             batch_optimizer_time = -time.time()
