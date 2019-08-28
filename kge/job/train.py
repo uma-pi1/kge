@@ -833,7 +833,7 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
         loss_value = torch.zeros(1, device=self.device)
 
         if self._score_func_type == "spo":
-
+            # one call to spo
             labels = torch.zeros(
                 (batch_size, self._sampler.num_negatives_total + 1), device=self.device
             )
@@ -868,8 +868,56 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
             scores = self.model.score_spo(
                 triples_input[:, 0], triples_input[:, 1], triples_input[:, 2]
             )
+
             loss_value = self.loss(
                 scores, labels, num_negatives=self._sampler.num_negatives_total
+            )
+        elif self._score_func_type == "sp_po_loop":
+            # one call to sp_po per example
+            labels = torch.zeros(
+                (batch_size, self._sampler.num_negatives_total + 1), device=self.device
+            )
+            labels[:, 0] = 1
+            labels = labels.view(-1)
+
+            scores = torch.zeros(
+                (batch_size, self._sampler.num_negatives_total + 1), device=self.device
+            )
+
+            # positives
+            scores[:, 0] = self.model.score_spo(
+                triples[:, 0], triples[:, 1], triples[:, 2]
+            ).view(-1)
+
+            # subject samples
+            o, n = 1, self._sampler.num_negatives[S]
+            if n > 0:
+                for i in range(batch_size):
+                    scores[i, o : (o + n)] = self.model.score_po(
+                        triples[i, P].view(1, 1),
+                        triples[i, O].view(1, 1),
+                        negative_samples[S][i, :],
+                    )
+
+            # predicate samples
+            o += n
+            n = self._sampler.num_negatives[P]
+            if n > 0:
+                raise NotImplementedError
+
+            # object samples
+            o += n
+            n = self._sampler.num_negatives[O]
+            if n > 0:
+                for i in range(batch_size):
+                    scores[i, o : (o + n)] = self.model.score_sp(
+                        triples[i, S].view(1, 1),
+                        triples[i, P].view(1, 1),
+                        negative_samples[O][i, :],
+                    )
+
+            loss_value = self.loss(
+                scores.view(-1), labels, num_negatives=self._sampler.num_negatives_total
             )
 
         elif self._score_func_type == "sp_po":
@@ -912,6 +960,8 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
                     labels,
                     num_negatives=num_negatives,
                 )
+        else:
+            raise ValueError("score_func_type")
 
         batch_forward_time += time.time()
 
