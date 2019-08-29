@@ -111,10 +111,9 @@ class AxSearchJob(AutoSearchJob):
         return parameters, trial_id
 
     def register_trial_result(self, trial_id, parameters, trace_entry):
-        # TODO: std dev shouldn't be fixed to 0.0
+        # TODO should we report a std error here?
         self.ax_client.complete_trial(
-            trial_index=trial_id,
-            raw_data={"metric_value": (trace_entry["metric_value"], 0.0)},
+            trial_index=trial_id, raw_data=trace_entry["metric_value"]
         )
 
     def get_best_parameters(self):
