@@ -26,7 +26,7 @@ class AxSearchJob(AutoSearchJob):
         return state
 
     def init_search(self):
-        if self.num_sobol_trials != -1:
+        if self.num_sobol_trials > 0:
             # BEGIN: from /ax/service/utils/dispatch.py
             generation_strategy = GenerationStrategy(
                 name="Sobol+GPEI",
@@ -55,6 +55,7 @@ class AxSearchJob(AutoSearchJob):
                 ],
             )
             # END: from /ax/service/utils/dispatch.py
+
             self.ax_client = AxClient(generation_strategy=generation_strategy)
         else:
             self.ax_client = AxClient()
