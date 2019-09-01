@@ -1,8 +1,10 @@
 import math
+from typing import List
 
 import torch
 from kge import Config, Dataset
 from kge.model.kge_model import KgeModel, RelationalScorer
+from kge.util.misc import round_to_points
 
 
 class SparseDiagonalRescalScorer(RelationalScorer):
@@ -194,12 +196,29 @@ class SparseDiagonalRescal(KgeModel):
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         self._init_configuration(config, configuration_key)
+
         rel_emb_conf_key = self.configuration_key + ".relation_embedder"
-        ent_emb_conf_key = rel_emb_conf_key.replace(
-            "relation_embedder", "entity_embedder"
-        )
+        ent_emb_conf_key = self.configuration_key + ".entity_embedder"
+
+        round_blocks_to = config.get_default(self.configuration_key + ".round_blocks_to")
+        round_block_size_to = config.get_default(self.configuration_key + ".round_block_size_to")
+        round_ent_emb_dim_to = config.get_default(ent_emb_conf_key + ".round_dim_to")
+
+        blocks = config.get_default(self.configuration_key + ".blocks")
+        block_size = config.get_default(self.configuration_key + ".block_size")
+
         rel_emb_dim = config.get_default(rel_emb_conf_key + ".dim")
-        entity_size = config.get_default(ent_emb_conf_key + ".dim")
+        ent_emb_dim = config.get_default(ent_emb_conf_key + ".dim")
+
+        if len(round_blocks_to) > 0:
+            blocks = round_to_points(round_blocks_to, blocks)
+
+        if len(round_block_size_to) > 0:
+            block_size = round_to_points(round_block_size_to, block_size)
+
+        if len(round_ent_emb_dim_to) > 0:
+            ent_emb_dim = round_to_points(round_ent_emb_dim_to, ent_emb_dim)
+
         if rel_emb_dim > 0:
             raise ValueError(
                 "Relation embedding sizes are determined automatically from "
@@ -207,29 +226,28 @@ class SparseDiagonalRescal(KgeModel):
                 "do not set manually."
             )
 
-        blocks = config.get_default(self.configuration_key + ".blocks")
-        block_size = config.get_default(self.configuration_key + ".block_size")
-
-        if blocks <= 0 and block_size > 0 and entity_size > 0:
-            if entity_size % block_size != 0:
+        if blocks <= 0 and block_size > 0 and ent_emb_dim > 0:
+            if ent_emb_dim % block_size != 0:
                 raise ValueError(
                     "If blocks <= 0 then block_size ({}) and entity_size ({}) have "
                     "to be larger than 0 and entity_size has to be dividable by "
-                    "block_size".format(block_size, entity_size)
+                    "block_size".format(block_size, ent_emb_dim)
                 )
-            blocks = entity_size // block_size
+            blocks = ent_emb_dim // block_size
 
-        if block_size <= 0 and blocks > 0 and entity_size > 0:
-            if entity_size % blocks != 0:
+        if block_size <= 0 and blocks > 0 and ent_emb_dim > 0:
+            if ent_emb_dim % blocks != 0:
                 raise ValueError(
                     "If block_size <= 0 then blocks ({}) and entity_size ({}) have "
                     "to be larger than 0 and entity_size has to be dividable by "
-                    "blocks".format(block_size, entity_size)
+                    "blocks".format(block_size, ent_emb_dim)
                 )
-            block_size = entity_size // blocks
+            block_size = ent_emb_dim // blocks
 
         config.set(ent_emb_conf_key + ".dim", blocks * block_size, log=True)
         config.set(rel_emb_conf_key + ".dim", blocks ** 2 * block_size, log=True)
+        config.set(self.configuration_key + ".blocks", blocks, log=True)
+        config.set(self.configuration_key + ".block_size", block_size, log=True)
 
         # auto initialize such that scores have unit variance
 

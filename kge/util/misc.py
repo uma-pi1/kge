@@ -1,3 +1,5 @@
+from typing import List
+
 from torch import nn as nn
 import kge
 import os
@@ -80,3 +82,29 @@ def get_activation_function(s: str):
         return nn.Tanh()
     else:
         raise ValueError("activation function {} unknown".format(s))
+
+
+def round_to_points(round_points_to: List[int], to_be_rounded: int):
+    """
+    Rounds to_be_rounded to the points in round_points_to. Assumes
+    that the first element in round_points_to is the lower bound and that
+    the last is the upper bound.
+    :param round_points_to: List[int]
+    :param to_be_rounded: int
+    :return: int
+    """
+    if len(round_points_to) > 0:
+        assert round_points_to[0] <= round_points_to[-1], "First element in round_points_to should be the lower bound and the last the upper bound"
+        last = -1
+        for i,round_point in enumerate(round_points_to):
+            if to_be_rounded < (round_point - last)/2 + last:
+                # Assumes that the first element in round_points_to is
+                # the lower bound.
+                if i == 0:
+                    return round_point
+                else:
+                    return last
+            last = round_point
+        return last
+    else:
+        raise Exception("{} was called with an empty list to be rounded to.".format(round_to_points.__name__))

@@ -189,10 +189,10 @@ class KgeEmbedder(KgeBase):
         for key, value in custom_options.items():
             try:
                 dummy_config.set(self.embedder_type + "." + key, value)
-            except ValueError:
+            except ValueError as ve:
                 raise ValueError(
-                    "key {}.{} invalid or of incorrect type".format(
-                        self.configuration_key, key
+                    "key {}.{} invalid or of incorrect type, message was {}".format(
+                        self.configuration_key, key, ve
                     )
                 )
 

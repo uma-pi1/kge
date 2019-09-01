@@ -60,7 +60,18 @@ model: sd_rescal
 sd_rescal:
   class_name: SparseDiagonalRescal
   blocks: -1
+  round_blocks_to: [1, 2, 4, 8, 16, 32, 64, 128]
   block_size: -1
+  round_block_size_to: []
+  entity_embedder:
+    type: lookup_embedder
+    dim: -1
+    round_dim_to: [128, 256, 512]
+    +++: +++
+  relation_embedder:
+    type: lookup_embedder
+    dim: -1 # is determined automatically from blocks, block_size and/or entity_dim
+    +++: +++
 
 lookup_embedder:
   class_name: LookupEmbedder
@@ -80,13 +91,11 @@ search:
 ax_search:
   num_trials: 40
   num_sobol_trials: 20
-  fixed_parameters:
-    - name: sd_rescal.entity_embedder.dim
-      value: 128
+  fixed_parameters: []
   parameters:
     - name: train.batch_size
-      type: choice
-      values: [128, 256, 512]
+      type: fixed
+      value: 1024
     - name: train.max_epochs
       type: fixed
       value: 300
@@ -118,10 +127,10 @@ ax_search:
       is_ordered: True
       values: [True, False]
     - name: sd_rescal.entity_embedder.dim
-      type: choice
-      is_ordered: True
-      values: [128, 256, 512]
+      type: range
+      log_scale: true
+      bounds: [128, 512]
     - name: sd_rescal.blocks
-      type: choice
-      values: [128, 64, 32, 16, 8, 4, 2, 1]
-      is_ordered: True
+      type: range
+      log_scale: true
+      bounds: [1, 128]

@@ -1,6 +1,7 @@
 lookup_embedder:
   class_name: LookupEmbedder
   dim: 100                    # dimensionality
+  round_dim_to: []
   dropout: 0.                 # dropout used for embeddings
   sparse: False               # ??
   normalize:

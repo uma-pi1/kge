@@ -2,6 +2,7 @@ import torch.nn
 import torch.nn.functional
 
 from kge.model import KgeEmbedder
+from kge.util.misc import round_to_points
 
 
 class LookupEmbedder(KgeEmbedder):
@@ -15,6 +16,10 @@ class LookupEmbedder(KgeEmbedder):
         self.sparse = self.get_option("sparse")
         self.config.check("train.trace_level", ["batch", "epoch"])
         self.vocab_size = vocab_size
+
+        round_embedder_dim_to = self.get_option("round_dim_to")
+        if len(round_embedder_dim_to) > 0:
+            self.dim = round_to_points(round_embedder_dim_to, self.dim)
 
         # setup embedder
         self.embeddings = torch.nn.Embedding(
