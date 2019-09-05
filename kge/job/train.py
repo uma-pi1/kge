@@ -88,6 +88,8 @@ the dataset (if not present).
             return TrainingJob1toN(config, dataset, parent_job)
         elif config.get("train.type") == "negative_sampling":
             return TrainingJobNegativeSamplingLegacy(config, dataset, parent_job)
+        elif config.get("train.type") == "spo":
+            return TrainingJobSpo(config, dataset, parent_job)
         else:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError("train.type")
@@ -963,6 +965,54 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
         else:
             raise ValueError("score_func_type")
 
+        batch_forward_time += time.time()
+
+        return loss_value, batch_size, batch_prepare_time, batch_forward_time
+
+
+class TrainingJobSpo(TrainingJob):
+    """Samples SPO pairs and queries sp* and *po, treating all other entities as negative.
+
+    Currently only works with ce loss.
+    """
+
+    def __init__(self, config, dataset, parent_job=None):
+        super().__init__(config, dataset, parent_job)
+        self.is_prepared = False
+        config.log("Initializing spo training job...")
+
+    def _prepare(self):
+        """Construct dataloader"""
+
+        if self.is_prepared:
+            return
+
+        self.loader = torch.utils.data.DataLoader(
+            range(self.dataset.train.size(0)),
+            collate_fn=lambda batch: {"triples": self.dataset.train[batch, :].long()},
+            shuffle=True,
+            batch_size=self.batch_size,
+            num_workers=self.config.get("train.num_workers"),
+            pin_memory=self.config.get("train.pin_memory"),
+        )
+        self.num_examples = self.dataset.train.size(0)
+
+        self.is_prepared = True
+
+    def _compute_batch_loss(self, batch_index, batch):
+        # prepare
+        batch_prepare_time = -time.time()
+        triples = batch["triples"].to(self.device)
+        batch_size = len(triples)
+        batch_prepare_time += time.time()
+
+        # forward pass
+        batch_forward_time = -time.time()
+        self.optimizer.zero_grad()
+        scores_sp = self.model.score_sp(triples[:, 0], triples[:, 1])
+        loss_value = self.loss(scores_sp, triples[:, 2])
+        scores_po = self.model.score_po(triples[:, 1], triples[:, 2])
+        loss_value = loss_value + self.loss(scores_po, triples[:, 0])
         batch_forward_time += time.time()
 
         return loss_value, batch_size, batch_prepare_time, batch_forward_time

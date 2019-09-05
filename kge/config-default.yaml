@@ -38,7 +38,7 @@ model: ''                     # distmult, complex, transe, conve, ...
 ## Used for training jobs.
 
 train:
-  type: 1toN                  # 1toN, negative_sampling
+  type: 1toN                  # 1toN, negative_sampling, spo
   max_epochs: 20
   optimizer: Adagrad          # sgd, adagrad, adam
   optimizer_args:
@@ -49,7 +49,7 @@ train:
   lr_scheduler_args:
     +++: +++
   batch_size: 100
-  loss: bce                   # bce, margin_ranking
+  loss: bce                   # bce, margin_ranking (for 1toN,ns), ce (for spo)
   loss_arg: 1.0               # margin for margin_ranking
   num_workers: 0
   pin_memory: False

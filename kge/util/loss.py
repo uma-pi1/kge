@@ -11,12 +11,14 @@ class KgeLoss:
     def create(config):
         """ Factory method for loss creation """
         # perhaps TODO: try class with specified name -> extensibility
-        config.check("train.loss", ["bce", "margin_ranking"])
+        config.check("train.loss", ["bce", "margin_ranking", "ce"])
         if config.get("train.loss") == "bce":
             return BCEWithLogitsKgeLoss(reduction="mean", pos_weight=None)
         elif config.get("train.loss") == "margin_ranking":
             margin = config.get("train.loss_arg")
             return MarginRankingKgeLoss(margin, config, reduction="mean")
+        if config.get("train.loss") == "ce":
+            return CrossEntropyKgeLoss(reduction="mean")
         else:
             raise ValueError("train.loss")
 
@@ -36,6 +38,15 @@ class BCEWithLogitsKgeLoss(KgeLoss):
 
     def _compute_loss(self, scores, labels, **kwargs):
         return self._loss(scores.view(-1), labels.view(-1))
+
+
+class CrossEntropyKgeLoss(KgeLoss):
+    def __init__(self, reduction="mean"):
+        super().__init__()
+        self._loss = torch.nn.CrossEntropyLoss(reduction=reduction)
+
+    def _compute_loss(self, scores, labels, **kwargs):
+        return self._loss(scores, labels)
 
 
 class MarginRankingKgeLoss(KgeLoss):
