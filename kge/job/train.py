@@ -78,6 +78,10 @@ class TrainingJob(Job):
         #: Signature: job, trace_entry
         self.post_valid_hooks = []
 
+        #: Hooks run after training
+        #: Signature: job, trace_entry
+        self.post_train_hooks = []
+        
     @staticmethod
     def create(config, dataset, parent_job=None):
         """Factory method to create a training job and add necessary label_coords to
@@ -196,7 +200,8 @@ the dataset (if not present).
                         )
                     )
                     os.remove(self.config.checkpoint_file(delete_checkpoint_epoch))
-
+        for f in self.post_train_hooks:
+            f(self, trace_entry)
     def save(self, filename):
         """Save current state to specified file"""
         self.config.log("Saving checkpoint to {}...".format(filename))
