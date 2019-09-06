@@ -836,7 +836,6 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
                 (batch_size, self._sampler.num_negatives_total + 1), device=self.device
             )
             labels[:, 0] = 1
-            labels = labels.view(-1)
 
             triples_input = triples.repeat(
                 1, 1 + self._sampler.num_negatives_total
@@ -865,7 +864,7 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
 
             scores = self.model.score_spo(
                 triples_input[:, 0], triples_input[:, 1], triples_input[:, 2]
-            )
+            ).view(batch_size, -1)
 
             loss_value = self.loss(
                 scores, labels, num_negatives=self._sampler.num_negatives_total
@@ -876,7 +875,6 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
                 (batch_size, self._sampler.num_negatives_total + 1), device=self.device
             )
             labels[:, 0] = 1
-            labels = labels.view(-1)
 
             scores = torch.zeros(
                 (batch_size, self._sampler.num_negatives_total + 1), device=self.device
@@ -915,7 +913,7 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
                     )
 
             loss_value = self.loss(
-                scores.view(-1), labels, num_negatives=self._sampler.num_negatives_total
+                scores, labels, num_negatives=self._sampler.num_negatives_total
             )
 
         elif self._score_func_type == "sp_po":
@@ -954,8 +952,10 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
                 label_coords_pick = label_coords_pick.view(-1, 2)
 
                 loss_value = loss_value + self.loss(
-                    slot_scores[label_coords_pick[:, 0], label_coords_pick[:, 1]],
-                    labels,
+                    slot_scores[label_coords_pick[:, 0], label_coords_pick[:, 1]].view(
+                        batch_size, -1
+                    ),
+                    labels.view(batch_size, -1),
                     num_negatives=num_negatives,
                 )
         else:
