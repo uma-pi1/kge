@@ -603,16 +603,12 @@ class TrainingJob1toN(TrainingJob):
             scores_sp = self.model.score_sp(
                 sp_po_batch[sp_indexes, 0], sp_po_batch[sp_indexes, 1]
             )
-            loss_value = loss_value + self.loss(
-                scores_sp.view(-1), labels[sp_indexes,].view(-1)
-            )
+            loss_value = loss_value + self.loss(scores_sp, labels[sp_indexes,])
         if len(po_indexes) > 0:
             scores_po = self.model.score_po(
                 sp_po_batch[po_indexes, 0], sp_po_batch[po_indexes, 1]
             )
-            loss_value = loss_value + self.loss(
-                scores_po.view(-1), labels[po_indexes,].view(-1)
-            )
+            loss_value = loss_value + self.loss(scores_po, labels[po_indexes,])
         batch_forward_time += time.time()
 
         return loss_value, batch_size, batch_prepare_time, batch_forward_time

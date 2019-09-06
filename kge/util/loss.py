@@ -1,5 +1,6 @@
 import torch
-
+import torch.nn.functional as F
+from kge import Config
 
 class KgeLoss:
     """ Wraps torch loss functions """
@@ -11,9 +12,11 @@ class KgeLoss:
     def create(config):
         """ Factory method for loss creation """
         # perhaps TODO: try class with specified name -> extensibility
-        config.check("train.loss", ["bce", "margin_ranking", "ce"])
+        config.check("train.loss", ["bce", "margin_ranking", "ce", "kl"])
         if config.get("train.loss") == "bce":
             return BCEWithLogitsKgeLoss(reduction="mean", pos_weight=None)
+        elif config.get("train.loss") == "kl":
+            return KLDivWithSoftmaxKgeLoss()
         elif config.get("train.loss") == "margin_ranking":
             margin = config.get("train.loss_arg")
             return MarginRankingKgeLoss(margin, config, reduction="mean")
@@ -40,6 +43,17 @@ class BCEWithLogitsKgeLoss(KgeLoss):
         return self._loss(scores.view(-1), labels.view(-1))
 
 
+class KLDivWithSoftmaxKgeLoss(KgeLoss):
+    def __init__(self, reduction="batchmean"):
+        super().__init__()
+        self._loss = torch.nn.KLDivLoss(
+            reduction=reduction
+        )
+
+    def _compute_loss(self, scores, labels, **kwargs):
+        return self._loss(F.log_softmax(scores), F.normalize(labels.float(), p=1, dim=1))
+
+
 class CrossEntropyKgeLoss(KgeLoss):
     def __init__(self, reduction="mean"):
         super().__init__()
@@ -53,14 +67,14 @@ class MarginRankingKgeLoss(KgeLoss):
     def __init__(self, margin, config, reduction="mean"):
         super().__init__()
         self._device = config.get("job.device")
-        self._training_type = config.get("train.type")
+        self._train_type = config.get("train.type")
         self._loss = torch.nn.MarginRankingLoss(margin=margin, reduction=reduction)
 
     def _compute_loss(self, scores, labels, **kwargs):
         # scores is (batch_size * num_negatives, 1)
         # labels is (batch_size * num_negatives)
 
-        if "negative_sampling" in self._training_type:
+        if "negative_sampling" in self._train_type:
             # Pair each 1 with the following zeros until next 1
             pos_positives = labels.view(-1).nonzero().to(self._device).view(-1)
             pos_negatives = (labels.view(-1) == 0).nonzero().to(self._device).view(-1)
@@ -73,7 +87,7 @@ class MarginRankingKgeLoss(KgeLoss):
             target = torch.ones(positives.size()).to(self._device)
             return self._loss(positives, negatives, target)
 
-        elif self._training_type == "1toN":
+        elif self._train_type == "1toN":
             # TODO determine how to form pairs for margin ranking in 1toN training
             # scores and labels are tensors of size (batch_size, num_entities)
             # Each row has 1s and 0s of a single sp or po tuple from training

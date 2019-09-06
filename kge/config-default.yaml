@@ -38,7 +38,26 @@ model: ''                     # distmult, complex, transe, conve, ...
 ## Used for training jobs.
 
 train:
-  type: 1toN                  # 1toN, negative_sampling, spo
+  ## Type of training job.
+  ## - 1toN: scores each unique sp/po pair along with all possible objectes/subjects.
+  ## - negative_sampling: scores each unique spo triple along with sampled corrupted
+  ##   triples
+  ## - spo: scores each spo triples against the complete set of s/p-corrputed triples
+  ##   (all treated negative)
+  type: 1toN
+
+
+  ## Loss used for training. Not all combination of losses and job types are allowed.
+  ## - bce: binary cross entropy after taking logits (1toN, ns, spo)
+  ## - margin_ranking (ns)
+  ## - kl: KL divergence after taking softmax (1toN)
+  ## - ce: cross entropy after taking softmax (spo)
+  loss: bce
+
+  ## Argument of loss function (if any)
+  ## - margin_ranking: the margin to use
+  loss_arg: 1.0
+
   max_epochs: 20
   optimizer: Adagrad          # sgd, adagrad, adam
   optimizer_args:
@@ -49,8 +68,6 @@ train:
   lr_scheduler_args:
     +++: +++
   batch_size: 100
-  loss: bce                   # bce, margin_ranking (for 1toN,ns), ce (for spo)
-  loss_arg: 1.0               # margin for margin_ranking
   num_workers: 0
   pin_memory: False
   trace_level: epoch          # batch or epoch
