@@ -50,7 +50,7 @@ class KLDivWithSoftmaxKgeLoss(KgeLoss):
 
     def _compute_loss(self, scores, labels, **kwargs):
         return self._loss(
-            F.log_softmax(scores), F.normalize(labels.float(), p=1, dim=1)
+            F.log_softmax(scores, dim=1), F.normalize(labels.float(), p=1, dim=1)
         )
 
 
