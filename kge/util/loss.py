@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-from kge import Config
+
 
 class KgeLoss:
     """ Wraps torch loss functions """
@@ -46,12 +46,12 @@ class BCEWithLogitsKgeLoss(KgeLoss):
 class KLDivWithSoftmaxKgeLoss(KgeLoss):
     def __init__(self, reduction="batchmean"):
         super().__init__()
-        self._loss = torch.nn.KLDivLoss(
-            reduction=reduction
-        )
+        self._loss = torch.nn.KLDivLoss(reduction=reduction)
 
     def _compute_loss(self, scores, labels, **kwargs):
-        return self._loss(F.log_softmax(scores), F.normalize(labels.float(), p=1, dim=1))
+        return self._loss(
+            F.log_softmax(scores), F.normalize(labels.float(), p=1, dim=1)
+        )
 
 
 class CrossEntropyKgeLoss(KgeLoss):
