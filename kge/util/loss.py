@@ -3,76 +3,114 @@ import torch.nn.functional as F
 
 
 class KgeLoss:
-    """ Wraps torch loss functions """
+    """A loss function"""
 
-    def __init__(self):
+    def __init__(self, config):
+        self.config = config
         self._loss = None
 
     @staticmethod
     def create(config):
-        """ Factory method for loss creation """
+        """Factory method for loss function instantiation."""
+
         # perhaps TODO: try class with specified name -> extensibility
         config.check("train.loss", ["bce", "margin_ranking", "ce", "kl"])
         if config.get("train.loss") == "bce":
-            return BCEWithLogitsKgeLoss(reduction="mean", pos_weight=None)
+            return BCEWithLogitsKgeLoss(config)
         elif config.get("train.loss") == "kl":
-            return KLDivWithSoftmaxKgeLoss()
+            return KLDivWithSoftmaxKgeLoss(config)
         elif config.get("train.loss") == "margin_ranking":
             margin = config.get("train.loss_arg")
-            return MarginRankingKgeLoss(margin, config, reduction="mean")
+            return MarginRankingKgeLoss(config, margin)
         if config.get("train.loss") == "ce":
-            return CrossEntropyKgeLoss(reduction="mean")
+            return CrossEntropyKgeLoss(config)
         else:
             raise ValueError("train.loss")
 
     def __call__(self, scores, labels, **kwargs):
-        return self._compute_loss(scores, labels, **kwargs)
+        """Computes the loss given the scores and corresponding labels.
 
-    def _compute_loss(self, scores, labels, **kwargs):
+        `scores` is a batch_size x triples matrix holding the scores predicted by some
+        model.
+
+        `labels` is either (i) a batch_size x triples Boolean matrix holding the
+        corresponding labels or (ii) a vector of positions of the (then unique) 1-labels
+        for each row of `scores`.
+
+        """
         raise NotImplementedError()
+
+    def _labels_as_matrix(self, scores, labels):
+        """Reshapes `labels` into indexes if necessary.
+
+        See `__call__`. This function converts case (ii) into case (i).
+        """
+        if labels.dim() == 2:
+            return labels
+        else:
+            x = torch.zeros(
+                scores.shape, device=self.config.get("job.device"), dtype=torch.float
+            )
+            x[range(len(scores)), labels] = 1.0
+            return x
+
+    def _labels_as_indexes(self, scores, labels):
+        """Reshapes `labels` into matrix form if necessary and possible.
+
+        See `__call__`. This function converts case (i) into case (ii). Throws an error
+        if there is a row which does not have exactly one 1.
+
+        """
+        if labels.dim() == 1:
+            return labels
+        else:
+            raise NotImplementedError()
 
 
 class BCEWithLogitsKgeLoss(KgeLoss):
-    def __init__(self, reduction="mean", pos_weight=None):
-        super().__init__()
-        self._loss = torch.nn.BCEWithLogitsLoss(
-            reduction=reduction, pos_weight=pos_weight
-        )
+    def __init__(self, config, reduction="mean", **kwargs):
+        super().__init__(config)
+        self._loss = torch.nn.BCEWithLogitsLoss(reduction=reduction, **kwargs)
 
-    def _compute_loss(self, scores, labels, **kwargs):
+    def __call__(self, scores, labels, **kwargs):
+        labels = self._labels_as_matrix(scores, labels)
         return self._loss(scores.view(-1), labels.view(-1))
 
 
 class KLDivWithSoftmaxKgeLoss(KgeLoss):
-    def __init__(self, reduction="batchmean"):
-        super().__init__()
-        self._loss = torch.nn.KLDivLoss(reduction=reduction)
+    def __init__(self, config, reduction="batchmean", **kwargs):
+        super().__init__(config)
+        self._loss = torch.nn.KLDivLoss(reduction=reduction, **kwargs)
 
-    def _compute_loss(self, scores, labels, **kwargs):
+    def __call__(self, scores, labels, **kwargs):
+        labels = self._labels_as_matrix(scores, labels)
         return self._loss(
             F.log_softmax(scores, dim=1), F.normalize(labels.float(), p=1, dim=1)
         )
 
 
 class CrossEntropyKgeLoss(KgeLoss):
-    def __init__(self, reduction="mean"):
-        super().__init__()
-        self._loss = torch.nn.CrossEntropyLoss(reduction=reduction)
+    def __init__(self, config, reduction="mean", **kwargs):
+        super().__init__(config)
+        self._loss = torch.nn.CrossEntropyLoss(reduction=reduction, **kwargs)
 
-    def _compute_loss(self, scores, labels, **kwargs):
+    def __call__(self, scores, labels, **kwargs):
+        labels = self._labels_as_indexes(scores, labels)
         return self._loss(scores, labels)
 
 
 class MarginRankingKgeLoss(KgeLoss):
-    def __init__(self, margin, config, reduction="mean"):
-        super().__init__()
+    def __init__(self, config, margin, reduction="mean", **kwargs):
+        super().__init__(config)
         self._device = config.get("job.device")
         self._train_type = config.get("train.type")
-        self._loss = torch.nn.MarginRankingLoss(margin=margin, reduction=reduction)
+        self._loss = torch.nn.MarginRankingLoss(
+            margin=margin, reduction=reduction, **kwargs
+        )
 
-    def _compute_loss(self, scores, labels, **kwargs):
-        # scores is (batch_size * num_negatives, 1)
-        # labels is (batch_size * num_negatives)
+    def __call__(self, scores, labels, **kwargs):
+        # scores is (batch_size x num_negatives + 1)
+        labels = self._labels_as_matrix(scores, labels)
 
         if "negative_sampling" in self._train_type:
             # Pair each 1 with the following zeros until next 1
