@@ -13,6 +13,9 @@ train.lr_scheduler_args:
   mode: max
   patience: 4
 
+valid.filter_with_test: True
+eval.metric_per_relation_type: True
+
 lookup_embedder.initialize: normal_
 # example for using initialize args generically (might result in error if args do not matchj initializer)
 lookup_embedder.initialize_args:

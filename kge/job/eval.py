@@ -1,3 +1,5 @@
+import torch
+
 from kge.job import Job
 
 
@@ -43,6 +45,16 @@ class EvaluationJob(Job):
         #: Signature: job, trace_entry
         self.post_valid_hooks = []
 
+        #: Hooks after computing the metrics and compute some specific metrics .
+        #: Signature: job, trace_entry
+        self.hist_hooks = []
+
+        self.hist_hooks.append(KeepAllEvaluationHistogramFilter())
+
+        if config.get("eval.metric_per_relation_type"):
+            self.hist_hooks.append(RelationTypeEvaluationHistogramFilter())
+
+    @staticmethod
     def create(config, dataset, parent_job=None, model=None):
         """Factory method to create an evaluation job """
         from kge.job import EntityRankingJob, EntityPairRankingJob
@@ -70,3 +82,44 @@ class EvaluationJob(Job):
         self.model = training_job.model
         self.epoch = training_job.epoch
         self.resumed_from_job = training_job.resumed_from_job
+
+
+class EvaluationHistogramFilter:
+    """
+    Filters the batch rank based on the entities and relations.
+    """
+    def init_hist_hook(self, eval_job, dataset, device, dtype):
+        raise NotImplementedError
+
+    def mask_out_batch_ranks_hook(self, eval_job, dataset, s, p, o):
+        raise NotImplementedError
+
+
+class KeepAllEvaluationHistogramFilter(EvaluationHistogramFilter):
+    """
+    Default class that does nothing.
+    """
+    def init_hist_hook(self, eval_job, dataset, device, dtype):
+        return {'all': torch.zeros([dataset.num_entities], device=device, dtype=dtype)}
+
+    def mask_out_batch_ranks_hook(self, eval_job, dataset, s, p, o):
+        return [('all', [True]*s.size(0)),]
+
+
+class RelationTypeEvaluationHistogramFilter(EvaluationHistogramFilter):
+    """
+    Filters the batch rank by relation type.
+    """
+    def init_hist_hook(self, eval_job, dataset, device, dtype):
+        result = dict()
+        for rtype in dataset.relations_per_type.keys():
+            result[rtype] = torch.zeros([dataset.num_entities], device=device, dtype=dtype)
+        return result
+
+    def mask_out_batch_ranks_hook(self, eval_job, dataset, s, p, o):
+        result = list()
+        for rtype in dataset.relations_per_type.keys():
+            result.append(
+                (rtype, [_p in dataset.relations_per_type[rtype] for _p in p.tolist()])
+            )
+        return result

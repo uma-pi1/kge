@@ -164,6 +164,9 @@ eval:
   num_workers: 0
   pin_memory: False
   trace_level: example            # example or batch or epoch
+  # filters metrics per relation type (Classified into relation types 1-N, M-1,
+  # 1-1, M-N) and reports them additionally to the overall metric
+  metric_per_relation_type: False
 
 ## HYPERPARAMETER SEARCH #######################################################
 

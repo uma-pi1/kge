@@ -41,6 +41,10 @@ class Dataset:
             test_meta
         )  # array: triple row number -> metadata array of strings
         self.indexes = {}  # map: name of index -> index (used mainly by training jobs)
+        self.relation_types = self._get_relation_types()
+        self.relations_per_type = {}
+        for k, v in self.relation_types.items():
+            self.relations_per_type.setdefault(v, set()).add(k)
 
     @staticmethod
     def load(config):
@@ -51,28 +55,23 @@ class Dataset:
         num_entities, entities = Dataset._load_map(
             os.path.join(base_dir, config.get("dataset.entity_map"))
         )
-        config.log(str(num_entities) + " entities", prefix="  ")
         num_relations, relations = Dataset._load_map(
             os.path.join(base_dir, config.get("dataset.relation_map"))
         )
-        config.log(str(num_relations) + " relations", prefix="  ")
 
         train, train_meta = Dataset._load_triples(
             os.path.join(base_dir, config.get("dataset.train"))
         )
-        config.log(str(len(train)) + " training triples", prefix="  ")
 
         valid, valid_meta = Dataset._load_triples(
             os.path.join(base_dir, config.get("dataset.valid"))
         )
-        config.log(str(len(valid)) + " validation triples", prefix="  ")
 
         test, test_meta = Dataset._load_triples(
             os.path.join(base_dir, config.get("dataset.test"))
         )
-        config.log(str(len(test)) + " test triples", prefix="  ")
 
-        return Dataset(
+        result = Dataset(
             config,
             num_entities,
             entities,
@@ -85,6 +84,16 @@ class Dataset:
             test,
             test_meta,
         )
+
+        config.log(str(num_entities) + " entities", prefix="  ")
+        config.log(str(num_relations) + " relations", prefix="  ")
+        for k,v in result.relations_per_type.items():
+            config.log("{} relations of type {}".format(len(v), k), prefix="  "*2)
+        config.log(str(len(train)) + " training triples", prefix="  ")
+        config.log(str(len(valid)) + " validation triples", prefix="  ")
+        config.log(str(len(test)) + " test triples", prefix="  ")
+
+        return result
 
     @staticmethod
     def _load_map(filename):
@@ -182,3 +191,30 @@ class Dataset:
             torch.tensor([0] + list(map(len, index.values())), dtype=torch.int), 0
         )
         return sp_po, o_s, offsets
+
+    def _get_relation_types(self, ):
+        """
+        Classify relation types into 1-N, M-1, 1-1, M-N
+
+        Bordes, Antoine, et al.
+        "Translating embeddings for modeling multi-relational data."
+        Advances in neural information processing systems. 2013.
+
+        :return: dictionary mapping from int -> {1-N, M-1, 1-1, M-N}
+        """
+        relation_stats = torch.zeros((self.num_relations, 6))
+        for index, p in [
+            (self.index_1toN('train', 'sp'), 1),
+            (self.index_1toN('train', 'po'), 0),
+        ]:
+            for prefix, labels in index.items():
+                relation_stats[prefix[p], 0+p*2] = labels.float().sum()
+                relation_stats[prefix[p], 1+p*2] = relation_stats[prefix[p], 1+p*2] + 1.
+        relation_stats[:,4] = (relation_stats[:,0]/relation_stats[:,1]) > 1.5
+        relation_stats[:,5] = (relation_stats[:,2]/relation_stats[:,3]) > 1.5
+        result = dict()
+        for i, relation in enumerate(self.relations):
+            result[i] = '{}-{}'.format(
+                '1' if relation_stats[i,4].item() == 0 else 'M',
+                '1' if relation_stats[i,5].item() == 0 else 'N', )
+        return result
