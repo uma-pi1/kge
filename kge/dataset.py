@@ -41,8 +41,8 @@ class Dataset:
             test_meta
         )  # array: triple row number -> metadata array of strings
         self.indexes = {}  # map: name of index -> index (used mainly by training jobs)
-        self.relation_types = None
-        self.relations_per_type = None
+        self.relation_types = {}
+        self.relations_per_type = {}
 
     @staticmethod
     def load(config):
