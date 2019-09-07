@@ -52,6 +52,7 @@ class EvaluationJob(Job):
         self.hist_hooks.append(KeepAllEvaluationHistogramFilter())
 
         if config.get("eval.metric_per_relation_type"):
+            self.dataset.load_relation_types()
             self.hist_hooks.append(RelationTypeEvaluationHistogramFilter())
 
     @staticmethod

@@ -41,10 +41,8 @@ class Dataset:
             test_meta
         )  # array: triple row number -> metadata array of strings
         self.indexes = {}  # map: name of index -> index (used mainly by training jobs)
-        self.relation_types = self._get_relation_types()
-        self.relations_per_type = {}
-        for k, v in self.relation_types.items():
-            self.relations_per_type.setdefault(v, set()).add(k)
+        self.relation_types = None
+        self.relations_per_type = None
 
     @staticmethod
     def load(config):
@@ -87,8 +85,6 @@ class Dataset:
 
         config.log(str(num_entities) + " entities", prefix="  ")
         config.log(str(num_relations) + " relations", prefix="  ")
-        for k,v in result.relations_per_type.items():
-            config.log("{} relations of type {}".format(len(v), k), prefix="  "*2)
         config.log(str(len(train)) + " training triples", prefix="  ")
         config.log(str(len(valid)) + " validation triples", prefix="  ")
         config.log(str(len(test)) + " test triples", prefix="  ")
@@ -192,7 +188,14 @@ class Dataset:
         )
         return sp_po, o_s, offsets
 
-    def _get_relation_types(self, ):
+    def load_relation_types(self,):
+        self.relation_types = self._get_relation_types()
+        for k, v in self.relation_types.items():
+            self.relations_per_type.setdefault(v, set()).add(k)
+        for k,v in self.relations_per_type.items():
+            self.config.log("{} relations of type {}".format(len(v), k), prefix="  ")
+
+    def _get_relation_types(self,):
         """
         Classify relation types into 1-N, M-1, 1-1, M-N
 
