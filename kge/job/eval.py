@@ -51,6 +51,9 @@ class EvaluationJob(Job):
 
         self.hist_hooks.append(KeepAllEvaluationHistogramHooks())
 
+        if config.get("eval.metric_per_head_and_tail"):
+            self.hist_hooks.append(HeadAndTailEvaluationHistogramHooks())
+
         if config.get("eval.metric_per_relation_type"):
             self.dataset.load_relation_types()
             self.hist_hooks.append(RelationTypeEvaluationHistogramHooks())
@@ -134,4 +137,24 @@ class RelationTypeEvaluationHistogramHooks(EvaluationHistogramHooks):
                 if m: hist_dict[rtype][r] += 1
             for r, m in zip(s_ranks, mask):
                 if m: hist_dict[rtype][r] += 1
+        return hist_dict
+
+class HeadAndTailEvaluationHistogramHooks(EvaluationHistogramHooks):
+    """
+    Filters the batch rank by head and tail.
+    """
+    def init_hist_hook(self, eval_job, dataset, device, dtype):
+        return {
+            'head': torch.zeros([dataset.num_entities], device=device, dtype=dtype),
+            'tail': torch.zeros([dataset.num_entities], device=device, dtype=dtype),
+        }
+
+    def make_batch_hist(self, hist_dict, dataset, s, p, o, s_ranks, o_ranks, device, dtype=torch.float):
+        num_entities = dataset.num_entities
+        # need for loop because batch_hist[o_ranks]+=1 ignores repeated
+        # entries in o_ranks
+        for r in s_ranks:
+            hist_dict['head'][r] += 1
+        for r in o_ranks:
+            hist_dict['tail'][r] += 1
         return hist_dict

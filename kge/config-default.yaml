@@ -167,6 +167,7 @@ eval:
   # filters metrics per relation type (Classified into relation types 1-N, M-1,
   # 1-1, M-N) and reports them additionally to the overall metric
   metric_per_relation_type: False
+  metric_per_head_and_tail: False
 
 ## HYPERPARAMETER SEARCH #######################################################
 
