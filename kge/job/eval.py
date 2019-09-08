@@ -182,17 +182,20 @@ class FrequencyPercEvaluationHistogramHooks(EvaluationHistogramHooks):
         return result
 
     def make_batch_hist(self, hist_dict, s, p, o, s_ranks, o_ranks, device, dtype=torch.float):
-        for arg in self.frequency_perc.keys():
-            for perc in self.frequency_perc[arg].keys():
-                if arg  == 'subject':
-                    for r, m in zip(s_ranks, [id in self.frequency_perc[arg][perc] for id in s.tolist()]):
-                        if m: hist_dict['{}_{}'.format(arg, perc)][r] += 1
-                elif arg  == 'relation':
-                    for r, m in zip(s_ranks, [id in self.frequency_perc[arg][perc] for id in p.tolist()]):
-                        if m: hist_dict['{}_{}'.format(arg, perc)][r] += 1
-                    for r, m in zip(o_ranks, [id in self.frequency_perc[arg][perc] for id in p.tolist()]):
-                        if m: hist_dict['{}_{}'.format(arg, perc)][r] += 1
-                elif arg == 'object':
-                    for r, m in zip(o_ranks, [id in self.frequency_perc[arg][perc] for id in o.tolist()]):
-                        if m: hist_dict['{}_{}'.format(arg, perc)][r] += 1
+        for perc in self.frequency_perc['subject'].keys(): # same for relation and object
+            for r, m_s, m_r in zip(
+                    s_ranks,
+                    [id in self.frequency_perc['subject'][perc] for id in s.tolist()],
+                    [id in self.frequency_perc['relation'][perc] for id in p.tolist()],
+            ):
+                if m_s: hist_dict['{}_{}'.format('subject', perc)][r] += 1
+                if m_r: hist_dict['{}_{}'.format('relation', perc)][r] += 1
+            for r, m_o, m_r in zip(
+                    o_ranks,
+                    [id in self.frequency_perc['object'][perc] for id in o.tolist()],
+                    [id in self.frequency_perc['relation'][perc] for id in p.tolist()],
+            ):
+                if m_o: hist_dict['{}_{}'.format('object', perc)][r] += 1
+                if m_r: hist_dict['{}_{}'.format('relation', perc)][r] += 1
+
         return hist_dict
