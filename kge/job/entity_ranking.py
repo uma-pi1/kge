@@ -138,10 +138,26 @@ class EntityRankingJob(EvaluationJob):
             # Now compute the batch histogram of raw ranks and potentially mask
             # out batch items (computed by mask_out_batch_ranks_hook) and
             # aggregate the histograms
+
             for f in self.hist_hooks:
-                for key, mask in f.mask_out_batch_ranks_hook(self, self.dataset, s, p, o):
-                    hist_dict[key] += self._make_batch_hist(mask, s_ranks, o_ranks)
-                    hist_filt_dict[key] += self._make_batch_hist(mask, s_ranks_filt, o_ranks_filt)
+                hist_dict.update(
+                    f.make_batch_hist(hist_dict,
+                                      self.dataset,
+                                      s, p, o,
+                                      s_ranks, o_ranks,
+                                      device=self.device,
+                                      dtype=torch.float
+                                      )
+                )
+                hist_filt_dict.update(
+                    f.make_batch_hist(hist_filt_dict,
+                                      self.dataset,
+                                      s, p, o,
+                                      s_ranks_filt, o_ranks_filt,
+                                      device=self.device,
+                                      dtype=torch.float
+                                      )
+                )
 
             # and the same for filtered_with_test ranks
             if filtered_valid_with_test:
@@ -149,8 +165,15 @@ class EntityRankingJob(EvaluationJob):
                     s, p, o, scores_sp_filt, scores_po_filt, test_labels
                 )
                 for f in self.hist_hooks:
-                    for key, mask in f.mask_out_batch_ranks_hook(self, self.dataset, s, p, o):
-                        hist_filt_test_dict[key] += self._make_batch_hist(mask, s_ranks_filt_test, o_ranks_filt_test)
+                    hist_filt_test_dict.update(
+                        f.make_batch_hist(hist_filt_test_dict,
+                                          self.dataset,
+                                          s, p, o,
+                                          s_ranks_filt_test, o_ranks_filt_test,
+                                          device=self.device,
+                                          dtype=torch.float
+                                          )
+                    )
 
             # optionally: trace ranks of each example
             if self.trace_examples:
@@ -313,17 +336,6 @@ class EntityRankingJob(EvaluationJob):
         o_ranks = self._get_rank(scores_sp, o)
         s_ranks = self._get_rank(scores_po, s)
         return s_ranks, o_ranks, scores_sp, scores_po
-
-    def _make_batch_hist(self, mask, o_ranks, s_ranks):
-        num_entities = self.dataset.num_entities
-        batch_hist = torch.zeros([num_entities], device=self.device, dtype=torch.float)
-        # need for loop because batch_hist[o_ranks]+=1 ignores repeated
-        # entries in o_ranks
-        for r, m in zip(o_ranks, mask):
-            if m: batch_hist[r] += 1
-        for r, m in zip(s_ranks, mask):
-            if m: batch_hist[r] += 1
-        return batch_hist
 
     def _get_rank(self, scores, answers):
         # Get scores of answer given by each triple

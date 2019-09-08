@@ -49,11 +49,11 @@ class EvaluationJob(Job):
         #: Signature: job, trace_entry
         self.hist_hooks = []
 
-        self.hist_hooks.append(KeepAllEvaluationHistogramFilter())
+        self.hist_hooks.append(KeepAllEvaluationHistogramHooks())
 
         if config.get("eval.metric_per_relation_type"):
             self.dataset.load_relation_types()
-            self.hist_hooks.append(RelationTypeEvaluationHistogramFilter())
+            self.hist_hooks.append(RelationTypeEvaluationHistogramHooks())
 
     @staticmethod
     def create(config, dataset, parent_job=None, model=None):
@@ -85,29 +85,35 @@ class EvaluationJob(Job):
         self.resumed_from_job = training_job.resumed_from_job
 
 
-class EvaluationHistogramFilter:
+class EvaluationHistogramHooks:
     """
     Filters the batch rank based on the entities and relations.
     """
     def init_hist_hook(self, eval_job, dataset, device, dtype):
         raise NotImplementedError
 
-    def mask_out_batch_ranks_hook(self, eval_job, dataset, s, p, o):
+    def make_batch_hist(self, hist, dataset, s, p, o, s_ranks, o_ranks, device, dtype=torch.float):
         raise NotImplementedError
 
 
-class KeepAllEvaluationHistogramFilter(EvaluationHistogramFilter):
+class KeepAllEvaluationHistogramHooks(EvaluationHistogramHooks):
     """
     Default class that does nothing.
     """
     def init_hist_hook(self, eval_job, dataset, device, dtype):
         return {'all': torch.zeros([dataset.num_entities], device=device, dtype=dtype)}
 
-    def mask_out_batch_ranks_hook(self, eval_job, dataset, s, p, o):
-        return [('all', [True]*s.size(0)),]
+    def make_batch_hist(self, hist_dict, dataset, s, p, o, s_ranks, o_ranks, device, dtype=torch.float):
+        num_entities = dataset.num_entities
+        # need for loop because batch_hist[o_ranks]+=1 ignores repeated
+        # entries in o_ranks
+        for r in o_ranks:
+            hist_dict['all'][r] += 1
+        for r in s_ranks:
+            hist_dict['all'][r] += 1
+        return hist_dict
 
-
-class RelationTypeEvaluationHistogramFilter(EvaluationHistogramFilter):
+class RelationTypeEvaluationHistogramHooks(EvaluationHistogramHooks):
     """
     Filters the batch rank by relation type.
     """
@@ -117,10 +123,15 @@ class RelationTypeEvaluationHistogramFilter(EvaluationHistogramFilter):
             result[rtype] = torch.zeros([dataset.num_entities], device=device, dtype=dtype)
         return result
 
-    def mask_out_batch_ranks_hook(self, eval_job, dataset, s, p, o):
-        result = list()
+    def make_batch_hist(self, hist_dict, dataset, s, p, o, s_ranks, o_ranks, device, dtype=torch.float):
+        masks = list()
         for rtype in dataset.relations_per_type.keys():
-            result.append(
+            masks.append(
                 (rtype, [_p in dataset.relations_per_type[rtype] for _p in p.tolist()])
             )
-        return result
+        for (rtype, mask) in masks:
+            for r, m in zip(o_ranks, mask):
+                if m: hist_dict[rtype][r] += 1
+            for r, m in zip(s_ranks, mask):
+                if m: hist_dict[rtype][r] += 1
+        return hist_dict
