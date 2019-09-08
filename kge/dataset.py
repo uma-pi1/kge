@@ -189,6 +189,9 @@ class Dataset:
         return sp_po, o_s, offsets
 
     def load_relation_types(self,):
+        """
+        :return: dictionary mapping from {1-N, M-1, 1-1, M-N} -> set of relations
+        """
         self.relation_types = self._get_relation_types()
         for k, v in self.relation_types.items():
             self.relations_per_type.setdefault(v, set()).add(k)
@@ -197,7 +200,7 @@ class Dataset:
 
     def _get_relation_types(self,):
         """
-        Classify relation types into 1-N, M-1, 1-1, M-N
+        Classify relations into 1-N, M-1, 1-1, M-N
 
         Bordes, Antoine, et al.
         "Translating embeddings for modeling multi-relational data."
@@ -220,4 +223,35 @@ class Dataset:
             result[i] = '{}-{}'.format(
                 '1' if relation_stats[i,4].item() == 0 else 'M',
                 '1' if relation_stats[i,5].item() == 0 else 'N', )
+        return result
+
+    def get_frequency_percentiles_for_entites_and_relations(self,):
+        """
+        :return: dictionary mapping from
+        {
+         'subject':
+            {25%, 50%, 75%, top} -> set of entities
+         'relations':
+            {25%, 50%, 75%, top} -> set of relations
+         'object':
+            {25%, 50%, 75%, top} -> set of entities
+        }
+        """
+        subject_stats = torch.zeros((self.num_entities, 1))
+        relation_stats = torch.zeros((self.num_relations, 1))
+        object_stats = torch.zeros((self.num_entities, 1))
+        for (s,p,o) in self.train:
+            subject_stats[s] += 1
+            relation_stats[p] += 1
+            object_stats[o] += 1
+        result = dict()
+        for arg, stats, num in [
+            ('subject', [i for i,j in list(sorted(enumerate(subject_stats.tolist()), key=lambda x:x[1]))], self.num_entities),
+            ('relation', [i for i,j in list(sorted(enumerate(relation_stats.tolist()), key=lambda x:x[1]))], self.num_relations),
+            ('object', [i for i,j in list(sorted(enumerate(object_stats.tolist()), key=lambda x:x[1]))], self.num_entities),
+        ]:
+            for percentile, (begin, end) in [('25%', (0., 0.25)), ('50%', (0.25, 0.5)), ('75%', (0.5, 0.75)), ('top', (0.75, 1.))]:
+                if arg not in result:
+                    result[arg] = dict()
+                result[arg][percentile] = set(stats[int(begin*num):int(end*num)])
         return result

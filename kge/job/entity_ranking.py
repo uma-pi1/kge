@@ -89,9 +89,9 @@ class EntityRankingJob(EvaluationJob):
         hist_filt_test_dict = dict()
 
         for f in self.hist_hooks:
-            hist_dict.update(f.init_hist_hook(self, self.dataset, device=self.device, dtype=torch.float))
-            hist_filt_dict.update(f.init_hist_hook(self, self.dataset, device=self.device, dtype=torch.float))
-            hist_filt_test_dict.update(f.init_hist_hook(self, self.dataset, device=self.device, dtype=torch.float))
+            hist_dict.update(f.init_hist_hook(device=self.device, dtype=torch.float))
+            hist_filt_dict.update(f.init_hist_hook(device=self.device, dtype=torch.float))
+            hist_filt_test_dict.update(f.init_hist_hook(device=self.device, dtype=torch.float))
 
         epoch_time = -time.time()
         for batch_number, batch_coords in enumerate(self.loader):
@@ -142,7 +142,6 @@ class EntityRankingJob(EvaluationJob):
             for f in self.hist_hooks:
                 hist_dict.update(
                     f.make_batch_hist(hist_dict,
-                                      self.dataset,
                                       s, p, o,
                                       s_ranks, o_ranks,
                                       device=self.device,
@@ -151,7 +150,6 @@ class EntityRankingJob(EvaluationJob):
                 )
                 hist_filt_dict.update(
                     f.make_batch_hist(hist_filt_dict,
-                                      self.dataset,
                                       s, p, o,
                                       s_ranks_filt, o_ranks_filt,
                                       device=self.device,
@@ -167,7 +165,6 @@ class EntityRankingJob(EvaluationJob):
                 for f in self.hist_hooks:
                     hist_filt_test_dict.update(
                         f.make_batch_hist(hist_filt_test_dict,
-                                          self.dataset,
                                           s, p, o,
                                           s_ranks_filt_test, o_ranks_filt_test,
                                           device=self.device,

@@ -168,6 +168,7 @@ eval:
   # 1-1, M-N) and reports them additionally to the overall metric
   metric_per_relation_type: False
   metric_per_head_and_tail: False
+  metric_per_argument_frequency_perc: False
 
 ## HYPERPARAMETER SEARCH #######################################################
 
