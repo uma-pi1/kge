@@ -43,7 +43,7 @@ To execute any Job, the following debug parameters have to be set:
 `<command> <additional configuration file> <configuration parameters>`
 
 Alternatively, run in the console: 
-`python3 kge.py <command> <additional configuration file> <configuration parameters>``
+`python3 kge.py <command> <additional configuration file> <configuration parameters>`
 
 Commands specify which part of `kge.py` is executed. Configuration files modify different Jobs and change or supplement the default settings. Additionally, instead of specifying a configuration in the configuration file, it can be specified as a debug parameter.
 
@@ -60,7 +60,7 @@ See available commands: `kge.py --help`
 The framework is operated by the use of configuration files which make certain specifications for different jobs. The file [config-default.yaml](kge/config-default.yaml) contains the default configurations. Further, different models have specific configuration files and every Job can be adapted as desired with the additional configuration files. 
 
 #### Default Configurations
-The following configuration categories categories are specified in the default configurations (for more, see: comments in [kge](kge/config-default.yaml)):
+The following configuration categories are specified in the default configurations (for more, see: comments in [kge](kge/config-default.yaml)):
 - Job: Configurations for the Job type and the device on which the job is ran.
 - dataset: Configurations for the dataset which is used.
 - model: Configurations for specific models (made in the specific model configuration files).
@@ -72,7 +72,7 @@ The following configuration categories categories are specified in the default c
 - user parameters: Can be used to add additional configuration options.
 
 #### Additional configuration files
-The default configurations can be adapted for different model and Job. Additional configurations have always be made t ospecify the model and its parameters. Further, whenever something has to be adapted, the default configurations are overwritten by the specified additional configurations.
+The default configurations can be adapted for different models and jobs. Additional configurations have always be made to specify the model and its parameters. Further, whenever something has to be adapted, the default configurations are overwritten by the specified additional configurations.
 
 ### Jobs
 Models and algorithms are executed by [jobs](kge/job), which can be train, train with search or evaluation. The respective base definitions can be found in [eval.py](kge/job/eval.py) and [train.py](kge/job/train.py). Training strategies (1toN, negative sampling...) and evaluation metrics (mean rank,...) are defined by implementations of these classes.
@@ -99,7 +99,7 @@ Evaluates the scores of a trained kge model according to the specified metric an
 #### Device
 For running locally on CPU run `<command> <additional configuration file> --job.device=cpu` or set `job.device: cpu` in the configuration file, since the default is cuda.
 
-##### Datasets
+### Datasets
 The following datasets are currently included in the framework:
 - [db100k](data/db100k) ([Ding et al. 2018](https://www.aclweb.org/anthology/P18-1011))
 - [dbpedia50](data/dbpedia50) ([https://wiki.dbpedia.org/Downloads2015-04](https://wiki.dbpedia.org/Downloads2015-04))
@@ -112,7 +112,7 @@ The following datasets are currently included in the framework:
 
 To choose a dataset, change `dataset.name` to the desired dataset. The default is a toy dataset created from the top 399 entities with the most number of triples in the training set of FB15K-237.
 
-##### Models
+### Models
 [Models](kge/model) consist of a relational scorer and embedders. Embedders can be defined separately for subjects predicates and objects. The base definitions of these classes can be found in [kge_model.py](kge/model/kge_model.py). Custom models define implementations of these classes.
 
 The following models can be specified:
@@ -120,7 +120,7 @@ The following models can be specified:
 - [ConvE](kge/model/conve.yaml) ([Dettmers et al. 2018](https://arxiv.org/abs/1707.01476))
 - [DistMult](kge/model/distmult.yaml) ([Yang et al. 2014](https://arxiv.org/abs/1412.6575))
 - [Feed Forward Neural Net](kge/model/fnn.yaml)
-- [Freex] (kge/model/freex.yaml)
+- [Freex](kge/model/freex.yaml)
 - [RelationalTucker3](kge/model/relational_tucker3.yaml)
 - [Rescal](kge/model/rescal.yaml) ([Nickel et al. 2011](https://www.researchgate.net/publication/221345089_A_Three-Way_Model_for_Collective_Learning_on_Multi-Relational_Data))
 - [SparseDiagonalRescal](kge/model/sd_rescal.yaml)
