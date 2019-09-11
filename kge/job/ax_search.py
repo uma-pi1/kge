@@ -4,7 +4,7 @@ from ax import Models
 from ax.core import ObservationFeatures
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 
-from kge.job import AutoSearchJob
+from kge.job import AutoSearchJob, Job
 from kge import Config
 from ax.service.ax_client import AxClient
 from typing import List
@@ -18,6 +18,10 @@ class AxSearchJob(AutoSearchJob):
         self.num_trials = self.config.get("ax_search.num_trials")
         self.num_sobol_trials = self.config.get("ax_search.num_sobol_trials")
         self.ax_client = None
+
+        if self.__class__ == AxSearchJob:
+            for f in Job.job_created_hooks:
+                f(self)
 
     # Overridden such that instances of search job can be pickled to workers
     def __getstate__(self):

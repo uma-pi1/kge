@@ -7,6 +7,11 @@ import socket
 
 
 class Job:
+
+    # static hooks for all Jobs
+    # signature: job
+    job_created_hooks = []
+
     def __init__(self, config: Config, dataset: Dataset, parent_job=None):
         self.config = config
         self.dataset = dataset
@@ -25,6 +30,10 @@ class Job:
         # prepend log entries with the job id. Since we use random job IDs but
         # want short log entries, we only output the first 8 bytes here
         self.config.log_prefix = "[" + self.job_id[0:8] + "] "
+
+        if self.__class__ == Job:
+            for f in Job.job_created_hooks:
+                f(self)
 
     def resume(self):
         """Restores all relevant state to resume a previous job.

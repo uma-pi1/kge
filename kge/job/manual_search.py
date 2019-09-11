@@ -1,6 +1,6 @@
 import copy
 from kge import Config, Dataset
-from kge.job import SearchJob
+from kge.job import SearchJob,Job
 import kge.job.search
 import concurrent.futures
 
@@ -27,6 +27,10 @@ class ManualSearchJob(SearchJob):
 
     def __init__(self, config: Config, dataset: Dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
+
+        if self.__class__ == ManualSearchJob:
+            for f in Job.job_created_hooks:
+                f(self)
 
     def resume(self):
         # no need to do anything here; run code automatically resumes

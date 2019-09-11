@@ -3,7 +3,7 @@ import time
 
 import torch
 import kge.job
-from kge.job import EvaluationJob
+from kge.job import EvaluationJob, Job
 
 
 class EntityRankingJob(EvaluationJob):
@@ -12,6 +12,10 @@ class EntityRankingJob(EvaluationJob):
     def __init__(self, config, dataset, parent_job, model):
         super().__init__(config, dataset, parent_job, model)
         self.is_prepared = False
+
+        if self.__class__ == EntityRankingJob:
+            for f in Job.job_created_hooks:
+                f(self)
 
     def _prepare(self):
         """Construct all indexes needed to run."""
