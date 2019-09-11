@@ -6,11 +6,30 @@ import os
 import socket
 
 
-class Job:
+def _trace_job_creation(job):
+    """Create a trace entry for a job"""
+    userhome = os.path.expanduser("~")
+    username = os.path.split(userhome)[-1]
+    job.trace_entry = job.trace(
+        git_head=get_git_revision_short_hash(),
+        username=username,
+        hostname=socket.gethostname(),
+        folder=job.config.folder,
+        event="job_created"
+    )
 
-    # static hooks for all Jobs
+
+def _save_job_config(job):
+    """Save the job configuration"""
+    job.config.save(
+        os.path.join(job.config.folder, "config/{}.yaml".format(job.job_id[0:8]))
+    )
+
+
+class Job:
+    # Hooks run after job creation has finished
     # signature: job
-    job_created_hooks = []
+    job_created_hooks = [_trace_job_creation, _save_job_config]
 
     def __init__(self, config: Config, dataset: Dataset, parent_job=None):
         self.config = config
@@ -18,14 +37,6 @@ class Job:
         self.job_id = str(uuid.uuid4())
         self.parent_job = parent_job
         self.resumed_from_job = None
-        userhome = os.path.expanduser("~")
-        username = os.path.split(userhome)[-1]
-        self.trace_entry = self.trace(
-            git_head=get_git_revision_short_hash(),
-            username=username,
-            hostname=socket.gethostname(),
-            folder=config.folder,
-        )
 
         # prepend log entries with the job id. Since we use random job IDs but
         # want short log entries, we only output the first 8 bytes here
@@ -62,10 +73,6 @@ class Job:
         else:
             raise ValueError("unknown job type")
 
-        # save the configs of all jobs we created
-        job.config.save(
-            os.path.join(job.config.folder, "config/{}.yaml".format(job.job_id[0:8]))
-        )
         return job
 
     def trace(self, **kwargs):
