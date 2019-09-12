@@ -309,8 +309,21 @@ class EntityRankingJob(EvaluationJob):
             self.model.train()
         self.config.log("Finished evaluating on " + self.eval_data + " data.")
 
+
         for f in self.post_valid_hooks:
             f(self, trace_entry)
+
+        # Predict output
+        from kge.job.eval import output_predictions_per_triple as output
+        if self.predict_output:
+            s_all, p_all, o_all = self.triples[:, 0], self.triples[:, 1], self.triples[:, 2]
+            scores_all = self.model.score_sp_po(s_all, p_all, o_all)
+
+            best_predictions_per_triple = output.get_best_predictions_per_triple(self, self.triples, scores_all, self.predict_output_k)
+
+            entities_map = output._load_map("/home/andrej/GIT/kge/data/toy/entities_names.txt")
+
+            output.output_best_predictions(self, best_predictions_per_triple, entities_map)
 
         return trace_entry
 

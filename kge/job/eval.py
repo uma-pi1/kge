@@ -24,8 +24,10 @@ class EvaluationJob(Job):
         self.eval_data = self.config.check("eval.data", ["valid", "test"])
         self.filter_valid_with_test = config.get("valid.filter_with_test")
         self.epoch = -1
+        self.predict_output = config.get("eval.predict_output")
+        self.predict_output_k = config.get("eval.predict_output_k")
 
-        #: Hooks run after training for an epoch.
+        #: Hooks run after evaluation for an epoch.
         #: Signature: job, trace_entry
         self.post_epoch_hooks = []
 
@@ -172,3 +174,99 @@ def hist_per_frequency_percentile(hists, s, p, o, s_ranks, o_ranks, job, **kwarg
                 hists["{}_{}".format("object", perc)][r] += 1
             if m_r:
                 hists["{}_{}".format("relation", perc)][r] += 1
+
+
+    def __init__(self, dataset):
+        super().__init__(dataset)
+        self.frequency_perc = (
+            self.dataset.get_frequency_percentiles_for_entites_and_relations()
+        )
+
+    def init_hist_hook(self, device, dtype):
+        result = dict()
+        for arg in self.frequency_perc.keys():
+            for perc in self.frequency_perc[arg].keys():
+                result["{}_{}".format(arg, perc)] = torch.zeros(
+                    [self.dataset.num_entities], device=device, dtype=dtype
+                )
+        return result
+
+    def make_batch_hist(
+        self, hist_dict, s, p, o, s_ranks, o_ranks, device, dtype=torch.float
+    ):
+        for perc in self.frequency_perc[
+            "subject"
+        ].keys():  # same for relation and object
+            for r, m_s, m_r in zip(
+                s_ranks,
+                [id in self.frequency_perc["subject"][perc] for id in s.tolist()],
+                [id in self.frequency_perc["relation"][perc] for id in p.tolist()],
+            ):
+                if m_s:
+                    hist_dict["{}_{}".format("subject", perc)][r] += 1
+                if m_r:
+                    hist_dict["{}_{}".format("relation", perc)][r] += 1
+            for r, m_o, m_r in zip(
+                o_ranks,
+                [id in self.frequency_perc["object"][perc] for id in o.tolist()],
+                [id in self.frequency_perc["relation"][perc] for id in p.tolist()],
+            ):
+                if m_o:
+                    hist_dict["{}_{}".format("object", perc)][r] += 1
+                if m_r:
+                    hist_dict["{}_{}".format("relation", perc)][r] += 1
+
+        return hist_dict
+
+
+class output_predictions_per_triple():
+
+    def _load_map(filename):
+        import csv
+        # Read the entities from file
+        # Todo: Move function to dataset.py or change the function in dataset.py for reading the entities.txt file
+        dictionary = {}
+        with open(filename, "r") as file:
+            reader = csv.reader(file, delimiter="\t")
+            for row in reader:
+                # Todo: Choose the top value of the map file as used value
+                index = row[0]
+                meta = row[1:]
+                dictionary[index] = meta
+        return dictionary
+
+    def get_best_predictions_per_triple(self, triples, scores, k):
+        best_predictions_per_triple = {}
+        # Loop over every test triple to find the best predictions for it
+        for t in range(len(triples)):
+            # Get indices of the k largest scores
+            indices = scores[t,:].topk(k).indices
+
+            # Get best triples
+            best_triples = torch.as_tensor([triples[t].tolist()] * k)
+
+            for i, j in enumerate(indices):
+                if j <= self.dataset.num_entities:
+                    best_triples[:, 0][i] = j
+                else:
+                    best_triples[:, 2][i] = j - self.dataset.num_entities
+
+            best_predictions_per_triple[triples[t]] = best_triples
+
+        return best_predictions_per_triple
+
+    # Todo: Often "key error" for /m/07s9rl0 - need a complete mapping, also output in different languages, thus hard to read
+
+    def output_best_predictions(self, best_predictions_per_triple, entities_map):
+        # For printing only last part of relation add: .rsplit('/', 1)[1][:-2]
+        for i, j in zip(best_predictions_per_triple.keys(), best_predictions_per_triple.values()):
+            print("For triple ",
+                  entities_map[''.join(self.dataset.entities[int(i[0])])],
+                  str(self.dataset.relations[int(i[1])]),
+                  entities_map[''.join(self.dataset.entities[int(i[2])])],
+                  " the top {} predictions are: ".format(self.predict_output_k)
+                  )
+            for t in j:
+                print(entities_map[''.join(self.dataset.entities[int(t[0])])],
+                      str(self.dataset.relations[int(t[1])]),
+                      entities_map[''.join(self.dataset.entities[int(t[2])])])
