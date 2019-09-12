@@ -15,15 +15,16 @@ def _trace_job_creation(job):
         username=username,
         hostname=socket.gethostname(),
         folder=job.config.folder,
-        event="job_created"
+        event="job_created",
     )
 
 
 def _save_job_config(job):
     """Save the job configuration"""
-    job.config.save(
-        os.path.join(job.config.folder, "config/{}.yaml".format(job.job_id[0:8]))
-    )
+    config_folder = os.path.join(job.config.folder, "config")
+    if not os.path.exists(config_folder):
+        os.makedirs(config_folder)
+    job.config.save(os.path.join(config_folder, "{}.yaml".format(job.job_id[0:8])))
 
 
 class Job:
