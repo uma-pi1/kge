@@ -388,7 +388,7 @@ class KgeModel(KgeBase):
 
         """
 
-        checkpoint = torch.load(filename)
+        checkpoint = torch.load(filename, map_location="cpu")
         config = checkpoint["config"]
         if dataset is None:
             dataset = Dataset.load(config)

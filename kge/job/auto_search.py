@@ -26,7 +26,7 @@ class AutoSearchJob(SearchJob):
 
     def load(self, filename):
         self.config.log("Loading checkpoint from {}...".format(filename))
-        checkpoint = torch.load(filename)
+        checkpoint = torch.load(filename, map_location="cpu")
         self.parameters = checkpoint["parameters"]
         self.results = checkpoint["results"]
         return checkpoint.get("job_id")
