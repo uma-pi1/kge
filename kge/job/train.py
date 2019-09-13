@@ -26,7 +26,6 @@ class TrainingJob(Job):
     `_compute_batch_loss`.
 
     """
-
     def __init__(self, config, dataset, parent_job=None):
         from kge.job import EvaluationJob
 
@@ -77,6 +76,14 @@ class TrainingJob(Job):
         #: Hooks run after a validation job.
         #: Signature: job, trace_entry
         self.post_valid_hooks = []
+
+        #: Hooks run after training
+        #: Signature: job, trace_entry
+        self.post_train_hooks = []
+
+        if self.__class__ == TrainingJob:
+            for f in Job.job_created_hooks:
+                f(self)
 
     @staticmethod
     def create(config, dataset, parent_job=None):
@@ -196,7 +203,8 @@ the dataset (if not present).
                         )
                     )
                     os.remove(self.config.checkpoint_file(delete_checkpoint_epoch))
-
+        for f in self.post_train_hooks:
+            f(self, trace_entry)
     def save(self, filename):
         """Save current state to specified file"""
         self.config.log("Saving checkpoint to {}...".format(filename))
@@ -472,10 +480,13 @@ class TrainingJob1toN(TrainingJob):
                 )
 
         config.log("Initializing 1-to-N training job...")
-
-    def _prepare(self):
         self.type_str = "1toN"
 
+        if self.__class__ == TrainingJob1toN:
+            for f in Job.job_created_hooks:
+                f(self)
+
+    def _prepare(self):
         # create sp and po label_coords (if not done before)
         train_sp = self.dataset.index_1toN("train", "sp")
         train_po = self.dataset.index_1toN("train", "po")
@@ -634,6 +645,11 @@ class TrainingJobNegativeSampling(TrainingJob1toN):
             else:
                 self._num_negatives_o = 0
         config.log("Sampling from 1-to-N ...")
+        self.type_str = "negative_sampling"
+
+        if self.__class__ == TrainingJobNegativeSampling:
+            for f in Job.job_created_hooks:
+                f(self)
 
     def _compute_batch_loss(self, batch_index, batch):
 
@@ -773,6 +789,11 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
             "Initializing negative sampling training job with "
             "'{}' scoring function ...".format(self._score_func_type)
         )
+        self.type_str = "negative_sampling"
+
+        if self.__class__ == TrainingJobNegativeSamplingLegacy:
+            for f in Job.job_created_hooks:
+                f(self)
 
     def _prepare(self):
         """Construct dataloader"""
@@ -976,6 +997,11 @@ class TrainingJobSpo(TrainingJob):
         super().__init__(config, dataset, parent_job)
         self.is_prepared = False
         config.log("Initializing spo training job...")
+        self.type_str = "spo"
+
+        if self.__class__ == TrainingJobSpo:
+            for f in Job.job_created_hooks:
+                f(self)
 
     def _prepare(self):
         """Construct dataloader"""

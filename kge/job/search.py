@@ -9,7 +9,6 @@ class SearchJob(Job):
 
     Provides functionality for scheduling training jobs across workers.
     """
-
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
 
@@ -32,6 +31,10 @@ class SearchJob(Job):
             )
         else:
             self.process_pool = None  # marks that we run in single process
+
+        if self.__class__ == SearchJob:
+            for f in Job.job_created_hooks:
+                f(self)
 
     def create(config, dataset, parent_job=None):
         """Factory method to create a search job."""

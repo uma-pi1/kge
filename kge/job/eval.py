@@ -60,6 +60,10 @@ class EvaluationJob(Job):
         if config.get("eval.metric_per_argument_frequency_perc"):
             self.hist_hooks.append(FrequencyPercEvaluationHistogramHooks(self.dataset))
 
+        if self.__class__ == EvaluationJob:
+            for f in Job.job_created_hooks:
+                f(self)
+
     @staticmethod
     def create(config, dataset, parent_job=None, model=None):
         """Factory method to create an evaluation job """

@@ -2,7 +2,7 @@ import concurrent.futures
 from typing import List
 import torch
 from kge import Config
-from kge.job import SearchJob
+from kge.job import SearchJob, Job
 import kge.job.search
 
 # TODO handle "max_epochs" in some sensible way
@@ -23,6 +23,10 @@ class AutoSearchJob(SearchJob):
         self.trial_ids: List = []  #: backend-specific identifiers for each trial
         self.parameters: List[dict] = []  #: hyper-parameters of each trial
         self.results: List[dict] = []  #: trace entry of best result of each trial
+
+        if self.__class__ == AutoSearchJob:
+            for f in Job.job_created_hooks:
+                f(self)
 
     def load(self, filename):
         self.config.log("Loading checkpoint from {}...".format(filename))
