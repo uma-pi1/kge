@@ -92,12 +92,14 @@ class LookupEmbedder(KgeEmbedder):
             if self.get_option("regularize_args.weighted"):
                 result = super().penalty(**kwargs)
                 if "batch" in kwargs and "triples" in kwargs["batch"]:
-                    parameters = self.embeddings(
-                        kwargs["batch"]["triples"][:, kwargs["slot"]]
+                    unique_ids, counts = torch.unique(
+                        kwargs["batch"]["triples"][:, kwargs["slot"]],
+                        return_counts=True
                     )
+                    parameters = self.embeddings(unique_ids)
                     result += [
                         self.get_option("regularize_args.weight")
-                        * parameters.norm(p=1)
+                        * (torch.abs(parameters)*counts.float().view(-1, 1)).sum()
                         / parameters.size(0)
                     ]
                 return result
@@ -110,12 +112,14 @@ class LookupEmbedder(KgeEmbedder):
             if self.get_option("regularize_args.weighted"):
                 result = super().penalty(**kwargs)
                 if "batch" in kwargs and "triples" in kwargs["batch"]:
-                    parameters = self.embeddings(
-                        kwargs["batch"]["triples"][:, kwargs["slot"]]
+                    unique_ids, counts = torch.unique(
+                        kwargs["batch"]["triples"][:, kwargs["slot"]],
+                        return_counts=True
                     )
+                    parameters = self.embeddings(unique_ids)
                     result += [
                         self.get_option("regularize_args.weight")
-                        * parameters.norm(p=2) ** 2
+                        * (parameters**2*counts.float().view(-1, 1)).sum()
                         / parameters.size(0)
                     ]
                 return result
@@ -128,12 +132,14 @@ class LookupEmbedder(KgeEmbedder):
             if self.get_option("regularize_args.weighted"):
                 result = super().penalty(**kwargs)
                 if "batch" in kwargs and "triples" in kwargs["batch"]:
-                    parameters = self.embeddings(
-                        kwargs["batch"]["triples"][:, kwargs["slot"]]
+                    unique_ids, counts = torch.unique(
+                        kwargs["batch"]["triples"][:, kwargs["slot"]],
+                        return_counts=True
                     )
+                    parameters = self.embeddings(unique_ids)
                     result += [
                         self.get_option("regularize_args.weight")
-                        * parameters.norm(p=3) ** 3
+                        * (torch.abs(parameters)**3*counts.float().view(-1, 1)).sum()
                         / parameters.size(0)
                     ]
                 return result
