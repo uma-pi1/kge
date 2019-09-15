@@ -7,6 +7,7 @@ from kge.model.rescal import RescalScorer, rescal_set_relation_embedder_dim
 from kge.model import ProjectionEmbedder
 from kge.model.rescal import rescal_set_relation_embedder_dim
 from kge.util.l0module import _L0Norm_orig
+from kge.util.misc import round_to_points
 
 
 class Tucker3RelationEmbedder(ProjectionEmbedder):
@@ -86,6 +87,14 @@ class RelationalTucker3(KgeModel):
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         self._init_configuration(config, configuration_key)
+
+        ent_emb_dim = self.get_option("entity_embedder.dim")
+        ent_emb_conf_key = self.configuration_key + ".entity_embedder"
+        round_ent_emb_dim_to = self.get_option("entity_embedder.round_dim_to")
+        if len(round_ent_emb_dim_to) > 0:
+            ent_emb_dim = round_to_points(round_ent_emb_dim_to, ent_emb_dim)
+        config.set(ent_emb_conf_key + ".dim", ent_emb_dim, log=True)
+
         rescal_set_relation_embedder_dim(
             config, dataset, self.configuration_key + ".relation_embedder"
         )
