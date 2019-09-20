@@ -26,6 +26,7 @@ class TrainingJob(Job):
     `_compute_batch_loss`.
 
     """
+
     def __init__(self, config, dataset, parent_job=None):
         from kge.job import EvaluationJob
 
@@ -109,11 +110,6 @@ the dataset (if not present).
         metric_name = self.config.get("valid.metric")
         patience = self.config.get("valid.early_stopping.patience")
         while True:
-            # should we stop?
-            if self.epoch >= self.config.get("train.max_epochs"):
-                self.config.log("Maximum number of epochs reached.")
-                break
-
             # checking for model improvement according to metric_name
             # and do early stopping and keep the best checkpoint
             if len(self.valid_trace) > 0:
@@ -146,6 +142,11 @@ the dataset (if not present).
                         )
                     )
                     break
+
+            # should we stop?
+            if self.epoch >= self.config.get("train.max_epochs"):
+                self.config.log("Maximum number of epochs reached.")
+                break
 
             # start a new epoch
             self.epoch += 1
@@ -205,6 +206,7 @@ the dataset (if not present).
                     os.remove(self.config.checkpoint_file(delete_checkpoint_epoch))
         for f in self.post_train_hooks:
             f(self, trace_entry)
+
     def save(self, filename):
         """Save current state to specified file"""
         self.config.log("Saving checkpoint to {}...".format(filename))
@@ -238,15 +240,19 @@ the dataset (if not present).
         self.model.train()
         return checkpoint.get("job_id")
 
-    def resume(self):
-        """Load job state from last checkpoint.
+    def resume(self, checkpoint_file=None):
+        if checkpoint_file is None:
+            last_checkpoint = self.config.last_checkpoint()
+            if last_checkpoint is not None:
+                checkpoint_file = self.config.checkpoint_file(last_checkpoint)
 
-        Job is not actually run using this method; follow up with `run` for this."""
-        last_checkpoint = self.config.last_checkpoint()
-        if last_checkpoint is not None:
-            checkpoint_file = self.config.checkpoint_file(last_checkpoint)
+        if checkpoint_file is not None:
             self.resumed_from_job = self.load(checkpoint_file)
-            self.config.log("Resumed from job {}".format(self.resumed_from_job))
+            self.config.log(
+                "Resumed from {} of job {}".format(
+                    checkpoint_file, self.resumed_from_job
+                )
+            )
         else:
             self.config.log("No checkpoint found, starting from scratch...")
 

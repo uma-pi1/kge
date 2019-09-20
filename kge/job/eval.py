@@ -41,7 +41,6 @@ class EvaluationJob(Job):
         #: Signature: job, trace_entry
         self.post_epoch_trace_hooks = []
 
-        #: Hooks run after a validation job.
         #: Signature: job, trace_entry
         self.post_valid_hooks = []
 
@@ -83,12 +82,13 @@ class EvaluationJob(Job):
         """ Compute evaluation metrics, output results to trace file """
         raise NotImplementedError
 
-    def resume(self):
+    def resume(self, checkpoint_file=None):
+        """Load model state from last or specified checkpoint."""
         # load model
         from kge.job import TrainingJob
 
         training_job = TrainingJob.create(self.config, self.dataset)
-        training_job.resume()
+        training_job.resume(checkpoint_file)
         self.model = training_job.model
         self.epoch = training_job.epoch
         self.resumed_from_job = training_job.resumed_from_job
@@ -98,13 +98,16 @@ class EvaluationHistogramHooks:
     """
     Filters the batch rank based on the entities and relations.
     """
+
     def __init__(self, dataset):
         self.dataset = dataset
 
     def init_hist_hook(self, device, dtype):
         raise NotImplementedError
 
-    def make_batch_hist(self, hist, s, p, o, s_ranks, o_ranks, device, dtype=torch.float):
+    def make_batch_hist(
+        self, hist, s, p, o, s_ranks, o_ranks, device, dtype=torch.float
+    ):
         raise NotImplementedError
 
 
@@ -112,22 +115,29 @@ class KeepAllEvaluationHistogramHooks(EvaluationHistogramHooks):
     """
     Default class that does nothing.
     """
-    def init_hist_hook(self, device, dtype):
-        return {'all': torch.zeros([self.dataset.num_entities], device=device, dtype=dtype)}
 
-    def make_batch_hist(self, hist_dict, s, p, o, s_ranks, o_ranks, device, dtype=torch.float):
+    def init_hist_hook(self, device, dtype):
+        return {
+            "all": torch.zeros([self.dataset.num_entities], device=device, dtype=dtype)
+        }
+
+    def make_batch_hist(
+        self, hist_dict, s, p, o, s_ranks, o_ranks, device, dtype=torch.float
+    ):
         # need for loop because batch_hist[o_ranks]+=1 ignores repeated
         # entries in o_ranks
         for r in o_ranks:
-            hist_dict['all'][r] += 1
+            hist_dict["all"][r] += 1
         for r in s_ranks:
-            hist_dict['all'][r] += 1
+            hist_dict["all"][r] += 1
         return hist_dict
+
 
 class RelationTypeEvaluationHistogramHooks(EvaluationHistogramHooks):
     """
     Filters the batch rank by relation type.
     """
+
     def __init__(self, dataset):
         super().__init__(dataset)
         self.dataset.load_relation_types()
@@ -135,71 +145,102 @@ class RelationTypeEvaluationHistogramHooks(EvaluationHistogramHooks):
     def init_hist_hook(self, device, dtype):
         result = dict()
         for rtype in self.dataset.relations_per_type.keys():
-            result[rtype] = torch.zeros([self.dataset.num_entities], device=device, dtype=dtype)
+            result[rtype] = torch.zeros(
+                [self.dataset.num_entities], device=device, dtype=dtype
+            )
         return result
 
-    def make_batch_hist(self, hist_dict, s, p, o, s_ranks, o_ranks, device, dtype=torch.float):
+    def make_batch_hist(
+        self, hist_dict, s, p, o, s_ranks, o_ranks, device, dtype=torch.float
+    ):
         masks = list()
         for rtype in self.dataset.relations_per_type.keys():
             masks.append(
-                (rtype, [_p in self.dataset.relations_per_type[rtype] for _p in p.tolist()])
+                (
+                    rtype,
+                    [_p in self.dataset.relations_per_type[rtype] for _p in p.tolist()],
+                )
             )
         for (rtype, mask) in masks:
             for r, m in zip(o_ranks, mask):
-                if m: hist_dict[rtype][r] += 1
+                if m:
+                    hist_dict[rtype][r] += 1
             for r, m in zip(s_ranks, mask):
-                if m: hist_dict[rtype][r] += 1
+                if m:
+                    hist_dict[rtype][r] += 1
         return hist_dict
+
 
 class HeadAndTailEvaluationHistogramHooks(EvaluationHistogramHooks):
     """
     Filters the batch rank by head and tail.
     """
+
     def init_hist_hook(self, device, dtype):
         return {
-            'head': torch.zeros([self.dataset.num_entities], device=device, dtype=dtype),
-            'tail': torch.zeros([self.dataset.num_entities], device=device, dtype=dtype),
+            "head": torch.zeros(
+                [self.dataset.num_entities], device=device, dtype=dtype
+            ),
+            "tail": torch.zeros(
+                [self.dataset.num_entities], device=device, dtype=dtype
+            ),
         }
 
-    def make_batch_hist(self, hist_dict, s, p, o, s_ranks, o_ranks, device, dtype=torch.float):
+    def make_batch_hist(
+        self, hist_dict, s, p, o, s_ranks, o_ranks, device, dtype=torch.float
+    ):
         # need for loop because batch_hist[o_ranks]+=1 ignores repeated
         # entries in o_ranks
         for r in s_ranks:
-            hist_dict['head'][r] += 1
+            hist_dict["head"][r] += 1
         for r in o_ranks:
-            hist_dict['tail'][r] += 1
+            hist_dict["tail"][r] += 1
         return hist_dict
+
 
 class FrequencyPercEvaluationHistogramHooks(EvaluationHistogramHooks):
     """
     Filters the batch rank by relation type.
     """
+
     def __init__(self, dataset):
         super().__init__(dataset)
-        self.frequency_perc = self.dataset.get_frequency_percentiles_for_entites_and_relations()
+        self.frequency_perc = (
+            self.dataset.get_frequency_percentiles_for_entites_and_relations()
+        )
 
     def init_hist_hook(self, device, dtype):
         result = dict()
         for arg in self.frequency_perc.keys():
             for perc in self.frequency_perc[arg].keys():
-                result['{}_{}'.format(arg, perc)] = torch.zeros([self.dataset.num_entities], device=device, dtype=dtype)
+                result["{}_{}".format(arg, perc)] = torch.zeros(
+                    [self.dataset.num_entities], device=device, dtype=dtype
+                )
         return result
 
-    def make_batch_hist(self, hist_dict, s, p, o, s_ranks, o_ranks, device, dtype=torch.float):
-        for perc in self.frequency_perc['subject'].keys(): # same for relation and object
+    def make_batch_hist(
+        self, hist_dict, s, p, o, s_ranks, o_ranks, device, dtype=torch.float
+    ):
+        for perc in self.frequency_perc[
+            "subject"
+        ].keys():  # same for relation and object
             for r, m_s, m_r in zip(
-                    s_ranks,
-                    [id in self.frequency_perc['subject'][perc] for id in s.tolist()],
-                    [id in self.frequency_perc['relation'][perc] for id in p.tolist()],
+                s_ranks,
+                [id in self.frequency_perc["subject"][perc] for id in s.tolist()],
+                [id in self.frequency_perc["relation"][perc] for id in p.tolist()],
             ):
-                if m_s: hist_dict['{}_{}'.format('subject', perc)][r] += 1
-                if m_r: hist_dict['{}_{}'.format('relation', perc)][r] += 1
+                if m_s:
+                    hist_dict["{}_{}".format("subject", perc)][r] += 1
+                if m_r:
+                    hist_dict["{}_{}".format("relation", perc)][r] += 1
             for r, m_o, m_r in zip(
-                    o_ranks,
-                    [id in self.frequency_perc['object'][perc] for id in o.tolist()],
-                    [id in self.frequency_perc['relation'][perc] for id in p.tolist()],
+                o_ranks,
+                [id in self.frequency_perc["object"][perc] for id in o.tolist()],
+                [id in self.frequency_perc["relation"][perc] for id in p.tolist()],
             ):
-                if m_o: hist_dict['{}_{}'.format('object', perc)][r] += 1
-                if m_r: hist_dict['{}_{}'.format('relation', perc)][r] += 1
+                if m_o:
+                    hist_dict["{}_{}".format("object", perc)][r] += 1
+                if m_r:
+                    hist_dict["{}_{}".format("relation", perc)][r] += 1
 
         return hist_dict

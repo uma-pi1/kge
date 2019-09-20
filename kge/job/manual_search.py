@@ -32,7 +32,7 @@ class ManualSearchJob(SearchJob):
             for f in Job.job_created_hooks:
                 f(self)
 
-    def resume(self):
+    def resume(self, checkpoint_file=None):
         # no need to do anything here; run code automatically resumes
         pass
 

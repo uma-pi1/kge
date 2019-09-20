@@ -375,7 +375,7 @@ class Config:
     def checkpoint_file(self, cpt_id):
         "Return path of checkpoint file for given checkpoint id"
         if is_number(cpt_id, int):
-            return os.path.join(self.folder, "checkpoint_{:05d}.pt".format(cpt_id))
+            return os.path.join(self.folder, "checkpoint_{:05d}.pt".format(int(cpt_id)))
         else:
             return os.path.join(self.folder, "checkpoint_{}.pt".format(cpt_id))
 
