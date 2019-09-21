@@ -200,14 +200,16 @@ valid:
 eval:
   data: valid
   type: entity_ranking
-  hits_at_k_s: [1, 3, 10, 50, 100, 200, 300, 400, 500, 1000]     # ks for HITS@k
+
+  predict_output: True
+  predict_output_k: 5
+  predict_output_print: True
+  hits_at_k_s: [1, 3, 10, 50, 100, 200, 300, 400, 500, 1000]     # k for HITS@k
   batch_size: 100
   num_workers: 0
   pin_memory: False
   trace_level: example            # example or batch or epoch
-  predict_output: True
-  predict_output_k: 5
-  predict_output_print: True
+
 
   # Metrics are always computed over the entire evaluation data. Optionally,
   # certain more specific metric can be computed in addition.

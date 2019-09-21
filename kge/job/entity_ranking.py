@@ -331,12 +331,11 @@ class EntityRankingJob(EvaluationJob):
             predictions = output.create_output_best_predictions(self, best_predictions_per_triple, entities_map)
             trace_entry["best_predictions_per_triple"] = predictions
 
-            # Log and trace the best predictions if desired
-            if self.predict_output_log:
-                self.config.log("{} best predictions for the test triples:".format(self.predict_output_k) + "\n" + "\n")
-                for t, p in zip(predictions.keys(), predictions.values()):
-                   self.config.log("For triple " + t + ", the {} best predictions are: ".format(self.predict_output_k) + "\n" + str(
-                            p[0]) + "\n" + str(p[1]) + "\n" + str(p[2]) + "\n" + str(p[3]) + "\n" + str(p[4]) + "\n" + "\n")
+            # Log the best predictions and print if specified in self.predict_output_log
+            self.config.log("{} best predictions for the test triples:".format(self.predict_output_k) + "\n" + "\n", echo=self.predict_output_print)
+            for t, p in zip(predictions.keys(), predictions.values()):
+               self.config.log("For triple " + t + ", the {} best predictions are: ".format(self.predict_output_k) + "\n" + str(
+                        p[0]) + "\n" + str(p[1]) + "\n" + str(p[2]) + "\n" + str(p[3]) + "\n" + str(p[4]) + "\n" + "\n", echo=self.predict_output_print)
 
             # create a file for the predictions
             f = open('{}/predictions_epoch_{}.txt'.format(self.config.folder, self.epoch), 'w')

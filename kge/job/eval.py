@@ -26,7 +26,7 @@ class EvaluationJob(Job):
         self.epoch = -1
         self.predict_output = config.get("eval.predict_output")
         self.predict_output_k = config.get("eval.predict_output_k")
-        self.predict_output_log = config.get("eval.predict_output_log")
+        self.predict_output_print = config.get("eval.predict_output_print")
 
         #: Hooks run after evaluation for an epoch.
         #: Signature: job, trace_entry
