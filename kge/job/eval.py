@@ -26,6 +26,7 @@ class EvaluationJob(Job):
         self.epoch = -1
         self.predict_output = config.get("eval.predict_output")
         self.predict_output_k = config.get("eval.predict_output_k")
+        self.predict_output_log = config.get("eval.predict_output_log")
 
         #: Hooks run after evaluation for an epoch.
         #: Signature: job, trace_entry
@@ -221,15 +222,18 @@ def hist_per_frequency_percentile(hists, s, p, o, s_ranks, o_ranks, job, **kwarg
 
 class output_predictions_per_triple():
 
-    def _load_map(filename):
+    def __init__(self, config):
+        self.config = config
+
+    def _load_map(self, filename):
         import csv
         # Read the entities from file
         # Todo: Move function to dataset.py or change the function in dataset.py for reading the entities.txt file
+        #   First, mappings to real names of entities of othewr datasets have to be added
         dictionary = {}
         with open(filename, "r") as file:
             reader = csv.reader(file, delimiter="\t")
             for row in reader:
-                # Todo: Choose the top value of the map file as used value
                 index = row[0]
                 meta = row[1:]
                 dictionary[index] = meta
@@ -246,7 +250,7 @@ class output_predictions_per_triple():
             best_triples = torch.as_tensor([triples[t].tolist()] * k)
 
             for i, j in enumerate(indices):
-                if j <= self.dataset.num_entities:
+                if j < self.dataset.num_entities:
                     best_triples[:, 0][i] = j
                 else:
                     best_triples[:, 2][i] = j - self.dataset.num_entities
@@ -255,18 +259,33 @@ class output_predictions_per_triple():
 
         return best_predictions_per_triple
 
-    # Todo: Often "key error" for /m/07s9rl0 - need a complete mapping, also output in different languages, thus hard to read
+    # Todo: Need a complete and unique-valued, english-only mapping, atm output is in different languages and unreadable
 
-    def output_best_predictions(self, best_predictions_per_triple, entities_map):
+    def create_output_best_predictions(self, best_predictions_per_triple, entities_map):
+        # Todo after feedback if approach is good: Make the predictions more beuatiful in trace and output file
         # For printing only last part of relation add: .rsplit('/', 1)[1][:-2]
+        predictions = {}
+        triple_count = 1
         for i, j in zip(best_predictions_per_triple.keys(), best_predictions_per_triple.values()):
-            print("For triple ",
-                  entities_map[''.join(self.dataset.entities[int(i[0])])],
-                  str(self.dataset.relations[int(i[1])]),
-                  entities_map[''.join(self.dataset.entities[int(i[2])])],
-                  " the top {} predictions are: ".format(self.predict_output_k)
-                  )
-            for t in j:
-                print(entities_map[''.join(self.dataset.entities[int(t[0])])],
-                      str(self.dataset.relations[int(t[1])]),
-                      entities_map[''.join(self.dataset.entities[int(t[2])])])
+            # At the moment, we don't have a mapping to real names where every entity is listed. Therefore,
+            # we need to output the IDs in those cases. Whenever an ID key is not present in the mapping, we use the ID.
+            try:
+                predictions[str(entities_map[''.join(self.dataset.entities[int(i[0])])]) +
+                            str(self.dataset.relations[int(i[1])]) +
+                            str(entities_map[''.join(self.dataset.entities[int(i[2])])])] = \
+                    ["Best prediction no. {}: ".format(n+1) +
+                     str(entities_map[''.join(self.dataset.entities[int(t[0])])] +
+                         self.dataset.relations[int(t[1])] +
+                    entities_map[''.join(self.dataset.entities[int(t[2])])]) for n,t in enumerate(j)]
+            except KeyError:
+                predictions[str(entities_map[''.join(self.dataset.entities[int(i[0])])]) +
+                            str(self.dataset.relations[int(i[1])]) +
+                            str(entities_map[''.join(self.dataset.entities[int(i[2])])])] = \
+                    ["Best prediction no. {}: ".format(n+1) +
+                     ''.join(self.dataset.entities[int(t[0])]) +
+                         str(self.dataset.relations[int(t[1])]) +
+                    ''.join(self.dataset.entities[int(t[2])]) for n,t in enumerate(j)]
+
+            triple_count += 1
+
+        return predictions

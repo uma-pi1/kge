@@ -4,6 +4,7 @@ import time
 import torch
 import kge.job
 from kge.job import EvaluationJob, Job
+from kge.job.eval import output_predictions_per_triple as output
 
 
 class EntityRankingJob(EvaluationJob):
@@ -313,17 +314,37 @@ class EntityRankingJob(EvaluationJob):
         for f in self.post_valid_hooks:
             f(self, trace_entry)
 
-        # Predict output
-        from kge.job.eval import output_predictions_per_triple as output
+        # predict output
         if self.predict_output:
+            # get the scores for all possible variations of the test triples
             s_all, p_all, o_all = self.triples[:, 0], self.triples[:, 1], self.triples[:, 2]
             scores_all = self.model.score_sp_po(s_all, p_all, o_all)
 
+            # get the k triples with the highest predicted scores
             best_predictions_per_triple = output.get_best_predictions_per_triple(self, self.triples, scores_all, self.predict_output_k)
 
-            entities_map = output._load_map("/home/andrej/GIT/kge/data/toy/entities_names.txt")
+            # load mapping to real entity names
+            #Todo: Add map to the dataset part of default configurations to address the file from there (Mappings for other datasets needed!)
+            entities_map = output._load_map(self, "/home/andrej/GIT/kge/data/toy/entities_names.txt")
 
-            output.output_best_predictions(self, best_predictions_per_triple, entities_map)
+            # Create a dictionary with the best predictions per triple and save it to the trace
+            predictions = output.create_output_best_predictions(self, best_predictions_per_triple, entities_map)
+            trace_entry["best_predictions_per_triple"] = predictions
+
+            # Log and trace the best predictions if desired
+            if self.predict_output_log:
+                self.config.log("{} best predictions for the test triples:".format(self.predict_output_k) + "\n" + "\n")
+                for t, p in zip(predictions.keys(), predictions.values()):
+                   self.config.log("For triple " + t + ", the {} best predictions are: ".format(self.predict_output_k) + "\n" + str(
+                            p[0]) + "\n" + str(p[1]) + "\n" + str(p[2]) + "\n" + str(p[3]) + "\n" + str(p[4]) + "\n" + "\n")
+
+            # create a file for the predictions
+            f = open('{}/predictions_epoch_{}.txt'.format(self.config.folder, self.epoch), 'w')
+            for t, p in zip(predictions.keys(), predictions.values()):
+                f.write(
+                    "For triple " + t + ", the {} best predictions are: ".format(self.predict_output_k) + "\n" + str(
+                        p[0]) + "\n" + str(p[1]) + "\n" + str(p[2]) + "\n" + str(p[3]) + "\n" + str(p[4]) + "\n" + "\n")
+            f.close()
 
         return trace_entry
 
