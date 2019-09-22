@@ -47,12 +47,13 @@ class Job:
             for f in Job.job_created_hooks:
                 f(self)
 
-    def resume(self):
-        """Restores all relevant state to resume a previous job.
+    def resume(self, checkpoint_file=None):
+        """Load job state from last or specified checkpoint.
+
+        Restores all relevant state to resume a previous job. To run the restored job,
+        use :func:`run`.
 
         Should set `resumed_from_job` to the job ID of the previous job.
-
-        To run the restored job, use :func:`run`.
 
         """
         raise NotImplementedError
