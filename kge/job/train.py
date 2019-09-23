@@ -198,12 +198,20 @@ the dataset (if not present).
                         self.epoch - 1 - checkpoint_every * checkpoint_keep
                     )
                 if delete_checkpoint_epoch > 0:
-                    self.config.log(
-                        "Removing old checkpoint {}...".format(
-                            self.config.checkpoint_file(delete_checkpoint_epoch)
+                    if os.path.exists(self.config.checkpoint_file(delete_checkpoint_epoch)):
+                        self.config.log(
+                            "Removing old checkpoint {}...".format(
+                                self.config.checkpoint_file(delete_checkpoint_epoch)
+                            )
                         )
-                    )
-                    os.remove(self.config.checkpoint_file(delete_checkpoint_epoch))
+                        os.remove(self.config.checkpoint_file(delete_checkpoint_epoch))
+                    else:
+                        self.config.log(
+                            "Could not delete old checkpoint {}, does not exits.".format(
+                                self.config.checkpoint_file(delete_checkpoint_epoch)
+                            )
+                        )
+
         for f in self.post_train_hooks:
             f(self, trace_entry)
 
