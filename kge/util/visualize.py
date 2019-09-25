@@ -1,13 +1,13 @@
 from kge.job.trace import Trace
-from kge.job import Job,TrainingJob,SearchJob
-from kge.util.misc import  kge_base_dir
+from kge.job import Job, TrainingJob, SearchJob, Trace
+from kge.util.misc import kge_base_dir
 import os
 import yaml
 import visdom
 import re
 import json
 import copy
-
+from collections import defaultdict
 
 class VisualizationHandler():
     """ Base class for broadcasting and post-processing base functionalities for visdom and tensorboard.
@@ -64,7 +64,7 @@ class VisualizationHandler():
             raise Exception("Could not find config.yaml in path.")
 
 
-    def process_trace(self, tracefile, tracetype, jobtype, stop_at=None):
+    def process_trace(self, tracefile, tracetype, jobtype):
         """ Takes a trace file and processes it.
 
         :param tracefile:
@@ -72,15 +72,39 @@ class VisualizationHandler():
         overall jobtype can be e. g. search which also has train type trace files.
         :param jobtype "search", "train", "eval"
         """
+
+
+        # group traces into dics with {key: list[values]}
+        # grouped_entries contains for every distinct trace entry type (train,eval, metadata..)
+        # a dic where the keys are the original keys and the values are lists of the original values
+        # with that for every plot, server interaction only takes place once
+        grouped_entries = []
+
         with open(tracefile, "r") as file:
             raw = file.readline()
-            idx = 0
             while(raw):
                 trace_entry = yaml.safe_load(raw)
-                if stop_at and stop_at == idx:
-                    return trace_entry
-                self._process_trace_entry(trace_entry, tracetype, jobtype)
+                group_entry = defaultdict(list)
+                if len(grouped_entries) == 0:
+                    for k,v in trace_entry.items():
+                        group_entry[k].append(v)
+                    grouped_entries.append(group_entry)
+                else:
+                    matched = False
+                    for entry in grouped_entries:
+                        if entry.keys() == trace_entry.keys():
+                            for k,v in trace_entry.items():
+                                entry[k].append(v)
+                            matched = True
+                            break
+                    if matched == False:
+                        for k, v in trace_entry.items():
+                            group_entry[k].append(v)
+                        grouped_entries.append(group_entry)
                 raw = file.readline()
+        for entry in grouped_entries:
+            self._process_trace_entry(entry, tracetype, jobtype)
+
 
     def _process_trace_entry(self, trace_entry, tracetype, jobtype):
         """ Process some trace entry.
@@ -93,14 +117,19 @@ class VisualizationHandler():
         entry_keys = list(trace_entry.keys())
         epoch = trace_entry.get("epoch")
         if epoch:
+            entry_type = None
+            if type(trace_entry["job"]) == list:
+                entry_type = trace_entry["job"][0]
+            else:
+                entry_type = trace_entry["job"]
             include_patterns = []
-            if trace_entry["job"] == "train":
+            if entry_type == "train":
                 include_patterns = self.include_train
                 visualize = self._visualize_train_item
-            elif trace_entry["job"] == "eval" and tracetype == "train":
+            elif entry_type == "eval" and tracetype == "train":
                 include_patterns = self.include_eval
                 visualize = self._visualize_eval_item
-            elif trace_entry["job"] == "eval" and tracetype == "search":
+            elif entry_type == "eval" and tracetype == "search":
                 self._process_search_trace_entry(trace_entry)
                 return
             for pattern in include_patterns:
@@ -233,41 +262,52 @@ class VisdomHandler(VisualizationHandler):
         elif jobtype == "search" and tracetype == "train":
             self._visualize_item(key, value, epoch, env=env)
             if key == self.session_data["valid_metric_name"]:
-                self._track_progress(key, value, env)
+                #self._track_progress(key, value, env)
                 self._visualize_item(
                     key,
                     value,
                     epoch,
                     env=self.extract_summary_envname(env),
                     name=env.split("_")[-1],
+                    title=key + "_all",
+                    legend=[env.split("_")[-1]]
                 )
 
     def _process_search_trace_entry(self, trace_entry):
         pass
 
-    def _visualize_item(self, key, value, x, env, name=None , win=None, update="append", **kwargs):
-
+    def _visualize_item(self, key, value, x, env, name=None , win=None, update="append", title=None, **kwargs):
         if win == None:
             win = self.extract_window_name(env, key)
         if name == None:
             name = env.split("_")[-1]
+        if title == None:
+            title = key
+        x_ = None
+        val = None
+        if type([x][0]) == list:
+            x_ = x
+            val = value
+        else:
+            x_ = [x]
+            val = [value]
 
         if not self.writer.win_exists(win, env):
             self.writer.env = env
             self.writer.line(
-                X=[x],
-                Y=[value],
+                X=x_,
+                Y=val,
                 win=win,
-                opts=self._get_opts(title=key, **kwargs),
+                opts=self._get_opts(title=title, **kwargs),
                 name=name,
             )
         else:
             self.writer.env = env
             self.writer.line(
-                X=[x],
-                Y=[value],
+                X=x_,
+                Y=val,
                 win=win,
-                opts=self._get_opts(title=key, **kwargs),
+                opts=self._get_opts(title=title),
                 name=name,
                 update=update
             )
@@ -279,7 +319,7 @@ class VisdomHandler(VisualizationHandler):
         # This is used for valid.metric but can potentially also be used for other keys.
         env = self.extract_summary_envname(env)
         title = "progress_best_{}".format(key)
-        win = title + "_" + env
+        win = self.extract_window_name(env, key)
         check = False
         best = self.session_data.get("best_{}".format(key))
         if best and value > best:
@@ -356,7 +396,9 @@ class VisdomHandler(VisualizationHandler):
             return parts[-1]
 
     def extract_window_name(self, env, key):
-        return key + "_" + env
+        # TODO I initially had "key + "_" + env" but then windows overlapped somehow in compare envs
+        #  montor if having the same window name for a title over environemnts leads to problems, but it should not
+        return key
 
     def _get_opts(self, title, **kwargs):
         opts = {
@@ -392,7 +434,7 @@ def initialize_visualization(vis_config):
     vis_config = {
         "include_train" : ["avg_loss", "avg_cost", "avg_penalty", "forward_time", "epoch_time"],
         "include_eval":["rank"],
-        "tracking" :"broadcast",
+        "tracking" :"post",
         "module":"visdom"
     }
 
@@ -456,8 +498,7 @@ def run_server():
         process.kill()
 
 if __name__ == "__main__":
-    initialize_visualization(None)
-    #run_server()
+    run_server()
 
 
 
