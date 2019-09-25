@@ -205,7 +205,7 @@ if __name__ == "__main__":
     if args.command == "start" and not config.init_folder():
         raise ValueError("output folder {} exists already".format(config.folder))
     config.log("Using folder: {}".format(config.folder))
-    
+
     # determine checkpoint to resume (if any)
     if hasattr(args, "checkpoint"):
         if args.checkpoint == "default":
@@ -242,20 +242,3 @@ if __name__ == "__main__":
         if args.command == "resume":
             job.resume(checkpoint_file)
         job.run()
-        # log configuration
-        config.log("Configuration:")
-        config.log(yaml.dump(config.options), prefix="  ")
-        config.log("git commit: {}".format(get_git_revision_short_hash()), prefix="  ")
-
-        if args.command == "start" and not args.run:
-            config.log("Job created successfully.")
-        else:
-            # load data
-            dataset = Dataset.load(config)
-
-            # let's go
-            job = Job.create(config, dataset)
-            if args.command == "resume":
-                job.resume()
-            job.run()
-

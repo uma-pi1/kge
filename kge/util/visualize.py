@@ -9,7 +9,6 @@ import json
 import copy
 
 
-
 class VisualizationHandler():
     """ Base class for broadcasting and post-processing base functionalities for visdom and tensorboard.
 
@@ -56,6 +55,15 @@ class VisualizationHandler():
     def post_process_trace(self, tracefile, tracetype, jobtype):
         raise NotImplementedError
 
+    def _add_config(self):
+        config = self.path + "/" +"config.yaml"
+        if os.path.isfile(config):
+            with open(config, "r") as file:
+                self.config = yaml.load(file, Loader=yaml.SafeLoader)
+        else:
+            raise Exception("Could not find config.yaml in path.")
+
+
     def process_trace(self, tracefile, tracetype, jobtype, stop_at=None):
         """ Takes a trace file and processes it.
 
@@ -92,7 +100,7 @@ class VisualizationHandler():
             elif trace_entry["job"] == "eval" and tracetype == "train":
                 include_patterns = self.include_eval
                 visualize = self._visualize_eval_item
-            elif trace_entry["job"] == "search":
+            elif trace_entry["job"] == "eval" and tracetype == "search":
                 self._process_search_trace_entry(trace_entry)
                 return
             for pattern in include_patterns:
@@ -130,11 +138,12 @@ class VisualizationHandler():
                     include_train=kwargs["include_train"],
                     include_eval=kwargs["include_eval"],
                     path=jobpath,
-                    session_data=session_data
+                    session_data=session_data,
+                    config=job.config.options
                 )
 
                 def visualize_data(job, trace_entry):
-                    handler.process_trace_entry(trace_entry, tracetype=tracetype, jobtype=jobtype)
+                    handler._process_trace_entry(trace_entry, tracetype=tracetype, jobtype=jobtype)
                 job.post_epoch_hooks.append(visualize_data)
                 job.valid_job.post_valid_hooks.append(visualize_data)
 
@@ -153,7 +162,6 @@ class VisualizationHandler():
             include_train=kwargs["include_train"],
             include_eval=kwargs["include_eval"],
         )
-
         for parent_job in os.listdir(path):
             parent_trace = path + parent_job + "/trace.yaml"
             first_entry = None
@@ -165,40 +173,20 @@ class VisualizationHandler():
                 if first_entry["job"] == "train":
                     handler.path = path + parent_job
                     handler.post_process_trace(parent_trace, "train", "train")
+                elif first_entry["job"] == "search":
+                    subjobs = []
+                    # go through the files in the the parent job folder and collect the child training jobs
+                    #TODO use filter here or a list comprehension
+                    for file in os.listdir(path + "/" + parent_job):
+                        child_folder = path + parent_job + "/" + file
+                        if os.path.isdir(child_folder) \
+                           and file != "config" \
+                           and "trace.yaml" in os.listdir(child_folder):
+                                subjobs.append(child_folder)
+                    handler.path = path + parent_job
+                    handler.post_process_trace(parent_trace, "search", "search", subjobs)
 
         input("waiting for callback")
-            # trace = Trace(parent_trace_path)
-            # folder = path + "/" + parent_job
-            # envname = proc.extract_envname_from_folder(folder)
-            # # folder corresponds to a pure training job
-            # if trace.entries[0]["job"] == "train":
-            #     vis.env = envname
-            #     proc.create_sync_property(
-            #         vis=vis,
-            #         trace_dir=parent_trace_path,
-            #         type="train")
-            # # folder is a search job with child training jobs
-            # elif trace.entries[0]["job"] == "search":
-            #     subjobs = []
-            #     # go through the files in the the parent job folder and collect the child training jobs
-            #     # TODO maybe better check if a yaml exists first, in case a user puts some extra folder in the dirs
-            #     for file in os.listdir(path + "/" + parent_job):
-            #         if \
-            #                 os.path.isdir(path + "/" + parent_job + "/" + file) \
-            #                         and file != "config" \
-            #                         and "trace.yaml" in os.listdir(folder + "/" + file):
-            #             subjobs.append(file)
-            #     vis.env = envname + "_asummary"
-            #     proc.create_sync_property(
-            #         vis=vis,
-            #         trace_dir=parent_trace_path,
-            #         type="search",
-            #         subenvs=[envname + "_" + subjob for subjob in subjobs],
-            #         subtraces=[folder + "/" + subjob + "/" + "trace.yaml" for subjob in subjobs]
-            #     )
-            # proc.best_train_valid = None
-            # proc.best_search_valid = None
-            # proc.best_train_valid_names = None
 
 
 
@@ -255,7 +243,7 @@ class VisdomHandler(VisualizationHandler):
                 )
 
     def _process_search_trace_entry(self, trace_entry):
-        raise NotImplementedError
+        pass
 
     def _visualize_item(self, key, value, x, env, name=None , win=None, update="append", **kwargs):
 
@@ -310,29 +298,51 @@ class VisdomHandler(VisualizationHandler):
             if value > best_val:
                 self._visualize_item(title, value, step_num+1, env=env, win=win)
 
-    def post_process_trace(self, tracefile, tracetype, jobtype, **kwargs):
+    def post_process_trace(self, tracefile, tracetype, jobtype, subjobs=None, **kwargs):
         """ Creates an empty environment with a properties button 'sync' which loads the data in the environment. """
 
         properties = [
             {'type': 'button', 'name': 'Click to sync env', 'value': 'Synchronize'}
         ]
-        self.writer.env = self.get_env_from_path(tracetype,jobtype)
         # this returns just the string id of the window
-        properties_window = self.writer.properties(properties)
+        #TODO maybe add a callback to delete the property window after sync has been pressed (no overlapoing windows?)
         path = copy.deepcopy(self.path)
-        if tracetype == "train":
+        properties_window = None
+        if jobtype == "train":
+            properties_window = self.writer.properties(properties, env=self.get_env_from_path("train", "train"))
             def properties_callback(event):
                 if event['event_type'] == 'PropertyUpdate':
                     env = event["eid"]
                     # reset the path because when this function is called it might have changed
                     self.path = path
+                    self._add_config()
                     self.process_trace(tracefile, tracetype, jobtype)
-        self.writer.register_event_handler(properties_callback, properties_window)
+            self.writer.register_event_handler(properties_callback, properties_window)
+        elif jobtype =="search":
+            env = self.extract_summary_envname(self.get_env_from_path("search", "search"), "search")
+            properties_window = self.writer.properties(properties, env=env)
+            def properties_callback(event):
+                if event['event_type'] == 'PropertyUpdate':
+                    env = event["eid"]
+                    self.path = path
+                    self._add_config()
+                    self.process_trace(tracefile, "search", "search")
+                    # process training jobs of the search job
+                    for subjob in subjobs:
+                        self.path = subjob
+                        self._add_config()
+                        self.session_data = {"valid_metric_name": self.config.get("valid")["metric"]}
+                        self.process_trace(subjob + "/" + "trace.yaml", "train", "search")
+            self.writer.register_event_handler(properties_callback, properties_window)
 
-    def extract_summary_envname(self, envname):
-        """ For an envname of a training job who is part of a searchjob, extracts the summary environment name."""
-        env = envname.split("_")[-2]
-        env = env + "_" + "SummaryEnvironment"
+    def extract_summary_envname(self, envname, jobtype="train"):
+        """ Extracts the summary environment name."""
+        if jobtype == "train":
+            env = envname.split("_")[-2]
+            env = env + "_" + "SummaryEnvironment"
+        elif jobtype == "search":
+            env = envname.split("_")[-1]
+            env = env + "_" + "SummaryEnvironment"
         return env
 
     def get_env_from_path(self, tracetype, jobtype ):
@@ -341,6 +351,8 @@ class VisdomHandler(VisualizationHandler):
         if tracetype == "train" and jobtype == "search":
             return parts[-2] + "_" + parts[-1]
         elif tracetype == "train" and jobtype == "train":
+            return parts[-1]
+        elif jobtype == "search":
             return parts[-1]
 
     def extract_window_name(self, env, key):
@@ -380,7 +392,7 @@ def initialize_visualization(vis_config):
     vis_config = {
         "include_train" : ["avg_loss", "avg_cost", "avg_penalty", "forward_time", "epoch_time"],
         "include_eval":["rank"],
-        "tracking" :"post",
+        "tracking" :"broadcast",
         "module":"visdom"
     }
 
@@ -408,39 +420,44 @@ def run_server():
     import argparse
     import visdom
 
+    DEFAULT_PORT = 8080
+    DEFAULT_HOSTNAME = "http://localhost"
+    parser = argparse.ArgumentParser(description='Demo arguments')
+    parser.add_argument('-port', metavar='port', type=int, default=DEFAULT_PORT,
+                        help='port the visdom server is running on.')
+    parser.add_argument('-server', metavar='server', type=str,
+                        default=DEFAULT_HOSTNAME,
+                        help='Server address of the target to run the demo on.')
+    parser.add_argument('-base_url', metavar='base_url', type=str,
+                        default='/',
+                        help='Base Url.')
+    parser.add_argument('-username', metavar='username', type=str,
+                        default='',
+                        help='username.')
+    parser.add_argument('-password', metavar='password', type=str,
+                        default='',
+                        help='password.')
+    parser.add_argument('-use_incoming_socket', metavar='use_incoming_socket', type=bool,
+                        default=True,
+                        help='use_incoming_socket.')
+    FLAGS = parser.parse_args()
+
+
     PATH = sys.base_exec_prefix + '/bin/' + 'visdom'
     envpath = dirname(dirname(dirname(abspath(__file__)))) + "/local/visdomenv"
     process = subprocess.Popen([PATH + " -env_path=" + envpath], shell=True)
     time.sleep(5)
 
-    # DEFAULT_PORT = 8080
-    # DEFAULT_HOSTNAME = "http://localhost"
-    # parser = argparse.ArgumentParser(description='Demo arguments')
-    # parser.add_argument('-port', metavar='port', type=int, default=DEFAULT_PORT,
-    #                     help='port the visdom server is running on.')
-    # parser.add_argument('-server', metavar='server', type=str,
-    #                     default=DEFAULT_HOSTNAME,
-    #                     help='Server address of the target to run the demo on.')
-    # parser.add_argument('-base_url', metavar='base_url', type=str,
-    #                     default='/',
-    #                     help='Base Url.')
-    # parser.add_argument('-username', metavar='username', type=str,
-    #                     default='',
-    #                     help='username.')
-    # parser.add_argument('-password', metavar='password', type=str,
-    #                     default='',
-    #                     help='password.')
-    # parser.add_argument('-use_incoming_socket', metavar='use_incoming_socket', type=bool,
-    #                     default=True,
-    #                     help='use_incoming_socket.')
-    # FLAGS = parser.parse_args()
+
+    initialize_visualization(None)
     try:
         Event().wait()
     except:
         process.kill()
 
 if __name__ == "__main__":
-    run_server()
+    initialize_visualization(None)
+    #run_server()
 
 
 

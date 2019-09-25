@@ -21,3 +21,5 @@ ax_search:
     - name: lookup_embedder.dim
       type: range
       bounds: [10, 50]
+
+search.num_workers: 4
