@@ -348,6 +348,10 @@ ax_search:
 
   fixed_parameters: []
 
+visualize:
+  module: visdom #visdom, tensorboard
+  broadcast:
+    enable: False
 
 ## USER PARAMETERS #####################################################################
 

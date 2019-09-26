@@ -89,6 +89,8 @@ def create_parser(config, additional_args=[]):
             help="Whether to immediately run the created job",
         )
 
+    parser_visualize = subparsers.add_parser("visualize", parents=[parser_conf])
+
     # resume and its meta-commands
     parser_resume = subparsers.add_parser(
         "resume", help="Resume a prior job", parents=[parser_conf]
@@ -106,7 +108,7 @@ def create_parser(config, additional_args=[]):
         help="Evaluate the result of a prior job using test data",
         parents=[parser_conf],
     )
-    for p in [parser_resume, parser_eval, parser_valid, parser_test]:
+    for p in [parser_resume, parser_eval, parser_valid, parser_test, parser_visualize]:
         p.add_argument("config", type=str)
         p.add_argument(
             "--checkpoint",
@@ -189,6 +191,11 @@ if __name__ == "__main__":
             if key == "model":
                 config._import(value)
 
+    if args.command == "visualize" or config.get("visualize.broadcast.enable"):
+        from kge.util.visualize import initialize_visualization
+        initialize_visualization(config, args.command)
+
+
     # initialize output folder
     if args.command == "start":
         if args.folder is None:  # means: set default
@@ -230,13 +237,16 @@ if __name__ == "__main__":
         import numpy.random
         numpy.random.seed(config.get("random_seed.numpy"))
 
-    # let's go
+    # log configuration
+    config.log("Configuration:")
+    config.log(yaml.dump(config.options), prefix="  ")
+    config.log("git commit: {}".format(get_git_revision_short_hash()), prefix="  ")
+
     if args.command == "start" and not args.run:
         config.log("Job created successfully.")
     else:
         # load data
         dataset = Dataset.load(config)
-
         # let's go
         job = Job.create(config, dataset)
         if args.command == "resume":

@@ -3,12 +3,12 @@ from kge.job import Job, TrainingJob, SearchJob, Trace
 from kge.util.misc import kge_base_dir
 import os
 import yaml
-import visdom
 import re
 import json
 import copy
 from collections import defaultdict
 import numpy as np
+import visdom
 
 class VisualizationHandler():
     """ Base class for broadcasting and post-processing base functionalities for visdom and tensorboard.
@@ -56,18 +56,17 @@ class VisualizationHandler():
     def post_process_trace(self, tracefile, tracetype, jobtype):
         raise NotImplementedError
 
+    def _visualize_config(self):
+        raise NotImplementedError
+
     def _add_config(self):
         """ Loads config."""
-        config = self.path + "/" +"config.yaml"
+        config = self.path + "/" + "config.yaml"
         if os.path.isfile(config):
             with open(config, "r") as file:
                 self.config = yaml.load(file, Loader=yaml.SafeLoader)
         else:
             raise Exception("Could not find config.yaml in path.")
-
-    def _visualize_config(self):
-        raise NotImplementedError
-
 
     def process_trace(self, tracefile, tracetype, jobtype):
         """ Takes a trace file and processes it.
@@ -286,12 +285,14 @@ class VisdomHandler(VisualizationHandler):
         x = None
         names = None
         if "train" in trace_entry["scope"]:
-            x = (np.array(trace_entry[self.session_data["valid_metric_name"]]))[np.array(trace_entry["scope"])=="train"]
+            valid_metric_name = self.session_data["valid_metric_name"]
+            x = (np.array(trace_entry[valid_metric_name]))[np.array(trace_entry["scope"])=="train"]
             names = (np.array(trace_entry["folder"]))[np.array(trace_entry["scope"]) == "train"]
             self.writer.bar(
                 X=x,
                 env=self.extract_summary_envname(envname=self.get_env_from_path("search","search"),jobtype="search"),
-                opts={"legend":list(names)}
+                opts={"legend":list(names), "title": valid_metric_name + "_best"}
+
             )
 
     def _visualize_item(self, key, value, x, env, name=None , win=None, update="append", title=None, **kwargs):
@@ -330,7 +331,7 @@ class VisdomHandler(VisualizationHandler):
                 update=update
             )
     def _visualize_config(self, env):
-        self.writer.text(yaml.dump(self.config).replace("\n", "<br>").replace("  ", "&nbsp;&nbsp;&nbsp;"), env=env)
+        self.writer.text(yaml.dump(self.config).replace("\n", "<br>").replace("  ", "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"), env=env)
 
 
     def _track_progress(self, key, value, env):
@@ -457,78 +458,77 @@ class VisdomHandler(VisualizationHandler):
             opts[key] = value
         return opts
 
-def initialize_visualization(vis_config):
+    @classmethod
+    def run_server(cls):
+        import subprocess
+        from threading import Event
+        from os.path import dirname, abspath
+        import sys, time
+        import signal
+        import argparse
+        import atexit
 
-    #TODO parameter to be obtained from the vis_config
+        # DEFAULT_PORT = 8080
+        # DEFAULT_HOSTNAME = "http://localhost"
+        # parser = argparse.ArgumentParser(description='Demo arguments')
+        # parser.add_argument('-port', metavar='port', type=int, default=DEFAULT_PORT,
+        #                     help='port the visdom server is running on.')
+        # parser.add_argument('-server', metavar='server', type=str,
+        #                     default=DEFAULT_HOSTNAME,
+        #                     help='Server address of the target to run the demo on.')
+        # parser.add_argument('-base_url', metavar='base_url', type=str,
+        #                     default='/',
+        #                     help='Base Url.')
+        # parser.add_argument('-username', metavar='username', type=str,
+        #                     default='',
+        #                     help='username.')
+        # parser.add_argument('-password', metavar='password', type=str,
+        #                     default='',
+        #                     help='password.')
+        # parser.add_argument('-use_incoming_socket', metavar='use_incoming_socket', type=bool,
+        #                     default=True,
+        #                     help='use_incoming_socket.')
+        # FLAGS = parser.parse_args()
+        PATH = sys.base_exec_prefix + '/bin/' + 'visdom'
+        envpath = dirname(dirname(dirname(abspath(__file__)))) + "/local/visdomenv"
+        process = subprocess.Popen([PATH + " -env_path=" + envpath], shell=True)
+        time.sleep(1)
+        # kill server when everyone's done
+        server_pid = process.pid
+        def kill_server():
+            os.kill(server_pid, signal.SIGTERM)
+        atexit.register(kill_server)
+
+def initialize_visualization(config, command):
+
+    #TODO parameter to be obtained from the config
     vis_config = {
         "include_train" : ["avg_loss", "avg_cost", "avg_penalty", "forward_time", "epoch_time"],
         "include_eval":["rank"],
         "tracking" :"broadcast",
         "module":"visdom"
     }
+    if config.get("visualize.module") == "visdom":
+        VisdomHandler.run_server()
+    else:  # tensorboard
+        pass
 
-    if vis_config["tracking"] == "broadcast":
+    if command == "visualize":
 
-        VisualizationHandler.register_broadcast(
-            module=vis_config["module"],
-            include_train = vis_config["include_train"],
-            include_eval = vis_config["include_eval"],
-            tracking = "broadcast"
-        )
-    elif vis_config["tracking"] == "post":
         VisualizationHandler.post_process_jobs(
-            include_train = vis_config["include_train"],
-            include_eval = vis_config["include_eval"],
-            module= vis_config["module"],
+            include_train=vis_config["include_train"],
+            include_eval=vis_config["include_eval"],
+            module=config.get("visualize.module"),
             tracking="post"
         )
 
-def run_server():
-    import subprocess
-    from threading import Event
-    from os.path import dirname, abspath
-    import sys, time
-    import argparse
-    import visdom
-
-    DEFAULT_PORT = 8080
-    DEFAULT_HOSTNAME = "http://localhost"
-    parser = argparse.ArgumentParser(description='Demo arguments')
-    parser.add_argument('-port', metavar='port', type=int, default=DEFAULT_PORT,
-                        help='port the visdom server is running on.')
-    parser.add_argument('-server', metavar='server', type=str,
-                        default=DEFAULT_HOSTNAME,
-                        help='Server address of the target to run the demo on.')
-    parser.add_argument('-base_url', metavar='base_url', type=str,
-                        default='/',
-                        help='Base Url.')
-    parser.add_argument('-username', metavar='username', type=str,
-                        default='',
-                        help='username.')
-    parser.add_argument('-password', metavar='password', type=str,
-                        default='',
-                        help='password.')
-    parser.add_argument('-use_incoming_socket', metavar='use_incoming_socket', type=bool,
-                        default=True,
-                        help='use_incoming_socket.')
-    FLAGS = parser.parse_args()
-
-
-    PATH = sys.base_exec_prefix + '/bin/' + 'visdom'
-    envpath = dirname(dirname(dirname(abspath(__file__)))) + "/local/visdomenv"
-    process = subprocess.Popen([PATH + " -env_path=" + envpath], shell=True)
-    time.sleep(5)
-
-
-    initialize_visualization(None)
-    try:
-        Event().wait()
-    except:
-        process.kill()
-
-if __name__ == "__main__":
-    run_server()
-
+    else:
+        VisualizationHandler.register_broadcast(
+            module=vis_config["module"],
+            include_train=vis_config["include_train"],
+            include_eval=vis_config["include_eval"],
+            tracking="broadcast"
+        )
 
 
 
