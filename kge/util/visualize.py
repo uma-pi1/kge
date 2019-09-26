@@ -8,6 +8,7 @@ import re
 import json
 import copy
 from collections import defaultdict
+import numpy as np
 
 class VisualizationHandler():
     """ Base class for broadcasting and post-processing base functionalities for visdom and tensorboard.
@@ -56,12 +57,16 @@ class VisualizationHandler():
         raise NotImplementedError
 
     def _add_config(self):
+        """ Loads config."""
         config = self.path + "/" +"config.yaml"
         if os.path.isfile(config):
             with open(config, "r") as file:
                 self.config = yaml.load(file, Loader=yaml.SafeLoader)
         else:
             raise Exception("Could not find config.yaml in path.")
+
+    def _visualize_config(self):
+        raise NotImplementedError
 
 
     def process_trace(self, tracefile, tracetype, jobtype):
@@ -72,7 +77,6 @@ class VisualizationHandler():
         overall jobtype can be e. g. search which also has train type trace files.
         :param jobtype "search", "train", "eval"
         """
-
 
         # group traces into dics with {key: list[values]}
         # grouped_entries contains for every distinct trace entry type (train,eval, metadata..)
@@ -119,6 +123,9 @@ class VisualizationHandler():
         if epoch:
             entry_type = None
             if type(trace_entry["job"]) == list:
+                # TODO: probably there is a flaw with this:
+                #  what if train entries with same keys but differnt scopes (e. g. scope=batch vs scope=train??)
+                #  are grouped together here. Ok well then at least you would see it in in the graph. e. g. it would look weird.
                 entry_type = trace_entry["job"][0]
             else:
                 entry_type = trace_entry["job"]
@@ -129,7 +136,7 @@ class VisualizationHandler():
             elif entry_type == "eval" and tracetype == "train":
                 include_patterns = self.include_eval
                 visualize = self._visualize_eval_item
-            elif entry_type == "eval" and tracetype == "search":
+            elif tracetype == "search":
                 self._process_search_trace_entry(trace_entry)
                 return
             for pattern in include_patterns:
@@ -144,6 +151,7 @@ class VisualizationHandler():
         registered as hooks.
 
         """
+        # called once on job creation
         def init_hooks(job):
 
             if isinstance(job, TrainingJob):
@@ -170,7 +178,7 @@ class VisualizationHandler():
                     session_data=session_data,
                     config=job.config.options
                 )
-
+                handler._visualize_config(env=handler.get_env_from_path(tracetype,jobtype))
                 def visualize_data(job, trace_entry):
                     handler._process_trace_entry(trace_entry, tracetype=tracetype, jobtype=jobtype)
                 job.post_epoch_hooks.append(visualize_data)
@@ -182,12 +190,11 @@ class VisualizationHandler():
     def post_process_jobs(cls, **kwargs):
         """ Scans all the executed jobs in local/experiments and allows submodule to deal with them as they please. """
 
-
         path = kge_base_dir() + "/local/experiments/"
 
         handler = VisualizationHandler.create_handler(
             module=kwargs["module"],
-            tracking=kwargs["tracking"],
+            tracking="post",
             include_train=kwargs["include_train"],
             include_eval=kwargs["include_eval"],
         )
@@ -216,8 +223,6 @@ class VisualizationHandler():
                     handler.post_process_trace(parent_trace, "search", "search", subjobs)
 
         input("waiting for callback")
-
-
 
 class VisdomHandler(VisualizationHandler):
     def __init__(
@@ -262,7 +267,10 @@ class VisdomHandler(VisualizationHandler):
         elif jobtype == "search" and tracetype == "train":
             self._visualize_item(key, value, epoch, env=env)
             if key == self.session_data["valid_metric_name"]:
-                #self._track_progress(key, value, env)
+                if self.tracking == "broadcast":
+                    # progress plot
+                    self._track_progress(key, value, env)
+                # plot of all valid.metrics in summary env
                 self._visualize_item(
                     key,
                     value,
@@ -270,11 +278,21 @@ class VisdomHandler(VisualizationHandler):
                     env=self.extract_summary_envname(env),
                     name=env.split("_")[-1],
                     title=key + "_all",
-                    legend=[env.split("_")[-1]]
+                    legend=[env.split("_")[-1]],
+                    win = key + "_all"
                 )
-
     def _process_search_trace_entry(self, trace_entry):
-        pass
+        # this only works for grouped trace entries
+        x = None
+        names = None
+        if "train" in trace_entry["scope"]:
+            x = (np.array(trace_entry[self.session_data["valid_metric_name"]]))[np.array(trace_entry["scope"])=="train"]
+            names = (np.array(trace_entry["folder"]))[np.array(trace_entry["scope"]) == "train"]
+            self.writer.bar(
+                X=x,
+                env=self.extract_summary_envname(envname=self.get_env_from_path("search","search"),jobtype="search"),
+                opts={"legend":list(names)}
+            )
 
     def _visualize_item(self, key, value, x, env, name=None , win=None, update="append", title=None, **kwargs):
         if win == None:
@@ -311,6 +329,9 @@ class VisdomHandler(VisualizationHandler):
                 name=name,
                 update=update
             )
+    def _visualize_config(self, env):
+        self.writer.text(yaml.dump(self.config).replace("\n", "<br>").replace("  ", "&nbsp;&nbsp;&nbsp;"), env=env)
+
 
     def _track_progress(self, key, value, env):
         """ Updates the overall progress plot of a key over multiple train jobs in a search job."""
@@ -349,7 +370,10 @@ class VisdomHandler(VisualizationHandler):
         path = copy.deepcopy(self.path)
         properties_window = None
         if jobtype == "train":
+            # create window with sync
             properties_window = self.writer.properties(properties, env=self.get_env_from_path("train", "train"))
+            self._add_config()
+            self._visualize_config(env=self.get_env_from_path("train", "train"))
             def properties_callback(event):
                 if event['event_type'] == 'PropertyUpdate':
                     env = event["eid"]
@@ -361,22 +385,27 @@ class VisdomHandler(VisualizationHandler):
         elif jobtype =="search":
             env = self.extract_summary_envname(self.get_env_from_path("search", "search"), "search")
             properties_window = self.writer.properties(properties, env=env)
+            self._add_config()
+            self._visualize_config(env)
             def properties_callback(event):
                 if event['event_type'] == 'PropertyUpdate':
-                    env = event["eid"]
                     self.path = path
                     self._add_config()
+                    self.session_data = {"valid_metric_name": self.config.get("valid")["metric"]}
                     self.process_trace(tracefile, "search", "search")
                     # process training jobs of the search job
-                    for subjob in subjobs:
+                    for subjob in sorted(subjobs):
                         self.path = subjob
                         self._add_config()
+                        self._visualize_config(self.get_env_from_path("train", "search"))
                         self.session_data = {"valid_metric_name": self.config.get("valid")["metric"]}
                         self.process_trace(subjob + "/" + "trace.yaml", "train", "search")
             self.writer.register_event_handler(properties_callback, properties_window)
 
     def extract_summary_envname(self, envname, jobtype="train"):
-        """ Extracts the summary environment name."""
+        """ Extracts the summary environment name.
+        jobtype is train if it's a training job who belong to  a search job.
+        """
         if jobtype == "train":
             env = envname.split("_")[-2]
             env = env + "_" + "SummaryEnvironment"
@@ -385,7 +414,7 @@ class VisdomHandler(VisualizationHandler):
             env = env + "_" + "SummaryEnvironment"
         return env
 
-    def get_env_from_path(self, tracetype, jobtype ):
+    def get_env_from_path(self, tracetype, jobtype):
         path = self.path.replace("_", "-")
         parts = path.split("/")
         if tracetype == "train" and jobtype == "search":
@@ -397,7 +426,7 @@ class VisdomHandler(VisualizationHandler):
 
     def extract_window_name(self, env, key):
         # TODO I initially had "key + "_" + env" but then windows overlapped somehow in compare envs
-        #  montor if having the same window name for a title over environemnts leads to problems, but it should not
+        #  monitor if having the same window name for a title over environemnts leads to problems, but it should not
         return key
 
     def _get_opts(self, title, **kwargs):
@@ -430,11 +459,11 @@ class VisdomHandler(VisualizationHandler):
 
 def initialize_visualization(vis_config):
 
-    #TODO parmeter to be obtained from the vis_config
+    #TODO parameter to be obtained from the vis_config
     vis_config = {
         "include_train" : ["avg_loss", "avg_cost", "avg_penalty", "forward_time", "epoch_time"],
         "include_eval":["rank"],
-        "tracking" :"post",
+        "tracking" :"broadcast",
         "module":"visdom"
     }
 
