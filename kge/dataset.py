@@ -41,8 +41,6 @@ class Dataset:
             test_meta
         )  # array: triple row number -> metadata array of strings
         self.indexes = {}  # map: name of index -> index (used mainly by training jobs)
-        self.relation_types = {}
-        self.relations_per_type = {}
 
     @staticmethod
     def load(config):
@@ -188,15 +186,20 @@ class Dataset:
         )
         return sp_po, o_s, offsets
 
-    def load_relation_types(self,):
+    def index_relation_types(self):
         """
-        :return: dictionary mapping from {1-N, M-1, 1-1, M-N} -> set of relations
+        create dictionary mapping from {1-N, M-1, 1-1, M-N} -> set of relations
         """
-        self.relation_types = self._get_relation_types()
-        for k, v in self.relation_types.items():
-            self.relations_per_type.setdefault(v, set()).add(k)
-        for k,v in self.relations_per_type.items():
+        if "relation_types" in self.indexes:
+            return
+        relation_types = self._get_relation_types()
+        relations_per_type = {}
+        for k, v in relation_types.items():
+            relations_per_type.setdefault(v, set()).add(k)
+        for k,v in relations_per_type.items():
             self.config.log("{} relations of type {}".format(len(v), k), prefix="  ")
+        self.indexes["relation_types"] = relation_types
+        self.indexes["relations_per_type"] = relations_per_type
 
     def _get_relation_types(self,):
         """
@@ -225,7 +228,8 @@ class Dataset:
                 '1' if relation_stats[i,5].item() == 0 else 'N', )
         return result
 
-    def get_frequency_percentiles_for_entites_and_relations(self,):
+    # TODO this is metadata; refine API
+    def index_frequency_percentiles(self, recompute=False):
         """
         :return: dictionary mapping from
         {
@@ -237,6 +241,8 @@ class Dataset:
             {25%, 50%, 75%, top} -> set of entities
         }
         """
+        if "frequency_percentiles" in self.indexes:
+            return
         subject_stats = torch.zeros((self.num_entities, 1))
         relation_stats = torch.zeros((self.num_relations, 1))
         object_stats = torch.zeros((self.num_entities, 1))
@@ -254,4 +260,4 @@ class Dataset:
                 if arg not in result:
                     result[arg] = dict()
                 result[arg][percentile] = set(stats[int(begin*num):int(end*num)])
-        return result
+        self.indexes["frequency_percentiles"] = result

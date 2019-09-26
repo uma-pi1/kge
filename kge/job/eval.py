@@ -44,21 +44,17 @@ class EvaluationJob(Job):
         #: Signature: job, trace_entry
         self.post_valid_hooks = []
 
-        #: Hooks after computing the metrics and compute some specific metrics .
+        #: Hooks after computing the ranks for each batch entry.
         #: Signature: job, trace_entry
-        self.hist_hooks = []
+        self.hist_hooks = [hist_all]
+        if config.get("eval.metrics_per.head_and_tail"):
+            self.hist_hooks.append(hist_per_head_and_tail)
+        if config.get("eval.metrics_per.relation_type"):
+            self.hist_hooks.append(hist_per_relation_type)
+        if config.get("eval.metrics_per.argument_frequency"):
+            self.hist_hooks.append(hist_per_frequency_percentile)
 
-        self.hist_hooks.append(KeepAllEvaluationHistogramHooks(self.dataset))
-
-        if config.get("eval.metric_per_head_and_tail"):
-            self.hist_hooks.append(HeadAndTailEvaluationHistogramHooks(self.dataset))
-
-        if config.get("eval.metric_per_relation_type"):
-            self.hist_hooks.append(RelationTypeEvaluationHistogramHooks(self.dataset))
-
-        if config.get("eval.metric_per_argument_frequency_perc"):
-            self.hist_hooks.append(FrequencyPercEvaluationHistogramHooks(self.dataset))
-
+        # all done, run job_created_hooks if necessary
         if self.__class__ == EvaluationJob:
             for f in Job.job_created_hooks:
                 f(self)
@@ -94,153 +90,85 @@ class EvaluationJob(Job):
         self.resumed_from_job = training_job.resumed_from_job
 
 
-class EvaluationHistogramHooks:
-    """
-    Filters the batch rank based on the entities and relations.
-    """
+## HISTOGRAM COMPUTATION ################################################################
 
-    def __init__(self, dataset):
-        self.dataset = dataset
-
-    def init_hist_hook(self, device, dtype):
-        raise NotImplementedError
-
-    def make_batch_hist(
-        self, hist, s, p, o, s_ranks, o_ranks, device, dtype=torch.float
-    ):
-        raise NotImplementedError
-
-
-class KeepAllEvaluationHistogramHooks(EvaluationHistogramHooks):
-    """
-    Default class that does nothing.
-    """
-
-    def init_hist_hook(self, device, dtype):
-        return {
-            "all": torch.zeros([self.dataset.num_entities], device=device, dtype=dtype)
-        }
-
-    def make_batch_hist(
-        self, hist_dict, s, p, o, s_ranks, o_ranks, device, dtype=torch.float
-    ):
-        # need for loop because batch_hist[o_ranks]+=1 ignores repeated
-        # entries in o_ranks
-        for r in o_ranks:
-            hist_dict["all"][r] += 1
-        for r in s_ranks:
-            hist_dict["all"][r] += 1
-        return hist_dict
-
-
-class RelationTypeEvaluationHistogramHooks(EvaluationHistogramHooks):
-    """
-    Filters the batch rank by relation type.
-    """
-
-    def __init__(self, dataset):
-        super().__init__(dataset)
-        self.dataset.load_relation_types()
-
-    def init_hist_hook(self, device, dtype):
-        result = dict()
-        for rtype in self.dataset.relations_per_type.keys():
-            result[rtype] = torch.zeros(
-                [self.dataset.num_entities], device=device, dtype=dtype
-            )
-        return result
-
-    def make_batch_hist(
-        self, hist_dict, s, p, o, s_ranks, o_ranks, device, dtype=torch.float
-    ):
-        masks = list()
-        for rtype in self.dataset.relations_per_type.keys():
-            masks.append(
-                (
-                    rtype,
-                    [_p in self.dataset.relations_per_type[rtype] for _p in p.tolist()],
-                )
-            )
-        for (rtype, mask) in masks:
-            for r, m in zip(o_ranks, mask):
-                if m:
-                    hist_dict[rtype][r] += 1
-            for r, m in zip(s_ranks, mask):
-                if m:
-                    hist_dict[rtype][r] += 1
-        return hist_dict
-
-
-class HeadAndTailEvaluationHistogramHooks(EvaluationHistogramHooks):
-    """
-    Filters the batch rank by head and tail.
-    """
-
-    def init_hist_hook(self, device, dtype):
-        return {
-            "head": torch.zeros(
-                [self.dataset.num_entities], device=device, dtype=dtype
-            ),
-            "tail": torch.zeros(
-                [self.dataset.num_entities], device=device, dtype=dtype
-            ),
-        }
-
-    def make_batch_hist(
-        self, hist_dict, s, p, o, s_ranks, o_ranks, device, dtype=torch.float
-    ):
-        # need for loop because batch_hist[o_ranks]+=1 ignores repeated
-        # entries in o_ranks
-        for r in s_ranks:
-            hist_dict["head"][r] += 1
-        for r in o_ranks:
-            hist_dict["tail"][r] += 1
-        return hist_dict
-
-
-class FrequencyPercEvaluationHistogramHooks(EvaluationHistogramHooks):
-    """
-    Filters the batch rank by relation type.
-    """
-
-    def __init__(self, dataset):
-        super().__init__(dataset)
-        self.frequency_perc = (
-            self.dataset.get_frequency_percentiles_for_entites_and_relations()
+def __initialize_hist(hists, key, job):
+    """If there is no histogram with given `key` in `hists`, add an empty one."""
+    if key not in hists:
+        hists[key] = torch.zeros(
+            [job.dataset.num_entities],
+            device=job.config.get("job.device"),
+            dtype=torch.float,
         )
 
-    def init_hist_hook(self, device, dtype):
-        result = dict()
-        for arg in self.frequency_perc.keys():
-            for perc in self.frequency_perc[arg].keys():
-                result["{}_{}".format(arg, perc)] = torch.zeros(
-                    [self.dataset.num_entities], device=device, dtype=dtype
-                )
-        return result
 
-    def make_batch_hist(
-        self, hist_dict, s, p, o, s_ranks, o_ranks, device, dtype=torch.float
-    ):
-        for perc in self.frequency_perc[
-            "subject"
-        ].keys():  # same for relation and object
-            for r, m_s, m_r in zip(
-                s_ranks,
-                [id in self.frequency_perc["subject"][perc] for id in s.tolist()],
-                [id in self.frequency_perc["relation"][perc] for id in p.tolist()],
-            ):
-                if m_s:
-                    hist_dict["{}_{}".format("subject", perc)][r] += 1
-                if m_r:
-                    hist_dict["{}_{}".format("relation", perc)][r] += 1
-            for r, m_o, m_r in zip(
-                o_ranks,
-                [id in self.frequency_perc["object"][perc] for id in o.tolist()],
-                [id in self.frequency_perc["relation"][perc] for id in p.tolist()],
-            ):
-                if m_o:
-                    hist_dict["{}_{}".format("object", perc)][r] += 1
-                if m_r:
-                    hist_dict["{}_{}".format("relation", perc)][r] += 1
+def hist_all(hists, s, p, o, s_ranks, o_ranks, job, **kwargs):
+    """Create histogram of all subject/object ranks (key: "all").
 
-        return hist_dict
+    `hists` a dictionary of histograms to update; only key "all" will be affected. `s`,
+    `p`, `o` are true triples indexes for the batch. `s_ranks` and `o_ranks` are the
+    rank of the true answer for (?,p,o) and (s,p,?) obtained from a model.
+
+    """
+    __initialize_hist(hists, "all", job)
+    hist = hists["all"]
+    for r in o_ranks:
+        hist[r] += 1
+    for r in s_ranks:
+        hist[r] += 1
+
+
+def hist_per_head_and_tail(hists, s, p, o, s_ranks, o_ranks, job, **kwargs):
+    __initialize_hist(hists, "head", job)
+    hist = hists["head"]
+    for r in s_ranks:
+        hist[r] += 1
+
+    __initialize_hist(hists, "tail", job)
+    hist = hists["tail"]
+    for r in o_ranks:
+        hist[r] += 1
+
+
+def hist_per_relation_type(hists, s, p, o, s_ranks, o_ranks, job, **kwargs):
+    job.dataset.index_relation_types()
+    masks = list()
+    for rel_type, rels in job.dataset.indexes["relations_per_type"].items():
+        __initialize_hist(hists, rel_type, job)
+        mask = [_p in rels for _p in p.tolist()]
+        for r, m in zip(o_ranks, mask):
+            if m:
+                hists[rel_type][r] += 1
+        for r, m in zip(s_ranks, mask):
+            if m:
+                hists[rel_type][r] += 1
+
+
+def hist_per_frequency_percentile(hists, s, p, o, s_ranks, o_ranks, job, **kwargs):
+    # initialize
+    job.dataset.index_frequency_percentiles()
+    frequency_percs = job.dataset.indexes["frequency_percentiles"]
+    for arg, percs in frequency_percs.items():
+        for perc, value in percs.items():
+            __initialize_hist(hists, "{}_{}".format(arg, perc), job)
+
+    # go
+    for perc in frequency_percs["subject"].keys():  # same for relation and object
+        for r, m_s, m_r in zip(
+            s_ranks,
+            [id in frequency_percs["subject"][perc] for id in s.tolist()],
+            [id in frequency_percs["relation"][perc] for id in p.tolist()],
+        ):
+            if m_s:
+                hists["{}_{}".format("subject", perc)][r] += 1
+            if m_r:
+                hists["{}_{}".format("relation", perc)][r] += 1
+        for r, m_o, m_r in zip(
+            o_ranks,
+            [id in frequency_percs["object"][perc] for id in o.tolist()],
+            [id in frequency_percs["relation"][perc] for id in p.tolist()],
+        ):
+            if m_o:
+                hists["{}_{}".format("object", perc)][r] += 1
+            if m_r:
+                hists["{}_{}".format("relation", perc)][r] += 1

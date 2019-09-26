@@ -85,18 +85,14 @@ class EntityRankingJob(EvaluationJob):
             self.eval_data == "valid" and self.filter_valid_with_test
         )
 
-        # Initiliaze dictionaries that hold the overall histogram of ranks, which are
-        # used to compute the metrics. The dictionary entry with key 'all' collects
-        # the overall statistics which is added by default into self.hist_hooks.
-        hist_dict = dict()
-        hist_filt_dict = dict()
-        hist_filt_test_dict = dict()
+        # Initiliaze dictionaries that hold the overall histogram of ranks of true
+        # answers. These histograms are used to compute relevant metrics. The dictionary
+        # entry with key 'all' collects the overall statistics and is the default.
+        hists = dict()
+        hists_filt = dict()
+        hists_filt_test = dict()
 
-        for f in self.hist_hooks:
-            hist_dict.update(f.init_hist_hook(device=self.device, dtype=torch.float))
-            hist_filt_dict.update(f.init_hist_hook(device=self.device, dtype=torch.float))
-            hist_filt_test_dict.update(f.init_hist_hook(device=self.device, dtype=torch.float))
-
+        # let's go
         epoch_time = -time.time()
         for batch_number, batch_coords in enumerate(self.loader):
             # construct a label tensor of shape batch_size x 2*num_entities
@@ -134,47 +130,27 @@ class EntityRankingJob(EvaluationJob):
             s_ranks, o_ranks, _, _ = self._filter_and_rank(
                 s, p, o, scores_sp, scores_po, None
             )
+
             # same for filtered ranks
             s_ranks_filt, o_ranks_filt, scores_sp_filt, scores_po_filt = self._filter_and_rank(
                 s, p, o, scores_sp, scores_po, labels
             )
 
-            # Now compute the batch histogram of raw ranks and potentially mask
-            # out batch items (computed by mask_out_batch_ranks_hook) and
-            # aggregate the histograms
-
+            # Now update the histograms of of raw ranks and filtered ranks
+            batch_hists = dict()
+            batch_hists_filt = dict()
             for f in self.hist_hooks:
-                hist_dict.update(
-                    f.make_batch_hist(hist_dict,
-                                      s, p, o,
-                                      s_ranks, o_ranks,
-                                      device=self.device,
-                                      dtype=torch.float
-                                      )
-                )
-                hist_filt_dict.update(
-                    f.make_batch_hist(hist_filt_dict,
-                                      s, p, o,
-                                      s_ranks_filt, o_ranks_filt,
-                                      device=self.device,
-                                      dtype=torch.float
-                                      )
-                )
+                f(batch_hists, s, p, o, s_ranks, o_ranks, job=self)
+                f(batch_hists_filt, s, p, o, s_ranks, o_ranks, job=self)
 
             # and the same for filtered_with_test ranks
             if filtered_valid_with_test:
+                batch_hists_filt_test = dict()
                 s_ranks_filt_test, o_ranks_filt_test, _, _ = self._filter_and_rank(
                     s, p, o, scores_sp_filt, scores_po_filt, test_labels
                 )
                 for f in self.hist_hooks:
-                    hist_filt_test_dict.update(
-                        f.make_batch_hist(hist_filt_test_dict,
-                                          s, p, o,
-                                          s_ranks_filt_test, o_ranks_filt_test,
-                                          device=self.device,
-                                          dtype=torch.float
-                                          )
-                    )
+                    f(batch_hists_filt_test, s, p, o, s_ranks, o_ranks, job=self)
 
             # optionally: trace ranks of each example
             if self.trace_examples:
@@ -214,29 +190,28 @@ class EntityRankingJob(EvaluationJob):
                         **entry,
                     )
 
-            # now compute the batch metrics
-            metrics = self._compute_metrics(hist_dict['all'])
-            metrics.update(self._compute_metrics(hist_filt_dict['all'], suffix="_filtered"))
+            # now compute the batch metrics for the full histogram (key "all")
+            metrics = self._compute_metrics(batch_hists["all"])
+            metrics.update(self._compute_metrics(batch_hists_filt["all"], suffix="_filtered"))
             if filtered_valid_with_test:
                 metrics.update(
                     self._compute_metrics(
-                        hist_filt_test_dict['all'], suffix="_filtered_with_test"
+                        batch_hists_filt_test["all"], suffix="_filtered_with_test"
                     )
                 )
 
-            # TODO: changed semantics of contents of batch metrics. Before: metric per batch, Now: metric until current batch, makes for nicer printing but not traceable
-            # # optionally: trace batch metrics
-            # if self.trace_batch:
-            #     self.trace(
-            #         type="entity_ranking",
-            #         scope="batch",
-            #         data=self.eval_data,
-            #         epoch=self.epoch,
-            #         batch=batch_number,
-            #         size=len(batch),
-            #         batches=len(self.loader),
-            #         **metrics,
-            #     )
+            # optionally: trace batch metrics
+            if self.trace_batch:
+                self.trace(
+                    type="entity_ranking",
+                    scope="batch",
+                    data=self.eval_data,
+                    epoch=self.epoch,
+                    batch=batch_number,
+                    size=len(batch),
+                    batches=len(self.loader),
+                    **metrics,
+                )
 
             # output batch information to console
             print(
@@ -264,29 +239,32 @@ class EntityRankingJob(EvaluationJob):
                 flush=True,
             )
 
+            # merge batch histograms into global histograms
+            def merge_hist(target_hists, source_hists):
+                for key, hist in source_hists.items():
+                    if key in target_hists:
+                        target_hists[key] = target_hists[key] + hist
+                    else:
+                        target_hists[key] = hist
+
+            merge_hist(hists, batch_hists)
+            merge_hist(hists_filt, batch_hists_filt)
+            if filtered_valid_with_test:
+                merge_hist(hists_filt_test, batch_hists_filt_test)
+
         # we are done; compute final metrics
         print("\033[2K\r", end="", flush=True)  # clear line and go back
-
-        metrics = dict()
-
-        for hist_name in hist_dict.keys():
-
-            if hist_name == 'all':
-                hist_print_name = ''
-            else:
-                hist_print_name = '_' + hist_name
-
-            metrics.update(self._compute_metrics(hist_dict[hist_name], suffix=hist_print_name))
-            metrics.update(self._compute_metrics(hist_filt_dict[hist_name], suffix="_filtered" + hist_print_name))
-
-        if filtered_valid_with_test:
-            for hist_name in hist_dict.keys():
-                if hist_name == 'all':
-                    hist_print_name = ''
-                else:
-                    hist_print_name = '_' + hist_name
+        for key, hist in hists.items():
+            name = "_" + key if key != "all" else ""
+            metrics.update(self._compute_metrics(hists[key], suffix=name))
+            metrics.update(
+                self._compute_metrics(hists_filt[key], suffix="_filtered" + name)
+            )
+            if filtered_valid_with_test:
                 metrics.update(
-                    self._compute_metrics(hist_filt_test_dict[hist_name], suffix="_filtered_with_test" + hist_print_name)
+                    self._compute_metrics(
+                        hists_filt_test[key], suffix="_filtered_with_test" + name
+                    )
                 )
         epoch_time += time.time()
 
@@ -359,16 +337,20 @@ class EntityRankingJob(EvaluationJob):
         n = torch.sum(rank_hist).item()
 
         ranks = torch.arange(1, self.dataset.num_entities + 1).float().to(self.device)
-        metrics["mean_rank" + suffix] = (torch.sum(rank_hist * ranks).item() / n) if n > 0. else 0.
+        metrics["mean_rank" + suffix] = (
+            (torch.sum(rank_hist * ranks).item() / n) if n > 0.0 else 0.0
+        )
 
         reciprocal_ranks = 1.0 / ranks
         metrics["mean_reciprocal_rank" + suffix] = (
-            torch.sum(rank_hist * reciprocal_ranks).item() / n
-        ) if n > 0. else 0.
+            (torch.sum(rank_hist * reciprocal_ranks).item() / n) if n > 0.0 else 0.0
+        )
 
         hits_at_k = (
-            torch.cumsum(rank_hist[: max(self.hits_at_k_s)], dim=0) / n
-        ).tolist() if n > 0. else [0.] * max(self.hits_at_k_s)
+            (torch.cumsum(rank_hist[: max(self.hits_at_k_s)], dim=0) / n).tolist()
+            if n > 0.0
+            else [0.0] * max(self.hits_at_k_s)
+        )
 
         for i, k in enumerate(self.hits_at_k_s):
             metrics["hits_at_{}{}".format(k, suffix)] = hits_at_k[k - 1]
