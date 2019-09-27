@@ -64,7 +64,12 @@ class KgeLoss:
         if labels.dim() == 1:
             return labels
         else:
-            raise NotImplementedError()
+            x = labels.nonzero()
+            if not x[:, 0].equal(
+                torch.arange(len(labels), device=self.config.get("job.device"))
+            ):
+                raise ValueError("exactly one 1 per row required")
+            return x[:,1]
 
 
 class BCEWithLogitsKgeLoss(KgeLoss):
