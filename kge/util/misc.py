@@ -80,6 +80,8 @@ def filename_in_module(module, filename):
 def get_activation_function(s: str):
     if s == "tanh":
         return nn.Tanh()
+    elif s == "relu":
+        return nn.ReLU()
     else:
         raise ValueError("activation function {} unknown".format(s))
 
