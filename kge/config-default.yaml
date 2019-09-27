@@ -2,8 +2,12 @@ job:
   type: train                 # train, eval, grid, ...
 
   # Main device to use for this job (e.g., 'cpu', 'cuda', 'cuda:0')
-  device: 'cuda'
+  device: 'cuda'  
 
+# set random seeds for reproducability
+random_seed:
+  torch: -1
+  numpy: -1
 
 ## INPUT/OUTPUT ################################################################
 
@@ -155,7 +159,7 @@ checkpoint:
 ## EVALUATION ##################################################################
 ## Used for evaluation jobs.
 
-# fixed metrics: compute MRR and specified HITS@k's
+# fixed metrics: compute MRR and HITS@1, ..., HITS@k
 eval:
   data: valid
   type: entity_ranking
@@ -164,13 +168,11 @@ eval:
   num_workers: 0
   pin_memory: False
   trace_level: example            # example or batch or epoch
-
-  # Metrics are always computed over the entire evaluation data. Optionally,
-  # certain more specific metric can be computed in addition.
-  metrics_per:
-    relation_type: False          # 1-to-1, 1-to-N, N-to-1, N-to-N
-    head_and_tail: False          # head, tail
-    argument_frequency: False     # 25%, 50%, 75%, top quantiles per argument
+  # filters metrics per relation type (Classified into relation types 1-N, M-1,
+  # 1-1, M-N) and reports them additionally to the overall metric
+  metric_per_relation_type: False
+  metric_per_head_and_tail: False
+  metric_per_argument_frequency_perc: False
 
 ## HYPERPARAMETER SEARCH #######################################################
 

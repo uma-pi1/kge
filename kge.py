@@ -3,6 +3,7 @@ import datetime
 import argparse
 import os
 import yaml
+import torch
 
 from kge import Dataset
 from kge import Config
@@ -208,6 +209,9 @@ if __name__ == "__main__":
     config.log("Configuration:")
     config.log(yaml.dump(config.options), prefix="  ")
     config.log("git commit: {}".format(get_git_revision_short_hash()), prefix="  ")
+
+    if config.get("random_seed.torch") > -1:
+        torch.manual_seed(config.get("random_seed.torch"))
 
     if args.command == "start" and not args.run:
         config.log("Job created successfully.")
