@@ -320,16 +320,20 @@ class EntityRankingJob(EvaluationJob):
         return s_ranks, o_ranks, scores_sp, scores_po
 
     def _get_rank(self, scores, answers):
-        # Get scores of answer given by each triple
-        # Add small number to all scores to make the rank of the true worst in case of tie
-        # Get tensor of 1s for each score which is higher than the true answer score.
-        # Add 1s in each row to get the rank of the corresponding row.
-        # Fix for the add small number fix we substract 1 from each rank with
-        # the lowest possible.
+        """Returns the rank of each answer (mean rank on ties).
+
+        `scores` is batch_size x entities matrix of scores. `answers` is a vector (of
+        size batch_size) holding the index of the true answer in each row of `scores`.
+        Scores are interpreted in descending order (rank 0 = largest score).
+
+        """
+        # Get tensor of 1s for each score which is higher than / equal to the true
+        # answer score, then sum up to get ranks.
         true_scores = scores[range(answers.size(0)), answers.long()]
-        scores = scores + 1e-40
-        ranks = torch.sum((scores > true_scores.view(-1, 1)).long(), dim=1)
-        ranks = ranks - (ranks == self.dataset.num_entities).long()
+        ranks_greater = torch.sum((scores > true_scores.view(-1, 1)).long(), dim=1)
+        # -1 for the true answer
+        ranks_equal = torch.sum((scores == true_scores.view(-1, 1)).long(), dim=1) - 1
+        ranks = ranks_greater + ranks_equal // 2
         return ranks
 
     def _compute_metrics(self, rank_hist, suffix=""):
