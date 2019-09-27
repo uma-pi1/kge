@@ -141,7 +141,7 @@ class EntityRankingJob(EvaluationJob):
             batch_hists_filt = dict()
             for f in self.hist_hooks:
                 f(batch_hists, s, p, o, s_ranks, o_ranks, job=self)
-                f(batch_hists_filt, s, p, o, s_ranks, o_ranks, job=self)
+                f(batch_hists_filt, s, p, o, s_ranks_filt, o_ranks_filt, job=self)
 
             # and the same for filtered_with_test ranks
             if filtered_valid_with_test:
@@ -150,7 +150,15 @@ class EntityRankingJob(EvaluationJob):
                     s, p, o, scores_sp_filt, scores_po_filt, test_labels
                 )
                 for f in self.hist_hooks:
-                    f(batch_hists_filt_test, s, p, o, s_ranks, o_ranks, job=self)
+                    f(
+                        batch_hists_filt_test,
+                        s,
+                        p,
+                        o,
+                        s_ranks_filt_test,
+                        o_ranks_filt_test,
+                        job=self,
+                    )
 
             # optionally: trace ranks of each example
             if self.trace_examples:
@@ -192,7 +200,9 @@ class EntityRankingJob(EvaluationJob):
 
             # now compute the batch metrics for the full histogram (key "all")
             metrics = self._compute_metrics(batch_hists["all"])
-            metrics.update(self._compute_metrics(batch_hists_filt["all"], suffix="_filtered"))
+            metrics.update(
+                self._compute_metrics(batch_hists_filt["all"], suffix="_filtered")
+            )
             if filtered_valid_with_test:
                 metrics.update(
                     self._compute_metrics(
