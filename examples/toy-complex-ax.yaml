@@ -1,7 +1,9 @@
 job.type: search
 dataset.name: toy
 train.optimizer: Adagrad
+train.loss: soft_margin
 model: complex
+random_seed.torch: 1
 
 train.max_epochs: 10
 

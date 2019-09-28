@@ -14,7 +14,7 @@ class KgeLoss:
         """Factory method for loss function instantiation."""
 
         # perhaps TODO: try class with specified name -> extensibility
-        config.check("train.loss", ["bce", "margin_ranking", "ce", "kl"])
+        config.check("train.loss", ["bce", "margin_ranking", "ce", "kl", "soft_margin"])
         if config.get("train.loss") == "bce":
             return BCEWithLogitsKgeLoss(config)
         elif config.get("train.loss") == "kl":
@@ -22,7 +22,9 @@ class KgeLoss:
         elif config.get("train.loss") == "margin_ranking":
             margin = config.get("train.loss_arg")
             return MarginRankingKgeLoss(config, margin)
-        if config.get("train.loss") == "ce":
+        elif config.get("train.loss") == "soft_margin":
+            return SoftMarginKgeLoss(config)
+        elif config.get("train.loss") == "ce":
             return CrossEntropyKgeLoss(config)
         else:
             raise ValueError("train.loss")
@@ -104,6 +106,17 @@ class CrossEntropyKgeLoss(KgeLoss):
         return self._loss(scores, labels)
 
 
+class SoftMarginKgeLoss(KgeLoss):
+    def __init__(self, config, reduction="mean", **kwargs):
+        super().__init__(config)
+        self._loss = torch.nn.SoftMarginLoss(reduction=reduction, **kwargs)
+
+    def __call__(self, scores, labels, **kwargs):
+        labels = self._labels_as_matrix(scores, labels)
+        labels = labels*2 - 1 # expects 1 / -1 as label
+        return self._loss(scores.view(-1), labels.view(-1))
+
+
 class MarginRankingKgeLoss(KgeLoss):
     def __init__(self, config, margin, reduction="mean", **kwargs):
         super().__init__(config)
@@ -142,3 +155,4 @@ class MarginRankingKgeLoss(KgeLoss):
             )
         else:
             raise ValueError("train.type for margin ranking.")
+
