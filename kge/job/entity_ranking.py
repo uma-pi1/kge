@@ -342,7 +342,10 @@ class EntityRankingJob(EvaluationJob):
         true_scores = scores[range(answers.size(0)), answers.long()]
         ranks_greater = torch.sum((scores > true_scores.view(-1, 1)).long(), dim=1)
         # each element of ranks_equal is at 1 (since the true answer is in scores)
-        ranks_equal = torch.sum((scores == true_scores.view(-1, 1)).long(), dim=1)
+        ranks_equal = scores == true_scores.view(-1, 1)
+        # yields True if scores are NaN
+        scores_nan = scores != scores 
+        ranks_equal = torch.sum((scores_nan | ranks_equal).long(), dim=1) 
         ranks = ranks_greater + ranks_equal // 2
         return ranks
 
