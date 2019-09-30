@@ -330,23 +330,32 @@ class EntityRankingJob(EvaluationJob):
         return s_ranks, o_ranks, scores_sp, scores_po
 
     def _get_rank(self, scores, answers):
-        """Returns the rank of each answer (mean rank on ties, rounded up to next integer).
+        """Returns the rank of each answer (mean rank on ties, rounded up).
 
         `scores` is batch_size x entities matrix of scores. `answers` is a vector (of
         size batch_size) holding the index of the true answer in each row of `scores`.
         Scores are interpreted in descending order (rank 0 = largest score).
 
+        If there are ties, returns the mean rank rounded up to next integer. `NaN`
+        values are treated as lowest possible score (i.e., equivalent to -infinity).
+
         """
-        # Get tensor of 1s for each score which is higher than / equal to the true
-        # answer score, then sum up to get ranks.
+        # process NaN values and extract scores of true answers
+        scores = scores.clone()
+        scores[torch.isnan(scores)] = float("-Inf")
         true_scores = scores[range(answers.size(0)), answers.long()]
-        ranks_greater = torch.sum((scores > true_scores.view(-1, 1)).long(), dim=1)
-        # each element of ranks_equal is at 1 (since the true answer is in scores)
-        ranks_equal = scores == true_scores.view(-1, 1)
-        # yields True if scores are NaN
-        scores_nan = scores != scores 
-        ranks_equal = torch.sum((scores_nan | ranks_equal).long(), dim=1) 
-        ranks = ranks_greater + ranks_equal // 2
+
+        # Determine how many scores are greater than / equal to each true answer (in its
+        # corresponding row of scores)
+        num_ranks_greater = torch.sum(
+            scores > true_scores.view(-1, 1), dim=1, dtype=torch.long
+        )
+        num_ranks_equal = torch.sum(
+            scores == true_scores.view(-1, 1), dim=1, dtype=torch.long
+        )
+
+        # all done, compute (mean) ranks
+        ranks = num_ranks_greater + num_ranks_equal // 2
         return ranks
 
     def _compute_metrics(self, rank_hist, suffix=""):
