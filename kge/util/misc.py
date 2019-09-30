@@ -73,8 +73,16 @@ def kge_base_dir():
     return os.path.abspath(filename_in_module(kge, ".."))
 
 
-def filename_in_module(module, filename):
-    return os.path.dirname(inspect.getfile(module)) + "/" + filename
+def filename_in_module(module_or_module_list, filename):
+    if not isinstance(module_or_module_list, list):
+        module_or_module_list = [module_or_module_list]
+    for module in module_or_module_list:
+        f = os.path.dirname(inspect.getfile(module)) + "/" + filename
+        if os.path.exists(f):
+            return f
+    raise FileNotFoundError(
+        "{} not found in one of modules {}".format(filename, module_or_module_list)
+    )
 
 
 def get_activation_function(s: str):
@@ -96,10 +104,12 @@ def round_to_points(round_points_to: List[int], to_be_rounded: int):
     :return: int
     """
     if len(round_points_to) > 0:
-        assert round_points_to[0] <= round_points_to[-1], "First element in round_points_to should be the lower bound and the last the upper bound"
+        assert (
+            round_points_to[0] <= round_points_to[-1]
+        ), "First element in round_points_to should be the lower bound and the last the upper bound"
         last = -1
-        for i,round_point in enumerate(round_points_to):
-            if to_be_rounded < (round_point - last)/2 + last:
+        for i, round_point in enumerate(round_points_to):
+            if to_be_rounded < (round_point - last) / 2 + last:
                 # Assumes that the first element in round_points_to is
                 # the lower bound.
                 if i == 0:
@@ -109,4 +119,8 @@ def round_to_points(round_points_to: List[int], to_be_rounded: int):
             last = round_point
         return last
     else:
-        raise Exception("{} was called with an empty list to be rounded to.".format(round_to_points.__name__))
+        raise Exception(
+            "{} was called with an empty list to be rounded to.".format(
+                round_to_points.__name__
+            )
+        )

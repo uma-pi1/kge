@@ -209,12 +209,15 @@ class Config:
         that fields and their types are correct.
 
         """
-        import kge.model
+        import kge.model, kge.model.experimental
 
         # load the module_name
         module_config = Config(load_default=False)
         module_config.load(
-            filename_in_module(kge.model, "{}.yaml".format(module_name)), create=True
+            filename_in_module(
+                [kge.model, kge.model.experimental], "{}.yaml".format(module_name)
+            ),
+            create=True,
         )
         if "import" in module_config.options:
             del module_config.options["import"]
