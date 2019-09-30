@@ -246,7 +246,9 @@ class Config:
         for key, value in Config.flatten(new_options).items():
             self.set(key, value, create, overwrite)
 
-    def load(self, filename, create=False, overwrite=Overwrite.Yes):
+    def load(
+        self, filename, create=False, overwrite=Overwrite.Yes, allow_deprecated=True
+    ):
         """Update configuration options from the specified YAML file.
 
         All options that do not occur in the specified file are retained.
@@ -276,6 +278,37 @@ class Config:
             for module_name in imports:
                 self._import(module_name)
             del new_options["import"]
+
+        # process deprecated options
+        if allow_deprecated:
+            # renames given key (but not subkeys! this is NYI)
+            def rename_key(old_key, new_key):
+                if old_key in new_options:
+                    print(
+                        "Warning: key {} is deprecated; use {} instead".format(
+                            old_key, new_key
+                        )
+                    )
+                    if new_key in new_options:
+                        raise ValueError(
+                            "keys {} and {} must not both be set".format(
+                                old_key, new_key
+                            )
+                        )
+                    value = new_options[old_key]
+                    del new_options[old_key]
+                    new_options[new_key] = value
+
+            rename_key(
+                "eval.metrics_per_relation_type", "eval.metrics_per.relation_type"
+            )
+            rename_key(
+                "eval.metrics_per_head_and_tail", "eval.metrics_per.head_and_tail"
+            )
+            rename_key(
+                "eval.metric_per_argument_frequency_perc",
+                "eval.metrics_per.argument_frequency",
+            )
 
         # now set all options
         self.set_all(new_options, create, overwrite)
