@@ -106,9 +106,9 @@ class Rescal(KgeModel):
             config,
             dataset,
             scorer=RescalScorer(
-                config=config, dataset=dataset, configuration_key=configuration_key
+                config=config, dataset=dataset, configuration_key=self.configuration_key
             ),
-            configuration_key=configuration_key,
+            configuration_key=self.configuration_key,
         )
 
 

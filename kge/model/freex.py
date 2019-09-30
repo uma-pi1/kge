@@ -91,6 +91,6 @@ class Freex(KgeModel):
         super().__init__(
             config,
             dataset,
-            FreexScorer(config, dataset),
-            configuration_key=configuration_key,
+            FreexScorer(config, dataset, self.configuration_key),
+            configuration_key=self.configuration_key,
         )

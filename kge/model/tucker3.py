@@ -156,8 +156,8 @@ class RelationalTucker3(KgeModel):
         super().__init__(
             config,
             dataset,
-            scorer=RescalScorer(config=config, dataset=dataset),
-            configuration_key=configuration_key,
+            scorer=RescalScorer(config, dataset, self.configuration_key),
+            configuration_key=self.configuration_key,
         )
 
     def prepare_job(self, job, **kwargs):

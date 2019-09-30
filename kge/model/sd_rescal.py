@@ -321,5 +321,5 @@ class SparseDiagonalRescal(KgeModel):
             scorer=SparseDiagonalRescalScorer(
                 config=config, dataset=dataset, blocks=blocks, block_size=block_size
             ),
-            configuration_key=configuration_key,
+            configuration_key=self.configuration_key,
         )

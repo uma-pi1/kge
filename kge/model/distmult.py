@@ -76,5 +76,5 @@ class DistMult(KgeModel):
             config,
             dataset,
             DistMultScorer(config, dataset, configuration_key),
-            configuration_key=configuration_key,
+            configuration_key=self.configuration_key,
         )

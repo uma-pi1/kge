@@ -95,6 +95,6 @@ class ComplEx(KgeModel):
         super().__init__(
             config,
             dataset,
-            ComplExScorer(config, dataset, configuration_key),
-            configuration_key=configuration_key,
+            ComplExScorer(config, dataset, self.configuration_key),
+            configuration_key=self.configuration_key,
         )

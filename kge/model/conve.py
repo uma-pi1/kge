@@ -123,5 +123,5 @@ class ConvE(KgeModel):
             config,
             dataset,
             ConvEScorer(config, dataset, self.configuration_key),
-            configuration_key=configuration_key,
+            configuration_key=self.configuration_key,
         )

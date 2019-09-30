@@ -62,6 +62,6 @@ class SFNN(KgeModel):
         super().__init__(
             config,
             dataset,
-            SFNNScorer(config, dataset),
+            SFNNScorer(config, dataset, configuration_key),
             configuration_key=configuration_key,
         )

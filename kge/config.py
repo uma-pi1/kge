@@ -478,3 +478,48 @@ class Config:
 
     def tracefile(self):
         return os.path.join(self.folder, "trace.yaml")
+
+
+class Configurable:
+    """Mix-in class for adding configurations to objects.
+
+    Each configured object has access to a `config` and a `configuration_key` that
+    indicates where the object's options can be found in `config`.
+
+    """
+
+    def __init__(self, config, configuration_key=None):
+        self._init_configuration(config, configuration_key)
+
+    def get_option(self, name):
+        if self.configuration_key:
+            return self.config.get_default(self.configuration_key + "." + name)
+        else:
+            self.config.get_default(name)
+
+    def check_option(self, name, allowed_values):
+        if self.configuration_key:
+            return self.config.check_default(
+                self.configuration_key + "." + name, allowed_values
+            )
+        else:
+            return self.config.check_default(name, allowed_values)
+
+    def set_option(self, name, value):
+        if self.configuration_key:
+            self.config.set(self.configuration_key + "." + name, value)
+        else:
+            self.config.set(name, value)
+
+    def _init_configuration(self, config, configuration_key):
+        r"""Initializes `self.config` and `self.configuration_key`.
+
+        Only after this method has been called, `get_option`, `check_option`, and
+        `set_option` should be used. This method is automatically called in the
+        constructor of this class, but can also be called by subclasses before calling
+        the superclass constructor to allow access to these three methods. May also be
+        overridden by subclasess to perform additional configuration.
+
+        """
+        self.config = config
+        self.configuration_key = configuration_key

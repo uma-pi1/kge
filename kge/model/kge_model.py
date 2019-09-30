@@ -4,19 +4,19 @@ import tempfile
 import torch.nn
 
 import kge
-from kge import Config, Dataset
+from kge import Config, Configurable, Dataset
 from kge.util.misc import filename_in_module
 
 SLOTS = [0, 1, 2]
 S, P, O = SLOTS
 
 
-class KgeBase(torch.nn.Module):
+class KgeBase(torch.nn.Module, Configurable):
     r"""Base class for all KGE models, scorers, and embedders."""
 
-    def __init__(self, config: Config, dataset: Dataset):
-        super().__init__()
-        self.config = config
+    def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
+        Configurable.__init__(self, config, configuration_key)
+        torch.nn.Module.__init__(self)
         self.dataset = dataset
         self.meta = dict()  #: meta-data stored with this module
 
@@ -81,8 +81,7 @@ class RelationalScorer(KgeBase):
     """
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key: str):
-        super().__init__(config, dataset)
-        self.configuration_key = configuration_key
+        super().__init__(config, dataset, configuration_key)
 
     def score_emb_spo(self, s_emb, p_emb, o_emb):
         r"""Scores a set of triples specified by their embeddings.
@@ -152,16 +151,6 @@ class RelationalScorer(KgeBase):
 
         return out.view(n, -1)
 
-    def get_option(self, name):
-        return self.config.get_default(self.configuration_key + "." + name)
-
-    def set_option(self, name, value):
-        if self.configuration_key:
-            self.config.set(self.configuration_key + "." + name, value)
-        else:
-            self.config.set(name, value)
-
-
 class KgeEmbedder(KgeBase):
     r"""Base class for all embedders of a fixed number of objects.
 
@@ -170,10 +159,9 @@ class KgeEmbedder(KgeBase):
     """
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key: str):
-        super().__init__(config, dataset)
+        super().__init__(config, dataset, configuration_key)
 
         #: location of the configuration options of this embedder
-        self.configuration_key = configuration_key
         self.embedder_type = self.get_option("type")
 
         # verify all custom options by trying to set them in a copy of this
@@ -235,15 +223,6 @@ class KgeEmbedder(KgeBase):
         """Returns all embeddings."""
         raise NotImplementedError
 
-    def get_option(self, name):
-        return self.config.get_default(self.configuration_key + "." + name)
-
-    def check_option(self, name, allowed_values):
-        return self.config.check_default(
-            self.configuration_key + "." + name, allowed_values
-        )
-
-
 class KgeModel(KgeBase):
     r"""Generic KGE model for KBs with a fixed set of entities and relations.
 
@@ -261,8 +240,7 @@ class KgeModel(KgeBase):
         initialize_embedders=True,
         configuration_key=None,
     ):
-        super().__init__(config, dataset)
-        self._init_configuration(config, configuration_key)
+        super().__init__(config, dataset, configuration_key)
 
         # TODO support different embedders for subjects and objects
 
@@ -292,22 +270,16 @@ class KgeModel(KgeBase):
         #: Scorer
         self._scorer = scorer
 
+
+    # overridden to also set self.model
     def _init_configuration(self, config, configuration_key):
-        r"""Initializes self.config and self.configuration_key.
-
-        Only after this method has been called, `get_option`, `check_option`, and
-        `set_option` should be used. This method is automatically called in the
-        constructor of this class, but can also be called by subclasses before calling
-        the superclass constructor to allow access to these three methods.
-
-        """
-        self.config = config
-        self.configuration_key = configuration_key
-        if self.configuration_key:
-            self.model = config.get(self.configuration_key + ".type")
-        else:
-            self.model = config.get("model")
-            self.configuration_key = self.model
+        Configurable._init_configuration(self, config, configuration_key)
+        if not hasattr(self, 'model') or not self.model:
+            if self.configuration_key:
+                self.model = config.get(self.configuration_key + ".type")
+            else:
+                self.model = config.get("model")
+                self.configuration_key = self.model
 
     @staticmethod
     def create(
@@ -429,24 +401,6 @@ class KgeModel(KgeBase):
 
     def get_scorer(self) -> RelationalScorer:
         return self._scorer
-
-    def set_option(self, name, value):
-        if self.configuration_key:
-            self.config.set(self.configuration_key + "." + name, value)
-        else:
-            self.config.set(name, value)
-
-    def get_option(self, name):
-        if self.configuration_key:
-            return self.config.get_default(self.configuration_key + "." + name)
-        else:
-            return self.config.get_default(name)
-
-    def check_option(self, name, allowed_values):
-        if self.configuration_key:
-            return self.config.check_default(self.configuration_key + "." + name)
-        else:
-            return self.config.check_default(name)
 
     def score_spo(self, s, p, o):
         r"""Compute scores for a set of triples.
