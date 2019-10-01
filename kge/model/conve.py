@@ -8,7 +8,7 @@ from kge.model.kge_model import RelationalScorer, KgeModel
 class ConvEScorer(RelationalScorer):
     r"""Implementation of the ConvE KGE scorer.
 
-    Must be used with InverseRelationsModel."""
+    Must be used with ReciprocalRelationsModel."""
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         super().__init__(config, dataset, configuration_key)

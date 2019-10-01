@@ -14,7 +14,7 @@ from kge.model.rescal import Rescal
 from kge.model.transe import TransE
 
 # meta models
-from kge.model.inverse_relations_model import InverseRelationsModel
+from kge.model.reciprocal_relations_model import ReciprocalRelationsModel
 
 # experimental models
 from kge.model.experimental.freex import Freex

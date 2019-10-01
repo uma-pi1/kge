@@ -6,28 +6,28 @@ from kge.model.kge_model import RelationalScorer, KgeModel
 class SFNNScorer(RelationalScorer):
     r"""Implementation of the Simple feedforward neural network KGE scorer.
 
-    Must be used with InverseRelationsModel."""
+    Must be used with ReciprocalRelationsModel."""
 
     def __init__(self, config: Config, dataset: Dataset):
         super().__init__(config, dataset)
         self.ent_emb_dim = config.get(
-            "inverse_relations_model.base_model.entity_embedder.dim"
+            "reciprocal_relations_model.base_model.entity_embedder.dim"
         )
         self.rel_emb_dim = config.get(
-            "inverse_relations_model.base_model.relation_embedder.dim"
+            "reciprocal_relations_model.base_model.relation_embedder.dim"
         )
-        self.hidden_dim = config.get("inverse_relations_model.base_model.hidden_dim")
+        self.hidden_dim = config.get("reciprocal_relations_model.base_model.hidden_dim")
         self.non_linear = torch.nn.ReLU()
 
         self.h1 = torch.nn.Linear(self.ent_emb_dim + self.rel_emb_dim, self.hidden_dim)
         self.h1_dropout = torch.nn.Dropout(
-            config.get("inverse_relations_model.base_model.h1_dropout")
+            config.get("reciprocal_relations_model.base_model.h1_dropout")
         )
         self.bn1 = torch.nn.BatchNorm1d(self.hidden_dim, affine=False)
 
         self.h2 = torch.nn.Linear(self.hidden_dim, int(self.ent_emb_dim))
         self.h2_dropout = torch.nn.Dropout(
-            config.get("inverse_relations_model.base_model.h2_dropout")
+            config.get("reciprocal_relations_model.base_model.h2_dropout")
         )
         self.bn2 = torch.nn.BatchNorm1d(self.ent_emb_dim, affine=False)
 

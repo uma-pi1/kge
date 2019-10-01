@@ -58,8 +58,8 @@ eval:
   type: entity_ranking
 
 import: sfnn
-model: inverse_relations_model
-inverse_relations_model.base_model.type: sfnn
+model: reciprocal_relations_model
+reciprocal_relations_model.base_model.type: sfnn
 
 # Using the practice of having no default values to detect errors in the config
 # code
@@ -81,36 +81,36 @@ sfnn:
 ax_search:
   num_trials: 50
   parameters:
-    - name: inverse_relations_model.base_model.entity_embedder.initialize
+    - name: reciprocal_relations_model.base_model.entity_embedder.initialize
       type: fixed
       value: uniform_
-    - name: inverse_relations_model.base_model.relation_embedder.initialize
+    - name: reciprocal_relations_model.base_model.relation_embedder.initialize
       type: fixed
       value: uniform_
     - name: train.optimizer_args.lr
       type: range
       bounds: [0.0, 1.0]
-    - name: inverse_relations_model.base_model.entity_embedder.dropout
+    - name: reciprocal_relations_model.base_model.entity_embedder.dropout
       type: range
       bounds: [0., .5]
-    - name: inverse_relations_model.base_model.relation_embedder.dropout
+    - name: reciprocal_relations_model.base_model.relation_embedder.dropout
       type: range
       bounds: [0., .5]
-    - name: inverse_relations_model.base_model.h1_dropout
+    - name: reciprocal_relations_model.base_model.h1_dropout
       type: range
       bounds: [0., .5]
-    - name: inverse_relations_model.base_model.h2_dropout
+    - name: reciprocal_relations_model.base_model.h2_dropout
       type: range
       bounds: [0., .5]
-    - name: inverse_relations_model.base_model.hidden_dim
+    - name: reciprocal_relations_model.base_model.hidden_dim
       values: [256, 512, 1024, 2048, 4096, 8192]
       type: choice
       is_numerical: True
-    - name: inverse_relations_model.base_model.entity_embedder.dim
+    - name: reciprocal_relations_model.base_model.entity_embedder.dim
       values: [128, 256, 512,]
       type: choice
       is_numerical: True
-    - name: inverse_relations_model.base_model.relation_embedder.dim
+    - name: reciprocal_relations_model.base_model.relation_embedder.dim
       values: [128, 256, 512,]
       type: choice
       is_numerical: True

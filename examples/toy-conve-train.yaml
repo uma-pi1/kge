@@ -1,7 +1,7 @@
 job.type: train
 dataset.name: toy
-model: inverse_relations_model
-inverse_relations_model.base_model.type: conve # redundant since also default
+model: reciprocal_relations_model
+reciprocal_relations_model.base_model.type: conve # redundant since also default
 lookup_embedder.dim: 90
 conve.round_dim: True
 lookup_embedder.initialize: xavier_normal_

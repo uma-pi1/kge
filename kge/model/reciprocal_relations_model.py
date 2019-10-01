@@ -3,11 +3,12 @@ from kge import Config, Dataset
 from kge.model.kge_model import KgeModel
 
 
-class InverseRelationsModel(KgeModel):
+class ReciprocalRelationsModel(KgeModel):
     """Modifies a base model to use different relation embeddings for predicting subject and object.
 
-    This implements the inverse relations training procedure of [TODO cite ConvE]. Note that this model
-    cannot be used to score a single triple, but only to rank sp* or *po questions.
+    This implements the reciprocal relations training procedure of [TODO cite ConvE].
+    Note that this model cannot be used to score a single triple, but only to rank sp*
+    or *po questions.
 
     """
 
@@ -50,7 +51,7 @@ class InverseRelationsModel(KgeModel):
         return super().penalty(**kwargs) + self._base_model.penalty(**kwargs)
 
     def score_spo(self, s, p, o):
-        raise Exception("The inverse relations model cannot compute spo scores.")
+        raise Exception("The reciprocal relations model cannot compute spo scores.")
 
     def score_po(self, p, o, s=None):
         if s is None:
