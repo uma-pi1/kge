@@ -284,34 +284,7 @@ class Config:
 
         # process deprecated options
         if allow_deprecated:
-            # renames given key (but not subkeys! this is NYI)
-            def rename_key(old_key, new_key):
-                if old_key in new_options:
-                    print(
-                        "Warning: key {} is deprecated; use {} instead".format(
-                            old_key, new_key
-                        )
-                    )
-                    if new_key in new_options:
-                        raise ValueError(
-                            "keys {} and {} must not both be set".format(
-                                old_key, new_key
-                            )
-                        )
-                    value = new_options[old_key]
-                    del new_options[old_key]
-                    new_options[new_key] = value
-
-            rename_key(
-                "eval.metrics_per_relation_type", "eval.metrics_per.relation_type"
-            )
-            rename_key(
-                "eval.metrics_per_head_and_tail", "eval.metrics_per.head_and_tail"
-            )
-            rename_key(
-                "eval.metric_per_argument_frequency_perc",
-                "eval.metrics_per.argument_frequency",
-            )
+            new_options = _process_deprecated_options(Config.flatten(new_options))
 
         # now set all options
         self.set_all(new_options, create, overwrite)
@@ -526,3 +499,52 @@ class Configurable:
         """
         self.config = config
         self.configuration_key = configuration_key
+
+
+def _process_deprecated_options(options):
+    # renames given key (but not subkeys!)
+    def rename_key(old_key, new_key):
+        if old_key in options:
+            print(
+                "Warning: key {} is deprecated; use {} instead".format(old_key, new_key)
+            )
+            if new_key in options:
+                raise ValueError(
+                    "keys {} and {} must not both be set".format(old_key, new_key)
+                )
+            value = options[old_key]
+            del options[old_key]
+            options[new_key] = value
+
+    # renames a value
+    def rename_value(key, old_value, new_value):
+        if key in options and options.get(key) == old_value:
+            print(
+                "Warning: {}={} is deprecated; use {} instead".format(
+                    key, old_value, new_value
+                )
+            )
+            options[key] = new_value
+
+    # renames a set of keys matching a regular expression
+    def rename_keys_re(key_regex, replacement):
+        import re
+        regex = re.compile(key_regex)
+        for old_key in options.keys():
+            new_key = regex.sub(replacement, old_key)
+            if old_key != new_key:
+                rename_key(old_key, new_key)
+
+    # 1.10.2019
+    rename_value("train.type", "1toN", "KvsAll")
+    rename_value("train.type", "spo", "1vsAll")
+    rename_keys_re(r"^1toN\.", "KvsAll.")
+
+    # 30.9.2019
+    rename_key("eval.metrics_per_relation_type", "eval.metrics_per.relation_type")
+    rename_key("eval.metrics_per_head_and_tail", "eval.metrics_per.head_and_tail")
+    rename_key(
+        "eval.metric_per_argument_frequency_perc", "eval.metrics_per.argument_frequency"
+    )
+
+    return options

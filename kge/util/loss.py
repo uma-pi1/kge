@@ -144,14 +144,14 @@ class MarginRankingKgeLoss(KgeLoss):
             target = torch.ones(positives.size()).to(self._device)
             return self._loss(positives, negatives, target)
 
-        elif self._train_type == "1toN":
-            # TODO determine how to form pairs for margin ranking in 1toN training
+        elif self._train_type == "KvsAll":
+            # TODO determine how to form pairs for margin ranking in KvsAll training
             # scores and labels are tensors of size (batch_size, num_entities)
             # Each row has 1s and 0s of a single sp or po tuple from training
             # How to combine them for pairs?
             # Each 1 with all 0s? Can memory handle this?
             raise NotImplementedError(
-                "Margin ranking with 1toN training not yet supported."
+                "Margin ranking with KvsAll training not yet supported."
             )
         else:
             raise ValueError("train.type for margin ranking.")

@@ -22,12 +22,12 @@ train:
     lr: 0.1
   pin_memory: false
   trace_level: epoch
-  type: 1toN
+  type: KvsAll
 
 checkpoint:
   every: 5
 
-1toN:
+KvsAll:
   label_smoothing: -1.0
 
 negative_sampling:
@@ -114,7 +114,7 @@ ax_search:
       values: [128, 256, 512,]
       type: choice
       is_numerical: True
-    - name: 1toN.label_smoothing
+    - name: KvsAll.label_smoothing
       type: range
       bounds: [-0.5 , 0.5]
     - name: lookup_embedder.regularize_args.weight

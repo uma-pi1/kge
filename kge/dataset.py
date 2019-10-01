@@ -125,7 +125,7 @@ class Dataset:
             meta[index] = value[1]
         return triples, meta
 
-    def index_1toN(self, split: str, sp_po: str):
+    def index_KvsAll(self, split: str, sp_po: str):
         """Return an index for the triples in split (''train'', ''valid'', ''test'')
         from the specified constituents (''sp'' or ''po'') to the indexes of the
         remaining constituent (''o'' or ''s'', respectively.)
@@ -213,8 +213,8 @@ class Dataset:
         """
         relation_stats = torch.zeros((self.num_relations, 6))
         for index, p in [
-            (self.index_1toN('train', 'sp'), 1),
-            (self.index_1toN('train', 'po'), 0),
+            (self.index_KvsAll('train', 'sp'), 1),
+            (self.index_KvsAll('train', 'po'), 0),
         ]:
             for prefix, labels in index.items():
                 relation_stats[prefix[p], 0+p*2] = labels.float().sum()

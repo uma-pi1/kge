@@ -92,12 +92,12 @@ class TrainingJob(Job):
 the dataset (if not present).
 
         """
-        if config.get("train.type") == "1toN":
-            return TrainingJob1toN(config, dataset, parent_job)
+        if config.get("train.type") == "KvsAll":
+            return TrainingJobKvsAll(config, dataset, parent_job)
         elif config.get("train.type") == "negative_sampling":
             return TrainingJobNegativeSamplingLegacy(config, dataset, parent_job)
-        elif config.get("train.type") == "spo":
-            return TrainingJobSpo(config, dataset, parent_job)
+        elif config.get("train.type") == "1vsAll":
+            return TrainingJob1vsAll(config, dataset, parent_job)
         else:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError("train.type")
@@ -455,11 +455,11 @@ the dataset (if not present).
         raise NotImplementedError
 
 
-class TrainingJob1toN(TrainingJob):
+class TrainingJobKvsAll(TrainingJob):
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
         self.label_smoothing = config.check_range(
-            "1toN.label_smoothing", float("-inf"), 1.0, max_inclusive=False
+            "KvsAll.label_smoothing", float("-inf"), 1.0, max_inclusive=False
         )
         if self.label_smoothing < 0:
             if config.get("train.auto_correct"):
@@ -494,16 +494,16 @@ class TrainingJob1toN(TrainingJob):
                 )
 
         config.log("Initializing 1-to-N training job...")
-        self.type_str = "1toN"
+        self.type_str = "KvsAll"
 
-        if self.__class__ == TrainingJob1toN:
+        if self.__class__ == TrainingJobKvsAll:
             for f in Job.job_created_hooks:
                 f(self)
 
     def _prepare(self):
         # create sp and po label_coords (if not done before)
-        train_sp = self.dataset.index_1toN("train", "sp")
-        train_po = self.dataset.index_1toN("train", "po")
+        train_sp = self.dataset.index_KvsAll("train", "sp")
+        train_po = self.dataset.index_KvsAll("train", "po")
 
         # convert indexes to pytoch tensors: a nx2 keys tensor (rows = keys),
         # an offset vector (row = starting offset in values for corresponding
@@ -639,7 +639,7 @@ class TrainingJob1toN(TrainingJob):
         return loss_value, batch_size, batch_prepare_time, batch_forward_time
 
 
-class TrainingJobNegativeSampling(TrainingJob1toN):
+class TrainingJobNegativeSampling(TrainingJobKvsAll):
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job=parent_job)
         self._sampler = KgeNegativeSampler.create(config, "negative_sampling", dataset)
@@ -1001,7 +1001,7 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
         return loss_value, batch_size, batch_prepare_time, batch_forward_time
 
 
-class TrainingJobSpo(TrainingJob):
+class TrainingJob1vsAll(TrainingJob):
     """Samples SPO pairs and queries sp* and *po, treating all other entities as negative.
 
     Currently only works with ce loss.
@@ -1011,9 +1011,9 @@ class TrainingJobSpo(TrainingJob):
         super().__init__(config, dataset, parent_job)
         self.is_prepared = False
         config.log("Initializing spo training job...")
-        self.type_str = "spo"
+        self.type_str = "1vsAll"
 
-        if self.__class__ == TrainingJobSpo:
+        if self.__class__ == TrainingJob1vsAll:
             for f in Job.job_created_hooks:
                 f(self)
 

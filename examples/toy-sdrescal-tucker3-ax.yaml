@@ -8,7 +8,7 @@ job:
 checkpoint:
   every: 5
 
-1toN:
+KvsAll:
   label_smoothing: -1.0
 
 train:
@@ -28,7 +28,7 @@ train:
     lr: 0.1
   pin_memory: false
   trace_level: epoch
-  type: 1toN
+  type: KvsAll
   auto_correct: True
 
 user:
@@ -102,7 +102,7 @@ ax_search:
     - name: sd_rescal_tucker3.relation_embedder.dropout
       type: range
       bounds: [-0.5, 0.5]
-    - name: 1toN.label_smoothing
+    - name: KvsAll.label_smoothing
       type: range
       bounds: [-0.3, 0.3]
     - name: lookup_embedder.regularize_args.weight

@@ -24,18 +24,18 @@ class EntityRankingJob(EvaluationJob):
             return
 
         # create indexes
-        self.train_sp = self.dataset.index_1toN("train", "sp")
-        self.train_po = self.dataset.index_1toN("train", "po")
-        self.valid_sp = self.dataset.index_1toN("valid", "sp")
-        self.valid_po = self.dataset.index_1toN("valid", "po")
+        self.train_sp = self.dataset.index_KvsAll("train", "sp")
+        self.train_po = self.dataset.index_KvsAll("train", "po")
+        self.valid_sp = self.dataset.index_KvsAll("valid", "sp")
+        self.valid_po = self.dataset.index_KvsAll("valid", "po")
 
         if self.eval_data == "test":
             self.triples = self.dataset.test
         else:
             self.triples = self.dataset.valid
         if self.eval_data == "test" or self.filter_valid_with_test:
-            self.test_sp = self.dataset.index_1toN("test", "sp")
-            self.test_po = self.dataset.index_1toN("test", "po")
+            self.test_sp = self.dataset.index_KvsAll("test", "sp")
+            self.test_po = self.dataset.index_KvsAll("test", "po")
 
         # and data loader
         self.loader = torch.utils.data.DataLoader(
