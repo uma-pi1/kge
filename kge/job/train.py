@@ -95,7 +95,7 @@ the dataset (if not present).
         if config.get("train.type") == "KvsAll":
             return TrainingJobKvsAll(config, dataset, parent_job)
         elif config.get("train.type") == "negative_sampling":
-            return TrainingJobNegativeSamplingLegacy(config, dataset, parent_job)
+            return TrainingJobNegativeSampling(config, dataset, parent_job)
         elif config.get("train.type") == "1vsAll":
             return TrainingJob1vsAll(config, dataset, parent_job)
         else:
@@ -639,154 +639,7 @@ class TrainingJobKvsAll(TrainingJob):
         return loss_value, batch_size, batch_prepare_time, batch_forward_time
 
 
-class TrainingJobNegativeSampling(TrainingJobKvsAll):
-    def __init__(self, config, dataset, parent_job=None):
-        super().__init__(config, dataset, parent_job=parent_job)
-        self._sampler = KgeNegativeSampler.create(config, "negative_sampling", dataset)
-        # if num_s < 0 set num_s to num_o
-        self._num_negatives_s = config.get("negative_sampling.num_negatives_s")
-        if self._num_negatives_s < 0:
-            if self._num_negatives_o > 0:
-                self._num_negatives_s = self._num_negatives_o
-            else:
-                self._num_negatives_s = 0
-
-        # if num_o < 0 set num_o to num_s
-        self._num_negatives_o = config.get("negative_sampling.num_negatives_o")
-        if self._num_negatives_o < 0:
-            if self._num_negatives_s > 0:
-                self._num_negatives_o = self._num_negatives_s
-            else:
-                self._num_negatives_o = 0
-        config.log("Sampling from 1-to-N ...")
-        self.type_str = "negative_sampling"
-
-        if self.__class__ == TrainingJobNegativeSampling:
-            for f in Job.job_created_hooks:
-                f(self)
-
-    def _compute_batch_loss(self, batch_index, batch):
-
-        # prepare
-        batch_prepare_time = -time.time()
-        sp_po_batch = batch["sp_po_batch"].to(self.device)
-        batch_size = len(sp_po_batch)
-        batch_label_coords = batch["label_coords"].to(self.device)
-        is_sp = batch["is_sp"]
-        sp_indexes = is_sp.nonzero().to(self.device).view(-1)
-        po_indexes = (is_sp == 0).nonzero().to(self.device).view(-1)
-
-        labels = kge.job.util.coord_to_sparse_tensor(
-            batch_size, self.dataset.num_entities, batch_label_coords, self.device
-        ).to_dense()
-
-        sp_label_coords = labels[sp_indexes].nonzero()
-        po_label_coords = labels[po_indexes].nonzero()
-
-        batch_prepare_time += time.time()
-
-        # forward pass
-        batch_forward_time = -time.time()
-        self.optimizer.zero_grad()
-
-        loss_value = torch.zeros(1, device=self.device)
-
-        for slot_num_negatives, voc_size, indexes, score_fn, label_coords in [
-            (
-                self._num_negatives_o,
-                self.dataset.num_entities,
-                sp_indexes,
-                self.model.score_sp,
-                sp_label_coords,
-            ),
-            (
-                self._num_negatives_s,
-                self.dataset.num_entities,
-                po_indexes,
-                self.model.score_po,
-                po_label_coords,
-            ),
-        ]:
-
-            # Example
-            #
-            # Given the following coords
-            #
-            #  torch.tensor(
-            #     [
-            #         [1., 10.],
-            #         [1., 11.],
-            #         [2., 12.],
-            #     ]
-            # )
-            #
-            # if we want 4 negative samples we flatten and repeat them
-            #
-            # tensor([[ 1., 10.,  1., 10.,  1., 10.,  1., 10.,  1., 10.],
-            #         [ 1., 11.,  1., 11.,  1., 11.,  1., 11.,  1., 11.],
-            #         [ 2., 12.,  2., 12.,  2., 12.,  2., 12.,  2., 12.]])
-            #
-            # then overwrite the true ids beginning in column 3 with sampled
-            # ids (instead of sample we use 99 for simplicity in this example)
-            #
-            # label_coords_pick = [
-            #   [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2],
-            #   [3, 5, 7, 9, 3, 5, 7, 9, 3, 5, 7, 9]
-            # ]
-            #
-            # repeated[label_coords_pick[0], label_coords_pick[1],] = 99
-            #
-            # tensor([[ 1., 10.,  1., 99.,  1., 99.,  1., 99.,  1., 99.],
-            #         [ 1., 11.,  1., 99.,  1., 99.,  1., 99.,  1., 99.],
-            #         [ 2., 12.,  2., 99.,  2., 99.,  2., 99.,  2., 99.]])
-            #
-            # reshaped
-            #
-            # tensor([[ 1., 10.],
-            #         [ 1., 99.],
-            #         [ 1., 99.],
-            #         [ 1., 99.],
-            #         [ 1., 99.],
-            #         [ 1., 11.],
-            #         [ 1., 99.],
-            #         ....
-            #
-            # TODO: filter positive instances from negative samples or handle in MR
-            # TODO: change such that other samplers than uniform can be used
-
-            if len(indexes) > 0:
-                slot_scores = score_fn(sp_po_batch[indexes, 0], sp_po_batch[indexes, 1])
-                label_coords_pick = label_coords.repeat(1, 1 + slot_num_negatives)
-
-                label_coords_pick[
-                    torch.arange(0, label_coords.size(0))
-                    .repeat(slot_num_negatives, 1)
-                    .t()
-                    .contiguous()
-                    .view(-1),
-                    torch.arange(3, (slot_num_negatives + 1) * 2, 2)
-                    .repeat(label_coords.size(0), 1)
-                    .view(-1),
-                ] = torch.randint(
-                    self.dataset.num_entities,
-                    (slot_num_negatives * label_coords.size(0),),
-                    device=self.device,
-                )
-
-                label_coords_pick = label_coords_pick.view(-1, 2)
-
-                loss_value = loss_value + self.loss(
-                    slot_scores[label_coords_pick[:, 0], label_coords_pick[:, 1]],
-                    labels[indexes][label_coords_pick[:, 0], label_coords_pick[:, 1]],
-                    num_negatives=slot_num_negatives,
-                )
-
-        batch_forward_time += time.time()
-
-        return loss_value, batch_size, batch_prepare_time, batch_forward_time
-
-
-class TrainingJobNegativeSamplingLegacy(TrainingJob):
+class TrainingJobNegativeSampling(TrainingJob):
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
         self._sampler = KgeNegativeSampler.create(config, "negative_sampling", dataset)
@@ -805,7 +658,7 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
         )
         self.type_str = "negative_sampling"
 
-        if self.__class__ == TrainingJobNegativeSamplingLegacy:
+        if self.__class__ == TrainingJobNegativeSampling:
             for f in Job.job_created_hooks:
                 f(self)
 
@@ -832,11 +685,9 @@ class TrainingJobNegativeSamplingLegacy(TrainingJob):
         def collate(batch):
             """For a batch of size n, returns a tuple of:
 
-            - triples (tensor of shape [n * (1 + num_negatives), 3], ),
-            - ...
-
-            where num_negatives = num_negatives_s + num_negatives_p + num_negatives_o
-
+            - triples (tensor of shape [n,3], ),
+            - negative_samples (list of tensors of shape [n,num_negatives]; 3 elements
+              in order S,P,O)
             """
 
             triples = self.dataset.train[batch, :].long()
