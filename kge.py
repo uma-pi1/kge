@@ -3,12 +3,11 @@ import datetime
 import argparse
 import os
 import yaml
-import torch
 
 from kge import Dataset
 from kge import Config
 from kge.job import Job
-from kge.util.misc import get_git_revision_short_hash, kge_base_dir, which, is_number
+from kge.util.misc import get_git_revision_short_hash, kge_base_dir, is_number
 
 
 def argparse_bool_type(v):
@@ -210,9 +209,18 @@ if __name__ == "__main__":
     config.log(yaml.dump(config.options), prefix="  ")
     config.log("git commit: {}".format(get_git_revision_short_hash()), prefix="  ")
 
+    # set random seeds
+    if config.get("random_seed.python") > -1:
+        import random
+        random.seed(config.get("random_seed.python"))
     if config.get("random_seed.torch") > -1:
+        import torch
         torch.manual_seed(config.get("random_seed.torch"))
+    if config.get("random_seed.numpy") > -1:
+        import numpy.random
+        numpy.random.seed(config.get("random_seed.numpy"))
 
+    # let's go
     if args.command == "start" and not args.run:
         config.log("Job created successfully.")
     else:

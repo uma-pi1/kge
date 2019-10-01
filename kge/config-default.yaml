@@ -4,8 +4,10 @@ job:
   # Main device to use for this job (e.g., 'cpu', 'cuda', 'cuda:0')
   device: 'cuda'  
 
-# set random seeds for reproducability
+# Random seeds for (increased) reproducability. Use -1 to use default (random)
+# seed.
 random_seed:
+  python: -1
   torch: -1
   numpy: -1
 
