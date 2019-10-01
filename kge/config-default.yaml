@@ -52,42 +52,71 @@ model: ''
 
 # Options of training jobs (job.type=="train")
 train:
-  ## Type of training job.
-  ## - KvsAll: scores each unique sp/po pair along with all possible objectes/subjects.
-  ## - negative_sampling: scores each unique spo triple along with sampled corrupted
-  ##   triples
-  ## - 1vsAll: scores each spo triples against the complete set of s/p-corrputed triples
-  ##   (all treated negative)
+  # Type of training job.
+  # - KvsAll: scores each unique sp/po pair along with all possible objectes/subjects.
+  # - negative_sampling: scores each unique spo triple along with sampled corrupted
+  #   triples
+  # - 1vsAll: scores each spo triples against the complete set of s/p-corrputed triples
+  #   (all treated negative)
   type: KvsAll
 
-
-  ## Loss used for training. Not all combination of losses and job types are allowed.
-  ## - bce: binary cross entropy after taking logits (KvsAll, ns, spo)
-  ## - margin_ranking (ns)
-  ## - kl: KL divergence after taking softmax (KvsAll)
-  ## - ce: cross entropy after taking softmax (spo)
+  # Loss used for training. Not all combination of losses and job types are supported.
+  # - bce: binary cross entropy after taking logits (KvsAll, negative_sampling, 1vsAll)
+  # - margin_ranking (negative_sampling)
+  # - kl: KL divergence after taking softmax (KvsAll)
+  # - ce: cross entropy after taking softmax (spo)
   loss: bce
 
   ## Argument of loss function (if any)
   ## - margin_ranking: the margin to use
   loss_arg: 1.0
 
+  # Maximum number of epochs used for training
   max_epochs: 20
-  optimizer: Adagrad          # sgd, adagrad, adam
+
+  # Batch size used for training.
+  batch_size: 100
+
+  # Number of workers used to construct batches. Leave at 0 for default.
+  num_workers: 0
+
+  # Optimizer used for training.
+  optimizer: Adagrad           # sgd, adagrad, adam
+
+  # Additional arguments for the optimizer. Arbitrary key-value pairs can be
+  # added here and will be passed along to the optimizer. E.g., use entry lr:0.1
+  # to set the learning rate to 0.1.
   optimizer_args:
-    # No default arguments are specified. Here, +++ signals that this option
-    # allows arbitrary additional key-value pairs.
     +++: +++
-  lr_scheduler: ConstantLRScheduler # schdulers from torch.optim.lr_scheduler such as ReduceLROnPlateau
+
+  # Learning rate scheduler to use. Any scheduler from torch.optim.lr_scheduler
+  # can be used (e.g., ConstantLRScheduler or ReduceLROnPlateau).
+  lr_scheduler: ConstantLRScheduler #
+
+  # Additional arguments for the scheduler.
   lr_scheduler_args:
     +++: +++
-  batch_size: 100
-  num_workers: 0
+
+  # When to write entries to the trace file.
+  trace_level: epoch           # batch, epoch
+
+  # When to create checkpoints
+  checkpoint:
+    # In addition the the checkpoint of the last epoch (which is transient),
+    # create an additional checkpoint every this many epochs. Disable additional
+    # checkpoints with 0.
+    every: 5
+
+    # Keep this many most recent additional checkpoints.
+    keep: 3
+
+  # Other options
   pin_memory: False
-  trace_level: epoch          # batch or epoch
-  auto_correct: False         # True: allows for trainer to adjust certain setting, False: throws exception
+  auto_correct: False         # True: allows for trainer to adjust certain settings, False: throw exception
   visualize_graph: False      # create PDF of compute graph (of first batch of first epoch)
 
+
+# Options for KvsAll training (train.type=="KvsAll)
 KvsAll:
   # Amount of label smoothing (disabled when 0). Disencourages models to
   # perform extreme predictions (0 or 1).
@@ -100,6 +129,7 @@ KvsAll:
   # ( https://github.com/TimDettmers/ConvE/blob/853d7010a4b569c3d24c9e6eeaf9dc3535d78832/main.py#L156) with a default value of 0.1.
   label_smoothing: 0.0
 
+# Options for negative sampling training (train.type=="negative_sampling")
 negative_sampling:
   sampling_type: uniform
   num_negatives_s: 3          # this is default value if others are -1, must not be -1
@@ -108,15 +138,16 @@ negative_sampling:
   filter_true_s: False        # default is not filtering
   filter_true_p: False
   filter_true_o: False
+
   # set to spo (for small negative samples), sp_po (for large negative samples),
   # or set to auto which sets spo or sp_po automatically if the
-  # max(num_negatives_s, num_negatives_p, num_negatives_o) > 30, only recommended
-  # for models which compute sp_po with an inner product (not TransE, f.ex.).
+  # max(num_negatives_s, num_negatives_p, num_negatives_o) > 30. Recommended for
+  # models which compute sp_po with an inner product, but not for all other
+  # models (e.g., not for TransE in the current implementation).
   score_func_type: spo
 
 
 ## VALIDATION ##################################################################
-
 
 # Configuration options for model validation/selection during training.
 valid:
@@ -161,23 +192,15 @@ valid:
   filter_with_test: False
 
 
-checkpoint:
-  # In addition the the checkpoint of the last epoch (which is transient),
-  # create an additional checkpoint every this many epochs. Disable additional
-  # checkpoints with 0.
-  every: 5
-
-  # Keep this many most recent additional checkpoints.
-  keep: 3
-
 ## EVALUATION ##################################################################
-## Used for evaluation jobs.
 
-# fixed metrics: compute MRR and specified HITS@k's
+# Options of evaluation jobs (job.type=="eval"). Also used during validation
+# when training. Right now, evaluation jobs compute a fixed set of metrics: the
+# MRR and the specified HITS@k's.
 eval:
   data: valid
   type: entity_ranking
-  hits_at_k_s: [1, 3, 10, 50, 100, 200, 300, 400, 500, 1000]     # k for HITS@k
+  hits_at_k_s: [1, 3, 10, 50, 100, 200, 300, 400, 500, 1000]     # ks for HITS@k
   batch_size: 100
   num_workers: 0
   pin_memory: False
@@ -190,8 +213,10 @@ eval:
     head_and_tail: False          # head, tail
     argument_frequency: False     # 25%, 50%, 75%, top quantiles per argument
 
+
 ## HYPERPARAMETER SEARCH #######################################################
 
+# Options of hyperparameter search jobs (job.type=="search").
 search:
   # The type of search to run (see descriptions below). Possible values: manual,
   # grid, ax
@@ -236,10 +261,12 @@ grid_search:
 
 # Dynamic search job that picks configurations using ax
 ax_search:
-  # Total number of trials to run
+  # Total number of trials to run. Can be increased when a search job is
+  # resumed.
   num_trials: 10
 
-  # Number of sobol trials to run (-1: automatic); remaining trials are GP+EI
+  # Number of sobol trials to run (-1: automatic); remaining trials are GP+EI.
+  # If equal or larger than num_trials, only Sobal trials will be run.
   num_sobol_trials: -1
 
   # Search space definition passed to ax. See create_experiment in
@@ -270,6 +297,7 @@ ax_search:
   #      value: 100
 
   fixed_parameters: []
+
 
 ## USER PARAMETERS #####################################################################
 

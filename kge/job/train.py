@@ -105,8 +105,8 @@ the dataset (if not present).
     def run(self):
         """Start/resume the training job and run to completion."""
         self.config.log("Starting training...")
-        checkpoint_every = self.config.get("checkpoint.every")
-        checkpoint_keep = self.config.get("checkpoint.keep")
+        checkpoint_every = self.config.get("train.checkpoint.every")
+        checkpoint_keep = self.config.get("train.checkpoint.keep")
         metric_name = self.config.get("valid.metric")
         patience = self.config.get("valid.early_stopping.patience")
         while True:

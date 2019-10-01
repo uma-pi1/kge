@@ -539,6 +539,8 @@ def _process_deprecated_options(options):
     rename_value("train.type", "1toN", "KvsAll")
     rename_value("train.type", "spo", "1vsAll")
     rename_keys_re(r"^1toN\.", "KvsAll.")
+    rename_key("checkpoint.every", "train.checkpoint.every")
+    rename_key("checkpoint.keep", "train.checkpoint.keep")
 
     # 30.9.2019
     rename_key("eval.metrics_per_relation_type", "eval.metrics_per.relation_type")
