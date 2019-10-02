@@ -195,7 +195,6 @@ if __name__ == "__main__":
         from kge.util.visualize import initialize_visualization
         initialize_visualization(config, args.command)
 
-
     # initialize output folder
     if args.command == "start":
         if args.folder is None:  # means: set default

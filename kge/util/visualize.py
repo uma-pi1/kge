@@ -121,13 +121,18 @@ class VisualizationHandler():
         epoch = trace_entry.get("epoch")
         if epoch:
             entry_type = None
+            scope = None
             if type(trace_entry["job"]) == list:
-                # TODO: probably there is a flaw with this:
-                #  what if train entries with same keys but differnt scopes (e. g. scope=batch vs scope=train??)
-                #  are grouped together here. Ok well then at least you would see it in in the graph. e. g. it would look weird.
                 entry_type = trace_entry["job"][0]
+                assert(sum(np.array(trace_entry["job"]) != entry_type) == 0)
+                scope = trace_entry["scope"][0]
+                assert(sum(np.array(trace_entry["scope"]) != scope) == 0)
             else:
                 entry_type = trace_entry["job"]
+                scope = trace_entry["scope"]
+            # catch and ignore 'example' or 'batch' scopes for now
+            if scope == "example" or scope == "batch":
+                return
             include_patterns = []
             if entry_type == "train":
                 include_patterns = self.include_train
@@ -200,17 +205,17 @@ class VisualizationHandler():
         for parent_job in os.listdir(path):
             parent_trace = path + parent_job + "/trace.yaml"
             first_entry = None
-            if os.path.isfile(parent_trace):
-                with open(parent_trace, "r") as file:
-                    raw = file.readline()
-                    first_entry = yaml.safe_load(raw)
+            config = path + parent_job + "/config.yaml"
+            if os.path.isfile(parent_trace) and os.path.isfile(config):
+                with open(config, "r") as conf:
+                    config = yaml.load(conf, Loader=yaml.SafeLoader)
                 # pure training job
-                if first_entry["job"] == "train":
+                if config["job"]["type"] == "train":
                     handler.path = path + parent_job
                     handler.post_process_trace(parent_trace, "train", "train")
-                elif first_entry["job"] == "search":
+                elif config["job"]["type"] == "search":
                     subjobs = []
-                    # go through the files in the the parent job folder and collect the child training jobs
+                    # go through the files in the parent job folder and collect the child training jobs
                     #TODO use filter here or a list comprehension
                     for file in os.listdir(path + "/" + parent_job):
                         child_folder = path + parent_job + "/" + file
@@ -281,7 +286,7 @@ class VisdomHandler(VisualizationHandler):
                     win = key + "_all"
                 )
     def _process_search_trace_entry(self, trace_entry):
-        # this only works for grouped trace entries
+        # this only works for grouped trace entries, which is fine as it is only used in post processing
         x = None
         names = None
         if "train" in trace_entry["scope"]:
@@ -332,7 +337,6 @@ class VisdomHandler(VisualizationHandler):
             )
     def _visualize_config(self, env):
         self.writer.text(yaml.dump(self.config).replace("\n", "<br>").replace("  ", "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"), env=env)
-
 
     def _track_progress(self, key, value, env):
         """ Updates the overall progress plot of a key over multiple train jobs in a search job."""
@@ -465,39 +469,37 @@ class VisdomHandler(VisualizationHandler):
         from os.path import dirname, abspath
         import sys, time
         import signal
-        import argparse
         import atexit
+        import socket
 
-        # DEFAULT_PORT = 8080
-        # DEFAULT_HOSTNAME = "http://localhost"
-        # parser = argparse.ArgumentParser(description='Demo arguments')
-        # parser.add_argument('-port', metavar='port', type=int, default=DEFAULT_PORT,
-        #                     help='port the visdom server is running on.')
-        # parser.add_argument('-server', metavar='server', type=str,
-        #                     default=DEFAULT_HOSTNAME,
-        #                     help='Server address of the target to run the demo on.')
-        # parser.add_argument('-base_url', metavar='base_url', type=str,
-        #                     default='/',
-        #                     help='Base Url.')
-        # parser.add_argument('-username', metavar='username', type=str,
-        #                     default='',
-        #                     help='username.')
-        # parser.add_argument('-password', metavar='password', type=str,
-        #                     default='',
-        #                     help='password.')
-        # parser.add_argument('-use_incoming_socket', metavar='use_incoming_socket', type=bool,
-        #                     default=True,
-        #                     help='use_incoming_socket.')
-        # FLAGS = parser.parse_args()
-        PATH = sys.base_exec_prefix + '/bin/' + 'visdom'
-        envpath = dirname(dirname(dirname(abspath(__file__)))) + "/local/visdomenv"
-        process = subprocess.Popen([PATH + " -env_path=" + envpath], shell=True)
-        time.sleep(1)
-        # kill server when everyone's done
-        server_pid = process.pid
-        def kill_server():
-            os.kill(server_pid, signal.SIGTERM)
-        atexit.register(kill_server)
+        DEFAULT_PORT = 8097 #must not be changend atm
+        DEFAULT_HOSTNAME = "http://localhost"
+
+        # clean up server in case it's running
+        # otherwise start the server
+        try:
+            s = socket.socket()
+            s.connect((DEFAULT_HOSTNAME.replace("http://", ""), DEFAULT_PORT))
+            s.close()
+            vis = visdom.Visdom()
+            for env in vis.get_env_list():
+                vis.delete_env(env)
+        except:
+            PATH = sys.base_exec_prefix + '/bin/' + 'visdom'
+            envpath = dirname(dirname(dirname(abspath(__file__)))) + "/local/visdomenv"
+            # run server
+            process = subprocess.Popen(
+                [PATH + " -env_path=" + envpath + " --hostname=" + DEFAULT_HOSTNAME + " -port=" + DEFAULT_PORT],
+                shell=True
+            )
+            time.sleep(1)
+            # kill server when everyone's done
+            server_pid = process.pid
+            def kill_server():
+                if server_pid:
+                    os.kill(server_pid, signal.SIGTERM)
+            atexit.register(kill_server)
+
 
 def initialize_visualization(config, command):
 
@@ -521,17 +523,11 @@ def initialize_visualization(config, command):
             module=config.get("visualize.module"),
             tracking="post"
         )
-
     else:
+
         VisualizationHandler.register_broadcast(
             module=vis_config["module"],
             include_train=vis_config["include_train"],
             include_eval=vis_config["include_eval"],
             tracking="broadcast"
         )
-
-
-
-
-
-
