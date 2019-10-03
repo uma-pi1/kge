@@ -192,6 +192,7 @@ if __name__ == "__main__":
                 config._import(value)
 
     if args.command == "visualize" or config.get("visualize.broadcast.enable"):
+        config.load(args.config)
         from kge.util.visualize import initialize_visualization
         initialize_visualization(config, args.command)
 

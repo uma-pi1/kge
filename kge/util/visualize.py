@@ -8,7 +8,7 @@ import json
 import copy
 from collections import defaultdict
 import numpy as np
-import visdom
+
 
 class VisualizationHandler():
     """ Base class for broadcasting and post-processing base functionalities for visdom and tensorboard.
@@ -27,13 +27,12 @@ class VisualizationHandler():
                  tracking=None,
                  include_train=None,
                  include_eval=None,
-                 jobconfig=None,
-                 session_data={}):
+                 session_data={}
+    ):
         self.writer = writer
         self.tracking = tracking
         self.include_train = include_train
         self.include_eval = include_eval
-        self.jobconfig = jobconfig
         # session data can be used to cache any kind of data that is needed during a visualization session
         # during broadcasting this can be best valid.metric during post processing this can be metadata for envs etc.
         self.session_data = session_data
@@ -43,6 +42,8 @@ class VisualizationHandler():
     def create_handler(cls, **kwargs):
         if kwargs["module"] == "visdom":
             return VisdomHandler.create(**kwargs)
+        elif kwargs["module"] == "tensorboard":
+            return TensorboardHandler.create(**kwargs)
 
     def _visualize_train_item(self, key, value, epoch, tracetype, jobtype):
         raise NotImplementedError
@@ -53,7 +54,7 @@ class VisualizationHandler():
     def _process_search_trace_entry(self, trace_entry):
         raise NotImplementedError
 
-    def post_process_trace(self, tracefile, tracetype, jobtype):
+    def post_process_trace(self, tracefile, tracetype, jobtype, subjobs=None, **kwargs):
         raise NotImplementedError
 
     def _visualize_config(self):
@@ -80,7 +81,7 @@ class VisualizationHandler():
         # group traces into dics with {key: list[values]}
         # grouped_entries contains for every distinct trace entry type (train,eval, metadata..)
         # a dic where the keys are the original keys and the values are lists of the original values
-        # with that for every plot, server interaction only takes place once
+        # with that for every plot, server interaction only takes place once; entry validity is checked later
         grouped_entries = []
 
         with open(tracefile, "r") as file:
@@ -124,9 +125,8 @@ class VisualizationHandler():
             scope = None
             if type(trace_entry["job"]) == list:
                 entry_type = trace_entry["job"][0]
-                assert(sum(np.array(trace_entry["job"]) != entry_type) == 0)
+                #assert(sum(np.array(trace_entry["job"]) != entry_type) == 0)
                 scope = trace_entry["scope"][0]
-                assert(sum(np.array(trace_entry["scope"]) != scope) == 0)
             else:
                 entry_type = trace_entry["job"]
                 scope = trace_entry["scope"]
@@ -137,9 +137,14 @@ class VisualizationHandler():
             if entry_type == "train":
                 include_patterns = self.include_train
                 visualize = self._visualize_train_item
+                scope = trace_entry["scope"][0]
+                #assert (sum(np.array(trace_entry["scope"]) != scope) == 0)
             elif entry_type == "eval" and tracetype == "train":
                 include_patterns = self.include_eval
                 visualize = self._visualize_eval_item
+                scope = trace_entry["scope"][0]
+                #assert (sum(np.array(trace_entry["scope"]) != scope) == 0)
+            # grouped entries with different scopes are allowed to pass through here
             elif tracetype == "search":
                 self._process_search_trace_entry(trace_entry)
                 return
@@ -225,8 +230,7 @@ class VisualizationHandler():
                                 subjobs.append(child_folder)
                     handler.path = path + parent_job
                     handler.post_process_trace(parent_trace, "search", "search", subjobs)
-
-        input("waiting for callback")
+        input("Post processing finished.")
 
 class VisdomHandler(VisualizationHandler):
     def __init__(
@@ -237,10 +241,9 @@ class VisdomHandler(VisualizationHandler):
             include_eval=None,
             path=None,
             config=None,
-            jobconfig=None,
             session_data={}):
 
-        super().__init__(writer, path, tracking, include_train, include_eval, jobconfig, session_data)
+        super().__init__(writer, path, tracking, include_train, include_eval, session_data)
         self.config = config
 
     @classmethod
@@ -254,7 +257,6 @@ class VisdomHandler(VisualizationHandler):
             path=kwargs.get("path"),
             config=kwargs.get("config"),
             session_data=kwargs.get("session_data"),
-            jobconfig=kwargs.get("jobconfig")
         )
 
     def _visualize_train_item(self, key, value, epoch, tracetype, jobtype):
@@ -283,8 +285,9 @@ class VisdomHandler(VisualizationHandler):
                     name=env.split("_")[-1],
                     title=key + "_all",
                     legend=[env.split("_")[-1]],
-                    win = key + "_all"
+                    win=key + "_all"
                 )
+
     def _process_search_trace_entry(self, trace_entry):
         # this only works for grouped trace entries, which is fine as it is only used in post processing
         x = None
@@ -297,7 +300,6 @@ class VisdomHandler(VisualizationHandler):
                 X=x,
                 env=self.extract_summary_envname(envname=self.get_env_from_path("search","search"),jobtype="search"),
                 opts={"legend":list(names), "title": valid_metric_name + "_best"}
-
             )
 
     def _visualize_item(self, key, value, x, env, name=None , win=None, update="append", title=None, **kwargs):
@@ -335,6 +337,7 @@ class VisdomHandler(VisualizationHandler):
                 name=name,
                 update=update
             )
+
     def _visualize_config(self, env):
         self.writer.text(yaml.dump(self.config).replace("\n", "<br>").replace("  ", "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"), env=env)
 
@@ -430,8 +433,8 @@ class VisdomHandler(VisualizationHandler):
             return parts[-1]
 
     def extract_window_name(self, env, key):
-        # TODO I initially had "key + "_" + env" but then windows overlapped somehow in compare envs
-        #  monitor if having the same window name for a title over environemnts leads to problems, but it should not
+        # initially this was "key + "_" + env" but then windows overlapped somehow in the 'compare envs' functionality
+        # seems fine to have same window names over multiple environments
         return key
 
     def _get_opts(self, title, **kwargs):
@@ -473,23 +476,25 @@ class VisdomHandler(VisualizationHandler):
         import socket
 
         DEFAULT_PORT = 8097 #must not be changend atm
-        DEFAULT_HOSTNAME = "http://localhost"
+        DEFAULT_HOSTNAME = "localhost"
 
         # clean up server in case it's running
         # otherwise start the server
         try:
             s = socket.socket()
-            s.connect((DEFAULT_HOSTNAME.replace("http://", ""), DEFAULT_PORT))
+            s.connect((DEFAULT_HOSTNAME, DEFAULT_PORT))
             s.close()
             vis = visdom.Visdom()
             for env in vis.get_env_list():
                 vis.delete_env(env)
         except:
             PATH = sys.base_exec_prefix + '/bin/' + 'visdom'
-            envpath = dirname(dirname(dirname(abspath(__file__)))) + "/local/visdomenv"
+            envpath = kge_base_dir() + "/local/visualize/visdomenvs"
             # run server
+            # TODO instead of using the path to the binary you can also just use
+            #  subproc.Popen("visdom -bla") Idk if there are pro's and con's; schould be the same
             process = subprocess.Popen(
-                [PATH + " -env_path=" + envpath + " --hostname=" + DEFAULT_HOSTNAME + " -port=" + DEFAULT_PORT],
+                [PATH + " -env_path=" + envpath + " --hostname=" + DEFAULT_HOSTNAME + " -port=" + str(DEFAULT_PORT)],
                 shell=True
             )
             time.sleep(1)
@@ -501,33 +506,112 @@ class VisdomHandler(VisualizationHandler):
             atexit.register(kill_server)
 
 
+class TensorboardHandler(VisualizationHandler):
+    def __init__(
+            self,
+            writer,
+            tracking=None,
+            include_train=None,
+            include_eval=None,
+            path=None,
+            config=None,
+            session_data={},
+    ):
+
+        super().__init__(writer, path, tracking, include_train, include_eval, session_data)
+        self.config = config
+        self.writer_path = kge_base_dir() + "/local/visualize/tensorboard/"
+
+    @classmethod
+    def create(cls, **kwargs):
+        writer = tensorboard.SummaryWriter()
+        return TensorboardHandler(
+            writer,
+            tracking=kwargs.get("tracking"),
+            include_train=kwargs.get("include_train"),
+            include_eval=kwargs.get("include_eval"),
+            path=kwargs.get("path"),
+            config=kwargs.get("config"),
+            session_data=kwargs.get("session_data"),
+        )
+
+    def post_process_trace(self, tracefile, tracetype, jobtype, subjobs=None, **kwargs):
+        if jobtype == "train":
+            event_path = self.writer_path + self.path.split("/")[-1]
+            self.writer.log_dir = event_path
+            # tensorboard can only visualize event files from disk
+            # if this job has been processed already, no need to do it again
+            if os.path.isdir(event_path) and len(os.listdir(event_path)) != 0:
+                return
+            self.process_trace(tracefile, tracetype, jobtype)
+            self.writer.close()
+        elif jobtype == "search":
+            for subjob_path in subjobs:
+                event_path = self.writer_path + subjob_path.split("/")[-2] + "/" + subjob_path.split("/")[-1]
+                self.writer.log_dir = event_path
+                if os.path.isdir(event_path) and len(os.listdir(event_path)) != 0:
+                    continue
+                self.process_trace(subjob_path + "/" + "trace.yaml", "train", "search")
+                self.writer.close()
+
+    def _visualize_train_item(self, key, value, epoch, tracetype, jobtype):
+        if len(value)>1:
+            idx = 0
+            # TODO apparantly tensorboard cannot handle lists?
+            for val in value:
+                self.writer.add_scalar(key, val, epoch[idx])
+                idx += 1
+
+    def _visualize_eval_item(self, key, value, epoch, tracetype, jobtype):
+        if len(value)>1:
+            idx = 0
+            # TODO apparantly tensorboard cannot handle lists?
+            for val in value:
+                self.writer.add_scalar(key, val, epoch[idx])
+                idx += 1
+    @classmethod
+    def run_server(cls):
+        import subprocess
+        import time
+        import atexit
+        import signal
+
+        logdir = kge_base_dir() + "/local/visualize/tensorboard"
+        process = subprocess.Popen(
+            ["tensorboard --logdir={}".format(logdir)],
+            shell=True
+        )
+        time.sleep(1)
+        # kill server when everyone's done
+        # as long as tensorboard is not supported in broadcasting this handling is sufficient
+        server_pid = process.pid
+        def kill_server():
+            if server_pid:
+                os.kill(server_pid, signal.SIGTERM)
+        atexit.register(kill_server)
+
 def initialize_visualization(config, command):
 
-    #TODO parameter to be obtained from the config
-    vis_config = {
-        "include_train" : ["avg_loss", "avg_cost", "avg_penalty", "forward_time", "epoch_time"],
-        "include_eval":["rank"],
-        "tracking" :"broadcast",
-        "module":"visdom"
-    }
     if config.get("visualize.module") == "visdom":
+        global visdom
+        import visdom
         VisdomHandler.run_server()
-    else:  # tensorboard
-        pass
+    elif config.get("visualize.module") == "tensorboard":
+        global tensorboard
+        from torch.utils import tensorboard
+        TensorboardHandler.run_server()
 
     if command == "visualize":
-
         VisualizationHandler.post_process_jobs(
-            include_train=vis_config["include_train"],
-            include_eval=vis_config["include_eval"],
+            include_train=config.get("visualize.include_train"),
+            include_eval=config.get("visualize.include_eval"),
             module=config.get("visualize.module"),
             tracking="post"
         )
     else:
-
         VisualizationHandler.register_broadcast(
-            module=vis_config["module"],
-            include_train=vis_config["include_train"],
-            include_eval=vis_config["include_eval"],
+            module=config.get("visualize.module"),
+            include_train=config.get("visualize.include_train"),
+            include_eval=config.get("visualize.include_eval"),
             tracking="broadcast"
         )
