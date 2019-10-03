@@ -350,10 +350,23 @@ ax_search:
 
 visualize:
   module: visdom #visdom, tensorboard
-  broadcast:
-    enable: False
+  # metrics to be visualized in post/broadcast
   include_train: ["avg_loss", "avg_cost", "avg_penalty", "forward_time", "epoch_time"]
   include_eval: ["rank"]
+  # set broadcast.enable=True for broadcasting training/search data of an execution of the kge framework
+  # broadcast is only supported with visdom
+  broadcast:
+    enable: False
+  # post processing can be performed with running "python kge.py visualize visualize-options.yaml"
+  post:
+    # folders in local/experiments/ to be visualized; leave empty for all
+    # suggested for visdom: leave empty; for tensorboard: select specific
+    folders: []
+    # embeddings currently only supported in tensorboard
+    embeddings: False
+
+
+
 
 ## USER PARAMETERS #####################################################################
 

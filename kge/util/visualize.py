@@ -1,6 +1,7 @@
 from kge.job.trace import Trace
 from kge.job import Job, TrainingJob, SearchJob, Trace
 from kge.util.misc import kge_base_dir
+from kge.model.kge_model import KgeModel
 import os
 import yaml
 import re
@@ -11,13 +12,10 @@ import numpy as np
 
 
 class VisualizationHandler():
-    """ Base class for broadcasting and post-processing base functionalities for visdom and tensorboard.
+    """ Base class for broadcasting and post-processing that contains base functionalities for visdom and tensorboard.
 
-    Subclasses implement create(), _visualize_train_item() _visualize_eval_item(), _process_search_trace_entry(),
-    post_process_trace()
-     
-     :param type: "jobtrain", "search", "eval
-     :param tracking: "broadcast" or "post" (for post processing the tracefiles..)
+    Subclasses implement create(), _visualize_train_item() _visualize_eval_item(), post_process_trace()
+
      """
 
     #TODO refactor "tracking" to maybe "session_type"
@@ -60,15 +58,6 @@ class VisualizationHandler():
     def _visualize_config(self):
         raise NotImplementedError
 
-    def _add_config(self):
-        """ Loads config."""
-        config = self.path + "/" + "config.yaml"
-        if os.path.isfile(config):
-            with open(config, "r") as file:
-                self.config = yaml.load(file, Loader=yaml.SafeLoader)
-        else:
-            raise Exception("Could not find config.yaml in path.")
-
     def process_trace(self, tracefile, tracetype, jobtype):
         """ Takes a trace file and processes it.
 
@@ -109,7 +98,6 @@ class VisualizationHandler():
         for entry in grouped_entries:
             self._process_trace_entry(entry, tracetype, jobtype)
 
-
     def _process_trace_entry(self, trace_entry, tracetype, jobtype):
         """ Process some trace entry.
 
@@ -124,9 +112,11 @@ class VisualizationHandler():
             entry_type = None
             scope = None
             if type(trace_entry["job"]) == list:
-                entry_type = trace_entry["job"][0]
-                #assert(sum(np.array(trace_entry["job"]) != entry_type) == 0)
                 scope = trace_entry["scope"][0]
+                entry_type = trace_entry["job"][0]
+                assert(sum(np.array(trace_entry["job"]) != entry_type) == 0)
+                if tracetype == "train":
+                    assert (sum(np.array(trace_entry["scope"]) != scope) == 0)
             else:
                 entry_type = trace_entry["job"]
                 scope = trace_entry["scope"]
@@ -138,12 +128,10 @@ class VisualizationHandler():
                 include_patterns = self.include_train
                 visualize = self._visualize_train_item
                 scope = trace_entry["scope"][0]
-                #assert (sum(np.array(trace_entry["scope"]) != scope) == 0)
             elif entry_type == "eval" and tracetype == "train":
                 include_patterns = self.include_eval
                 visualize = self._visualize_eval_item
                 scope = trace_entry["scope"][0]
-                #assert (sum(np.array(trace_entry["scope"]) != scope) == 0)
             # grouped entries with different scopes are allowed to pass through here
             elif tracetype == "search":
                 self._process_search_trace_entry(trace_entry)
@@ -195,6 +183,15 @@ class VisualizationHandler():
 
         Job.job_created_hooks.append(init_hooks)
 
+    def _add_config(self):
+        """ Loads config."""
+        config = self.path + "/" + "config.yaml"
+        if os.path.isfile(config):
+            with open(config, "r") as file:
+                self.config = yaml.load(file, Loader=yaml.SafeLoader)
+        else:
+            raise Exception("Could not find config.yaml in path.")
+
     @classmethod
     def post_process_jobs(cls, **kwargs):
         """ Scans all the executed jobs in local/experiments and allows submodule to deal with them as they please. """
@@ -208,6 +205,8 @@ class VisualizationHandler():
             include_eval=kwargs["include_eval"],
         )
         for parent_job in os.listdir(path):
+            if parent_job not in kwargs["folders"] and not len(kwargs["folders"]) == 0:
+                continue
             parent_trace = path + parent_job + "/trace.yaml"
             first_entry = None
             config = path + parent_job + "/config.yaml"
@@ -217,7 +216,7 @@ class VisualizationHandler():
                 # pure training job
                 if config["job"]["type"] == "train":
                     handler.path = path + parent_job
-                    handler.post_process_trace(parent_trace, "train", "train")
+                    handler.post_process_trace(parent_trace, "train", "train", **kwargs)
                 elif config["job"]["type"] == "search":
                     subjobs = []
                     # go through the files in the parent job folder and collect the child training jobs
@@ -229,8 +228,9 @@ class VisualizationHandler():
                            and "trace.yaml" in os.listdir(child_folder):
                                 subjobs.append(child_folder)
                     handler.path = path + parent_job
-                    handler.post_process_trace(parent_trace, "search", "search", subjobs)
+                    handler.post_process_trace(parent_trace, "search", "search", subjobs, **kwargs)
         input("Post processing finished.")
+
 
 class VisdomHandler(VisualizationHandler):
     def __init__(
@@ -468,8 +468,6 @@ class VisdomHandler(VisualizationHandler):
     @classmethod
     def run_server(cls):
         import subprocess
-        from threading import Event
-        from os.path import dirname, abspath
         import sys, time
         import signal
         import atexit
@@ -491,10 +489,8 @@ class VisdomHandler(VisualizationHandler):
             PATH = sys.base_exec_prefix + '/bin/' + 'visdom'
             envpath = kge_base_dir() + "/local/visualize/visdomenvs"
             # run server
-            # TODO instead of using the path to the binary you can also just use
-            #  subproc.Popen("visdom -bla") Idk if there are pro's and con's; schould be the same
             process = subprocess.Popen(
-                [PATH + " -env_path=" + envpath + " --hostname=" + DEFAULT_HOSTNAME + " -port=" + str(DEFAULT_PORT)],
+                ["visdom" + " -env_path=" + envpath + " --hostname=" + DEFAULT_HOSTNAME + " -port=" + str(DEFAULT_PORT)],
                 shell=True
             )
             time.sleep(1)
@@ -524,7 +520,7 @@ class TensorboardHandler(VisualizationHandler):
 
     @classmethod
     def create(cls, **kwargs):
-        writer = tensorboard.SummaryWriter()
+        writer = tensorboard.SummaryWriter(kge_base_dir() + "/local/visualize/tensorboard_remove/")
         return TensorboardHandler(
             writer,
             tracking=kwargs.get("tracking"),
@@ -535,24 +531,51 @@ class TensorboardHandler(VisualizationHandler):
             session_data=kwargs.get("session_data"),
         )
 
+    def _add_embeddings(self, path):
+        checkpoint = self._get_checkpoint_path(path)
+        # TODO: adjust for inverse_relations model
+        # TODO: for conve even loading the checkpoint fails
+        if checkpoint:
+            model = KgeModel.load_from_checkpoint(checkpoint)
+            self.writer.add_embedding(
+                mat=model.get_s_embedder().embed_all(),
+                metadata=model.dataset.entities,
+                tag="Entity embeddings"
+            )
+            self.writer.add_embedding(
+                mat=model.get_p_embedder().embed_all(),
+                metadata=model.dataset.relations,
+                tag="Relation embeddings"
+            )
+            del model
+
+    def _get_checkpoint_path(self, path):
+        if "checkpoint_best.pt" in os.listdir(path):
+            return path + "/" + "checkpoint_best.pt"
+
     def post_process_trace(self, tracefile, tracetype, jobtype, subjobs=None, **kwargs):
-        if jobtype == "train":
-            event_path = self.writer_path + self.path.split("/")[-1]
-            self.writer.log_dir = event_path
-            # tensorboard can only visualize event files from disk
-            # if this job has been processed already, no need to do it again
-            if os.path.isdir(event_path) and len(os.listdir(event_path)) != 0:
-                return
-            self.process_trace(tracefile, tracetype, jobtype)
             self.writer.close()
-        elif jobtype == "search":
-            for subjob_path in subjobs:
-                event_path = self.writer_path + subjob_path.split("/")[-2] + "/" + subjob_path.split("/")[-1]
+            if jobtype == "train":
+                event_path = self.writer_path + self.path.split("/")[-1]
                 self.writer.log_dir = event_path
+                # tensorboard can only visualize event files from disk
+                # if this job has been processed already, no need to do it again
                 if os.path.isdir(event_path) and len(os.listdir(event_path)) != 0:
-                    continue
-                self.process_trace(subjob_path + "/" + "trace.yaml", "train", "search")
+                    return
+                self.process_trace(tracefile, tracetype, jobtype)
+                if kwargs["embeddings"]:
+                    self._add_embeddings(self.path)
                 self.writer.close()
+            elif jobtype == "search":
+                for subjob_path in subjobs:
+                    event_path = self.writer_path + subjob_path.split("/")[-2] + "/" + subjob_path.split("/")[-1]
+                    self.writer.log_dir = event_path
+                    if os.path.isdir(event_path) and len(os.listdir(event_path)) != 0:
+                        continue
+                    self.process_trace(subjob_path + "/" + "trace.yaml", "train", "search")
+                    if kwargs["embeddings"]:
+                        self._add_embeddings(subjob_path)
+                    self.writer.close()
 
     def _visualize_train_item(self, key, value, epoch, tracetype, jobtype):
         if len(value)>1:
@@ -569,14 +592,24 @@ class TensorboardHandler(VisualizationHandler):
             for val in value:
                 self.writer.add_scalar(key, val, epoch[idx])
                 idx += 1
+
     @classmethod
-    def run_server(cls):
+    def run_server(cls, **kwargs):
         import subprocess
         import time
         import atexit
         import signal
+        import shutil
 
+        # clean up log_dir from previous visualization; keep folders that are needed
         logdir = kge_base_dir() + "/local/visualize/tensorboard"
+        if len(kwargs["folders"]) != 0:
+            if os.path.isdir(logdir):
+                for folder in os.listdir(logdir):
+                    if folder not in kwargs["folders"]:
+                        if os.path.isdir(logdir + "/" + folder):
+                            shutil.rmtree(logdir + "/" + folder)
+
         process = subprocess.Popen(
             ["tensorboard --logdir={}".format(logdir)],
             shell=True
@@ -599,14 +632,17 @@ def initialize_visualization(config, command):
     elif config.get("visualize.module") == "tensorboard":
         global tensorboard
         from torch.utils import tensorboard
-        TensorboardHandler.run_server()
+        TensorboardHandler.run_server(folders=config.get("visualize.post.folders"))
+        config.check("visualize.broadcast.enable", [False])
 
     if command == "visualize":
         VisualizationHandler.post_process_jobs(
             include_train=config.get("visualize.include_train"),
             include_eval=config.get("visualize.include_eval"),
             module=config.get("visualize.module"),
-            tracking="post"
+            tracking="post",
+            folders=config.get("visualize.post.folders"),
+            embeddings=config.get("visualize.post.embeddings")
         )
     else:
         VisualizationHandler.register_broadcast(
