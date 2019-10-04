@@ -280,7 +280,7 @@ class VisdomHandler(VisualizationHandler):
             self._visualize_item(key, value, epoch, env=env)
         elif jobtype == "search" and tracetype == "train":
             self._visualize_item(key, value, epoch, env=env)
-            if key == self.session_data["valid_metric_name"]:
+            if key == self.session_data["valid_metric_name"] + " (eval)":
                 if self.tracking == "broadcast":
                     # progress plot
                     self._track_progress(key, value, env)
@@ -291,9 +291,9 @@ class VisdomHandler(VisualizationHandler):
                     epoch,
                     env=self.extract_summary_envname(env),
                     name=env.split("_")[-1],
-                    title=key + "_all",
+                    title="all_" + key,
                     legend=[env.split("_")[-1]],
-                    win=key + "_all"
+                    win="all_" + key
                 )
 
     def _process_search_trace_entry(self, trace_entry):
