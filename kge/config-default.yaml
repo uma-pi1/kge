@@ -349,23 +349,32 @@ ax_search:
   fixed_parameters: []
 
 visualize:
-  module: visdom #visdom, tensorboard
+  #visdom, tensorboard
+  module: visdom
+
   # metrics to be visualized in post/broadcast
+  # leave empty to select all metrics in the trace (can be slow; when windows overlap press the repack button or scroll)
+  # currently, values that are not float or int types will be ignored
   include_train: ["avg_loss", "avg_cost", "avg_penalty", "forward_time", "epoch_time"]
   include_eval: ["rank"]
-  # set broadcast.enable=True for broadcasting training/search data of an execution of the kge framework
-  # broadcast is only supported with visdom
+
+  # set True; only needed for debugging
+  surpress_server_output: True
+
+  # set broadcast.enable=True for broadcasting training/search data of an execution
+  # of the kge framework. Broadcast is only supported with module:visdom
   broadcast:
     enable: False
-  # post processing can be performed with running "python kge.py visualize visualize-options.yaml"
+
+  # post execution visualizations of the jobs can be obtained with running:
+  # "python kge.py visualize visualize-options.yaml"
   post:
     # folders in local/experiments/ to be visualized; leave empty for all
     # suggested for visdom: leave empty; for tensorboard: select specific
     folders: []
-    # embeddings currently only supported in tensorboard
+
+    # embeddings currently only supported with module:tensorboard
     embeddings: False
-
-
 
 
 ## USER PARAMETERS #####################################################################

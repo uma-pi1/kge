@@ -79,6 +79,10 @@ def create_parser(config, additional_args=[]):
     parser_create = subparsers.add_parser(
         "create", help="Create a new job (but do not run it)", parents=[parser_conf]
     )
+
+    parser_visualize = subparsers.add_parser("visualize", parents=[parser_conf])
+    parser_visualize.add_argument("config", type=str, nargs="?")
+
     for p in [parser_start, parser_create]:
         p.add_argument("config", type=str, nargs="?")
         p.add_argument("--folder", "-f", type=str, help="Output folder to use")
@@ -88,9 +92,6 @@ def create_parser(config, additional_args=[]):
             type=argparse_bool_type,
             help="Whether to immediately run the created job",
         )
-
-    parser_visualize = subparsers.add_parser("visualize", parents=[parser_conf])
-
     # resume and its meta-commands
     parser_resume = subparsers.add_parser(
         "resume", help="Resume a prior job", parents=[parser_conf]
@@ -108,7 +109,7 @@ def create_parser(config, additional_args=[]):
         help="Evaluate the result of a prior job using test data",
         parents=[parser_conf],
     )
-    for p in [parser_resume, parser_eval, parser_valid, parser_test, parser_visualize]:
+    for p in [parser_resume, parser_eval, parser_valid, parser_test]:
         p.add_argument("config", type=str)
         p.add_argument(
             "--checkpoint",
@@ -175,6 +176,11 @@ if __name__ == "__main__":
                 "{} is not a valid config file for resuming".format(args.config)
             )
 
+    if args.command == "visualize":
+        if args.config is None:
+            args.config = kge_base_dir() + "/examples/visualize-options.yaml"
+        config.load(args.config)
+
     # overwrite configuration with command line arguments
     for key, value in vars(args).items():
         if key in ["command", "config", "run", "folder", "checkpoint"]:
@@ -192,7 +198,6 @@ if __name__ == "__main__":
                 config._import(value)
 
     if args.command == "visualize" or config.get("visualize.broadcast.enable"):
-        config.load(args.config)
         from kge.util.visualize import initialize_visualization
         initialize_visualization(config, args.command)
 
@@ -226,6 +231,11 @@ if __name__ == "__main__":
             # otherwise, treat it as a filename
             checkpoint_file = args.checkpoint
 
+    # log configuration
+    config.log("Configuration:")
+    config.log(yaml.dump(config.options), prefix="  ")
+    config.log("git commit: {}".format(get_git_revision_short_hash()), prefix="  ")
+
     # set random seeds
     if config.get("random_seed.python") > -1:
         import random
@@ -237,16 +247,13 @@ if __name__ == "__main__":
         import numpy.random
         numpy.random.seed(config.get("random_seed.numpy"))
 
-    # log configuration
-    config.log("Configuration:")
-    config.log(yaml.dump(config.options), prefix="  ")
-    config.log("git commit: {}".format(get_git_revision_short_hash()), prefix="  ")
-
+    # let's go
     if args.command == "start" and not args.run:
         config.log("Job created successfully.")
     else:
         # load data
         dataset = Dataset.load(config)
+
         # let's go
         job = Job.create(config, dataset)
         if args.command == "resume":

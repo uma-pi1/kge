@@ -1,12 +1,12 @@
 visualize:
-  module: tensorboard
+  module: visdom
   broadcast:
     enable: False
   include_train: ["avg_loss", "avg_cost", "avg_penalty", "forward_time", "epoch_time"]
   include_eval: ["rank"]
+  #include_train: []
+  #include_eval: []
   post:
-    #folders: ["20191002-163137-toy-complex-train", "20191002-161353-toy-complex-train", "20191002-061135-toy-complex-train"]
-    #folders: ["20191002-154636-toy-complex-ax", "20191002-084900-toy-complex-train"]
-    folders: ["20191003-192516-toy-rt3-train", "20191002-161353-toy-complex-train"]
-    #folders: []
-    embeddings: True
+    folders: []
+    #folders: ["20191002-154636-toy-complex-ax", "20191002-163137-toy-complex-train", "20191002-161353-toy-complex-train", "20191002-061135-toy-complex-train"]
+    embeddings: False

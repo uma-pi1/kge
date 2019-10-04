@@ -11,10 +11,12 @@ from collections import defaultdict
 import numpy as np
 
 
-class VisualizationHandler():
-    """ Base class for broadcasting and post-processing that contains base functionalities for visdom and tensorboard.
+class VisualizationHandler:
+    """ Base class for broadcasting and post-processing that contains base functionalities for interacting with data
+    produced by the kge framework.
 
-    Subclasses implement create(), _visualize_train_item() _visualize_eval_item(), post_process_trace()
+    Subclasses implement create(), _visualize_train_item() _visualize_eval_item(), post_process_trace() (and optionally
+    _process_search_trace_entry())
 
      """
 
@@ -72,7 +74,6 @@ class VisualizationHandler():
         # a dic where the keys are the original keys and the values are lists of the original values
         # with that for every plot, server interaction only takes place once; entry validity is checked later
         grouped_entries = []
-
         with open(tracefile, "r") as file:
             raw = file.readline()
             while(raw):
@@ -126,10 +127,14 @@ class VisualizationHandler():
             include_patterns = []
             if entry_type == "train":
                 include_patterns = self.include_train
+                if len(include_patterns) == 0:
+                    include_patterns = [""]
                 visualize = self._visualize_train_item
                 scope = trace_entry["scope"][0]
             elif entry_type == "eval" and tracetype == "train":
                 include_patterns = self.include_eval
+                if len(include_patterns) == 0:
+                    include_patterns = [""]
                 visualize = self._visualize_eval_item
                 scope = trace_entry["scope"][0]
             # grouped entries with different scopes are allowed to pass through here
@@ -184,6 +189,7 @@ class VisualizationHandler():
         Job.job_created_hooks.append(init_hooks)
 
     def _add_config(self):
+        # TODO use the kge config module
         """ Loads config."""
         config = self.path + "/" + "config.yaml"
         if os.path.isfile(config):
@@ -261,6 +267,7 @@ class VisdomHandler(VisualizationHandler):
 
     def _visualize_train_item(self, key, value, epoch, tracetype, jobtype):
         env = self.get_env_from_path(tracetype, jobtype)
+        key = key + " (train)"
         if jobtype == "train":
             self._visualize_item(key, value, epoch, env=env)
         elif jobtype == "search":
@@ -268,6 +275,7 @@ class VisdomHandler(VisualizationHandler):
 
     def _visualize_eval_item(self, key, value, epoch, tracetype, jobtype):
         env = self.get_env_from_path(tracetype, jobtype)
+        key = key + " (eval)"
         if jobtype == "train":
             self._visualize_item(key, value, epoch, env=env)
         elif jobtype == "search" and tracetype == "train":
@@ -311,12 +319,18 @@ class VisdomHandler(VisualizationHandler):
             title = key
         x_ = None
         val = None
-        if type([x][0]) == list:
+        if type(x) == list:
             x_ = x
             val = value
         else:
             x_ = [x]
             val = [value]
+
+        # skip datatypes that cannot be handled at the moment to prevent errors
+        if type(value[0]) == list:
+            return
+        elif type(value[0]) == str:
+            return
 
         if not self.writer.win_exists(win, env):
             self.writer.env = env
@@ -466,40 +480,46 @@ class VisdomHandler(VisualizationHandler):
         return opts
 
     @classmethod
-    def run_server(cls):
+    def run_server(cls, config, **kwargs):
         import subprocess
         import sys, time
         import signal
         import atexit
         import socket
 
+        envpath = kge_base_dir() + "/local/visualize/visdomenvs"
+        if not os.path.isdir(envpath):
+            os.mkdir(envpath)
+
         DEFAULT_PORT = 8097 #must not be changend atm
         DEFAULT_HOSTNAME = "localhost"
 
-        # clean up server in case it's running
-        # otherwise start the server
-        try:
-            s = socket.socket()
-            s.connect((DEFAULT_HOSTNAME, DEFAULT_PORT))
-            s.close()
-            vis = visdom.Visdom()
-            for env in vis.get_env_list():
-                vis.delete_env(env)
-        except:
-            PATH = sys.base_exec_prefix + '/bin/' + 'visdom'
-            envpath = kge_base_dir() + "/local/visualize/visdomenvs"
-            # run server
-            process = subprocess.Popen(
-                ["visdom" + " -env_path=" + envpath + " --hostname=" + DEFAULT_HOSTNAME + " -port=" + str(DEFAULT_PORT)],
-                shell=True
-            )
-            time.sleep(1)
-            # kill server when everyone's done
-            server_pid = process.pid
-            def kill_server():
-                if server_pid:
-                    os.kill(server_pid, signal.SIGTERM)
-            atexit.register(kill_server)
+        # restart the server if it is running to not mix up data from different sessions
+        subprocess.Popen(
+            ["pkill visdom"],
+            shell=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT
+        )
+        stdout = None
+        stderr = None
+        if config.get("visualize.surpress_server_output"):
+            stdout, stderr = subprocess.DEVNULL, subprocess.STDOUT
+        # run server
+        process = subprocess.Popen(
+            ["visdom" + " -env_path=" + envpath + " --hostname=" + DEFAULT_HOSTNAME + " -port=" + str(DEFAULT_PORT)],
+            shell=True,
+            stdout=stdout,
+            stderr=stderr
+        )
+        time.sleep(1)
+        print("Visdom running on http://{}:{}".format(DEFAULT_HOSTNAME, DEFAULT_PORT))
+        # kill server when everyone's done
+        server_pid = process.pid
+        def kill_server():
+            if server_pid:
+                os.kill(server_pid, signal.SIGTERM)
+        atexit.register(kill_server)
 
 
 class TensorboardHandler(VisualizationHandler):
@@ -533,8 +553,8 @@ class TensorboardHandler(VisualizationHandler):
 
     def _add_embeddings(self, path):
         checkpoint = self._get_checkpoint_path(path)
-        # TODO: adjust for inverse_relations model
-        # TODO: for conve even loading the checkpoint fails
+        # TODO: adjust for inverse_relations model conve
+        # TODO: for conve even loading the checkpoint fails?
         if checkpoint:
             model = KgeModel.load_from_checkpoint(checkpoint)
             self.writer.add_embedding(
@@ -558,10 +578,6 @@ class TensorboardHandler(VisualizationHandler):
             if jobtype == "train":
                 event_path = self.writer_path + self.path.split("/")[-1]
                 self.writer.log_dir = event_path
-                # tensorboard can only visualize event files from disk
-                # if this job has been processed already, no need to do it again
-                if os.path.isdir(event_path) and len(os.listdir(event_path)) != 0:
-                    return
                 self.process_trace(tracefile, tracetype, jobtype)
                 if kwargs["embeddings"]:
                     self._add_embeddings(self.path)
@@ -570,14 +586,18 @@ class TensorboardHandler(VisualizationHandler):
                 for subjob_path in subjobs:
                     event_path = self.writer_path + subjob_path.split("/")[-2] + "/" + subjob_path.split("/")[-1]
                     self.writer.log_dir = event_path
-                    if os.path.isdir(event_path) and len(os.listdir(event_path)) != 0:
-                        continue
                     self.process_trace(subjob_path + "/" + "trace.yaml", "train", "search")
                     if kwargs["embeddings"]:
                         self._add_embeddings(subjob_path)
                     self.writer.close()
 
     def _visualize_train_item(self, key, value, epoch, tracetype, jobtype):
+        key = key + " (train)"
+        # skip datatypes that cannot be handled
+        if type(value[0]) == list:
+            return
+        elif type(value[0]) == str:
+            return
         if len(value)>1:
             idx = 0
             # TODO apparantly tensorboard cannot handle lists?
@@ -586,6 +606,12 @@ class TensorboardHandler(VisualizationHandler):
                 idx += 1
 
     def _visualize_eval_item(self, key, value, epoch, tracetype, jobtype):
+        key = key + " (eval)"
+        # skip datatypes that cannot be handled
+        if type(value[0]) == list:
+            return
+        elif type(value[0]) == str:
+            return
         if len(value)>1:
             idx = 0
             # TODO apparantly tensorboard cannot handle lists?
@@ -594,29 +620,45 @@ class TensorboardHandler(VisualizationHandler):
                 idx += 1
 
     @classmethod
-    def run_server(cls, **kwargs):
+    def run_server(cls, config, **kwargs):
         import subprocess
         import time
         import atexit
         import signal
         import shutil
 
-        # clean up log_dir from previous visualization; keep folders that are needed
+        folders = config.get("visualize.post.folders")
+        # clean up log_dir from previous visualization
         logdir = kge_base_dir() + "/local/visualize/tensorboard"
-        if len(kwargs["folders"]) != 0:
+        if len(folders) != 0:
             if os.path.isdir(logdir):
                 for folder in os.listdir(logdir):
-                    if folder not in kwargs["folders"]:
-                        if os.path.isdir(logdir + "/" + folder):
-                            shutil.rmtree(logdir + "/" + folder)
+                    shutil.rmtree(logdir + "/" + folder)
 
+        DEFAULT_PORT = 6006  # set to different port than the visdom port
+        DEFAULT_HOSTNAME = "localhost"
+
+        # restart the server if it is running to not mix up data from different sessions
+        subprocess.Popen(
+            ["pkill tensorboard"],
+            shell=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT
+        )
+        stdout = None
+        stderr = None
+        if config.get("visualize.surpress_server_output"):
+            stdout, stderr = subprocess.DEVNULL, subprocess.STDOUT
+        # run server
         process = subprocess.Popen(
-            ["tensorboard --logdir={}".format(logdir)],
-            shell=True
+            ["tensorboard --logdir={} --port={} --host={}".format(logdir, DEFAULT_PORT, DEFAULT_HOSTNAME)],
+            shell=True,
+            stdout=stdout,
+            stderr=stderr
         )
         time.sleep(1)
+        print("Tensorboard running on http://{}:{}".format(DEFAULT_HOSTNAME, DEFAULT_PORT))
         # kill server when everyone's done
-        # as long as tensorboard is not supported in broadcasting this handling is sufficient
         server_pid = process.pid
         def kill_server():
             if server_pid:
@@ -628,13 +670,12 @@ def initialize_visualization(config, command):
     if config.get("visualize.module") == "visdom":
         global visdom
         import visdom
-        VisdomHandler.run_server()
+        VisdomHandler.run_server(config)
     elif config.get("visualize.module") == "tensorboard":
         global tensorboard
         from torch.utils import tensorboard
-        TensorboardHandler.run_server(folders=config.get("visualize.post.folders"))
+        TensorboardHandler.run_server(config)
         config.check("visualize.broadcast.enable", [False])
-
     if command == "visualize":
         VisualizationHandler.post_process_jobs(
             include_train=config.get("visualize.include_train"),
