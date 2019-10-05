@@ -630,10 +630,9 @@ class TensorboardHandler(VisualizationHandler):
         folders = config.get("visualize.post.folders")
         # clean up log_dir from previous visualization
         logdir = kge_base_dir() + "/local/visualize/tensorboard"
-        if len(folders) != 0:
-            if os.path.isdir(logdir):
-                for folder in os.listdir(logdir):
-                    shutil.rmtree(logdir + "/" + folder)
+        if os.path.isdir(logdir):
+            for folder in os.listdir(logdir):
+                shutil.rmtree(logdir + "/" + folder)
 
         DEFAULT_PORT = 6006  # set to different port than the visdom port
         DEFAULT_HOSTNAME = "localhost"
