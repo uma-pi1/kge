@@ -145,7 +145,7 @@ if __name__ == "__main__":
     if args.command == "start":
         # use toy config file if no config given
         if args.config is None:
-            args.config = "examples/toy.yaml"
+            args.config = kge_base_dir() + "/" + "examples/toy-complex-train.yaml"
             print("WARNING: No configuration specified; using " + args.config)
 
         print("Loading configuration {}...".format(args.config))
