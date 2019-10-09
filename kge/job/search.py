@@ -32,6 +32,8 @@ class SearchJob(Job):
         else:
             self.process_pool = None  # marks that we run in single process
 
+        self.config.check_range("valid.every", 1, config.get("train.max_epochs"))
+
         if self.__class__ == SearchJob:
             for f in Job.job_created_hooks:
                 f(self)
