@@ -125,3 +125,10 @@ class ConvE(KgeModel):
             ConvEScorer(config, dataset, self.configuration_key),
             configuration_key=self.configuration_key,
         )
+        # UNDO hack
+        self.set_option(
+            "entity_embedder.dim", self.get_option("entity_embedder.dim") - 1
+        )
+        self.set_option(
+            "relation_embedder.dim", self.get_option("relation_embedder.dim") - 1
+        )
