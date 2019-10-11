@@ -87,7 +87,7 @@ class EvaluationJob(Job):
         training_job.resume(checkpoint_file)
         self.model = training_job.model
         self.epoch = training_job.epoch
-        self.resumed_from_job = training_job.resumed_from_job
+        self.resumed_from_job_id = training_job.resumed_from_job
 
 
 ## HISTOGRAM COMPUTATION ################################################################

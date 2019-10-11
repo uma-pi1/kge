@@ -348,7 +348,7 @@ class Config:
 
     def trace(
         self, echo=False, echo_prefix="", echo_flow=False, log=False, **kwargs
-    ) -> dict:
+    ) -> Dict[str,Any]:
         """Write a set of key-value pairs to the trace file.
 
         The pairs are written as a single-line YAML record. Optionally, also

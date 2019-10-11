@@ -6,11 +6,12 @@ import time
 import torch
 import torch.utils.data
 
-from kge import Dataset
+from kge import Config, Dataset
 from kge.job import Job
 from kge.model import KgeModel
 
 from kge.util import KgeLoss, KgeOptimizer, KgeNegativeSampler, KgeLRScheduler
+from typing import Any, Callable, Dict, List
 import kge.job.util
 
 SLOTS = [0, 1, 2]
@@ -27,18 +28,20 @@ class TrainingJob(Job):
 
     """
 
-    def __init__(self, config, dataset, parent_job=None):
+    def __init__(
+        self, config: Config, dataset: Dataset, parent_job: Job = None
+    ) -> None:
         from kge.job import EvaluationJob
 
         super().__init__(config, dataset, parent_job)
-        self.model = KgeModel.create(config, dataset)
+        self.model: KgeModel = KgeModel.create(config, dataset)
         self.optimizer = KgeOptimizer.create(config, self.model)
         self.lr_scheduler, self.metric_based_scheduler = KgeLRScheduler.create(
             config, self.optimizer
         )
         self.loss = KgeLoss.create(config)
-        self.batch_size = config.get("train.batch_size")
-        self.device = self.config.get("job.device")
+        self.batch_size: int = config.get("train.batch_size")
+        self.device: str = self.config.get("job.device")
         valid_conf = config.clone()
         valid_conf.set("job.type", "eval")
         valid_conf.set("eval.data", "valid")
@@ -47,51 +50,50 @@ class TrainingJob(Job):
             valid_conf, dataset, parent_job=self, model=self.model
         )
         self.config.check("train.trace_level", ["batch", "epoch"])
-        self.trace_batch = self.config.get("train.trace_level") == "batch"
-        self.epoch = 0
-        self.valid_trace = []
+        self.trace_batch: bool = self.config.get("train.trace_level") == "batch"
+        self.epoch: int = 0
+        self.valid_trace: List[Dict[str, Any]] = []
         self.is_prepared = False
         self.model.train()
 
         # attributes filled in by implementing classes
         self.loader = None
         self.num_examples = None
-        self.type_str = None
+        self.type_str: Optional[str] = None
 
         #: Hooks run after training for an epoch.
         #: Signature: job, trace_entry
-        self.post_epoch_hooks = []
+        self.post_epoch_hooks: List[Callable[[Job, Dict[str, Any]]]] = []
 
         #: Hooks run before starting a batch.
         #: Signature: job
-        self.pre_batch_hooks = []
+        self.pre_batch_hooks: List[Callable[[Job]]] = []
 
         #: Hooks run before outputting the trace of a batch. Can modify trace entry.
         #: Signature: job, trace_entry
-        self.post_batch_trace_hooks = []
+        self.post_batch_trace_hooks: List[Callable[[Job, Dict[str, Any]]]] = []
 
         #: Hooks run before outputting the trace of an epoch. Can modify trace entry.
         #: Signature: job, trace_entry
-        self.post_epoch_trace_hooks = []
+        self.post_epoch_trace_hooks: List[Callable[[Job, Dict[str, Any]]]] = []
 
         #: Hooks run after a validation job.
         #: Signature: job, trace_entry
-        self.post_valid_hooks = []
+        self.post_valid_hooks: List[Callable[[Job, Dict[str, Any]]]] = []
 
         #: Hooks run after training
         #: Signature: job, trace_entry
-        self.post_train_hooks = []
+        self.post_train_hooks: List[Callable[[Job, Dict[str, Any]]]] = []
 
         if self.__class__ == TrainingJob:
             for f in Job.job_created_hooks:
                 f(self)
 
     @staticmethod
-    def create(config, dataset, parent_job=None):
-        """Factory method to create a training job and add necessary label_coords to
-the dataset (if not present).
-
-        """
+    def create(
+        config: Config, dataset: Dataset, parent_job: Job = None
+    ) -> "TrainingJob":
+        """Factory method to create a training job."""
         if config.get("train.type") == "KvsAll":
             return TrainingJobKvsAll(config, dataset, parent_job)
         elif config.get("train.type") == "negative_sampling":
@@ -102,7 +104,7 @@ the dataset (if not present).
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError("train.type")
 
-    def run(self):
+    def run(self) -> None:
         """Start/resume the training job and run to completion."""
         self.config.log("Starting training...")
         checkpoint_every = self.config.get("train.checkpoint.every")
@@ -198,7 +200,9 @@ the dataset (if not present).
                         self.epoch - 1 - checkpoint_every * checkpoint_keep
                     )
                 if delete_checkpoint_epoch > 0:
-                    if os.path.exists(self.config.checkpoint_file(delete_checkpoint_epoch)):
+                    if os.path.exists(
+                        self.config.checkpoint_file(delete_checkpoint_epoch)
+                    ):
                         self.config.log(
                             "Removing old checkpoint {}...".format(
                                 self.config.checkpoint_file(delete_checkpoint_epoch)
@@ -215,7 +219,7 @@ the dataset (if not present).
         for f in self.post_train_hooks:
             f(self, trace_entry)
 
-    def save(self, filename):
+    def save(self, filename) -> None:
         """Save current state to specified file"""
         self.config.log("Saving checkpoint to {}...".format(filename))
         torch.save(
@@ -230,7 +234,7 @@ the dataset (if not present).
             filename,
         )
 
-    def load(self, filename):
+    def load(self, filename: str) -> str:
         """Load job state from specified file.
 
         Returns job id of the job that created the checkpoint."""
@@ -248,23 +252,23 @@ the dataset (if not present).
         self.model.train()
         return checkpoint.get("job_id")
 
-    def resume(self, checkpoint_file=None):
+    def resume(self, checkpoint_file: str = None) -> None:
         if checkpoint_file is None:
             last_checkpoint = self.config.last_checkpoint()
             if last_checkpoint is not None:
                 checkpoint_file = self.config.checkpoint_file(last_checkpoint)
 
         if checkpoint_file is not None:
-            self.resumed_from_job = self.load(checkpoint_file)
+            self.resumed_from_job_id = self.load(checkpoint_file)
             self.config.log(
                 "Resumed from {} of job {}".format(
-                    checkpoint_file, self.resumed_from_job
+                    checkpoint_file, self.resumed_from_job_id
                 )
             )
         else:
             self.config.log("No checkpoint found, starting from scratch...")
 
-    def run_epoch(self) -> dict:
+    def run_epoch(self) -> Dict[str, Any]:
         "Runs an epoch and returns a trace entry."
 
         # prepare the job is not done already
