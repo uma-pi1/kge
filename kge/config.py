@@ -1,11 +1,14 @@
-from enum import Enum
 import collections
 import copy
 import datetime
 import os
 import time
-import yaml
 import uuid
+from enum import Enum
+
+import yaml
+from typing import Any, Dict, List, Optional
+
 from kge.util.misc import filename_in_module, is_number
 
 
@@ -16,22 +19,22 @@ class Config:
     :file:`config_default.yaml`.
     """
 
-    def __init__(self, folder=None, load_default=True):
+    def __init__(self, folder: str = None, load_default=True):
         """Initialize with the default configuration"""
         if load_default:
             import kge
 
             with open(filename_in_module(kge, "config-default.yaml"), "r") as file:
-                self.options = yaml.load(file, Loader=yaml.SafeLoader)
+                self.options: Dict[str, Any] = yaml.load(file, Loader=yaml.SafeLoader)
         else:
             self.options = {}
 
         self.folder = folder
-        self.log_prefix = None
+        self.log_prefix: str = None
 
     # -- ACCESS METHODS ----------------------------------------------------------------
 
-    def get(self, key, remove_plusplusplus=True):
+    def get(self, key: str, remove_plusplusplus=True) -> Any:
         """Obtain value of specified key.
 
         Nested dictionary values can be accessed via "." (e.g., "job.type"). Strips all
@@ -55,7 +58,7 @@ class Config:
 
         return result
 
-    def get_default(self, key):
+    def get_default(self, key: str):
         """Returns the value of the key if present or default if not.
 
         The default value is looked up as follows. If the key has form ``parent.field``,
@@ -102,7 +105,7 @@ class Config:
                     # try further
                     continue
 
-    def get_first_present_key(self, *keys, use_get_default=False):
+    def get_first_present_key(self, *keys: str, use_get_default=False):
         "Return the first key for which ``get`` or ``get_default`` finds a value."
         for key in keys:
             try:
@@ -112,7 +115,7 @@ class Config:
                 pass
         raise KeyError("None of the following keys found: ".format(keys))
 
-    def get_first(self, *keys, use_get_default=False):
+    def get_first(self, *keys: str, use_get_default=False):
         "Return value (or default value) of the first valid key present or KeyError."
         if use_get_default:
             return self.get_default(
@@ -123,7 +126,7 @@ class Config:
 
     Overwrite = Enum("Overwrite", "Yes No Error")
 
-    def set(self, key, value, create=False, overwrite=Overwrite.Yes, log=False):
+    def set(self, key: str, value, create=False, overwrite=Overwrite.Yes, log=False):
 
         """Set value of specified key.
 
@@ -245,12 +248,18 @@ class Config:
             imports = list(dict.fromkeys(imports))
         self.options["import"] = imports
 
-    def set_all(self, new_options, create=False, overwrite=Overwrite.Yes):
+    def set_all(
+        self, new_options: Dict[str, Any], create=False, overwrite=Overwrite.Yes
+    ):
         for key, value in Config.flatten(new_options).items():
             self.set(key, value, create, overwrite)
 
     def load(
-        self, filename, create=False, overwrite=Overwrite.Yes, allow_deprecated=True
+        self,
+        filename: str,
+        create=False,
+        overwrite=Overwrite.Yes,
+        allow_deprecated=True,
     ):
         """Update configuration options from the specified YAML file.
 
@@ -295,14 +304,14 @@ class Config:
             file.write(yaml.dump(self.options))
 
     @staticmethod
-    def flatten(options):
+    def flatten(options: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a dictionary of flattened configuration options."""
         result = {}
         Config.__flatten(options, result)
         return result
 
     @staticmethod
-    def __flatten(options, result, prefix=""):
+    def __flatten(options: Dict[str, Any], result: Dict[str, Any], prefix=""):
         for key, value in options.items():
             fullkey = key if prefix == "" else prefix + "." + key
             if type(value) is dict:
@@ -310,7 +319,7 @@ class Config:
             else:
                 result[fullkey] = value
 
-    def clone(self, subfolder=None):
+    def clone(self, subfolder: str = None) -> "Config":
         """Return a deep copy"""
         new_config = Config(folder=copy.deepcopy(self.folder), load_default=False)
         new_config.options = copy.deepcopy(self.options)
@@ -320,7 +329,7 @@ class Config:
 
     # -- LOGGING AND TRACING -----------------------------------------------------------
 
-    def log(self, msg, echo=True, prefix=""):
+    def log(self, msg: str, echo=True, prefix=""):
         """Add a message to the default log file.
 
         Optionally also print on console. ``prefix`` is used to indent each
@@ -404,8 +413,8 @@ class Config:
 
     # -- CONVENIENCE METHODS --------------------------------------------------
 
-    def _check(self, key, value, allowed_values):
-        if not value in allowed_values:
+    def _check(self, key: str, value, allowed_values):
+        if value not in allowed_values:
             raise ValueError(
                 "Illegal value {} for key {}; allowed values are {}".format(
                     value, key, allowed_values
@@ -413,14 +422,14 @@ class Config:
             )
         return value
 
-    def check(self, key, allowed_values):
+    def check(self, key: str, allowed_values):
         """Raise an error if value of key is not in allowed.
 
         If fine, returns value.
         """
         return self._check(key, self.get(key), allowed_values)
 
-    def check_default(self, key, allowed_values):
+    def check_default(self, key: str, allowed_values):
         """Raise an error if value or default value of key is not in allowed.
 
         If fine, returns value.
@@ -428,7 +437,7 @@ class Config:
         return self._check(key, self.get_default(key), allowed_values)
 
     def check_range(
-        self, key, min_value, max_value, min_inclusive=True, max_inclusive=True
+        self, key: str, min_value, max_value, min_inclusive=True, max_inclusive=True
     ):
         value = self.get(key)
         if (
@@ -464,16 +473,16 @@ class Configurable:
 
     """
 
-    def __init__(self, config, configuration_key=None):
+    def __init__(self, config: Config, configuration_key: str = None):
         self._init_configuration(config, configuration_key)
 
-    def get_option(self, name):
+    def get_option(self, name: str):
         if self.configuration_key:
             return self.config.get_default(self.configuration_key + "." + name)
         else:
             self.config.get_default(name)
 
-    def check_option(self, name, allowed_values):
+    def check_option(self, name: str, allowed_values):
         if self.configuration_key:
             return self.config.check_default(
                 self.configuration_key + "." + name, allowed_values
@@ -481,13 +490,13 @@ class Configurable:
         else:
             return self.config.check_default(name, allowed_values)
 
-    def set_option(self, name, value):
+    def set_option(self, name: str, value):
         if self.configuration_key:
             self.config.set(self.configuration_key + "." + name, value)
         else:
             self.config.set(name, value)
 
-    def _init_configuration(self, config, configuration_key):
+    def _init_configuration(self, config: Config, configuration_key: Optional[str]):
         r"""Initializes `self.config` and `self.configuration_key`.
 
         Only after this method has been called, `get_option`, `check_option`, and
@@ -501,7 +510,7 @@ class Configurable:
         self.configuration_key = configuration_key
 
 
-def _process_deprecated_options(options):
+def _process_deprecated_options(options: Dict[str, Any]):
     # renames given key (but not subkeys!)
     def rename_key(old_key, new_key):
         if old_key in options:
@@ -529,6 +538,7 @@ def _process_deprecated_options(options):
     # renames a set of keys matching a regular expression
     def rename_keys_re(key_regex, replacement):
         import re
+
         regex = re.compile(key_regex)
         for old_key in options.keys():
             new_key = regex.sub(replacement, old_key)
