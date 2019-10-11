@@ -17,7 +17,7 @@ class AxSearchJob(AutoSearchJob):
         super().__init__(config, dataset, parent_job)
         self.num_trials = self.config.get("ax_search.num_trials")
         self.num_sobol_trials = self.config.get("ax_search.num_sobol_trials")
-        self.ax_client = None
+        self.ax_client: AxClient = None
 
         if self.__class__ == AxSearchJob:
             for f in Job.job_created_hooks:
@@ -116,10 +116,12 @@ class AxSearchJob(AutoSearchJob):
         return parameters, trial_id
 
     def register_trial_result(self, trial_id, parameters, trace_entry):
-        # TODO should we report a std error here?
-        self.ax_client.complete_trial(
-            trial_index=trial_id, raw_data=trace_entry["metric_value"]
-        )
+        if trace_entry is None:
+            self.ax_client.log_trial_failure(trial_index=trial_id)
+        else:
+            self.ax_client.complete_trial(
+                trial_index=trial_id, raw_data=trace_entry["metric_value"]
+            )
 
     def get_best_parameters(self):
         best_parameters, values = self.ax_client.get_best_parameters()

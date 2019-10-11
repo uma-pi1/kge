@@ -9,6 +9,7 @@ class SearchJob(Job):
 
     Provides functionality for scheduling training jobs across workers.
     """
+
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
 
@@ -22,6 +23,7 @@ class SearchJob(Job):
         self.device_pool = self.device_pool[: self.num_workers]
         self.config.log("Using device pool: {}".format(self.device_pool))
         self.free_devices = copy.deepcopy(self.device_pool)
+        self.on_error = self.config.check("search.on_error", ["abort", "continue"])
 
         self.running_tasks = set()  #: set of futures currently runnning
         self.ready_task_results = list()  #: set of results
@@ -117,70 +119,85 @@ def _run_train_job(sicnk, device=None):
 
     search_job, train_job_index, train_job_config, train_job_count, trace_keys = sicnk
 
-    # load the job
-    if device is not None:
-        train_job_config.set("job.device", device)
-    search_job.config.log(
-        "Starting training job {} ({}/{}) on device {}...".format(
-            train_job_config.folder,
-            train_job_index + 1,
-            train_job_count,
-            train_job_config.get("job.device"),
+    try:
+        # load the job
+        if device is not None:
+            train_job_config.set("job.device", device)
+        search_job.config.log(
+            "Starting training job {} ({}/{}) on device {}...".format(
+                train_job_config.folder,
+                train_job_index + 1,
+                train_job_count,
+                train_job_config.get("job.device"),
+            )
         )
-    )
-    job = Job.create(train_job_config, search_job.dataset, parent_job=search_job)
-    job.resume()
+        job = Job.create(train_job_config, search_job.dataset, parent_job=search_job)
+        job.resume()
 
-    # process the trace entries to far (in case of a resumed job)
-    metric_name = search_job.config.get("valid.metric")
-    valid_trace = []
+        # process the trace entries to far (in case of a resumed job)
+        metric_name = search_job.config.get("valid.metric")
+        valid_trace = []
 
-    def copy_to_search_trace(job, trace_entry):
-        trace_entry = copy.deepcopy(trace_entry)
-        for key in trace_keys:
-            trace_entry[key] = train_job_config.get(key)
+        def copy_to_search_trace(job, trace_entry):
+            trace_entry = copy.deepcopy(trace_entry)
+            for key in trace_keys:
+                trace_entry[key] = train_job_config.get(key)
 
-        trace_entry["folder"] = os.path.split(train_job_config.folder)[1]
-        metric_value = Trace.get_metric(trace_entry, metric_name)
-        trace_entry["metric_name"] = metric_name
-        trace_entry["metric_value"] = metric_value
-        trace_entry["parent_job_id"] = search_job.job_id
-        search_job.config.trace(**trace_entry)
-        valid_trace.append(trace_entry)
+            trace_entry["folder"] = os.path.split(train_job_config.folder)[1]
+            metric_value = Trace.get_metric(trace_entry, metric_name)
+            trace_entry["metric_name"] = metric_name
+            trace_entry["metric_value"] = metric_value
+            trace_entry["parent_job_id"] = search_job.job_id
+            search_job.config.trace(**trace_entry)
+            valid_trace.append(trace_entry)
 
-    for trace_entry in job.valid_trace:
-        copy_to_search_trace(None, trace_entry)
+        for trace_entry in job.valid_trace:
+            copy_to_search_trace(None, trace_entry)
 
-    # run the job (adding new trace entries as we go)
-    # TODO make this less hacky (easier once integrated into SearchJob)
-    from kge.job import ManualSearchJob
+        # run the job (adding new trace entries as we go)
+        # TODO make this less hacky (easier once integrated into SearchJob)
+        from kge.job import ManualSearchJob
 
-    if not isinstance(search_job, ManualSearchJob) or search_job.config.get(
-        "manual_search.run"
-    ):
-        job.post_valid_hooks.append(copy_to_search_trace)
-        job.run()
-    else:
-        search_job.config.log("Skipping running of training job as requested by user.")
-        return (train_job_index, None, None)
+        if not isinstance(search_job, ManualSearchJob) or search_job.config.get(
+            "manual_search.run"
+        ):
+            job.post_valid_hooks.append(copy_to_search_trace)
+            job.run()
+        else:
+            search_job.config.log(
+                "Skipping running of training job as requested by user."
+            )
+            return (train_job_index, None, None)
 
-    # analyze the result
-    search_job.config.log("Best result in this training job:")
-    best = None
-    best_metric = None
-    for trace_entry in valid_trace:
-        metric = trace_entry["metric_value"]
-        if not best or best_metric < metric:
-            best = trace_entry
-            best_metric = metric
+        # analyze the result
+        search_job.config.log("Best result in this training job:")
+        best = None
+        best_metric = None
+        for trace_entry in valid_trace:
+            metric = trace_entry["metric_value"]
+            if not best or best_metric < metric:
+                best = trace_entry
+                best_metric = metric
 
-    # record the best result of this job
-    del (
-        best["job"],
-        best["job_id"],
-        best["type"],
-        best["parent_job_id"],
-        best["scope"],
-    )
-    search_job.trace(echo=True, echo_prefix="  ", log=True, scope="train", **best)
-    return (train_job_index, best, best_metric)
+        # record the best result of this job
+        del (
+            best["job"],
+            best["job_id"],
+            best["type"],
+            best["parent_job_id"],
+            best["scope"],
+        )
+        search_job.trace(echo=True, echo_prefix="  ", log=True, scope="train", **best)
+
+        return (train_job_index, best, best_metric)
+    except BaseException as e:
+        search_job.config.log(
+            "Trial {:05d} failed: {}".format(train_job_index, repr(e))
+        )
+        if search_job.on_error == "continue":
+            return (train_job_index, None, None)
+        else:
+            search_job.config.log(
+                "Aborting search due to failure of trial {:05d}".format(train_job_index)
+            )
+            raise e

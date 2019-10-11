@@ -232,6 +232,10 @@ search:
   # used by multiple jobs in parallel.
   device_pool: [ ]
 
+  # What to do when an error occurs during a training job. Possible values:
+  # continue, abort
+  on_error: abort
+
 # Manually specify all configurations to try
 manual_search:
   # If false, only creates training job folders but does not run the jobs.

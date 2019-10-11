@@ -89,7 +89,8 @@ class AutoSearchJob(SearchJob):
 
         `trial_id` and `parameters` should have been produced by :func:`register_trial`.
         `trace_entry` should be the trace entry for the best validation result of a
-        training job with these parameters.
+        training job with these parameters. If `trace_entry` is `None`, the trial
+        is treated as failed.
 
         """
         raise NotImplementedError
@@ -125,7 +126,7 @@ class AutoSearchJob(SearchJob):
                     self.parameters.append(parameters)
                     self.results.append(None)
                     self.config.log(
-                        "Created trial {} with parameters: {}".format(
+                        "Created trial {:05d} with parameters: {}".format(
                             trial_no, parameters
                         )
                     )
@@ -134,7 +135,7 @@ class AutoSearchJob(SearchJob):
                 parameters, trial_id = self.register_trial(self.parameters[trial_no])
                 self.trial_ids.append(trial_id)
                 self.config.log(
-                    "Resumed trial {} with parameters: {}".format(trial_no, parameters)
+                    "Resumed trial {:05d} with parameters: {}".format(trial_no, parameters)
                 )
 
             if trial_id is None:
@@ -143,7 +144,7 @@ class AutoSearchJob(SearchJob):
             elif self.results[trial_no] is not None:
                 # trial result is in checkpoint, use it (from prior run of this job)
                 self.config.log(
-                    "Registering trial {} result: {}".format(
+                    "Registering trial {:05d} result: {}".format(
                         trial_no, self.results[trial_no]
                     )
                 )
@@ -176,11 +177,19 @@ class AutoSearchJob(SearchJob):
 
             # for each ready trial, store its results
             for ready_trial_no, ready_trial_best, _ in self.ready_task_results:
-                self.config.log(
-                    "Registering trial {} result: {}".format(
-                        ready_trial_no, ready_trial_best["metric_value"]
+                if ready_trial_best is not None:
+                    self.config.log(
+                        "Registering trial {:05d} result: {}".format(
+                            ready_trial_no, ready_trial_best["metric_value"]
+                        )
                     )
-                )
+                else:
+                    # TODO: currently cannot distinguish failed trials from trials that
+                    # haven't been run to completion. Both will have their entry in
+                    # self.results set to None
+                    self.config.log(
+                        "Registering failed trial {:05d}".format(ready_trial_no)
+                    )
                 self.results[ready_trial_no] = ready_trial_best
                 self.register_trial_result(
                     self.trial_ids[ready_trial_no],
@@ -198,24 +207,41 @@ class AutoSearchJob(SearchJob):
                 # advance to next trial (unless we did not run this one)
                 trial_no += 1
 
-        # all done, output best trial result
-        trial_metric_values = list(
-            map(lambda trial_best: trial_best["metric_value"], self.results)
-        )
-        best_trial_index = trial_metric_values.index(max(trial_metric_values))
-        metric_name = self.results[best_trial_index]["metric_name"]
+        # all done, output failed trials result
+        failed_trials = [i for i in range(len(self.results)) if self.results[i] is None]
         self.config.log(
-            "Best trial: {}={}".format(
-                metric_name, trial_metric_values[best_trial_index]
+            "{} trials were successful, {} trials failed".format(
+                len(self.results) - len(failed_trials), len(failed_trials)
             )
         )
-        self.trace(
-            echo=True,
-            echo_prefix="  ",
-            log=True,
-            scope="search",
-            **self.results[best_trial_index]
-        )
+        if len(failed_trials) > 0:
+            self.config.log(
+                "Failed trials: {}".format(
+                    " ".join(["{:05d}".format(x) for x in failed_trials])
+                )
+            )
+
+        # and best trial
+        if len(failed_trials) != len(self.results):
+            trial_metric_values = [
+                float("-Inf") if result is None else result["metric_value"]
+                for result in self.results
+            ]
+            best_trial_index = trial_metric_values.index(max(trial_metric_values))
+            metric_name = self.results[best_trial_index]["metric_name"]
+            self.config.log(
+                "Best trial ({:05d}): {}={}".format(
+                    best_trial_index, metric_name, trial_metric_values[best_trial_index]
+                )
+            )
+
+            self.trace(
+                echo=True,
+                echo_prefix="  ",
+                log=True,
+                scope="search",
+                **self.results[best_trial_index]
+            )
 
         # DISABLED FOR NOW SINCE IDENTICAL TO BEST TRIAL
         # output parameter estimates
