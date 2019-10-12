@@ -21,6 +21,15 @@ class VisualizationHandler:
     Subclasses implement create(), _visualize_train_item() _visualize_eval_item(), post_process_trace() (and optionally
     _process_search_trace_entry())
 
+    writer: A writer object that writes data to a framework
+    path: path of the job folder which is currently visualized; can change during a session
+    tracking: post or broadcast
+    include_train: metrics from a training job to be included in the visualizations
+    include_eval: metrics from a eval job to be included in the visualizations
+    session_config: the options of the current visualization session; does not change in a session. In a broadcast
+    session the session_config = job config of the job that is run by the kge framework
+    session_data: can be used to cache arbitrary data
+
      """
 
     #TODO refactor "tracking" to maybe "session_type"
@@ -30,6 +39,7 @@ class VisualizationHandler:
                  tracking=None,
                  include_train=None,
                  include_eval=None,
+                 session_config=None,
                  session_data={}
     ):
         self.writer = writer
@@ -40,6 +50,7 @@ class VisualizationHandler:
         # during broadcasting this can be best valid.metric during post processing this can be metadata for envs etc.
         self.session_data = session_data
         self.path = path
+        self.session_config = session_config
 
     @classmethod
     def create_handler(cls, **kwargs):
@@ -181,9 +192,12 @@ class VisualizationHandler:
                     include_eval=kwargs["include_eval"],
                     path=jobpath,
                     session_data=session_data,
-                    config=job.config.options
+                    session_config=job.config.options
                 )
-                handler._visualize_config(env=handler.get_env_from_path(tracetype,jobtype))
+                handler._visualize_config(
+                    env=handler.get_env_from_path(tracetype,jobtype),
+                    job_config=handler.session_config #in a broadcast session it holds session_config = job_config
+                )
                 def visualize_data(job, trace_entry):
                     handler._process_trace_entry(trace_entry, tracetype=tracetype, jobtype=jobtype)
                 job.post_epoch_hooks.append(visualize_data)
@@ -191,15 +205,21 @@ class VisualizationHandler:
 
         Job.job_created_hooks.append(init_hooks)
 
-    def _add_config(self):
+    def _get_job_config(self):
         # TODO use the kge config module
-        """ Loads config."""
-        config = self.path + "/" + "config.yaml"
-        if os.path.isfile(config):
-            with open(config, "r") as file:
-                self.config = yaml.load(file, Loader=yaml.SafeLoader)
+        """ Returns the config of the current job which is visualized.
+
+        This is different from the session-config, e. g. the visualization options of
+        the current visualization session. In "broadcasting", both are the same.
+
+        """
+        job_config = self.path + "/" + "config.yaml"
+        if os.path.isfile(job_config):
+            with open(job_config, "r") as file:
+                job_config = yaml.load(file, Loader=yaml.SafeLoader)
         else:
             raise Exception("Could not find config.yaml in path.")
+        return job_config
 
     @classmethod
     def post_process_jobs(cls, **kwargs):
@@ -218,15 +238,15 @@ class VisualizationHandler:
                 continue
             parent_trace = path + parent_job + "/trace.yaml"
             first_entry = None
-            config = path + parent_job + "/config.yaml"
-            if os.path.isfile(parent_trace) and os.path.isfile(config):
-                with open(config, "r") as conf:
-                    config = yaml.load(conf, Loader=yaml.SafeLoader)
+            job_config = path + parent_job + "/config.yaml"
+            if os.path.isfile(parent_trace) and os.path.isfile(job_config):
+                with open(job_config, "r") as conf:
+                    job_config = yaml.load(conf, Loader=yaml.SafeLoader)
                 # pure training job
-                if config["job"]["type"] == "train":
+                if job_config["job"]["type"] == "train":
                     handler.path = path + parent_job
                     handler.post_process_trace(parent_trace, "train", "train", **kwargs)
-                elif config["job"]["type"] == "search":
+                elif job_config["job"]["type"] == "search":
                     subjobs = []
                     # go through the files in the parent job folder and collect the child training jobs
                     #TODO use filter here or a list comprehension
@@ -249,11 +269,10 @@ class VisdomHandler(VisualizationHandler):
             include_train=None,
             include_eval=None,
             path=None,
-            config=None,
+            session_config=None,
             session_data={}):
 
-        super().__init__(writer, path, tracking, include_train, include_eval, session_data)
-        self.config = config
+        super().__init__(writer, path, tracking, include_train, include_eval, session_config, session_data)
 
     @classmethod
     def create(cls, **kwargs):
@@ -264,7 +283,6 @@ class VisdomHandler(VisualizationHandler):
             include_train=kwargs.get("include_train"),
             include_eval=kwargs.get("include_eval"),
             path=kwargs.get("path"),
-            config=kwargs.get("config"),
             session_data=kwargs.get("session_data"),
         )
 
@@ -355,8 +373,10 @@ class VisdomHandler(VisualizationHandler):
                 update=update
             )
 
-    def _visualize_config(self, env):
-        self.writer.text(yaml.dump(self.config).replace("\n", "<br>").replace("  ", "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"), env=env)
+    def _visualize_config(self, env, job_config=None):
+        if job_config == None:
+            job_config = self._get_job_config()
+        self.writer.text(yaml.dump(job_config).replace("\n", "<br>").replace("  ", "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"), env=env)
 
     def _track_progress(self, key, value, env):
         """ Updates the overall progress plot of a key over multiple train jobs in a search job."""
@@ -397,33 +417,28 @@ class VisdomHandler(VisualizationHandler):
         if jobtype == "train":
             # create window with sync
             properties_window = self.writer.properties(properties, env=self.get_env_from_path("train", "train"))
-            self._add_config()
             self._visualize_config(env=self.get_env_from_path("train", "train"))
             def properties_callback(event):
                 if event['event_type'] == 'PropertyUpdate':
                     env = event["eid"]
                     # reset the path because when this function is called it might have changed
                     self.path = path
-                    self._add_config()
                     self.process_trace(tracefile, tracetype, jobtype)
             self.writer.register_event_handler(properties_callback, properties_window)
         elif jobtype =="search":
             env = self.extract_summary_envname(self.get_env_from_path("search", "search"), "search")
             properties_window = self.writer.properties(properties, env=env)
-            self._add_config()
             self._visualize_config(env)
             def properties_callback(event):
                 if event['event_type'] == 'PropertyUpdate':
                     self.path = path
-                    self._add_config()
-                    self.session_data = {"valid_metric_name": self.config.get("valid")["metric"]}
+                    self.session_data = {"valid_metric_name": self._get_job_config().get("valid")["metric"]}
                     self.process_trace(tracefile, "search", "search")
                     # process training jobs of the search job
                     for subjob in sorted(subjobs):
                         self.path = subjob
-                        self._add_config()
                         self._visualize_config(self.get_env_from_path("train", "search"))
-                        self.session_data = {"valid_metric_name": self.config.get("valid")["metric"]}
+                        self.session_data = {"valid_metric_name": self._get_job_config().get("valid")["metric"]}
                         self.process_trace(subjob + "/" + "trace.yaml", "train", "search")
             self.writer.register_event_handler(properties_callback, properties_window)
 
@@ -483,7 +498,7 @@ class VisdomHandler(VisualizationHandler):
         return opts
 
     @classmethod
-    def run_server(cls, config, **kwargs):
+    def run_server(cls, session_config, **kwargs):
         import subprocess
         import sys, time
         import signal
@@ -506,7 +521,7 @@ class VisdomHandler(VisualizationHandler):
         )
         stdout = None
         stderr = None
-        if config.get("visualize.surpress_server_output"):
+        if session_config.get("visualize.surpress_server_output"):
             stdout, stderr = subprocess.DEVNULL, subprocess.STDOUT
         # run server
         process = subprocess.Popen(
@@ -533,12 +548,11 @@ class TensorboardHandler(VisualizationHandler):
             include_train=None,
             include_eval=None,
             path=None,
-            config=None,
+            session_config=None,
             session_data={},
     ):
 
-        super().__init__(writer, path, tracking, include_train, include_eval, session_data)
-        self.config = config
+        super().__init__(writer, path, tracking, include_train, include_eval, session_config, session_data)
         self.writer_path = kge_base_dir() + "/local/visualize/tensorboard/"
 
     @classmethod
@@ -550,7 +564,6 @@ class TensorboardHandler(VisualizationHandler):
             include_train=kwargs.get("include_train"),
             include_eval=kwargs.get("include_eval"),
             path=kwargs.get("path"),
-            config=kwargs.get("config"),
             session_data=kwargs.get("session_data"),
         )
 
@@ -625,14 +638,14 @@ class TensorboardHandler(VisualizationHandler):
                 idx += 1
 
     @classmethod
-    def run_server(cls, config, **kwargs):
+    def run_server(cls, session_config, **kwargs):
         import subprocess
         import time
         import atexit
         import signal
         import shutil
 
-        folders = config.get("visualize.post.folders")
+        folders = session_config.get("visualize.post.folders")
         # clean up log_dir from previous visualization
         logdir = kge_base_dir() + "/local/visualize/tensorboard"
         if os.path.isdir(logdir):
@@ -651,7 +664,7 @@ class TensorboardHandler(VisualizationHandler):
         )
         stdout = None
         stderr = None
-        if config.get("visualize.surpress_server_output"):
+        if session_config.get("visualize.surpress_server_output"):
             stdout, stderr = subprocess.DEVNULL, subprocess.STDOUT
         # run server
         process = subprocess.Popen(
@@ -669,30 +682,30 @@ class TensorboardHandler(VisualizationHandler):
                 os.kill(server_pid, signal.SIGTERM)
         atexit.register(kill_server)
 
-def initialize_visualization(config, command):
+def initialize_visualization(session_config, command):
 
-    if config.get("visualize.module") == "visdom":
+    if session_config.get("visualize.module") == "visdom":
         global visdom
         import visdom
-        VisdomHandler.run_server(config)
-    elif config.get("visualize.module") == "tensorboard":
+        VisdomHandler.run_server(session_config)
+    elif session_config.get("visualize.module") == "tensorboard":
         global tensorboard
         from torch.utils import tensorboard
-        TensorboardHandler.run_server(config)
-        config.check("visualize.broadcast.enable", [False])
+        TensorboardHandler.run_server(session_config)
+        session_config.check("visualize.broadcast.enable", [False])
     if command == "visualize":
         VisualizationHandler.post_process_jobs(
-            include_train=config.get("visualize.include_train"),
-            include_eval=config.get("visualize.include_eval"),
-            module=config.get("visualize.module"),
+            include_train=session_config.get("visualize.include_train"),
+            include_eval=session_config.get("visualize.include_eval"),
+            module=session_config.get("visualize.module"),
             tracking="post",
-            folders=config.get("visualize.post.folders"),
-            embeddings=config.get("visualize.post.embeddings")
+            folders=session_config.get("visualize.post.folders"),
+            embeddings=session_config.get("visualize.post.embeddings")
         )
     else:
         VisualizationHandler.register_broadcast(
-            module=config.get("visualize.module"),
-            include_train=config.get("visualize.include_train"),
-            include_eval=config.get("visualize.include_eval"),
+            module=session_config.get("visualize.module"),
+            include_train=session_config.get("visualize.include_train"),
+            include_eval=session_config.get("visualize.include_eval"),
             tracking="broadcast"
         )

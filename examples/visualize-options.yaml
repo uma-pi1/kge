@@ -2,10 +2,10 @@ visualize:
   module: tensorboard
   broadcast:
     enable: False
-  #include_train: ["avg_loss", "avg_cost", "avg_penalty", "forward_time", "epoch_time"]
-  #include_eval: ["rank"]
-  include_train: []
-  include_eval: []
+  include_train: ["avg_loss", "avg_cost", "avg_penalty", "forward_time", "epoch_time"]
+  include_eval: ["rank"]
+  #include_train: []
+  #include_eval: []
   post:
     folders: []
     #folders: ["20191002-154636-toy-complex-ax", "20191002-163137-toy-complex-train", "20191002-161353-toy-complex-train", "20191002-061135-toy-complex-train"]
