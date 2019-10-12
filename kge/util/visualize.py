@@ -2,6 +2,8 @@ from kge.job.trace import Trace
 from kge.job import Job, TrainingJob, SearchJob, Trace
 from kge.util.misc import kge_base_dir
 from kge.model.kge_model import KgeModel
+from kge.config import Config
+from kge import Dataset
 import os
 import yaml
 import re
@@ -319,17 +321,17 @@ class VisdomHandler(VisualizationHandler):
             title = key
         x_ = None
         val = None
+
         if type(x) == list:
             x_ = x
             val = value
+
         else:
             x_ = [x]
             val = [value]
 
         # skip datatypes that cannot be handled at the moment to prevent errors
-        if type(value[0]) == list:
-            return
-        elif type(value[0]) == str:
+        if type(val[0]) == list or type(val[0]) == str:
             return
 
         if not self.writer.win_exists(win, env):
@@ -552,9 +554,8 @@ class TensorboardHandler(VisualizationHandler):
         )
 
     def _add_embeddings(self, path):
+        #TODO: load the last checkpoint if best checkpoint does not exist
         checkpoint = self._get_checkpoint_path(path)
-        # TODO: adjust for inverse_relations model conve
-        # TODO: for conve even loading the checkpoint fails?
         if checkpoint:
             model = KgeModel.load_from_checkpoint(checkpoint)
             self.writer.add_embedding(
@@ -594,9 +595,7 @@ class TensorboardHandler(VisualizationHandler):
     def _visualize_train_item(self, key, value, epoch, tracetype, jobtype):
         key = key + " (train)"
         # skip datatypes that cannot be handled
-        if type(value[0]) == list:
-            return
-        elif type(value[0]) == str:
+        if type(value[0]) == list or type(value[0]) == str:
             return
         if len(value)>1:
             idx = 0
@@ -608,9 +607,7 @@ class TensorboardHandler(VisualizationHandler):
     def _visualize_eval_item(self, key, value, epoch, tracetype, jobtype):
         key = key + " (eval)"
         # skip datatypes that cannot be handled
-        if type(value[0]) == list:
-            return
-        elif type(value[0]) == str:
+        if type(value[0]) == list or type(value[0]) == str:
             return
         if len(value)>1:
             idx = 0
