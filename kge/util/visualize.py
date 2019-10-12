@@ -2,6 +2,7 @@ from kge.job.trace import Trace
 from kge.job import Job, TrainingJob, SearchJob, Trace
 from kge.util.misc import kge_base_dir
 from kge.model.kge_model import KgeModel
+from kge.model import ReciprocalRelationsModel
 from kge.config import Config
 from kge import Dataset
 import os
@@ -558,14 +559,21 @@ class TensorboardHandler(VisualizationHandler):
         checkpoint = self._get_checkpoint_path(path)
         if checkpoint:
             model = KgeModel.load_from_checkpoint(checkpoint)
+
+            meta_ent = model.dataset.entities
+            meta_rel = model.dataset.relations
+            if isinstance(model, ReciprocalRelationsModel):
+                meta_ent = None
+                meta_rel = None
+
             self.writer.add_embedding(
                 mat=model.get_s_embedder().embed_all(),
-                metadata=model.dataset.entities,
+                metadata=meta_ent,
                 tag="Entity embeddings"
             )
             self.writer.add_embedding(
                 mat=model.get_p_embedder().embed_all(),
-                metadata=model.dataset.relations,
+                metadata=meta_rel,
                 tag="Relation embeddings"
             )
             del model
