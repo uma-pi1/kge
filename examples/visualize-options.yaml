@@ -1,5 +1,5 @@
 visualize:
-  module: tensorboard
+  module: visdom
   broadcast:
     enable: False
   include_train: ["avg_loss", "avg_cost", "avg_penalty", "forward_time", "epoch_time"]

@@ -21,7 +21,7 @@ class VisualizationHandler:
     Subclasses implement create(), _visualize_train_item() _visualize_eval_item(), post_process_trace() (and optionally
     _process_search_trace_entry())
 
-    writer: A writer object that writes data to a framework
+    writer: A writer object that writes data to a plotting framework
     path: path of the job folder which is currently visualized; can change during a session
     tracking: post or broadcast
     include_train: metrics from a training job to be included in the visualizations
@@ -75,7 +75,7 @@ class VisualizationHandler:
         raise NotImplementedError
 
     def process_trace(self, tracefile, tracetype, jobtype):
-        """ Takes a trace file and processes it.
+        """ Loads a trace file and processes it.
 
         :param tracefile:
         :param tracetype: "search", "train", "eval" the type of the trace, this is independent of jobtype because the
@@ -101,6 +101,10 @@ class VisualizationHandler:
                     matched = False
                     for entry in grouped_entries:
                         if entry.keys() == trace_entry.keys():
+                            # additional check for robustness; is even necessary in search traces
+                            if entry.get("scope") and entry.get("job") and trace_entry.get("scope") and trace_entry.get("job"):
+                                if not(entry.get("scope")[0] == trace_entry.get("scope") and entry.get("job")[0] == trace_entry.get("job")):
+                                    break
                             for k,v in trace_entry.items():
                                 entry[k].append(v)
                             matched = True
@@ -319,16 +323,14 @@ class VisdomHandler(VisualizationHandler):
 
     def _process_search_trace_entry(self, trace_entry):
         # this only works for grouped trace entries, which is fine as it is only used in post processing
-        x = None
-        names = None
         if "train" in trace_entry["scope"]:
             valid_metric_name = self.session_data["valid_metric_name"]
-            x = (np.array(trace_entry[valid_metric_name]))[np.array(trace_entry["scope"])=="train"]
-            names = (np.array(trace_entry["folder"]))[np.array(trace_entry["scope"]) == "train"]
+            x = trace_entry[valid_metric_name]
+            names = trace_entry["folder"]
             self.writer.bar(
                 X=x,
                 env=self.extract_summary_envname(envname=self.get_env_from_path("search","search"),jobtype="search"),
-                opts={"legend":list(names), "title": valid_metric_name + "_best"}
+                opts={"legend":names, "title": valid_metric_name + "_best"}
             )
 
     def _visualize_item(self, key, value, x, env, name=None , win=None, update="append", title=None, **kwargs):
