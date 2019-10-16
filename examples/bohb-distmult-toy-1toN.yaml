@@ -24,7 +24,7 @@ bohb_search:
   host: '127.0.0.3'
   port: "None"
   sleep_interval: 0
-  min_budget: 100W
+  min_budget: 100
   max_budget: 200
   n_iter: 500
   num_train_trials: 20
