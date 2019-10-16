@@ -6,8 +6,8 @@ dataset.name: toy
 valid.filter_with_test: True
 valid.metric: mean_reciprocal_rank_filtered_with_test
 
-model: inverse_relations_model # conve
-inverse_relations_model.base_model.type: conve # redundant since also default
+model: reciprocal_relations_model # conve
+reciprocal_relations_model.base_model.type: conve # redundant since also default
 lookup_embedder.initialize: xavier_normal_
 
 ax_search:
@@ -40,7 +40,7 @@ ax_search:
     - name: conve.projection_dropout
       type: range
       bounds: [0., .5]
-    - name: 1toN.label_smoothing
+    - name: KvsAll.label_smoothing
       type: range
       bounds: [0., .5]
   

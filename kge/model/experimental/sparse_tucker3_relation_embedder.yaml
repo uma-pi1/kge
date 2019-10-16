@@ -1,7 +1,6 @@
 import: [lookup_embedder]
 
 sparse_tucker3_relation_embedder:
-  auto_initialization: True  # set all initialization parameters to suggested values
   class_name: SparseTucker3RelationEmbedder
   base_embedder: # set dim of relatin embeddings here
     type: lookup_embedder
@@ -13,7 +12,8 @@ sparse_tucker3_relation_embedder:
   dropout: 0.                 # dropout used for mixing matrices
   normalize: ''               # alternatively: normalize '', L2
   regularize: 'l2'              # '', 'l1', 'l2'
-  regularize_weight: 0.0
+  regularize_args:
+    weight:0.0
 
   # l0 params
   l0_weight: 0.1

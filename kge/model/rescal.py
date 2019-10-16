@@ -1,4 +1,7 @@
+import math
+
 import torch
+
 from kge import Config, Dataset
 from kge.model.kge_model import KgeEmbedder, KgeModel, RelationalScorer
 
@@ -6,8 +9,8 @@ from kge.model.kge_model import KgeEmbedder, KgeModel, RelationalScorer
 class RescalScorer(RelationalScorer):
     r"""Implementation of the RESCAL KGE scorer."""
 
-    def __init__(self, config: Config, dataset: Dataset):
-        super().__init__(config, dataset)
+    def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
+        super().__init__(config, dataset, configuration_key)
 
     def score_emb(
         self,
@@ -51,16 +54,61 @@ class RescalScorer(RelationalScorer):
 
 
 class Rescal(KgeModel):
-    r"""Implementation of the ComplEx KGE model."""
+    r"""Implementation of the RÉSCAL KGE model."""
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
         self._init_configuration(config, configuration_key)
-        rescal_set_relation_embedder_dim(config, dataset, self.configuration_key + ".relation_embedder")
+        rescal_set_relation_embedder_dim(
+            config, dataset, self.configuration_key + ".relation_embedder"
+        )
+
+        # auto initialize such that scores have unit variance
+        if (
+            self.get_option("entity_embedder.initialize") == "auto_initialization"
+            and self.get_option("relation_embedder.initialize") == "auto_initialization"
+        ):
+            # Var[score] = entity_embedder.dim^2*var_e^2*var_r, where var_e/var_r are the variances
+            # of the entries
+            #
+            # Thus we set var_e=var_r=(1.0/(entity_embedder.dim^2*))^(1/6)
+            std = math.pow(1.0 / self.get_option("entity_embedder.dim") ** 2, 1.0 / 6.0)
+
+            config.set(
+                self.configuration_key + ".entity_embedder.initialize",
+                "normal_",
+                log=True,
+            )
+            config.set(
+                self.configuration_key + ".entity_embedder.initialize_args",
+                {"mean": 0.0, "std": std},
+                log=True,
+            )
+            config.set(
+                self.configuration_key + ".relation_embedder.initialize",
+                "normal_",
+                log=True,
+            )
+            config.set(
+                self.configuration_key + ".relation_embedder.initialize_args",
+                {"mean": 0.0, "std": std},
+                log=True,
+            )
+        elif (
+            self.get_option("entity_embedder.initialize") == "auto_initialization"
+            or self.get_option("relation_embedder.initialize") == "auto_initialization"
+        ):
+            raise ValueError(
+                "Both entity and relation embedders must be set to auto_initialization "
+                "in order to use it."
+            )
+
         super().__init__(
             config,
             dataset,
-            scorer=RescalScorer(config=config, dataset=dataset),
-            configuration_key=configuration_key
+            scorer=RescalScorer(
+                config=config, dataset=dataset, configuration_key=self.configuration_key
+            ),
+            configuration_key=self.configuration_key,
         )
 
 

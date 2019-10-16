@@ -5,7 +5,6 @@ from kge.model.kge_model import RelationalScorer, KgeModel
 from kge.util.misc import get_activation_function
 from collections import OrderedDict
 
-# TODO use get_option throughout
 
 class FnnScorer(RelationalScorer):
     r"""Implementation of a simple feedforward neural network KGE scorer.
@@ -23,35 +22,40 @@ class FnnScorer(RelationalScorer):
         subject_dim: int,
         relation_dim: int,
         object_dim: int,
+        configuration_key=None,
     ):
-        super().__init__(config, dataset)
+        super().__init__(config, dataset, configuration_key)
 
-        hidden_layers_size = self.config.get("fnn.hidden_layers.size")
+        hidden_layers_size = self.get_option("hidden_layers.size")
         if hidden_layers_size < 0:
             hidden_layers_size = subject_dim
-        dropout = self.config.get("fnn.hidden_layers.dropout")
+        hidden_layers_dropout = self.get_option("hidden_layers.dropout")
         layers = OrderedDict()
         last_size = subject_dim + relation_dim + object_dim
-        for i in range(self.config.get("fnn.hidden_layers.number")):  # hidden layers
+        for i in range(self.get_option("hidden_layers.number")):  # hidden layers
             layer = nn.Linear(last_size, hidden_layers_size)
             last_size = hidden_layers_size
             self.initialize(
                 layer.weight,
-                self.config.get("fnn.hidden_layers.initialize"),
-                self.config.get("fnn.hidden_layers.initialize_args"),
+                self.get_option("hidden_layers.initialize"),
+                self.get_option("hidden_layers.initialize_args"),
             )
             layers["linear" + str(i + 1)] = layer
             layers["nonlinear" + str(i + 1)] = get_activation_function(
-                self.config.get("fnn.hidden_layers.activation")
+                self.get_option("hidden_layers.activation")
             )
-            if dropout > 0.0:  # note: input dropout handled separately by embedder
-                layers["dropout" + str(i + 1)] = nn.Dropout(dropout)
+            if (
+                hidden_layers_dropout > 0.0
+            ):  # note: input hidden_layers_dropout handled separately by embedder
+                layers["hidden_layers_dropout" + str(i + 1)] = nn.Dropout(
+                    hidden_layers_dropout
+                )
 
         layers["output"] = nn.Linear(last_size, 1)
         self.initialize(
             layers["output"].weight,
-            self.config.get("fnn.hidden_layers.initialize"),
-            self.config.get("fnn.hidden_layers.initialize_args"),
+            self.get_option("hidden_layers.initialize"),
+            self.get_option("hidden_layers.initialize_args"),
         )
         self.model = nn.Sequential(layers)
 
@@ -68,11 +72,14 @@ class Fnn(KgeModel):
     """
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
-        super().__init__(config, dataset, None, configuration_key=configuration_key)
+        super().__init__(
+            config, dataset, scorer=None, configuration_key=configuration_key
+        )
         self._scorer = FnnScorer(
             config,
             dataset,
             self.get_s_embedder().dim,
             self.get_p_embedder().dim,
             self.get_o_embedder().dim,
+            configuration_key=self.configuration_key,
         )

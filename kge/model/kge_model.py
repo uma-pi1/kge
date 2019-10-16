@@ -1,17 +1,24 @@
-import kge
-from kge import Config, Dataset
-from kge.util.misc import filename_in_module
-import torch.nn
-import tempfile
 import importlib
+import tempfile
+
+import torch.nn
+
+import kge
+from kge import Config, Configurable, Dataset
+from kge.job import Job
+from kge.util.misc import filename_in_module
+from typing import Any, Dict, Optional
+
+SLOTS = [0, 1, 2]
+S, P, O = SLOTS
 
 
-class KgeBase(torch.nn.Module):
+class KgeBase(torch.nn.Module, Configurable):
     r"""Base class for all KGE models, scorers, and embedders."""
 
-    def __init__(self, config: Config, dataset: Dataset):
-        super().__init__()
-        self.config = config
+    def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
+        Configurable.__init__(self, config, configuration_key)
+        torch.nn.Module.__init__(self)
         self.dataset = dataset
         self.meta = dict()  #: meta-data stored with this module
 
@@ -19,9 +26,16 @@ class KgeBase(torch.nn.Module):
         try:
             getattr(torch.nn.init, initialize)(what, **initialize_args)
         except:
-            raise ValueError("invalid initialization options")
+            if initialize == "auto_initialization":
+                raise ValueError(
+                    "{} does not support auto initialization.".format(
+                        self.config.get("model")
+                    )
+                )
+            else:
+                raise ValueError("invalid initialization options")
 
-    def prepare_job(self, job, **kwargs):
+    def prepare_job(self, job: Job, **kwargs):
         r"""Prepares the given job to work with this model.
 
         If this model does not support the specified job type, this function may raise
@@ -32,7 +46,6 @@ class KgeBase(torch.nn.Module):
         :class:`EvaluationJob`:, respectively.
 
         """
-        pass
 
     def penalty(self, **kwargs):
         r"""Returns additional penalty terms that are added to the loss during training.
@@ -47,11 +60,11 @@ class KgeBase(torch.nn.Module):
         return []
 
     def save(self):
-        "Returns data structure to save module state"
+        "Returns data structure to save state"
         return (self.state_dict(), self.meta)
 
     def load(self, savepoint):
-        "Loads modulde state from a saved data structre"
+        "Loads state from a saved data structure"
         self.load_state_dict(savepoint[0])
         self.meta = savepoint[1]
 
@@ -68,8 +81,8 @@ class RelationalScorer(KgeBase):
 
     """
 
-    def __init__(self, config: Config, dataset: Dataset):
-        super().__init__(config, dataset)
+    def __init__(self, config: Config, dataset: Dataset, configuration_key: str):
+        super().__init__(config, dataset, configuration_key)
 
     def score_emb_spo(self, s_emb, p_emb, o_emb):
         r"""Scores a set of triples specified by their embeddings.
@@ -148,35 +161,32 @@ class KgeEmbedder(KgeBase):
     """
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key: str):
-        super().__init__(config, dataset)
+        super().__init__(config, dataset, configuration_key)
 
         #: location of the configuration options of this embedder
-        self.configuration_key = configuration_key
-        self.embedder_type = self.get_option("type")
-        if self.configuration_key + ".type" not in config.options:
-            self.config.set(
-                self.configuration_key + ".type",
-                self.embedder_type,
-                create=True,
-                log=True,
-            )
+        self.embedder_type: str = self.get_option("type")
 
         # verify all custom options by trying to set them in a copy of this
         # configuration (quick and dirty, but works)
-        custom_options = Config.flatten(config.get(self.configuration_key))
-        del custom_options["type"]
+        try:
+            custom_options = Config.flatten(config.get(self.configuration_key))
+        except KeyError:
+            # there are no custom options
+            custom_options = {}
+        if "type" in custom_options:
+            del custom_options["type"]
         dummy_config = self.config.clone()
         for key, value in custom_options.items():
             try:
                 dummy_config.set(self.embedder_type + "." + key, value)
-            except ValueError:
+            except ValueError as ve:
                 raise ValueError(
-                    "key {}.{} invalid or of incorrect type".format(
-                        self.configuration_key, key
+                    "key {}.{} invalid or of incorrect type, message was {}".format(
+                        self.configuration_key, key, ve
                     )
                 )
 
-        self.dim = self.get_option("dim")
+        self.dim: int = self.get_option("dim")
 
     @staticmethod
     def create(
@@ -215,14 +225,6 @@ class KgeEmbedder(KgeBase):
         """Returns all embeddings."""
         raise NotImplementedError
 
-    def get_option(self, name):
-        return self.config.get_default(self.configuration_key + "." + name)
-
-    def check_option(self, name, allowed_values):
-        return self.config.check_default(
-            self.configuration_key + "." + name, allowed_values
-        )
-
 
 class KgeModel(KgeBase):
     r"""Generic KGE model for KBs with a fixed set of entities and relations.
@@ -241,16 +243,15 @@ class KgeModel(KgeBase):
         initialize_embedders=True,
         configuration_key=None,
     ):
-        super().__init__(config, dataset)
-        self._init_configuration(config, configuration_key)
+        super().__init__(config, dataset, configuration_key)
 
         # TODO support different embedders for subjects and objects
 
         #: Embedder used for entities (both subject and objects)
-        self._entity_embedder = None
+        self._entity_embedder: KgeEmbedder = None
 
         #: Embedder used for relations
-        self._relation_embedder = None
+        self._relation_embedder: KgeEmbedder = None
 
         if initialize_embedders:
             self._entity_embedder = KgeEmbedder.create(
@@ -272,14 +273,15 @@ class KgeModel(KgeBase):
         #: Scorer
         self._scorer = scorer
 
-    def _init_configuration(self, config, configuration_key):
-        self.config = config
-        self.configuration_key = configuration_key
-        if self.configuration_key:
-            self.model = config.get(self.configuration_key + ".type")
-        else:
-            self.model = config.get("model")
-            self.configuration_key = self.model
+    # overridden to also set self.model
+    def _init_configuration(self, config: Config, configuration_key: Optional[str]):
+        Configurable._init_configuration(self, config, configuration_key)
+        if not hasattr(self, "model") or not self.model:
+            if self.configuration_key:
+                self.model = config.get(self.configuration_key + ".type")
+            else:
+                self.model = config.get("model")
+                self.configuration_key = self.model
 
     @staticmethod
     def create(
@@ -310,7 +312,12 @@ class KgeModel(KgeBase):
             )
 
     @staticmethod
-    def create_all(model=None, dataset=None, options={}, folder=None):
+    def create_all(
+        model: "KgeModel" = None,
+        dataset: Dataset = None,
+        options: Dict[str, Any] = {},
+        folder: str = None,
+    ) -> "KgeModel":
         """Utility method to create a model, including configuration and dataset.
 
         `model` is the name of the model (takes precedence over
@@ -352,7 +359,7 @@ class KgeModel(KgeBase):
         return model
 
     @staticmethod
-    def load_from_checkpoint(filename, dataset=None):
+    def load_from_checkpoint(filename: str, dataset=None) -> "KgeModel":
         """Loads a model from a checkpoint file of a training job.
 
         If dataset is specified, associates this dataset with the model. Otherwise uses
@@ -360,7 +367,7 @@ class KgeModel(KgeBase):
 
         """
 
-        checkpoint = torch.load(filename)
+        checkpoint = torch.load(filename, map_location="cpu")
         config = checkpoint["config"]
         if dataset is None:
             dataset = Dataset.load(config)
@@ -368,7 +375,7 @@ class KgeModel(KgeBase):
         model.load(checkpoint["model"])
         return model
 
-    def prepare_job(self, job, **kwargs):
+    def prepare_job(self, job: Job, **kwargs):
         super().prepare_job(job, **kwargs)
         self._entity_embedder.prepare_job(job, **kwargs)
         self._relation_embedder.prepare_job(job, **kwargs)
@@ -379,10 +386,15 @@ class KgeModel(KgeBase):
         job.post_epoch_trace_hooks.append(append_num_parameter)
 
     def penalty(self, **kwargs):
+        if "batch" in kwargs and "triples" in kwargs["batch"]:
+            kwargs["batch"]["triples"] = kwargs["batch"]["triples"].to(
+                self.config.get("job.device")
+            )
         return (
             super().penalty(**kwargs)
-            + self._entity_embedder.penalty(**kwargs)
-            + self._relation_embedder.penalty(**kwargs)
+            + self.get_s_embedder().penalty(slot=S, **kwargs)
+            + self.get_p_embedder().penalty(slot=P, **kwargs)
+            + self.get_o_embedder().penalty(slot=O, **kwargs)
         )
 
     def get_s_embedder(self) -> KgeEmbedder:
@@ -396,18 +408,6 @@ class KgeModel(KgeBase):
 
     def get_scorer(self) -> RelationalScorer:
         return self._scorer
-
-    def get_option(self, name):
-        if self.configuration_key:
-            return self.config.get_default(self.configuration_key + "." + name)
-        else:
-            return self.config.get_default(name)
-
-    def check_option(self, name, allowed_values):
-        if self.configuration_key:
-            return self.config.check_default(self.configuration_key + "." + name)
-        else:
-            return self.config.check_default(name)
 
     def score_spo(self, s, p, o):
         r"""Compute scores for a set of triples.

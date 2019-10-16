@@ -4,11 +4,11 @@ model: sd_rescal
 
 sd_rescal:
   class_name: SparseDiagonalRescal
-  blocks: 4
-  block_size: 32
+  blocks: -1
+  block_size: 1
   entity_embedder:
     type: lookup_embedder
-    dim: -1  # determine automatically
+    dim: 128  # determine automatically
     dropout: 0.2
   relation_embedder:
     type: lookup_embedder

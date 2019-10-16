@@ -1,7 +1,7 @@
 import torch
 
 
-def get_batch_sp_po_coords(
+def get_sp_po_coords_from_spo_batch(
     batch, num_entities, sp_index: dict, po_index: dict
 ) -> torch.LongTensor:
     """Given a set of triples , lookup matches for (s,p,?) and (?,p,o).
@@ -40,13 +40,13 @@ def get_batch_sp_po_coords(
 def coord_to_sparse_tensor(nrows, ncols, coords, device, value=1.0):
     if device == "cpu":
         labels = torch.sparse.FloatTensor(
-            coords.t(),
+            coords.long().t(),
             torch.ones([len(coords)], dtype=torch.float, device=device) * value,
             torch.Size([nrows, ncols]),
         )
     else:
         labels = torch.cuda.sparse.FloatTensor(
-            coords.t(),
+            coords.long().t(),
             torch.ones([len(coords)], dtype=torch.float, device=device) * value,
             torch.Size([nrows, ncols]),
             device=device,

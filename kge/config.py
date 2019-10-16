@@ -1,11 +1,14 @@
-from enum import Enum
 import collections
 import copy
 import datetime
 import os
 import time
-import yaml
 import uuid
+from enum import Enum
+
+import yaml
+from typing import Any, Dict, List, Optional
+
 from kge.util.misc import filename_in_module, is_number
 
 
@@ -16,22 +19,22 @@ class Config:
     :file:`config_default.yaml`.
     """
 
-    def __init__(self, folder=None, load_default=True):
+    def __init__(self, folder: str = None, load_default=True):
         """Initialize with the default configuration"""
         if load_default:
             import kge
 
             with open(filename_in_module(kge, "config-default.yaml"), "r") as file:
-                self.options = yaml.load(file, Loader=yaml.SafeLoader)
+                self.options: Dict[str, Any] = yaml.load(file, Loader=yaml.SafeLoader)
         else:
             self.options = {}
 
         self.folder = folder
-        self.log_prefix = None
+        self.log_prefix: str = None
 
     # -- ACCESS METHODS ----------------------------------------------------------------
 
-    def get(self, key, remove_plusplusplus=True):
+    def get(self, key: str, remove_plusplusplus=True) -> Any:
         """Obtain value of specified key.
 
         Nested dictionary values can be accessed via "." (e.g., "job.type"). Strips all
@@ -55,7 +58,7 @@ class Config:
 
         return result
 
-    def get_default(self, key):
+    def get_default(self, key: str):
         """Returns the value of the key if present or default if not.
 
         The default value is looked up as follows. If the key has form ``parent.field``,
@@ -71,8 +74,9 @@ class Config:
             if last_dot_index < 0:
                 raise e
             parent = key[:last_dot_index]
-            field = key[last_dot_index + 1:]
+            field = key[last_dot_index + 1 :]
             while True:
+                # self.log("Looking up {}/{}".format(parent, field))
                 try:
                     parent_type = self.get(parent + "." + "type")
                     # found a type -> go to this type and lookup there
@@ -91,14 +95,18 @@ class Config:
                 try:
                     value = self.get(parent + "." + field)
                     # uncomment this to see where defaults are taken from
-                    # self.log("Using value of {}={} for key {}".format(parent + "." + field, value, key))
+                    # self.log(
+                    #     "Using value of {}={} for key {}".format(
+                    #         parent + "." + field, value, key
+                    #     )
+                    # )
                     return value
                 except KeyError:
                     # try further
                     continue
 
-    def get_first_present_key(self, *keys, use_get_default=False):
-        """"Return the first key for which ``get`` or ``get_default`` finds a value."""
+    def get_first_present_key(self, *keys: str, use_get_default=False):
+        "Return the first key for which ``get`` or ``get_default`` finds a value."
         for key in keys:
             try:
                 self.get_default(key) if use_get_default else self.get(key)
@@ -107,8 +115,8 @@ class Config:
                 pass
         raise KeyError("None of the following keys found: ".format(keys))
 
-    def get_first(self, *keys, use_get_default=False):
-        """"Return value (or default value) of the first valid key present or KeyError."""
+    def get_first(self, *keys: str, use_get_default=False):
+        "Return value (or default value) of the first valid key present or KeyError."
         if use_get_default:
             return self.get_default(
                 self.get_first_present_key(*keys, use_get_default=True)
@@ -118,7 +126,7 @@ class Config:
 
     Overwrite = Enum("Overwrite", "Yes No Error")
 
-    def set(self, key, value, create=False, overwrite=Overwrite.Yes, log=False):
+    def set(self, key: str, value, create=False, overwrite=Overwrite.Yes, log=False):
 
         """Set value of specified key.
 
@@ -132,17 +140,32 @@ class Config:
         splits = key.split(".")
         data = self.options
 
-        # flatten path
+        # flatten path and see if it is valid to be set
         path = []
         for i in range(len(splits) - 1):
-            create = create or "+++" in data[splits[i]]
-            if create and splits[i] not in data:
-                data[splits[i]] = dict()
+            if splits[i] in data:
+                create = create or "+++" in data[splits[i]]
+            else:
+                if create:
+                    data[splits[i]] = dict()
+                else:
+                    raise KeyError(
+                        (
+                            "{} cannot be set because creation of "
+                            + "{} is not permitted"
+                        ).format(key, ".".join(splits[: (i + 1)]))
+                    )
             path.append(splits[i])
             data = data[splits[i]]
 
         # check correctness of value
-        current_value = data.get(splits[-1])
+        try:
+            current_value = data.get(splits[-1])
+        except:
+            raise Exception(
+                "These config entries {} {} caused an error.".format(data, splits[-1])
+            )
+
         if current_value is None:
             if not create:
                 raise ValueError("key {} not present".format(key))
@@ -189,12 +212,15 @@ class Config:
         that fields and their types are correct.
 
         """
-        import kge.model
+        import kge.model, kge.model.experimental
 
         # load the module_name
         module_config = Config(load_default=False)
         module_config.load(
-            filename_in_module(kge.model, "{}.yaml".format(module_name)), create=True
+            filename_in_module(
+                [kge.model, kge.model.experimental], "{}.yaml".format(module_name)
+            ),
+            create=True,
         )
         if "import" in module_config.options:
             del module_config.options["import"]
@@ -222,11 +248,19 @@ class Config:
             imports = list(dict.fromkeys(imports))
         self.options["import"] = imports
 
-    def set_all(self, new_options, create=False, overwrite=Overwrite.Yes):
+    def set_all(
+        self, new_options: Dict[str, Any], create=False, overwrite=Overwrite.Yes
+    ):
         for key, value in Config.flatten(new_options).items():
             self.set(key, value, create, overwrite)
 
-    def load(self, filename, create=False, overwrite=Overwrite.Yes):
+    def load(
+        self,
+        filename: str,
+        create=False,
+        overwrite=Overwrite.Yes,
+        allow_deprecated=True,
+    ):
         """Update configuration options from the specified YAML file.
 
         All options that do not occur in the specified file are retained.
@@ -244,7 +278,11 @@ class Config:
 
         # import model configurations
         if "model" in new_options:
-            self._import(new_options.get("model"))
+            model = new_options.get("model")
+            # TODO not sure why this can be empty when resuming an ax
+            # search with model as a search parameter
+            if model:
+                self._import(model)
         if "import" in new_options:
             imports = new_options.get("import")
             if not isinstance(imports, list):
@@ -252,6 +290,10 @@ class Config:
             for module_name in imports:
                 self._import(module_name)
             del new_options["import"]
+
+        # process deprecated options
+        if allow_deprecated:
+            new_options = _process_deprecated_options(Config.flatten(new_options))
 
         # now set all options
         self.set_all(new_options, create, overwrite)
@@ -262,14 +304,14 @@ class Config:
             file.write(yaml.dump(self.options))
 
     @staticmethod
-    def flatten(options):
+    def flatten(options: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a dictionary of flattened configuration options."""
         result = {}
         Config.__flatten(options, result)
         return result
 
     @staticmethod
-    def __flatten(options, result, prefix=""):
+    def __flatten(options: Dict[str, Any], result: Dict[str, Any], prefix=""):
         for key, value in options.items():
             fullkey = key if prefix == "" else prefix + "." + key
             if type(value) is dict:
@@ -277,7 +319,7 @@ class Config:
             else:
                 result[fullkey] = value
 
-    def clone(self, subfolder=None):
+    def clone(self, subfolder: str = None) -> "Config":
         """Return a deep copy"""
         new_config = Config(folder=copy.deepcopy(self.folder), load_default=False)
         new_config.options = copy.deepcopy(self.options)
@@ -287,7 +329,7 @@ class Config:
 
     # -- LOGGING AND TRACING -----------------------------------------------------------
 
-    def log(self, msg, echo=True, prefix=""):
+    def log(self, msg: str, echo=True, prefix=""):
         """Add a message to the default log file.
 
         Optionally also print on console. ``prefix`` is used to indent each
@@ -306,7 +348,7 @@ class Config:
 
     def trace(
         self, echo=False, echo_prefix="", echo_flow=False, log=False, **kwargs
-    ) -> dict:
+    ) -> Dict[str,Any]:
         """Write a set of key-value pairs to the trace file.
 
         The pairs are written as a single-line YAML record. Optionally, also
@@ -348,16 +390,19 @@ class Config:
             return True
         return False
 
-    def checkpoint_file(self, epoch):
-        """"Return path of checkpoint file for given epoch"""
-        return os.path.join(self.folder, "checkpoint_{:05d}.pt".format(epoch))
+    def checkpoint_file(self, cpt_id):
+        "Return path of checkpoint file for given checkpoint id"
+        if is_number(cpt_id, int):
+            return os.path.join(self.folder, "checkpoint_{:05d}.pt".format(int(cpt_id)))
+        else:
+            return os.path.join(self.folder, "checkpoint_{}.pt".format(cpt_id))
 
     def last_checkpoint(self):
-        """"Return epoch number of latest checkpoint"""
+        "Return epoch number of latest checkpoint"
         # stupid implementation, but works
         tried_epoch = 0
         found_epoch = 0
-        while tried_epoch < found_epoch + 100:
+        while tried_epoch < found_epoch + 500:
             tried_epoch += 1
             if os.path.exists(self.checkpoint_file(tried_epoch)):
                 found_epoch = tried_epoch
@@ -368,8 +413,8 @@ class Config:
 
     # -- CONVENIENCE METHODS --------------------------------------------------
 
-    def _check(self, key, value, allowed_values):
-        if not value in allowed_values:
+    def _check(self, key: str, value, allowed_values):
+        if value not in allowed_values:
             raise ValueError(
                 "Illegal value {} for key {}; allowed values are {}".format(
                     value, key, allowed_values
@@ -377,14 +422,14 @@ class Config:
             )
         return value
 
-    def check(self, key, allowed_values):
+    def check(self, key: str, allowed_values):
         """Raise an error if value of key is not in allowed.
 
         If fine, returns value.
         """
         return self._check(key, self.get(key), allowed_values)
 
-    def check_default(self, key, allowed_values):
+    def check_default(self, key: str, allowed_values):
         """Raise an error if value or default value of key is not in allowed.
 
         If fine, returns value.
@@ -392,7 +437,7 @@ class Config:
         return self._check(key, self.get_default(key), allowed_values)
 
     def check_range(
-        self, key, min_value, max_value, min_inclusive=True, max_inclusive=True
+        self, key: str, min_value, max_value, min_inclusive=True, max_inclusive=True
     ):
         value = self.get(key)
         if (
@@ -418,3 +463,102 @@ class Config:
 
     def tracefile(self):
         return os.path.join(self.folder, "trace.yaml")
+
+
+class Configurable:
+    """Mix-in class for adding configurations to objects.
+
+    Each configured object has access to a `config` and a `configuration_key` that
+    indicates where the object's options can be found in `config`.
+
+    """
+
+    def __init__(self, config: Config, configuration_key: str = None):
+        self._init_configuration(config, configuration_key)
+
+    def get_option(self, name: str):
+        if self.configuration_key:
+            return self.config.get_default(self.configuration_key + "." + name)
+        else:
+            self.config.get_default(name)
+
+    def check_option(self, name: str, allowed_values):
+        if self.configuration_key:
+            return self.config.check_default(
+                self.configuration_key + "." + name, allowed_values
+            )
+        else:
+            return self.config.check_default(name, allowed_values)
+
+    def set_option(self, name: str, value):
+        if self.configuration_key:
+            self.config.set(self.configuration_key + "." + name, value)
+        else:
+            self.config.set(name, value)
+
+    def _init_configuration(self, config: Config, configuration_key: Optional[str]):
+        r"""Initializes `self.config` and `self.configuration_key`.
+
+        Only after this method has been called, `get_option`, `check_option`, and
+        `set_option` should be used. This method is automatically called in the
+        constructor of this class, but can also be called by subclasses before calling
+        the superclass constructor to allow access to these three methods. May also be
+        overridden by subclasess to perform additional configuration.
+
+        """
+        self.config = config
+        self.configuration_key = configuration_key
+
+
+def _process_deprecated_options(options: Dict[str, Any]):
+    # renames given key (but not subkeys!)
+    def rename_key(old_key, new_key):
+        if old_key in options:
+            print(
+                "Warning: key {} is deprecated; use {} instead".format(old_key, new_key)
+            )
+            if new_key in options:
+                raise ValueError(
+                    "keys {} and {} must not both be set".format(old_key, new_key)
+                )
+            value = options[old_key]
+            del options[old_key]
+            options[new_key] = value
+
+    # renames a value
+    def rename_value(key, old_value, new_value):
+        if key in options and options.get(key) == old_value:
+            print(
+                "Warning: {}={} is deprecated; use {} instead".format(
+                    key, old_value, new_value
+                )
+            )
+            options[key] = new_value
+
+    # renames a set of keys matching a regular expression
+    def rename_keys_re(key_regex, replacement):
+        import re
+
+        regex = re.compile(key_regex)
+        for old_key in options.keys():
+            new_key = regex.sub(replacement, old_key)
+            if old_key != new_key:
+                rename_key(old_key, new_key)
+
+    # 1.10.2019
+    rename_value("train.type", "1toN", "KvsAll")
+    rename_value("train.type", "spo", "1vsAll")
+    rename_keys_re(r"^1toN\.", "KvsAll.")
+    rename_key("checkpoint.every", "train.checkpoint.every")
+    rename_key("checkpoint.keep", "train.checkpoint.keep")
+    rename_value("model", "inverse_relations_model", "reciprocal_relations_model")
+    rename_keys_re(r"^inverse_relations_model\.", "reciprocal_relations_model.")
+
+    # 30.9.2019
+    rename_key("eval.metrics_per_relation_type", "eval.metrics_per.relation_type")
+    rename_key("eval.metrics_per_head_and_tail", "eval.metrics_per.head_and_tail")
+    rename_key(
+        "eval.metric_per_argument_frequency_perc", "eval.metrics_per.argument_frequency"
+    )
+
+    return options

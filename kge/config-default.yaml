@@ -1,14 +1,28 @@
+# Job-level configuration options.
 job:
-  type: train                 # train, eval, grid, ...
+  # Type of job to run. Possible values are "train", "eval", and "search". See
+  # the corresponding configuration keys for mode information.
+  type: train
+
+  # Main device to use for this job (e.g., 'cpu', 'cuda', 'cuda:0')
   device: 'cuda:1'
 
-## INPUT/OUTPUT ################################################################
+# The seeds of the PRNGs can be set manually for (increased) reproducability.
+# Use -1 to use default seed.
+random_seed:
+  python: -1
+  torch: -1
+  numpy: -1
+
+
+## DATASET #####################################################################
 
 dataset:
+  # Specify a dataset here. There must be a folder of that name under "data/".
   name: 'toy'
 
-  # training, validation, and test data files have the following fields, all
-  # tab-separated:
+  # Names of the training, validation, and test data files. Each file has the
+  # following fields, all tab-separated:
   # - 0: subject index
   # - 1: relation index
   # - 2: object index
@@ -18,42 +32,94 @@ dataset:
   valid: valid.del
   test: test.del
 
-  # entity and relation maps store auxiliary information about each
-  # entity/predicate. Fields are tab-separated:
+  # Names of entity and relation map files, which store auxiliary information
+  # about each entity/predicate. Fields are tab-separated:
   # - 0: entity/predicate index (as in train/valid/test)
   # - 1...: arbitrary metadata fields
   entity_map: entity_map.del
   relation_map: relation_map.del
 
+
 ## MODEL #######################################################################
 
-# see model specific configuration files
-model: ''                     # distmult, complex, transe, conve, ...
+# Which KGE model to use. Examples include "rescal", "complex", "distmult",
+# "transe", or "conve". For available models, see the project homepage and/or
+# configuration files under kge/models and kge/models/experimental.
+model: ''
 
 
 ## TRAINING ####################################################################
 ## Used for training jobs.
 
+# Options of training jobs (job.type=="train")
 train:
-  type: 1toN                  # 1toN, negative_sampling
+  # Type of training job.
+  # - KvsAll: scores each unique sp/po pair along with all possible objectes/subjects.
+  # - negative_sampling: scores each unique spo triple along with sampled corrupted
+  #   triples
+  # - 1vsAll: scores each spo triples against the complete set of s/p-corrputed triples
+  #   (all treated negative)
+  type: KvsAll
+
+  # Loss used for training. Not all combination of losses and job types are supported.
+  # - bce: binary cross entropy after taking logits (KvsAll, negative_sampling, 1vsAll)
+  # - margin_ranking (negative_sampling)
+  # - kl: KL divergence after taking softmax (KvsAll)
+  # - ce: cross entropy after taking softmax (spo)
+  loss: bce
+
+  ## Argument of loss function (if any)
+  ## - margin_ranking: the margin to use
+  loss_arg: 1.0
+
+  # Maximum number of epochs used for training
   max_epochs: 20
-  optimizer: Adagrad          # sgd, adagrad, adam
+
+  # Batch size used for training.
+  batch_size: 100
+
+  # Number of workers used to construct batches. Leave at 0 for default.
+  num_workers: 0
+
+  # Optimizer used for training.
+  optimizer: Adagrad           # sgd, adagrad, adam
+
+  # Additional arguments for the optimizer. Arbitrary key-value pairs can be
+  # added here and will be passed along to the optimizer. E.g., use entry lr:0.1
+  # to set the learning rate to 0.1.
   optimizer_args:
-    # No default arguments are specified. Here, +++ signals that this option
-    # allows arbitrary additional key-value pairs.
     +++: +++
-  lr_scheduler: ConstantLRScheduler # schdulers from torch.optim.lr_scheduler such as ReduceLROnPlateau
+
+  # Learning rate scheduler to use. Any scheduler from torch.optim.lr_scheduler
+  # can be used (e.g., ConstantLRScheduler or ReduceLROnPlateau).
+  lr_scheduler: ConstantLRScheduler #
+
+  # Additional arguments for the scheduler.
   lr_scheduler_args:
     +++: +++
-  batch_size: 100
-  loss: bce                   # bce, margin_ranking
-  loss_arg: 1.0               # margin for margin_ranking
-  num_workers: 0
-  pin_memory: False
-  trace_level: epoch          # batch or epoch
 
-1toN:
-  # Amount of label smoothing (disabled when <0). Disencourages models to
+  # When to write entries to the trace file.
+  trace_level: epoch           # batch, epoch
+
+  # When to create checkpoints
+  checkpoint:
+    # In addition the the checkpoint of the last epoch (which is transient),
+    # create an additional checkpoint every this many epochs. Disable additional
+    # checkpoints with 0.
+    every: 5
+
+    # Keep this many most recent additional checkpoints.
+    keep: 3
+
+  # Other options
+  pin_memory: False
+  auto_correct: False         # True: allows for trainer to adjust certain settings, False: throw exception
+  visualize_graph: False      # create PDF of compute graph (of first batch of first epoch)
+
+
+# Options for KvsAll training (train.type=="KvsAll)
+KvsAll:
+  # Amount of label smoothing (disabled when 0). Disencourages models to
   # perform extreme predictions (0 or 1).
   #
   # Technically, reduces all labels by fraction given by this value and
@@ -62,13 +128,27 @@ train:
   #
   # This form of label smoothing was used by ConvE
   # ( https://github.com/TimDettmers/ConvE/blob/853d7010a4b569c3d24c9e6eeaf9dc3535d78832/main.py#L156) with a default value of 0.1.
-  label_smoothing: -1.0
+  label_smoothing: 0.0
 
+# Options for negative sampling training (train.type=="negative_sampling")
 negative_sampling:
   sampling_type: uniform
   num_negatives_s: 3          # this is default value if others are -1, must not be -1
-  num_negatives_p: 0          
+  num_negatives_p: -1
   num_negatives_o: -1
+  filter_true_s: False        # default is not filtering
+  filter_true_p: False
+  filter_true_o: False
+
+  # set to spo (for small negative samples), sp_po (for large negative samples),
+  # or set to auto which sets spo or sp_po automatically if the
+  # max(num_negatives_s, num_negatives_p, num_negatives_o) > 30. Recommended for
+  # models which compute sp_po with an inner product, but not for all other
+  # models (e.g., not for TransE in the current implementation).
+  score_func_type: spo
+
+
+## VALIDATION ##################################################################
 
 # Configuration options for model validation/selection during training.
 valid:
@@ -84,7 +164,7 @@ valid:
   # should be used), a Python expression to compute the metric. Can refer to
   # trace entries directly and to configuration options via config.
   # Example: 'math.sqrt(mean_reciprocal_rank) + config.get("user.par")'
-  metric_expr: ''
+  metric_expr: 'float("nan")'
 
   early_stopping:
     # Grace period of validation runs before a training run is stopped early
@@ -92,10 +172,11 @@ valid:
     # stopped when there has been no improvement (compared to the best overall
     # result so far) in the validation metric during the last n validation runs.
     patience: 5
+
     # A minimum validation metric value threshold that should be reached after
     # n epochs, set to 0 epoch to turn off. Should be set very very conservatively
     # and the main purpose is for pruning completely useless hyperparameter
-    # settings hyper-parameter optimization.
+    # settings during hyper-parameter optimization.
     min_threshold:
       epochs: 0
       metric_value: 0.0
@@ -103,7 +184,7 @@ valid:
   # When to write a trace entry. Possible values: example, batch, epoch
   trace_level: epoch
 
-  # Whether test data should be leaked into validation (seriously!). Filtered
+  # Whether test data should used during validation. Filtered
   # metrics by default only use train and validation data. When this is set to
   # True, additionally produces "filtered_with_test" validation metrics (such as
   # MRR or HITS@k). Apparently, many existing models have been trained with this
@@ -111,31 +192,50 @@ valid:
   # mean_reciprocal_rank_filtered_with_test.
   filter_with_test: False
 
-checkpoint:
-  every: 5                    # epochs (disable with 0)
 
 ## EVALUATION ##################################################################
-## Used for evaluation jobs.
 
-# fixed metrics: compute MRR and HITS@1, ..., HITS@k
+# Options of evaluation jobs (job.type=="eval"). Also used during validation
+# when training. Right now, evaluation jobs compute a fixed set of metrics: the
+# MRR and the specified HITS@k's.
 eval:
   data: valid
   type: entity_ranking
-  max_k: 10                       # maximum k for HITS@k
+  hits_at_k_s: [1, 3, 10, 50, 100, 200, 300, 400, 500, 1000]     # ks for HITS@k
   batch_size: 100
   num_workers: 0
   pin_memory: False
   trace_level: example            # example or batch or epoch
 
-## HYPERPARAMETER SEARCH ###############################################################
+  # Metrics are always computed over the entire evaluation data. Optionally,
+  # certain more specific metric can be computed in addition.
+  metrics_per:
+    relation_type: False          # 1-to-1, 1-to-N, N-to-1, N-to-N
+    head_and_tail: False          # head, tail
+    argument_frequency: False     # 25%, 50%, 75%, top quantiles per argument
 
+
+## HYPERPARAMETER SEARCH #######################################################
+
+# Options of hyperparameter search jobs (job.type=="search").
 search:
   # the type of search to run (see descriptions below): manual, random, grid, ax, hyperband,
   # bohb, tpe
-  type: random
+  type: ax
 
-  # (maximum) number of parallel training jobs to run during a search
+  # Maximum number of parallel training jobs to run during a search.
   num_workers: 1
+
+  # Device pool to use for training jobs. If this list is empty, `job.device` is
+  # used for all parallel searches. Otherwise, the first `search.num_workers`
+  # devices from this list are used. If the number of devices specified here is
+  # less than `search.num_workers`, the list wraps around so that devices are
+  # used by multiple jobs in parallel.
+  device_pool: [ ]
+
+  # What to do when an error occurs during a training job. Possible values:
+  # continue, abort
+  on_error: abort
 
 # Manually specify all configurations to try
 manual_search:
@@ -187,12 +287,43 @@ grid_search:
 
 # Dynamic search job that picks configurations using ax
 ax_search:
+  # Total number of trials to run. Can be increased when a search job is
+  # resumed.
   num_trials: 10
+
+  # Number of sobol trials to run (-1: automatic); remaining trials are GP+EI.
+  # If equal or larger than num_trials, only Sobal trials will be run.
+  num_sobol_trials: -1
 
   # Search space definition passed to ax. See create_experiment in
   # https://ax.dev/api/service.html#module-ax.service.ax_client
   parameters: []
   parameter_constraints: []
+
+  # 'fixed_parameters' is a dictionary of parameters and the values these
+  # parameters should be fixed to for *generating* trials during BO. The purpose
+  # of 'fixed_parameters' is to initialize a search (f.ex. with Sobol) and then
+  # fix a range or choice parameter when generating new trials with BO to a
+  # certain value. The names and values should correspond with the definitions
+  # in 'ax_search.parameters'.
+  # Attention: there is a name clash with regards to the meaning of 'fixed' in Ax
+  # and Botorch! The difference to 'ax_search.parameters#type = fixed' is, that
+  # those are filtered out for fitting a BO model, while the parameters for
+  # 'fixed_parameters' are not. This setting is used in /botorch/gen.py
+  #
+  # Example:
+  #
+  #  parameters:
+  #    - name: rescal.entity_embedder.dim
+  #      type: choice
+  #      values: [100, 200]
+  #
+  #  fixed_parameters:
+  #    - name: rescal.entity_embedder.dim
+  #      value: 100
+
+  fixed_parameters: []
+
 
 # Dynamic search job that uses a bandit approach and picks hyperparameters at random
 hyperband_search:

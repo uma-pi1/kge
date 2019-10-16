@@ -18,7 +18,6 @@ train:
   type: negative_sampling
 
 negative_sampling:
-  filter_negatives: false
   num_negatives_o: 3
   num_negatives_p: 0
   num_negatives_s: 3
@@ -38,22 +37,30 @@ transe:
   entity_embedder:
     dim: 100
     initialize: uniform_
-    sparse: true
+    initialize_args:
+      uniform_ :
+        a: -1.0
+    sparse: false
     type: lookup_embedder
     regularize: l2
-    regularize_weight: 1.e-05
+    regularize_args:
+      weight: 1.e-05
   relation_embedder:
     dim: 100
     initialize: uniform_
-    sparse: true
+    initialize_args:
+      uniform_ :
+        a: -1.0
+    sparse: false
     type: lookup_embedder
     regularize: l2
-    regularize_weight: 1.e-05
+    regularize_args:
+      weight: 1.e-05
   l_norm: 1.
-
 
 ax_search:
   num_trials: 50
+  num_sobol_trials: 20
   parameters:
     - name: train.optimizer
       type: fixed
@@ -74,7 +81,7 @@ ax_search:
       values: [-1., 2.]
       is_numerical: False
       is_ordered: False
-    - name: lookup_embedder.regularize_weight
+    - name: lookup_embedder.regularize_args.weight
       type: range
       bounds: [0.0, 0.001]
 

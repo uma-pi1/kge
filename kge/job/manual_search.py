@@ -1,6 +1,6 @@
 import copy
 from kge import Config, Dataset
-from kge.job import SearchJob
+from kge.job import SearchJob,Job
 import kge.job.search
 import concurrent.futures
 
@@ -28,7 +28,11 @@ class ManualSearchJob(SearchJob):
     def __init__(self, config: Config, dataset: Dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
 
-    def resume(self):
+        if self.__class__ == ManualSearchJob:
+            for f in Job.job_created_hooks:
+                f(self)
+
+    def resume(self, checkpoint_file=None):
         # no need to do anything here; run code automatically resumes
         pass
 
@@ -55,12 +59,12 @@ class ManualSearchJob(SearchJob):
 
         # TODO find a way to create all indexes before running the jobs. The quick hack
         # below does not work becuase pytorch then throws a "too many open files" error
-        # self.dataset.index_1toN("train", "sp")
-        # self.dataset.index_1toN("train", "po")
-        # self.dataset.index_1toN("valid", "sp")
-        # self.dataset.index_1toN("valid", "po")
-        # self.dataset.index_1toN("test", "sp")
-        # self.dataset.index_1toN("test", "po")
+        # self.dataset.index_KvsAll("train", "sp")
+        # self.dataset.index_KvsAll("train", "po")
+        # self.dataset.index_KvsAll("valid", "sp")
+        # self.dataset.index_KvsAll("valid", "po")
+        # self.dataset.index_KvsAll("test", "sp")
+        # self.dataset.index_KvsAll("test", "po")
 
         # now start running/resuming
         for i, config in enumerate(search_configs):

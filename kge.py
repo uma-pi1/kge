@@ -7,7 +7,7 @@ import yaml
 from kge import Dataset
 from kge import Config
 from kge.job import Job
-from kge.util.misc import get_git_revision_short_hash, kge_base_dir
+from kge.util.misc import get_git_revision_short_hash, kge_base_dir, is_number
 
 
 def argparse_bool_type(v):
@@ -105,6 +105,12 @@ def create_parser(config, additional_args=[]):
     )
     for p in [parser_resume, parser_eval, parser_valid, parser_test]:
         p.add_argument("config", type=str)
+        p.add_argument(
+            "--checkpoint",
+            type=str,
+            help="which checkpoint to use: 'default', 'last', 'best', a number, or a file name",
+            default="default",
+        )
 
     return parser
 
@@ -139,7 +145,7 @@ if __name__ == "__main__":
     if args.command == "start":
         # use toy config file if no config given
         if args.config is None:
-            args.config = "examples/toy.yaml"
+            args.config = kge_base_dir() + "/" + "examples/toy-complex-train.yaml"
             print("WARNING: No configuration specified; using " + args.config)
 
         print("Loading configuration {}...".format(args.config))
@@ -159,9 +165,11 @@ if __name__ == "__main__":
 
     # overwrite configuration with command line arguments
     for key, value in vars(args).items():
-        if key in ["command", "config", "run", "folder"]:
+        if key in ["command", "config", "run", "folder", "checkpoint"]:
             continue
         if value is not None:
+            if key == "search.device_pool":
+                value = "".join(value).split(",")
             config.set(key, value)
             if key == "model":
                 config._import(value)
@@ -183,11 +191,36 @@ if __name__ == "__main__":
         raise ValueError("output folder {} exists already".format(config.folder))
     config.log("Using folder: {}".format(config.folder))
 
+    # determine checkpoint to resume (if any)
+    if hasattr(args, "checkpoint"):
+        if args.checkpoint == "default":
+            if config.get("job.type") in ["eval", "valid"]:
+                checkpoint_file = config.checkpoint_file("best")
+            else:
+                checkpoint_file = None  # means last
+        elif is_number(args.checkpoint, int) or args.checkpoint == "best":
+            checkpoint_file = config.checkpoint_file(args.checkpoint)
+        else:
+            # otherwise, treat it as a filename
+            checkpoint_file = args.checkpoint
+
     # log configuration
     config.log("Configuration:")
     config.log(yaml.dump(config.options), prefix="  ")
     config.log("git commit: {}".format(get_git_revision_short_hash()), prefix="  ")
 
+    # set random seeds
+    if config.get("random_seed.python") > -1:
+        import random
+        random.seed(config.get("random_seed.python"))
+    if config.get("random_seed.torch") > -1:
+        import torch
+        torch.manual_seed(config.get("random_seed.torch"))
+    if config.get("random_seed.numpy") > -1:
+        import numpy.random
+        numpy.random.seed(config.get("random_seed.numpy"))
+
+    # let's go
     if args.command == "start" and not args.run:
         config.log("Job created successfully.")
     else:
@@ -197,5 +230,5 @@ if __name__ == "__main__":
         # let's go
         job = Job.create(config, dataset)
         if args.command == "resume":
-            job.resume()
+            job.resume(checkpoint_file)
         job.run()
