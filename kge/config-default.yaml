@@ -352,11 +352,18 @@ visualize:
   #visdom, tensorboard
   module: visdom
 
-  # metrics to be visualized in post/broadcast
-  # leave empty to select all metrics in the trace (can be slow; when windows overlap press the repack button or scroll)
+  # metrics to be visualized in post/broadcast; accepts regex
+  # leave empty to select all metrics in the trace (can be slow; when windows overlap in visdom press the repack button or scroll)
   # currently, values that are not float or int types will be ignored
   include_train: ["avg_loss", "avg_cost", "avg_penalty", "forward_time", "epoch_time"]
   include_eval: ["rank"]
+
+  # metrics to be excluded, accepts regex; leaving empty will exclude none
+  # has priority over include_train/eval e. g. whatever is in these lists
+  # will not be visualized. Useful usecase: leave include_train/eval empty and then filter out some metrics with
+  # exclude_train/eval
+  exclude_train: ["avg_loss"]
+  exclude_eval: []
 
   # set True; only needed for debugging
   surpress_server_output: True

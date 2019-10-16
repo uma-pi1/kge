@@ -12,6 +12,7 @@ import json
 import copy
 from collections import defaultdict
 import numpy as np
+import random
 
 
 class VisualizationHandler:
@@ -39,6 +40,8 @@ class VisualizationHandler:
                  tracking=None,
                  include_train=None,
                  include_eval=None,
+                 exclude_train=None,
+                 exclude_eval=None,
                  session_config=None,
                  session_data={}
     ):
@@ -46,6 +49,8 @@ class VisualizationHandler:
         self.tracking = tracking
         self.include_train = include_train
         self.include_eval = include_eval
+        self.exclude_train = exclude_train
+        self.exclude_eval = exclude_eval
         # session data can be used to cache any kind of data that is needed during a visualization session
         # during broadcasting this can be best valid.metric during post processing this can be metadata for envs etc.
         self.session_data = session_data
@@ -83,6 +88,7 @@ class VisualizationHandler:
         :param jobtype "search", "train", "eval"
         """
 
+
         # group traces into dics with {key: list[values]}
         # grouped_entries contains for every distinct trace entry type (train,eval, metadata..)
         # a dic where the keys are the original keys and the values are lists of the original values
@@ -90,35 +96,38 @@ class VisualizationHandler:
         grouped_entries = []
         with open(tracefile, "r") as file:
             raw = file.readline()
-            while(raw):
+            while (raw):
                 trace_entry = yaml.safe_load(raw)
                 group_entry = defaultdict(list)
+                # add the very first entry
                 if len(grouped_entries) == 0:
-                    for k,v in trace_entry.items():
-                        group_entry[k].append(v)
+                    [group_entry[k].append(v) for k, v in trace_entry.items()]
                     grouped_entries.append(group_entry)
                 else:
                     matched = False
                     for entry in grouped_entries:
                         if entry.keys() == trace_entry.keys():
-                            # additional check for robustness; is even necessary in search traces
-                            if entry.get("scope") and entry.get("job") and trace_entry.get("scope") and trace_entry.get("job"):
-                                if not(entry.get("scope")[0] == trace_entry.get("scope") and entry.get("job")[0] == trace_entry.get("job")):
+                            e_scope = entry.get("scope")
+                            e_job = entry.get("job")
+                            t_scope = trace_entry.get("scope")
+                            t_job = trace_entry.get("job")
+                            # check if scope and job is the same
+                            if e_scope and e_job and t_scope and t_job:
+                                if not (e_scope[0] == t_scope and e_job[0] == t_job):
                                     break
-                            for k,v in trace_entry.items():
-                                entry[k].append(v)
+                            # append the data as the entry type exists already
+                            [entry[k].append(v) for k, v in trace_entry.items()]
                             matched = True
                             break
+                    # create new entry type as entry does not exist
                     if matched == False:
-                        for k, v in trace_entry.items():
-                            group_entry[k].append(v)
+                        [group_entry[k].append(v) for k, v in trace_entry.items()]
                         grouped_entries.append(group_entry)
                 raw = file.readline()
-        for entry in grouped_entries:
-            self._process_trace_entry(entry, tracetype, jobtype)
+        [self._process_trace_entry(entry, tracetype, jobtype) for entry in grouped_entries]
 
     def _process_trace_entry(self, trace_entry, tracetype, jobtype):
-        """ Process some trace entry.
+        """ Process some trace entry which can be grouped or not.
 
        Note that there are different settings which can occur: E. g. a searchjob can have training traces which also have
        eval entries. This has to be tracked because then depending on "broadcast" or "post" behavior differs in the
@@ -130,12 +139,10 @@ class VisualizationHandler:
         if epoch:
             entry_type = None
             scope = None
+            # entries can be grouped or single entries
             if type(trace_entry["job"]) == list:
                 scope = trace_entry["scope"][0]
                 entry_type = trace_entry["job"][0]
-                assert(sum(np.array(trace_entry["job"]) != entry_type) == 0)
-                if tracetype == "train":
-                    assert (sum(np.array(trace_entry["scope"]) != scope) == 0)
             else:
                 entry_type = trace_entry["job"]
                 scope = trace_entry["scope"]
@@ -143,25 +150,40 @@ class VisualizationHandler:
             if scope == "example" or scope == "batch":
                 return
             include_patterns = []
-            if entry_type == "train":
+            if entry_type == "train" and tracetype == "train":
                 include_patterns = self.include_train
-                if len(include_patterns) == 0:
-                    include_patterns = [""]
+                exclude_patterns = self.exclude_train
                 visualize = self._visualize_train_item
-                scope = trace_entry["scope"][0]
             elif entry_type == "eval" and tracetype == "train":
                 include_patterns = self.include_eval
-                if len(include_patterns) == 0:
-                    include_patterns = [""]
+                exclude_patterns = self.exclude_train
                 visualize = self._visualize_eval_item
-                scope = trace_entry["scope"][0]
-            # grouped entries with different scopes are allowed to pass through here
+            # just send search trace entries trough
             elif tracetype == "search":
                 self._process_search_trace_entry(trace_entry)
                 return
-            for pattern in include_patterns:
-                for matched in list(filter(lambda match_key: re.search(pattern, match_key), entry_keys)):
-                    visualize(matched, trace_entry[matched], epoch, tracetype, jobtype)
+            # filter keys and send keys to submethods to deal with the visualizations
+            matched_keys = self.filter_entry_keys(include_patterns, exclude_patterns, entry_keys)
+            list(map(
+                lambda matched: visualize(matched, trace_entry[matched], epoch, tracetype, jobtype),
+                matched_keys
+            ))
+
+    def filter_entry_keys(self, include_patterns, exclude_patterns, keys):
+        """ Returns matched keys.
+
+        Takes a list of include_patterns, exlude_patterns and keys. Returns a list of keys
+        that have some regex match with any of the include_patterns but no match with any of the exclude patterns.
+
+        """
+        return [
+            matched_key
+            for exclude_pattern in exclude_patterns
+            for include_pattern in include_patterns
+            for matched_key in list(filter(lambda match_key: re.search(include_pattern, match_key), keys))
+            if matched_key not in list(filter(lambda match_key: re.search(exclude_pattern, match_key), keys))
+
+        ]
 
     @classmethod
     def register_broadcast(cls, **kwargs):
@@ -194,6 +216,8 @@ class VisualizationHandler:
                     tracking=kwargs["tracking"],
                     include_train=kwargs["include_train"],
                     include_eval=kwargs["include_eval"],
+                    exclude_train=kwargs["exclude_train"],
+                    exclude_eval=kwargs["exclude_eval"],
                     path=jobpath,
                     session_data=session_data,
                     session_config=job.config.options
@@ -236,6 +260,8 @@ class VisualizationHandler:
             tracking="post",
             include_train=kwargs["include_train"],
             include_eval=kwargs["include_eval"],
+            exclude_train=kwargs["exclude_train"],
+            exclude_eval=kwargs["include_eval"],
         )
         for parent_job in os.listdir(path):
             if parent_job not in kwargs["folders"] and not len(kwargs["folders"]) == 0:
@@ -272,11 +298,22 @@ class VisdomHandler(VisualizationHandler):
             tracking=None,
             include_train=None,
             include_eval=None,
+            exclude_train =None,
+            exclude_eval=None,
             path=None,
             session_config=None,
             session_data={}):
 
-        super().__init__(writer, path, tracking, include_train, include_eval, session_config, session_data)
+        super().__init__(
+            writer,
+            path,
+            tracking,
+            include_train,
+            include_eval,
+            exclude_train,
+            exclude_eval,
+            session_config,
+            session_data)
 
     @classmethod
     def create(cls, **kwargs):
@@ -286,6 +323,8 @@ class VisdomHandler(VisualizationHandler):
             tracking=kwargs.get("tracking"),
             include_train=kwargs.get("include_train"),
             include_eval=kwargs.get("include_eval"),
+            exclude_train=kwargs.get("exclude_train"),
+            exclude_eval=kwargs.get("exclude_eval"),
             path=kwargs.get("path"),
             session_data=kwargs.get("session_data"),
         )
@@ -549,12 +588,23 @@ class TensorboardHandler(VisualizationHandler):
             tracking=None,
             include_train=None,
             include_eval=None,
+            exclude_train=None,
+            exclude_eval=None,
             path=None,
             session_config=None,
             session_data={},
     ):
 
-        super().__init__(writer, path, tracking, include_train, include_eval, session_config, session_data)
+        super().__init__(
+            writer,
+            path,
+            tracking,
+            include_train,
+            include_eval,
+            exclude_train,
+            exclude_eval,
+            session_config,
+            session_data)
         self.writer_path = kge_base_dir() + "/local/visualize/tensorboard/"
 
     @classmethod
@@ -565,6 +615,8 @@ class TensorboardHandler(VisualizationHandler):
             tracking=kwargs.get("tracking"),
             include_train=kwargs.get("include_train"),
             include_eval=kwargs.get("include_eval"),
+            exclude_train=kwargs.get("exclude_train"),
+            exclude_eval=kwargs.get("exclude_eval"),
             path=kwargs.get("path"),
             session_data=kwargs.get("session_data"),
         )
@@ -686,6 +738,19 @@ class TensorboardHandler(VisualizationHandler):
 
 def initialize_visualization(session_config, command):
 
+    include_train = session_config.get("visualize.include_train")
+    exclude_train = session_config.get("visualize.exclude_train")
+    if len(include_train) == 0:
+        include_train = [""]
+    if len(exclude_train) == 0:
+        exclude_train = [str(random.getrandbits(64))]
+    include_eval = session_config.get("visualize.include_eval")
+    exclude_eval = session_config.get("visualize.exclude_eval")
+    if len(include_eval) == 0:
+        include_eval = [""]
+    if len(exclude_eval) == 0:
+        exclude_eval = [str(random.getrandbits(64))]
+
     if session_config.get("visualize.module") == "visdom":
         global visdom
         import visdom
@@ -697,8 +762,10 @@ def initialize_visualization(session_config, command):
         session_config.check("visualize.broadcast.enable", [False])
     if command == "visualize":
         VisualizationHandler.post_process_jobs(
-            include_train=session_config.get("visualize.include_train"),
-            include_eval=session_config.get("visualize.include_eval"),
+            include_train=include_train,
+            include_eval=include_eval,
+            exclude_train=exclude_train,
+            exclude_eval=exclude_eval,
             module=session_config.get("visualize.module"),
             tracking="post",
             folders=session_config.get("visualize.post.folders"),
@@ -707,7 +774,9 @@ def initialize_visualization(session_config, command):
     else:
         VisualizationHandler.register_broadcast(
             module=session_config.get("visualize.module"),
-            include_train=session_config.get("visualize.include_train"),
-            include_eval=session_config.get("visualize.include_eval"),
+            include_train=include_train,
+            include_eval=include_eval,
+            exclude_train=exclude_train,
+            exclude_eval=exclude_eval,
             tracking="broadcast"
         )
