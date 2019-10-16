@@ -1,0 +1,113 @@
+job.type: search
+search.type: bohb
+dataset.name: wnrr
+train.auto_correct: True
+
+# FIXED SETTINGS
+valid.metric: mean_reciprocal_rank_filtered_with_test
+valid.filter_with_test: True
+valid.early_stopping.patience: 10
+valid.early_stopping.min_threshold.epochs: 50
+valid.early_stopping.min_threshold.metric_value: 0.05
+train.max_epochs: 500
+valid.every: 5
+eval.batch_size: 256
+
+# BOHB SETTINGS
+bohb_search:
+  run_id: 'bohb-wnrr-neg-samp'
+  host: '127.0.0.2'
+  port: "None"
+  sleep_interval: 0
+  min_budget: 100
+  max_budget: 200
+  n_iter: 60
+  num_train_trials: 60
+    # TRAIN
+    - name: train.batch_size
+      type: choice
+      values: [256, 512, 1024]
+      is_numerical: True
+    - name: train.type
+      type: fixed
+      value: negative_sampling
+    - name: train.optimizer
+      type: choice
+      values: [Adagrad, Adam]
+    - name: train.loss
+      type: choice
+      values: [bce, margin_ranking]
+      is_numerical: False
+      is_ordered: False
+    - name: train.optimizer_args.lr
+      type: range
+      bounds: [0.0003, 1.0]
+    - name: train.lr_scheduler
+      type: choice
+      values: [ConstantLRScheduler, ReduceLROnPlateau]
+    - name: train.lr_scheduler_args.mode
+      type: fixed
+      value: max
+    - name: train.lr_scheduler_args.patience
+      type: fixed
+      value: 4
+    - name: negative_sampling.num_negatives_s
+      type: range
+      bounds: [1, 100]
+    - name: negative_sampling.num_negatives_o
+      type: range
+      bounds: [1, 100]
+    - name: negative_sampling.num_negatives_p
+      type: range
+      bounds: [1, 10]
+    # MARGIN:
+    - name: train.loss_arg
+      type: choice
+      values: [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+      is_numerical: True
+    # EMBEDDINGS
+    - name: lookup_embedder.dim
+      type: choice
+      values: [128, 256, 512]
+      is_ordered: True
+    - name: lookup_embedder.initialize
+      type: choice
+      values: [xavier_normal_, xavier_uniform_, normal_, uniform_]
+    - name: lookup_embedder.initialize_args.normal_.mean
+      type: fixed
+      value: 0.0
+    - name: lookup_embedder.initialize_args.normal_.std
+      type: range
+      bounds: [0.00001, 1.0]
+      log_scale: True
+    - name: lookup_embedder.initialize_args.uniform_.a
+      type: range
+      bounds: [-1.0, -0.00001]
+    - name: lookup_embedder.initialize_args.xavier_uniform_.gain
+      type: fixed
+      value: 1.0
+    - name: lookup_embedder.initialize_args.xavier_normal_.gain
+      type: fixed
+      value: 1.0
+    - name: lookup_embedder.regularize
+      type: choice
+      values: ['', 'l3', 'l2', 'l1']
+      is_ordered: True
+    - name: lookup_embedder.regularize_args.weighted
+      type: choice
+      values: [True, False]
+    - name: complex.entity_embedder.regularize_args.weight
+      type: range
+      bounds: [1.0e-20, 1.0e-01]
+      log_scale: True
+    - name: complex.relation_embedder.regularize_args.weight
+      type: range
+      bounds: [1.0e-20, 1.0e-01]
+      log_scale: True
+    - name: complex.entity_embedder.dropout
+      type: range
+      bounds: [-0.5, 0.5]
+    - name: complex.relation_embedder.dropout
+      type: range
+      bounds: [-0.5, 0.5]
+
