@@ -32,65 +32,11 @@ class RelationalTucker3(KgeModel):
         rescal_set_relation_embedder_dim(
             config, dataset, self.configuration_key + ".relation_embedder"
         )
-        if (
-            self.get_option("entity_embedder.initialize") == "auto_initialization"
-            and self.get_option("relation_embedder.base_embedder.initialize")
-            == "auto_initialization"
-        ):
-            dim_e = self.get_option("entity_embedder.dim")
-            dim_r = self.get_option("relation_embedder.base_embedder.dim")
-            dim_core = self.get_option("relation_embedder.dim")
-
-            # entity embeddings -> unit norm in expectation
-            config.set(
-                self.configuration_key + ".entity_embedder.initialize",
-                "normal_",
-                log=True,
-            )
-            config.set(
-                self.configuration_key + ".entity_embedder.initialize_args",
-                {"mean": 0.0, "std": 1.0 / math.sqrt(dim_e)},
-                log=True,
-            )
-
-            # relation embeddings -> unit norm in expectation
-            config.set(
-                self.configuration_key + ".relation_embedder.base_embedder.initialize",
-                "normal_",
-                log=True,
-            )
-            config.set(
-                self.configuration_key
-                + ".relation_embedder.base_embedder.initialize_args",
-                {"mean": 0.0, "std": 1.0 / math.sqrt(dim_r)},
-                log=True,
-            )
-
-            # core tensor weight -> initial scores have var=1 (when no dropout / eval)
-            config.set(
-                self.configuration_key + ".relation_embedder.initialize",
-                "normal_",
-                log=True,
-            )
-            config.set(
-                self.configuration_key + ".relation_embedder.initialize_args",
-                {"mean": 0.0, "std": 1.0},
-                log=True,
-            )
-        elif (
-            self.get_option("entity_embedder.initialize") == "auto_initialization"
-            or self.get_option("relation_embedder.base_embedder.initialize")
-            == "auto_initialization"
-        ):
-            raise ValueError(
-                "Both entity and relation embedders must be set to auto_initialization "
-                "in order to use it."
-            )
 
         super().__init__(
             config,
             dataset,
-            scorer=RescalScorer(config, dataset, self.configuration_key),
+            scorer=RescalScorer,
             configuration_key=self.configuration_key,
         )
 

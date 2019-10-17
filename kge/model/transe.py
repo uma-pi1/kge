@@ -38,10 +38,6 @@ class TransE(KgeModel):
     r"""Implementation of the TransE KGE model."""
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
-        self._init_configuration(config, configuration_key)
         super().__init__(
-            config,
-            dataset,
-            TransEScorer(config, dataset, self.configuration_key),
-            configuration_key=self.configuration_key,
+            config, dataset, TransEScorer, configuration_key=configuration_key
         )

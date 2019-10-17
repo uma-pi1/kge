@@ -7,7 +7,7 @@ import kge
 from kge import Config, Configurable, Dataset
 from kge.job import Job
 from kge.util.misc import filename_in_module
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 SLOTS = [0, 1, 2]
 S, P, O = SLOTS
@@ -26,14 +26,11 @@ class KgeBase(torch.nn.Module, Configurable):
         try:
             getattr(torch.nn.init, initialize)(what, **initialize_args)
         except:
-            if initialize == "auto_initialization":
-                raise ValueError(
-                    "{} does not support auto initialization.".format(
-                        self.config.get("model")
-                    )
+            raise ValueError(
+                "invalid initialization options: {} with args {}".format(
+                    initialize, initialize_args
                 )
-            else:
-                raise ValueError("invalid initialization options")
+            )
 
     def prepare_job(self, job: Job, **kwargs):
         r"""Prepares the given job to work with this model.
@@ -239,7 +236,7 @@ class KgeModel(KgeBase):
         self,
         config: Config,
         dataset: Dataset,
-        scorer: RelationalScorer,
+        scorer: Union[RelationalScorer, type],
         initialize_embedders=True,
         configuration_key=None,
     ):
@@ -248,10 +245,10 @@ class KgeModel(KgeBase):
         # TODO support different embedders for subjects and objects
 
         #: Embedder used for entities (both subject and objects)
-        self._entity_embedder: KgeEmbedder = None
+        self._entity_embedder: KgeEmbedder
 
         #: Embedder used for relations
-        self._relation_embedder: KgeEmbedder = None
+        self._relation_embedder: KgeEmbedder
 
         if initialize_embedders:
             self._entity_embedder = KgeEmbedder.create(
@@ -271,7 +268,14 @@ class KgeModel(KgeBase):
             )
 
         #: Scorer
-        self._scorer = scorer
+        self._scorer: RelationalScorer
+        if type(scorer) == type:
+            # scorer is type of the scorer to use; call its constructor
+            self._scorer = scorer(
+                config=config, dataset=dataset, configuration_key=self.configuration_key
+            )
+        else:
+            self._scorer = scorer
 
     # overridden to also set self.model
     def _init_configuration(self, config: Config, configuration_key: Optional[str]):

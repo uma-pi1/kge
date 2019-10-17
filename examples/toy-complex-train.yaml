@@ -7,7 +7,6 @@ train:
     lr: 0.2
     weight_decay: 0.4e-7
 lookup_embedder.dim: 100
-#complex.auto_initialization: False  
 train.lr_scheduler: ReduceLROnPlateau
 train.lr_scheduler_args: 
   mode: max
@@ -18,25 +17,15 @@ valid.filter_with_test: True
 lookup_embedder.initialize: normal_
 # example for using initialize args generically (might result in error if args do not matchj initializer)
 lookup_embedder.initialize_args:
-  mean: 0.0
-  std: 0.1
   # examples for specifying args for specific initializers (useful for ax search)
-  # will be passed to the initializer if key matches
+  # will be passed to the initializer if key matches initialize option
   normal_:
-    mean: 1.0
+    mean: 0.0
     std: 0.1
-  #uniform_:
-  #  a: 0.5
-  #  #b: -0.5    
+  uniform_:
+    #a: -0.5
+    b: 0.5
   # xavier_normal_:
   #   gain: 1.0
   # xavier_uniform_:
   #   gain: 1.0
-
-# example for using auto_initialization
-#lookup_embedder.initialize: auto_initialization
-# one can also set both entity and relation embedders to auto_initialization
-# but both must be set together, else there is an error
-#complex.entity_embedder.initialize: auto_initialization
-#complex.relation_embedder.initialize: auto_initialization
-

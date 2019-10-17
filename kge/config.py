@@ -348,7 +348,7 @@ class Config:
 
     def trace(
         self, echo=False, echo_prefix="", echo_flow=False, log=False, **kwargs
-    ) -> Dict[str,Any]:
+    ) -> Dict[str, Any]:
         """Write a set of key-value pairs to the trace file.
 
         The pairs are written as a single-line YAML record. Optionally, also
@@ -490,11 +490,19 @@ class Configurable:
         else:
             return self.config.check_default(name, allowed_values)
 
-    def set_option(self, name: str, value):
+    def set_option(
+        self, name: str, value, create=False, overwrite=Config.Overwrite.Yes, log=False
+    ):
         if self.configuration_key:
-            self.config.set(self.configuration_key + "." + name, value)
+            self.config.set(
+                self.configuration_key + "." + name,
+                value,
+                create=create,
+                overwrite=overwrite,
+                log=log,
+            )
         else:
-            self.config.set(name, value)
+            self.config.set(name, value, create=create, overwrite=overwrite, log=log)
 
     def _init_configuration(self, config: Config, configuration_key: Optional[str]):
         r"""Initializes `self.config` and `self.configuration_key`.
@@ -503,7 +511,7 @@ class Configurable:
         `set_option` should be used. This method is automatically called in the
         constructor of this class, but can also be called by subclasses before calling
         the superclass constructor to allow access to these three methods. May also be
-        overridden by subclasess to perform additional configuration.
+        overridden by subclasses to perform additional configuration.
 
         """
         self.config = config

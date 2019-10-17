@@ -48,53 +48,6 @@ class ComplEx(KgeModel):
     r"""Implementation of the ComplEx KGE model."""
 
     def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
-        self._init_configuration(config, configuration_key)
-
-        # auto initialize such that scores have unit variance
-        if (
-            self.get_option("entity_embedder.initialize") == "auto_initialization"
-            and self.get_option("relation_embedder.initialize") == "auto_initialization"
-        ):
-            # Var[score] = 4*(dim/2)*var_e^2*var_r, where var_e/var_r are the variances
-            # of the entries in the embeddings and (dim/2) is the embedding size in
-            # complex space
-            #
-            # Thus we set var_e=var_r=(1.0/(2.0*dim))^(1/3)
-            dim = self.get_option("entity_embedder.dim")
-            std = math.pow(1.0 / 2.0 / dim, 1.0 / 6.0)
-
-            config.set(
-                self.configuration_key + ".entity_embedder.initialize",
-                "normal_",
-                log=True,
-            )
-            config.set(
-                self.configuration_key + ".entity_embedder.initialize_args",
-                {"mean": 0.0, "std": std},
-                log=True,
-            )
-            config.set(
-                self.configuration_key + ".relation_embedder.initialize",
-                "normal_",
-                log=True,
-            )
-            config.set(
-                self.configuration_key + ".relation_embedder.initialize_args",
-                {"mean": 0.0, "std": std},
-                log=True,
-            )
-        elif (
-            self.get_option("entity_embedder.initialize") == "auto_initialization"
-            or self.get_option("relation_embedder.initialize") == "auto_initialization"
-        ):
-            raise ValueError(
-                "Both entity and relation embedders must be set to auto_initialization "
-                "in order to use it."
-            )
-
         super().__init__(
-            config,
-            dataset,
-            ComplExScorer(config, dataset, self.configuration_key),
-            configuration_key=self.configuration_key,
+            config, dataset, ComplExScorer, configuration_key=configuration_key
         )

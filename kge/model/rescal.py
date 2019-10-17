@@ -61,61 +61,16 @@ class Rescal(KgeModel):
         rescal_set_relation_embedder_dim(
             config, dataset, self.configuration_key + ".relation_embedder"
         )
-
-        # auto initialize such that scores have unit variance
-        if (
-            self.get_option("entity_embedder.initialize") == "auto_initialization"
-            and self.get_option("relation_embedder.initialize") == "auto_initialization"
-        ):
-            # Var[score] = entity_embedder.dim^2*var_e^2*var_r, where var_e/var_r are the variances
-            # of the entries
-            #
-            # Thus we set var_e=var_r=(1.0/(entity_embedder.dim^2*))^(1/6)
-            std = math.pow(1.0 / self.get_option("entity_embedder.dim") ** 2, 1.0 / 6.0)
-
-            config.set(
-                self.configuration_key + ".entity_embedder.initialize",
-                "normal_",
-                log=True,
-            )
-            config.set(
-                self.configuration_key + ".entity_embedder.initialize_args",
-                {"mean": 0.0, "std": std},
-                log=True,
-            )
-            config.set(
-                self.configuration_key + ".relation_embedder.initialize",
-                "normal_",
-                log=True,
-            )
-            config.set(
-                self.configuration_key + ".relation_embedder.initialize_args",
-                {"mean": 0.0, "std": std},
-                log=True,
-            )
-        elif (
-            self.get_option("entity_embedder.initialize") == "auto_initialization"
-            or self.get_option("relation_embedder.initialize") == "auto_initialization"
-        ):
-            raise ValueError(
-                "Both entity and relation embedders must be set to auto_initialization "
-                "in order to use it."
-            )
-
         super().__init__(
-            config,
-            dataset,
-            scorer=RescalScorer(
-                config=config, dataset=dataset, configuration_key=self.configuration_key
-            ),
-            configuration_key=self.configuration_key,
+            config, dataset, RescalScorer, configuration_key=self.configuration_key
         )
 
 
 def rescal_set_relation_embedder_dim(config, dataset, rel_emb_conf_key):
     """Set the relation embedder dimensionality for RESCAL in the config.
 
-    If -1, set it to the square of the size of the entity embedder. Else leave unchanged.
+    If <0, set it to the square of the size of the entity embedder. Else leave
+    unchanged.
 
     """
     dim = config.get_default(rel_emb_conf_key + ".dim")

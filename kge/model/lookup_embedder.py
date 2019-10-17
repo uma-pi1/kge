@@ -32,14 +32,12 @@ class LookupEmbedder(KgeEmbedder):
             init_args = self.get_option("initialize_args." + init_)
         except KeyError:
             init_args = self.get_option("initialize_args")
+        print(init_args)
 
-        # Automatically set arg b for uniform_ if not given
-        # TODO can we avoid the hacky if "uniform_"?
-        if init_ == "uniform_" and "b" not in init_args:
-            init_args["b"] = init_args["a"] * -1
-            self.config.set(
-                configuration_key + ".initialize_args.b", init_args["b"], log=True
-            )
+        # Automatically set arg a (lower bound) for uniform_ if not given
+        if init_ == "uniform_" and "a" not in init_args:
+            init_args["a"] = init_args["b"] * -1
+            self.set_option("initialize_args.a", init_args["a"], log=True)
 
         self.initialize(self.embeddings.weight.data, init_, init_args)
 
@@ -94,12 +92,12 @@ class LookupEmbedder(KgeEmbedder):
                 if "batch" in kwargs and "triples" in kwargs["batch"]:
                     unique_ids, counts = torch.unique(
                         kwargs["batch"]["triples"][:, kwargs["slot"]],
-                        return_counts=True
+                        return_counts=True,
                     )
                     parameters = self.embeddings(unique_ids)
                     result += [
                         self.get_option("regularize_args.weight")
-                        * (torch.abs(parameters)*counts.float().view(-1, 1)).sum()
+                        * (torch.abs(parameters) * counts.float().view(-1, 1)).sum()
                         / parameters.size(0)
                     ]
                 return result
@@ -114,12 +112,12 @@ class LookupEmbedder(KgeEmbedder):
                 if "batch" in kwargs and "triples" in kwargs["batch"]:
                     unique_ids, counts = torch.unique(
                         kwargs["batch"]["triples"][:, kwargs["slot"]],
-                        return_counts=True
+                        return_counts=True,
                     )
                     parameters = self.embeddings(unique_ids)
                     result += [
                         self.get_option("regularize_args.weight")
-                        * (parameters**2*counts.float().view(-1, 1)).sum()
+                        * (parameters ** 2 * counts.float().view(-1, 1)).sum()
                         / parameters.size(0)
                     ]
                 return result
@@ -134,12 +132,14 @@ class LookupEmbedder(KgeEmbedder):
                 if "batch" in kwargs and "triples" in kwargs["batch"]:
                     unique_ids, counts = torch.unique(
                         kwargs["batch"]["triples"][:, kwargs["slot"]],
-                        return_counts=True
+                        return_counts=True,
                     )
                     parameters = self.embeddings(unique_ids)
                     result += [
                         self.get_option("regularize_args.weight")
-                        * (torch.abs(parameters)**3*counts.float().view(-1, 1)).sum()
+                        * (
+                            torch.abs(parameters) ** 3 * counts.float().view(-1, 1)
+                        ).sum()
                         / parameters.size(0)
                     ]
                 return result

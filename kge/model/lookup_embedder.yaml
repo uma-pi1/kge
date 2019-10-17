@@ -12,7 +12,7 @@ lookup_embedder:
     weighted: False           # weight the penalty by the parameters frequency in the training data
     weight: 0.0
     +++: +++
-  initialize: normal_         # xavier_uniform_, xavier_normal_, uniform_, normal_, auto_initialization
+  initialize: normal_         # xavier_uniform_, xavier_normal_, uniform_, normal_
   initialize_args:            # this is default if specific option below are not specified
     +++: +++
   # examples for specifying args for specific initializers (useful for ax search)

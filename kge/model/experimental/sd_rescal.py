@@ -249,6 +249,7 @@ class SparseDiagonalRescal(KgeModel):
         config.set(self.configuration_key + ".blocks", blocks, log=True)
         config.set(self.configuration_key + ".block_size", block_size, log=True)
 
+        # TODO remove auto_init
         # auto initialize such that scores have unit variance
 
         if self.get_option("relation_embedder.type") == "projection_embedder":
