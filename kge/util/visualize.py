@@ -366,16 +366,36 @@ class VisdomHandler(VisualizationHandler):
                 )
 
     def _process_search_trace_entry(self, trace_entry):
-        # this only works for grouped trace entries, which is fine as it is only used in post processing
+        # this function only works for grouped trace entries, which is fine as it is only used in post processing
         if "train" in trace_entry["scope"]:
+            # bar plot for valid.metric
             valid_metric_name = self.session_data["valid_metric_name"]
             x = trace_entry[valid_metric_name]
             names = trace_entry["folder"]
+            env = self.extract_summary_envname(envname=self.get_env_from_path("search","search"),jobtype="search")
             self.writer.bar(
                 X=x,
-                env=self.extract_summary_envname(envname=self.get_env_from_path("search","search"),jobtype="search"),
+                env=env,
                 opts={"legend":names, "title": valid_metric_name + "_best"}
             )
+            params = list(filter(lambda key: "." in key, list(trace_entry.keys())))
+            # bar plots for tuned paramter values of the trials (job vs parameter value)
+            #  +  scatters valid.metric vs parameter values of trials (scope: train)
+            for param in params:
+                x = trace_entry[param]
+                if type(x[0]) == list or type(x[0]) == str:
+                    return
+                self.writer.scatter(
+                    X=np.array([x, trace_entry[valid_metric_name]]).T,
+                    opts={"title": "Best valid vs " + param.split(".")[-1], "xlabel": param, "ylabel": valid_metric_name},
+                    env=env
+                )
+                self.writer.bar(
+                    X=x,
+                    env=env,
+                    opts={"legend":names, "title": param}
+                )
+
 
     def _visualize_item(self, key, value, x, env, name=None , win=None, update="append", title=None, **kwargs):
         if win == None:
@@ -390,7 +410,6 @@ class VisdomHandler(VisualizationHandler):
         if type(x) == list:
             x_ = x
             val = value
-
         else:
             x_ = [x]
             val = [value]
@@ -517,6 +536,7 @@ class VisdomHandler(VisualizationHandler):
 
     def _get_opts(self, title, **kwargs):
         opts = {
+            #"ylabel"
             "title": title,
             # "width": 280,
             # "height": 260,
@@ -627,7 +647,6 @@ class TensorboardHandler(VisualizationHandler):
         )
 
     def _add_embeddings(self, path):
-        #TODO: load the last checkpoint if best checkpoint does not exist
         checkpoint = self._get_checkpoint_path(path)
         if checkpoint:
             model = KgeModel.load_from_checkpoint(checkpoint)
@@ -652,6 +671,12 @@ class TensorboardHandler(VisualizationHandler):
     def _get_checkpoint_path(self, path):
         if "checkpoint_best.pt" in os.listdir(path):
             return path + "/" + "checkpoint_best.pt"
+        else:
+            checkpoints = sorted(list(filter(lambda file: "checkpoint" in file, os.listdir(path))))
+            if len(checkpoints) > 0:
+                return path + "/" + checkpoints[-1]
+            else:
+                print("Skipping {} for embeddings as no checkpoint could be found.".format(path))
 
     def post_process_trace(self, tracefile, tracetype, jobtype, subjobs=None, **kwargs):
         self.writer.close()
