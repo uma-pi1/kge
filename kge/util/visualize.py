@@ -24,20 +24,21 @@ class VisualizationHandler:
 
     writer: A writer object that writes data to a plotting framework
     path: path of the job folder which is currently visualized; can change during a session
-    tracking: post or broadcast
+    session_type: "post" or "broadcast"
     include_train: metrics from a training job to be included in the visualizations
     include_eval: metrics from a eval job to be included in the visualizations
+    exclude_train: metrics to exclude; has priority over include train
+    exclude_eval: metrics to exclude; has priority over include eval
     session_config: the options of the current visualization session; does not change in a session. In a broadcast
     session the session_config = job config of the job that is run by the kge framework
     session_data: can be used to cache arbitrary data
 
      """
 
-    #TODO refactor "tracking" to maybe "session_type"
     def __init__(self,
                  writer,
                  path=None,
-                 tracking=None,
+                 session_type=None,
                  include_train=None,
                  include_eval=None,
                  exclude_train=None,
@@ -46,7 +47,7 @@ class VisualizationHandler:
                  session_data={}
     ):
         self.writer = writer
-        self.tracking = tracking
+        self.session_type = session_type
         self.include_train = include_train
         self.include_eval = include_eval
         self.exclude_train = exclude_train
@@ -76,7 +77,7 @@ class VisualizationHandler:
     def post_process_trace(self, tracefile, tracetype, jobtype, subjobs=None, **kwargs):
         raise NotImplementedError
 
-    def _visualize_config(self):
+    def _visualize_config(self, **kwargs):
         raise NotImplementedError
 
     def process_trace(self, tracefile, tracetype, jobtype):
@@ -87,12 +88,9 @@ class VisualizationHandler:
         overall jobtype can be e. g. search which also has train type trace files.
         :param jobtype "search", "train", "eval"
         """
-
-
         # group traces into dics with {key: list[values]}
         # grouped_entries contains for every distinct trace entry type (train,eval, metadata..)
         # a dic where the keys are the original keys and the values are lists of the original values
-        # with that for every plot, server interaction only takes place once; entry validity is checked later
         grouped_entries = []
         with open(tracefile, "r") as file:
             raw = file.readline()
@@ -213,7 +211,7 @@ class VisualizationHandler:
 
                 handler = VisualizationHandler.create_handler(
                     module=kwargs["module"],
-                    tracking=kwargs["tracking"],
+                    session_type=kwargs["session_type"],
                     include_train=kwargs["include_train"],
                     include_eval=kwargs["include_eval"],
                     exclude_train=kwargs["exclude_train"],
@@ -233,15 +231,19 @@ class VisualizationHandler:
 
         Job.job_created_hooks.append(init_hooks)
 
-    def _get_job_config(self):
-        # TODO use the kge config module
+    def _get_job_config(self, path=None):
         """ Returns the config of the current job which is visualized.
 
         This is different from the session-config, e. g. the visualization options of
         the current visualization session. In "broadcasting", both are the same.
 
         """
-        job_config = self.path + "/" + "config.yaml"
+        job_config = None
+        if path ==None:
+            job_config = self.path + "/" + "config.yaml"
+        else:
+            job_config = path + "/" + "config.yaml"
+
         if os.path.isfile(job_config):
             with open(job_config, "r") as file:
                 job_config = yaml.load(file, Loader=yaml.SafeLoader)
@@ -251,13 +253,13 @@ class VisualizationHandler:
 
     @classmethod
     def post_process_jobs(cls, **kwargs):
-        """ Scans all the executed jobs in local/experiments and allows submodule to deal with them as they please. """
+        """ Scans all the executed jobs in local/experiments and allows submodules to deal with them as they please. """
 
         path = kge_base_dir() + "/local/experiments/"
 
         handler = VisualizationHandler.create_handler(
             module=kwargs["module"],
-            tracking="post",
+            session_type="post",
             include_train=kwargs["include_train"],
             include_eval=kwargs["include_eval"],
             exclude_train=kwargs["exclude_train"],
@@ -277,15 +279,18 @@ class VisualizationHandler:
                     handler.path = path + parent_job
                     handler.post_process_trace(parent_trace, "train", "train", **kwargs)
                 elif job_config["job"]["type"] == "search":
-                    subjobs = []
-                    # go through the files in the parent job folder and collect the child training jobs
-                    #TODO use filter here or a list comprehension
-                    for file in os.listdir(path + "/" + parent_job):
-                        child_folder = path + parent_job + "/" + file
-                        if os.path.isdir(child_folder) \
-                           and file != "config" \
-                           and "trace.yaml" in os.listdir(child_folder):
-                                subjobs.append(child_folder)
+                    # collect the training sub job folders by searching through the parent directory
+                    subjobs = [
+                                path + parent_job + "/" + child_folder for child_folder in list(
+                                    filter(
+                                        lambda file:
+                                            os.path.isdir(path + parent_job + "/" + file)
+                                            and file != "config"
+                                            and "trace.yaml" in os.listdir(path + parent_job + "/" + file),
+                                        os.listdir(path + parent_job)
+                                    )
+                                )
+                    ]
                     handler.path = path + parent_job
                     handler.post_process_trace(parent_trace, "search", "search", subjobs, **kwargs)
         input("Post processing finished.")
@@ -295,7 +300,7 @@ class VisdomHandler(VisualizationHandler):
     def __init__(
             self,
             writer,
-            tracking=None,
+            session_type=None,
             include_train=None,
             include_eval=None,
             exclude_train =None,
@@ -307,7 +312,7 @@ class VisdomHandler(VisualizationHandler):
         super().__init__(
             writer,
             path,
-            tracking,
+            session_type,
             include_train,
             include_eval,
             exclude_train,
@@ -320,7 +325,7 @@ class VisdomHandler(VisualizationHandler):
         vis = visdom.Visdom()
         return VisdomHandler(
             vis,
-            tracking=kwargs.get("tracking"),
+            session_type=kwargs.get("session_type"),
             include_train=kwargs.get("include_train"),
             include_eval=kwargs.get("include_eval"),
             exclude_train=kwargs.get("exclude_train"),
@@ -345,7 +350,7 @@ class VisdomHandler(VisualizationHandler):
         elif jobtype == "search" and tracetype == "train":
             self._visualize_item(key, value, epoch, env=env)
             if key == self.session_data["valid_metric_name"] + " (eval)":
-                if self.tracking == "broadcast":
+                if self.session_type == "broadcast":
                     # progress plot
                     self._track_progress(key, value, env)
                 # plot of all valid.metrics in summary env
@@ -585,7 +590,7 @@ class TensorboardHandler(VisualizationHandler):
     def __init__(
             self,
             writer,
-            tracking=None,
+            session_type=None,
             include_train=None,
             include_eval=None,
             exclude_train=None,
@@ -598,7 +603,7 @@ class TensorboardHandler(VisualizationHandler):
         super().__init__(
             writer,
             path,
-            tracking,
+            session_type,
             include_train,
             include_eval,
             exclude_train,
@@ -612,7 +617,7 @@ class TensorboardHandler(VisualizationHandler):
         writer = tensorboard.SummaryWriter(kge_base_dir() + "/local/visualize/tensorboard_remove/")
         return TensorboardHandler(
             writer,
-            tracking=kwargs.get("tracking"),
+            session_type=kwargs.get("session_type"),
             include_train=kwargs.get("include_train"),
             include_eval=kwargs.get("include_eval"),
             exclude_train=kwargs.get("exclude_train"),
@@ -626,7 +631,6 @@ class TensorboardHandler(VisualizationHandler):
         checkpoint = self._get_checkpoint_path(path)
         if checkpoint:
             model = KgeModel.load_from_checkpoint(checkpoint)
-
             meta_ent = model.dataset.entities
             meta_rel = model.dataset.relations
             if isinstance(model, ReciprocalRelationsModel):
@@ -650,22 +654,33 @@ class TensorboardHandler(VisualizationHandler):
             return path + "/" + "checkpoint_best.pt"
 
     def post_process_trace(self, tracefile, tracetype, jobtype, subjobs=None, **kwargs):
+        self.writer.close()
+        if jobtype == "train":
+            event_path = self.writer_path + self.path.split("/")[-1]
+            self.writer.log_dir = event_path
+            self._visualize_config(path=self.path)
+            self.process_trace(tracefile, tracetype, jobtype)
+            if kwargs["embeddings"]:
+                self._add_embeddings(self.path)
             self.writer.close()
-            if jobtype == "train":
-                event_path = self.writer_path + self.path.split("/")[-1]
+        elif jobtype == "search":
+            for subjob_path in subjobs:
+                event_path = self.writer_path + subjob_path.split("/")[-2] + "/" + subjob_path.split("/")[-1]
                 self.writer.log_dir = event_path
-                self.process_trace(tracefile, tracetype, jobtype)
+                self._visualize_config(path=subjob_path)
+                self.process_trace(subjob_path + "/" + "trace.yaml", "train", "search")
                 if kwargs["embeddings"]:
-                    self._add_embeddings(self.path)
+                    self._add_embeddings(subjob_path)
                 self.writer.close()
-            elif jobtype == "search":
-                for subjob_path in subjobs:
-                    event_path = self.writer_path + subjob_path.split("/")[-2] + "/" + subjob_path.split("/")[-1]
-                    self.writer.log_dir = event_path
-                    self.process_trace(subjob_path + "/" + "trace.yaml", "train", "search")
-                    if kwargs["embeddings"]:
-                        self._add_embeddings(subjob_path)
-                    self.writer.close()
+
+    def _visualize_config(self, **kwargs):
+        config = self._get_job_config(kwargs.get("path"))
+        self.writer.add_text(
+            "config",
+            yaml.dump(config).replace("  ", "&nbsp;&nbsp;&nbsp;").replace("\n", "  \n"),
+        )
+
+
 
     def _visualize_train_item(self, key, value, epoch, tracetype, jobtype):
         key = key + " (train)"
@@ -674,7 +689,7 @@ class TensorboardHandler(VisualizationHandler):
             return
         if len(value)>1:
             idx = 0
-            # TODO apparantly tensorboard cannot handle lists?
+            # TODO apparantly tensorboard cannot handle lists
             for val in value:
                 self.writer.add_scalar(key, val, epoch[idx])
                 idx += 1
@@ -686,7 +701,7 @@ class TensorboardHandler(VisualizationHandler):
             return
         if len(value)>1:
             idx = 0
-            # TODO apparantly tensorboard cannot handle lists?
+            # TODO apparantly tensorboard cannot handle lists
             for val in value:
                 self.writer.add_scalar(key, val, epoch[idx])
                 idx += 1
@@ -767,7 +782,7 @@ def initialize_visualization(session_config, command):
             exclude_train=exclude_train,
             exclude_eval=exclude_eval,
             module=session_config.get("visualize.module"),
-            tracking="post",
+            session_type="post",
             folders=session_config.get("visualize.post.folders"),
             embeddings=session_config.get("visualize.post.embeddings")
         )
@@ -778,5 +793,5 @@ def initialize_visualization(session_config, command):
             include_eval=include_eval,
             exclude_train=exclude_train,
             exclude_eval=exclude_eval,
-            tracking="broadcast"
+            session_type="broadcast"
         )
