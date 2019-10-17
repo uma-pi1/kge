@@ -70,7 +70,7 @@ class TripleClassificationJob(EvaluationJob):
         # 3. Find the best thresholds for every relation and their accuracies on the valid data
         self.config.log("Learning thresholds on validation data.")
         rel_thresholds, accuracies_valid = self.findThresholds(p_valid, valid_scores, rel_valid_scores, self.valid_labels, self.valid_corrupted)
-        print(rel_thresholds)
+
         # 4. Classification on test data. Output: predictions per relation and number of relations in test which are
         # not included in valid
         self.config.log("Evaluating on test data.")
@@ -243,15 +243,16 @@ class TripleClassificationJob(EvaluationJob):
         metrics["Accuracy"] = float(accuracy_score(labels_in_test_list, pred_list))
         metrics["Precision"] = float(precision_score(labels_in_test_list, pred_list))
 
-        precision_per_r = {}
-        accuracy_per_r = {}
-        for r in p_test.unique():
-                precision_per_r[str(self.dataset.relations[int(r)])] = float(precision_score(rel_test_labels[int(r)], rel_predictions[int(r)]))
-                accuracy_per_r[str(self.dataset.relations[int(r)])] = float(accuracy_score(rel_test_labels[int(r)], rel_predictions[int(r)]))
+        if self.config.get("eval.metrics_per.relation_type"):
+            precision_per_r = {}
+            accuracy_per_r = {}
+            for r in p_test.unique():
+                    precision_per_r[str(self.dataset.relations[int(r)])] = float(precision_score(rel_test_labels[int(r)], rel_predictions[int(r)]))
+                    accuracy_per_r[str(self.dataset.relations[int(r)])] = float(accuracy_score(rel_test_labels[int(r)], rel_predictions[int(r)]))
 
-        metrics["Accuracy_per_Relation"] = accuracy_per_r
+            metrics["Accuracy_per_Relation"] = accuracy_per_r
 
-        metrics["Precision_Per_Relation"] = precision_per_r
+            metrics["Precision_Per_Relation"] = precision_per_r
 
 
         metrics["Untested relations due to missing in evaluation data"] = len(not_in_eval)

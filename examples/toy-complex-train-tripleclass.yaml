@@ -11,6 +11,5 @@ lookup_embedder.dim: 100
 lookup_embedder.initialize: xavier_uniform_
 eval.type: triple_classification
 valid.metric: Accuracy
-eval.thresholds: valid
-eval.test: test
+eval.metrics_per.relation_type: False
 
