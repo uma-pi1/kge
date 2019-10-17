@@ -20,10 +20,10 @@ class TripleClassificationJob(EvaluationJob):
     4. Classify triples in test data
     5. Compute Metrics for test data
     6. Report metrics in Trace
-    # Todo: Check where it is necessary to add .to(self.device) to created tensors
     # Todo: Change comments to fit the standard guidelines
-    # Todo: Find out if it makes sense to use a dataloader with the relations as batches with a _collate function
     # Todo: Check all datatypes and make them consistent where possible
+    # Todo: Stick to torch functions: Calculate accuracy and precision instead of using sklearn function
+    # Todo: Make printing out predictions per relation optionally with recent additions in config_default
     """
 
     def __init__(self, config, dataset, parent_job, model):
@@ -48,16 +48,16 @@ class TripleClassificationJob(EvaluationJob):
 
     def run(self):
         """Runs the triple classification job."""
-
+        self.config.log("Starting triple classification...")
         self._prepare()
 
+        # Todo Question: What is the purpose of was_training? It was in entity ranking and it already
         was_training = self.model.training
         self.model.eval()
 
-        self.config.log("Starting triple classification...")
         epoch_time = -time.time()
 
-        # 2. Get scores for the new data. Relevant Output: Scores and scores per relation
+        # 2. Get scores for the corrupted valid and test data
         self.config.log("Get scores for datasets...")
         s_valid, p_valid, o_valid = self.valid_corrupted[:, 0], self.valid_corrupted[:, 1], self.valid_corrupted[:, 2]
         valid_scores = self.model.score_spo(s_valid, p_valid, o_valid)
@@ -70,7 +70,7 @@ class TripleClassificationJob(EvaluationJob):
         # 3. Find the best thresholds for every relation and their accuracies on the valid data
         self.config.log("Learning thresholds on validation data.")
         rel_thresholds, accuracies_valid = self.findThresholds(p_valid, valid_scores, rel_valid_scores, self.valid_labels, self.valid_corrupted)
-
+        print(rel_thresholds)
         # 4. Classification on test data. Output: predictions per relation and number of relations in test which are
         # not included in valid
         self.config.log("Evaluating on test data.")
@@ -116,30 +116,28 @@ class TripleClassificationJob(EvaluationJob):
         self.config.log("Finished evaluating on " + self.eval_data + " data.")
 
         return trace_entry
-    # Todo-Question: Not sure if what is included in the trace is correct or enough. Feedback needed.
 
     def _generate_negatives(self, dataset):
         # 1. Corrupt triples
         corrupted = dataset.repeat(1, 2).view(-1, 3)
-        labels = torch.as_tensor([1, 0] * len(dataset))
+        labels = torch.as_tensor([1, 0] * len(dataset)).to(self.device)
 
         # Random decision if sample subject(sample=nonzero) or object(sample=zero)
-        sample = torch.randint(0,2,(1,len(dataset)))
+        sample = torch.randint(0,2,(1,len(dataset))).to(self.device)
 
         # Sample subjects from subjects which appeared in the dataset
         corrupted[1::2][:, 0][sample.nonzero()[:, 1]] = \
             torch.as_tensor(random.choice(
-                list(map(int, list(map(int, dataset[:, 0].unique()))))), dtype=torch.int32)
+                list(map(int, list(map(int, dataset[:, 0].unique()))))), dtype=torch.int32).to(self.device)
 
         # Sample objects from objects which appeared in the dataset
         corrupted[1::2][:, 2][(sample==0).nonzero()[:, 1]] = \
             torch.as_tensor(random.choice(
-                list(map(int, list(map(int, dataset[:, 2].unique()))))), dtype=torch.int32)
+                list(map(int, list(map(int, dataset[:, 2].unique()))))), dtype=torch.int32).to(self.device)
 
-        # Todo: Add condition that corrupted triple!=original triple
-
-        # TODO: Create a function in util.sampler for that task. Then: Allow to choose from which entities to sample
-        #  (e.g. from test, train and valid entities instead of only valid.
+        # TODO: Create a function in util.sampler for that task. Optionally include: Allow to choose from which entities
+        #  to sample (e.g. from test, train and valid entities instead of only valid;
+        #  Add condition that corrupted triple!=original triple
 
         # Save the labels per relation, since this will be needed frequently later
         p = corrupted[:, 1]
@@ -149,20 +147,25 @@ class TripleClassificationJob(EvaluationJob):
         return corrupted, labels, rel_labels
 
     def findThresholds(self, p, valid_scores, rel_scores, valid_labels, valid_data):
-        # Todo: Check if methods are equivalent
-        #Todo-Question: Method 1 is what seems reasonable for me, Method 2 is the reimplementation of the NTNH Paper of Socher et al. 2013.
-        # Method 1 is much faster and delivers equally good results. Since the threshold entirely is determined by the valid_scores
-        # and is a cut between them, the best threshold in terms of valid data is any value between two specific score values.
-        # Thus I assume, that we can just use one of these score values as the threshold, since we can't know better anyway.
-        # Is this thought correct?
-        # If not and Method 2 has to be used, how can it be fastened up?
+        #Todo-Question: Method 1 is what seems the most reasonable for me, Method 2 is the reimplementation of the
+        # NTN Paper of Socher et al. 2013. Method 1 is much faster and delivers equally good results. Since the
+        # threshold entirely is determined by the valid_scores and is a cut between them, the best threshold in terms of
+        # valid data is any value between two specific score values. Thus I assume, that we can just use one of these
+        # score values as the threshold, since we can't know better anyway. Is this thought correct?
+        # The two methods are not equivalent. Method 1 leads to slightly (~0.01) better result in terms of accuracy. The
+        # reason most likely is, that it is really a better threshold, since it is more based on the data than just the
+        # lowest arbitrary threshold that produces the best accuracy. If we would have infinite valid triples, the two
+        # methods would be equivalent. Nevertheless, since other Triple Classification papers probably used Method 2 and
+        # the goal is evaluation, we maybe should stick to Method 2 to make comparisons to others possible. If it is only
+        # important for us to make comparisons inside our framework possible, then I would prefer Method 1.
 
         """Method 1: Threshold is always one of the scores"""
         #Initialize accuracies, thresholds (and predictions)
         rel_accuracies = {int(r): -1 for r in p.unique()}
         rel_thresholds = {int(r): 0 for r in p.unique()}
 
-        valid_scores = torch.as_tensor([float(valid_scores[i]) for i in range(len(valid_scores))])
+        # Change the scores to be entries instead of separated lists the tensor
+        valid_scores = torch.as_tensor([float(valid_scores[i]) for i in range(len(valid_scores))]).to(self.device)
 
 
         for r in p.unique():
@@ -176,41 +179,42 @@ class TripleClassificationJob(EvaluationJob):
             # Choose the smallest score of the ones which give the maximum accuracy as threshold to stay consistent with original implementation
             rel_thresholds[int(r)] = min(rel_scores[int(r)][list(filter(lambda x: accuracy[x] == max(accuracy), range(len(accuracy))))])
 
-        # #Method 2: Search for best threshold in an interval
-        # #https://github.com/siddharth-agrawal/Neural-Tensor-Network/blob/master/neuralTensorNetwork.py or https://github.com/dddoss/tensorflow-socher-ntn/blob/master/code/ntn_eval.py
-        # # Initialize accuracies, thresholds (and predictions)
-        # min_score = valid_scores.min()
-        # max_score = valid_scores.max()
-        #
-        # rel_accuracies = {int(r): -1 for r in p.unique()}
-        # rel_thresholds = {int(r): min_score for r in p.unique()}
-        #
-        # score = min_score
-        #
-        # # ORiginal implementation uses an interval 0.01, implemented for NTN model. In general the interval imo should depend on the range of the score values of the model
-        # # Suggestion: float((max_score-min_score)/len(valid_scores))
-        # interval = float((max_score-min_score)/len(valid_scores))
-        # valid_scores = torch.as_tensor([float(valid_scores[i]) for i in range(len(valid_scores))])
-        #
-        # while(score<=max_score):
-        #     for r in p.unique():
-        #         #Predict
-        #         current_rel = (valid_data[:, 1] == r)
-        #         true_labels = valid_labels[current_rel.nonzero()].type(torch.int)
-        #         preds = (valid_scores[current_rel.nonzero()] >= score).type(torch.int)
-        #         accuracy = int(((true_labels==preds).sum(dim=0)))/len(true_labels)
-        #
-        #         if accuracy > rel_accuracies[int(r)]:
-        #             rel_accuracies[int(r)] = accuracy
-        #             rel_thresholds[int(r)] = score.clone()
-        #
-        #     score += interval
+#     #Method 2: Search for best threshold in an interval
+#     #https://github.com/siddharth-agrawal/Neural-Tensor-Network/blob/master/neuralTensorNetwork.py or https://github.com/dddoss/tensorflow-socher-ntn/blob/master/code/ntn_eval.py
+#     # Initialize accuracies, thresholds (and predictions)
+#     min_score = valid_scores.min()
+#     max_score = valid_scores.max()
+#
+#     rel_accuracies = {int(r): -1 for r in p.unique()}
+#     rel_thresholds = {int(r): min_score for r in p.unique()}
+#
+#     score = min_score
+#
+#     # ORiginal implementation uses an interval 0.01, implemented for NTN model. In general the interval imo should
+#     # depend on the range of the score values of the model
+#     # Suggestion: float((max_score-min_score)/len(valid_scores))
+#     interval = 0.01#float((max_score-min_score)/len(valid_scores))
+#     valid_scores = torch.as_tensor([float(valid_scores[i]) for i in range(len(valid_scores))]).to(self.device)
+#
+#     while(score<=max_score):
+#         for r in p.unique():
+#             #Predict
+#             current_rel = (valid_data[:, 1] == r)
+#             true_labels = valid_labels[current_rel.nonzero()].type(torch.int)
+#             preds = (valid_scores[current_rel.nonzero()] >= score).type(torch.int)
+#             accuracy = int(((true_labels==preds).sum(dim=0)))/len(true_labels)
+#
+#             if accuracy > rel_accuracies[int(r)]:
+#                 rel_accuracies[int(r)] = accuracy
+#                 rel_thresholds[int(r)] = score.clone()
+#
+#         score += interval
 
         return rel_thresholds, rel_accuracies
 
     def predict(self, rel_thresholds, test_scores, rel_scores, p_valid, p_test):
 
-        rel_predictions = {int(r): torch.as_tensor([0]*len(rel_scores[int(r)])) for r in p_test.unique()}
+        rel_predictions = {int(r): torch.as_tensor([0]*len(rel_scores[int(r)])).to(self.device) for r in p_test.unique()}
 
         # Set counter for triples for which the relation is not in valid data
         not_in_eval = []
@@ -236,7 +240,6 @@ class TripleClassificationJob(EvaluationJob):
                      for r in p_test.unique()
                      for i in rel_predictions[int(r)]]
 
-        # Todo: Calculate accuracy and precision instead of using sklearn function
         metrics["Accuracy"] = float(accuracy_score(labels_in_test_list, pred_list))
         metrics["Precision"] = float(precision_score(labels_in_test_list, pred_list))
 
