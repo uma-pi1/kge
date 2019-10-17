@@ -1,9 +1,10 @@
 import torch
+from torch import Tensor
 
 
 def get_sp_po_coords_from_spo_batch(
-    batch, num_entities, sp_index: dict, po_index: dict
-) -> torch.LongTensor:
+    batch: Tensor, num_entities: int, sp_index: dict, po_index: dict
+) -> torch.Tensor:
     """Given a set of triples , lookup matches for (s,p,?) and (?,p,o).
 
     Each row in batch holds an (s,p,o) triple. Returns the non-zero coordinates
@@ -37,7 +38,9 @@ def get_sp_po_coords_from_spo_batch(
     return coords
 
 
-def coord_to_sparse_tensor(nrows, ncols, coords, device, value=1.0):
+def coord_to_sparse_tensor(
+    nrows: int, ncols: int, coords: Tensor, device: str, value=1.0
+):
     if device == "cpu":
         labels = torch.sparse.FloatTensor(
             coords.long().t(),

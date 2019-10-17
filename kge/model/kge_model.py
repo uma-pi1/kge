@@ -1,13 +1,14 @@
 import importlib
 import tempfile
 
+from torch import Tensor
 import torch.nn
 
 import kge
 from kge import Config, Configurable, Dataset
 from kge.job import Job
 from kge.util.misc import filename_in_module
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 SLOTS = [0, 1, 2]
 S, P, O = SLOTS
@@ -20,9 +21,9 @@ class KgeBase(torch.nn.Module, Configurable):
         Configurable.__init__(self, config, configuration_key)
         torch.nn.Module.__init__(self)
         self.dataset = dataset
-        self.meta = dict()  #: meta-data stored with this module
+        self.meta: Dict[str, Any] = dict()  #: meta-data stored with this module
 
-    def initialize(self, what, initialize: str, initialize_args):
+    def initialize(self, what: Tensor, initialize: str, initialize_args):
         try:
             getattr(torch.nn.init, initialize)(what, **initialize_args)
         except:
@@ -44,7 +45,7 @@ class KgeBase(torch.nn.Module, Configurable):
 
         """
 
-    def penalty(self, **kwargs):
+    def penalty(self, **kwargs) -> List[Tensor]:
         r"""Returns additional penalty terms that are added to the loss during training.
 
         This method is called once per batch during training. The arguments being passed
@@ -81,7 +82,7 @@ class RelationalScorer(KgeBase):
     def __init__(self, config: Config, dataset: Dataset, configuration_key: str):
         super().__init__(config, dataset, configuration_key)
 
-    def score_emb_spo(self, s_emb, p_emb, o_emb):
+    def score_emb_spo(self, s_emb: Tensor, p_emb: Tensor, o_emb: Tensor) -> Tensor:
         r"""Scores a set of triples specified by their embeddings.
 
         `s_emb`, `p_emb`, and `o_emb` are tensors of size :math:`n\times d_e`,
@@ -95,7 +96,9 @@ class RelationalScorer(KgeBase):
         """
         return self.score_emb(s_emb, p_emb, o_emb, "spo")
 
-    def score_emb(self, s_emb, p_emb, o_emb, combine: str):
+    def score_emb(
+        self, s_emb: Tensor, p_emb: Tensor, o_emb: Tensor, combine: str
+    ) -> Tensor:
         r"""Scores a set of triples specified by their embeddings.
 
         `s_emb`, `p_emb`, and `o_emb` are tensors of size :math:`n_s\times d_e`,
@@ -211,14 +214,14 @@ class KgeEmbedder(KgeBase):
                 )
             )
 
-    def forward(self, indexes):
+    def forward(self, indexes: Tensor) -> Tensor:
         return self.embed(indexes)
 
-    def embed(self, indexes):
+    def embed(self, indexes: Tensor) -> Tensor:
         """Computes the embedding."""
         raise NotImplementedError
 
-    def embed_all(self):
+    def embed_all(self) -> Tensor:
         """Returns all embeddings."""
         raise NotImplementedError
 
@@ -282,9 +285,9 @@ class KgeModel(KgeBase):
         Configurable._init_configuration(self, config, configuration_key)
         if not hasattr(self, "model") or not self.model:
             if self.configuration_key:
-                self.model = config.get(self.configuration_key + ".type")
+                self.model: str = config.get(self.configuration_key + ".type")
             else:
-                self.model = config.get("model")
+                self.model: str = config.get("model")
                 self.configuration_key = self.model
 
     @staticmethod
@@ -389,7 +392,7 @@ class KgeModel(KgeBase):
 
         job.post_epoch_trace_hooks.append(append_num_parameter)
 
-    def penalty(self, **kwargs):
+    def penalty(self, **kwargs) -> List[Tensor]:
         if "batch" in kwargs and "triples" in kwargs["batch"]:
             kwargs["batch"]["triples"] = kwargs["batch"]["triples"].to(
                 self.config.get("job.device")
@@ -413,7 +416,7 @@ class KgeModel(KgeBase):
     def get_scorer(self) -> RelationalScorer:
         return self._scorer
 
-    def score_spo(self, s, p, o):
+    def score_spo(self, s: Tensor, p: Tensor, o: Tensor) -> Tensor:
         r"""Compute scores for a set of triples.
 
         `s`, `p`, and `o` are vectors of common size :math:`n`, holding the indexes of
@@ -428,7 +431,7 @@ class KgeModel(KgeBase):
         o = self.get_o_embedder().embed(o)
         return self._scorer.score_emb(s, p, o, combine="spo")
 
-    def score_sp(self, s, p, o=None):
+    def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
         r"""Compute scores for triples formed from a set of sp-pairs and all (or a subset of the) objects.
 
         `s` and `p` are vectors of common size :math:`n`, holding the indexes of the
@@ -450,7 +453,7 @@ class KgeModel(KgeBase):
 
         return self._scorer.score_emb(s, p, o, combine="sp*")
 
-    def score_po(self, p, o, s=None):
+    def score_po(self, p: Tensor, o: Tensor, s: Tensor = None) -> Tensor:
         r"""Compute scores for triples formed from a set of po-pairs and (or a subset of the) subjects.
 
         `p` and `o` are vectors of common size :math:`n`, holding the indexes of the
@@ -473,7 +476,7 @@ class KgeModel(KgeBase):
 
         return self._scorer.score_emb(s, p, o, combine="*po")
 
-    def score_sp_po(self, s, p, o):
+    def score_sp_po(self, s: Tensor, p: Tensor, o: Tensor) -> Tensor:
         r"""Combine `score_sp` and `score_po`.
 
         `s`, `p` and `o` are vectors of common size :math:`n`, holding the indexes of

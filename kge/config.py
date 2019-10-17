@@ -7,7 +7,7 @@ import uuid
 from enum import Enum
 
 import yaml
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from kge.util.misc import filename_in_module, is_number
 
@@ -58,7 +58,7 @@ class Config:
 
         return result
 
-    def get_default(self, key: str):
+    def get_default(self, key: str) -> Any:
         """Returns the value of the key if present or default if not.
 
         The default value is looked up as follows. If the key has form ``parent.field``,
@@ -105,7 +105,7 @@ class Config:
                     # try further
                     continue
 
-    def get_first_present_key(self, *keys: str, use_get_default=False):
+    def get_first_present_key(self, *keys: str, use_get_default=False) -> str:
         "Return the first key for which ``get`` or ``get_default`` finds a value."
         for key in keys:
             try:
@@ -115,7 +115,7 @@ class Config:
                 pass
         raise KeyError("None of the following keys found: ".format(keys))
 
-    def get_first(self, *keys: str, use_get_default=False):
+    def get_first(self, *keys: str, use_get_default=False) -> Any:
         "Return value (or default value) of the first valid key present or KeyError."
         if use_get_default:
             return self.get_default(
@@ -126,7 +126,9 @@ class Config:
 
     Overwrite = Enum("Overwrite", "Yes No Error")
 
-    def set(self, key: str, value, create=False, overwrite=Overwrite.Yes, log=False):
+    def set(
+        self, key: str, value, create=False, overwrite=Overwrite.Yes, log=False
+    ) -> Any:
 
         """Set value of specified key.
 
@@ -204,7 +206,7 @@ class Config:
             self.log("Set {}={}".format(key, value))
         return value
 
-    def _import(self, module_name):
+    def _import(self, module_name: str):
         """Imports the specified module configuration.
 
         Adds the configuration options from kge/model/<module_name>.yaml to
@@ -390,14 +392,14 @@ class Config:
             return True
         return False
 
-    def checkpoint_file(self, cpt_id):
+    def checkpoint_file(self, cpt_id: Union[str, int]) -> str:
         "Return path of checkpoint file for given checkpoint id"
         if is_number(cpt_id, int):
             return os.path.join(self.folder, "checkpoint_{:05d}.pt".format(int(cpt_id)))
         else:
             return os.path.join(self.folder, "checkpoint_{}.pt".format(cpt_id))
 
-    def last_checkpoint(self):
+    def last_checkpoint(self) -> Optional[int]:
         "Return epoch number of latest checkpoint"
         # stupid implementation, but works
         tried_epoch = 0
@@ -413,7 +415,7 @@ class Config:
 
     # -- CONVENIENCE METHODS --------------------------------------------------
 
-    def _check(self, key: str, value, allowed_values):
+    def _check(self, key: str, value, allowed_values) -> Any:
         if value not in allowed_values:
             raise ValueError(
                 "Illegal value {} for key {}; allowed values are {}".format(
@@ -422,14 +424,14 @@ class Config:
             )
         return value
 
-    def check(self, key: str, allowed_values):
+    def check(self, key: str, allowed_values) -> Any:
         """Raise an error if value of key is not in allowed.
 
         If fine, returns value.
         """
         return self._check(key, self.get(key), allowed_values)
 
-    def check_default(self, key: str, allowed_values):
+    def check_default(self, key: str, allowed_values) -> Any:
         """Raise an error if value or default value of key is not in allowed.
 
         If fine, returns value.
@@ -438,7 +440,7 @@ class Config:
 
     def check_range(
         self, key: str, min_value, max_value, min_inclusive=True, max_inclusive=True
-    ):
+    ) -> Any:
         value = self.get(key)
         if (
             value < min_value
@@ -458,10 +460,10 @@ class Config:
             )
         return value
 
-    def logfile(self):
+    def logfile(self) -> str:
         return os.path.join(self.folder, "kge.log")
 
-    def tracefile(self):
+    def tracefile(self) -> str:
         return os.path.join(self.folder, "trace.yaml")
 
 
@@ -476,13 +478,13 @@ class Configurable:
     def __init__(self, config: Config, configuration_key: str = None):
         self._init_configuration(config, configuration_key)
 
-    def get_option(self, name: str):
+    def get_option(self, name: str) -> Any:
         if self.configuration_key:
             return self.config.get_default(self.configuration_key + "." + name)
         else:
             self.config.get_default(name)
 
-    def check_option(self, name: str, allowed_values):
+    def check_option(self, name: str, allowed_values) -> Any:
         if self.configuration_key:
             return self.config.check_default(
                 self.configuration_key + "." + name, allowed_values
@@ -492,9 +494,9 @@ class Configurable:
 
     def set_option(
         self, name: str, value, create=False, overwrite=Config.Overwrite.Yes, log=False
-    ):
+    ) -> Any:
         if self.configuration_key:
-            self.config.set(
+            return self.config.set(
                 self.configuration_key + "." + name,
                 value,
                 create=create,
@@ -502,7 +504,9 @@ class Configurable:
                 log=log,
             )
         else:
-            self.config.set(name, value, create=create, overwrite=overwrite, log=log)
+            return self.config.set(
+                name, value, create=create, overwrite=overwrite, log=log
+            )
 
     def _init_configuration(self, config: Config, configuration_key: Optional[str]):
         r"""Initializes `self.config` and `self.configuration_key`.

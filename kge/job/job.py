@@ -7,7 +7,7 @@ import socket
 from typing import Any, Callable, Dict, List, Optional
 
 
-def _trace_job_creation(job: "Job") -> None:
+def _trace_job_creation(job: "Job"):
     """Create a trace entry for a job"""
     userhome = os.path.expanduser("~")
     username = os.path.split(userhome)[-1]
@@ -20,7 +20,7 @@ def _trace_job_creation(job: "Job") -> None:
     )
 
 
-def _save_job_config(job: "Job") -> None:
+def _save_job_config(job: "Job"):
     """Save the job configuration"""
     config_folder = os.path.join(job.config.folder, "config")
     if not os.path.exists(config_folder):
@@ -38,7 +38,7 @@ class Job:
 
     def __init__(
         self, config: Config, dataset: Dataset, parent_job: "Job" = None
-    ) -> None:
+    ):
         self.config = config
         self.dataset = dataset
         self.job_id = str(uuid.uuid4())
@@ -54,7 +54,7 @@ class Job:
             for f in Job.job_created_hooks:
                 f(self)
 
-    def resume(self, checkpoint_file: str = None) -> None:
+    def resume(self, checkpoint_file: str = None):
         """Load job state from last or specified checkpoint.
 
         Restores all relevant state to resume a previous job. To run the restored job,
@@ -65,7 +65,7 @@ class Job:
         """
         raise NotImplementedError
 
-    def run(self) -> None:
+    def run(self):
         raise NotImplementedError
 
     def create(config: Config, dataset: Dataset, parent_job: "Job" = None) -> "Job":

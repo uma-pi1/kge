@@ -1,12 +1,19 @@
+from torch import Tensor
 import torch.nn
 import torch.nn.functional
 
+from kge import Config, Dataset
+from kge.job import Job
 from kge.model import KgeEmbedder
 from kge.util.misc import round_to_points
 
+from typing import List
+
 
 class LookupEmbedder(KgeEmbedder):
-    def __init__(self, config, dataset, configuration_key, vocab_size):
+    def __init__(
+        self, config: Config, dataset: Dataset, configuration_key: str, vocab_size: int
+    ):
         super().__init__(config, dataset, configuration_key)
 
         # read config
@@ -52,7 +59,7 @@ class LookupEmbedder(KgeEmbedder):
                 dropout = 0
         self.dropout = torch.nn.Dropout(dropout)
 
-    def prepare_job(self, job, **kwargs):
+    def prepare_job(self, job: Job, **kwargs):
         super().prepare_job(job, **kwargs)
         if self.normalize_p > 0:
 
@@ -71,18 +78,18 @@ class LookupEmbedder(KgeEmbedder):
 
             job.pre_batch_hooks.append(normalize_embeddings)
 
-    def _embed(self, embeddings):
+    def _embed(self, embeddings: Tensor) -> Tensor:
         if self.dropout.p > 0:
             embeddings = self.dropout(embeddings)
         return embeddings
 
-    def embed(self, indexes):
+    def embed(self, indexes: Tensor) -> Tensor:
         return self._embed(self.embeddings(indexes.long()))
 
-    def embed_all(self):
+    def embed_all(self) -> Tensor:
         return self._embed(self.embeddings.weight)
 
-    def penalty(self, **kwargs):
+    def penalty(self, **kwargs) -> List[Tensor]:
         # TODO factor out to a utility method
         if self.regularize == "" or self.get_option("regularize_args.weight") == 0.0:
             return super().penalty(**kwargs)
