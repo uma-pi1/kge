@@ -34,8 +34,8 @@ class RandomSearchJob(AutoSearchJob):
                                       )
                 elif "log_scale" in i.keys() and i['log_scale']:
                     self.space.update({i['name']: hp.loguniform(i['name'],
-                                                                np.log(i['bounds'][0]),
-                                                                np.log(i['bounds'][1]))}
+                                                                i['bounds'][0],
+                                                                i['bounds'][1])}
                                       )
                 else:
                     self.space.update({i['name']: hp.uniform(i['name'],

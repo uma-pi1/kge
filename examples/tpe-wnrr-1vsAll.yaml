@@ -10,7 +10,7 @@ valid.filter_with_test: True
 valid.early_stopping.patience: 10
 valid.early_stopping.min_threshold.epochs: 50
 valid.early_stopping.min_threshold.metric_value: 0.05
-train.max_epochs: 400
+train.max_epochs: 200
 valid.every: 5
 eval.batch_size: 256
 #eval.metric_per_relation_type: True
@@ -21,8 +21,8 @@ import: [complex, reciprocal_relations_model]
 
 # TPE SETTINGS
 tpe_search:
-  num_train_trials: 60
-  max_evals: 60
+  num_train_trials: 50
+  max_evals: 50
   parameters:
     # MODEL
     - name: model

@@ -137,41 +137,22 @@ class HyperBandWorker(Worker):
                     v_name,
                     choices=p['values']
                 ))
-            elif v_type == 'ordinal':
-                config_space.add_hyperparameter(CSH.OrdinalHyperparameter(
-                    v_name,
-                    sequence=p['values']
+            elif v_type == 'range':
+                log_scale = False
+                if "log_scale" in p.keys():
+                    log_scale = p['log_scale']
+                config_space.add_hyperparameter(CSH.UniformFloatHyperparameter(
+                    name=v_name,
+                    lower=p['bounds'][0],
+                    upper=p['bounds'][1],
+                    default_value=p['bounds'][1],
+                    log=log_scale
                 ))
-            elif v_type == 'integer':
-                if p['uniform']:
-                    config_space.add_hyperparameter(CSH.UniformIntegerHyperparameter(
-                        name=v_name,
-                        lower=p['bounds'][0],
-                        upper=p['bounds'][1],
-                        log=p['log_scale']
-                    ))
-                else:
-                    config_space.add_hyperparameter(CSH.NormalIntegerHyperparameter(
-                        name=v_name,
-                        mu=p['mu'],
-                        sigma=p['sigma'],
-                        log=p['log_scale']
-                    ))
-            elif v_type == 'float':
-                if p['uniform']:
-                    config_space.add_hyperparameter(CSH.UniformFloatHyperparameter(
-                        v_name,
-                        lower=p['bounds'][0],
-                        upper=p['bounds'][1],
-                        log=p['log_scale']
-                    ))
-                else:
-                    config_space.add_hyperparameter(CSH.NormalFloatHyperparameter(
-                        v_name,
-                        mu=p['mu'],
-                        sigma=p['sigma'],
-                        log=p['log_scale']
-                    ))
+            elif v_type == 'fixed':
+                config_space.add_hyperparameter(CSH.Constant(
+                    name=v_name,
+                    value=p['value']
+                ))
             else:
                 # TODO: Raise error
                 pass
