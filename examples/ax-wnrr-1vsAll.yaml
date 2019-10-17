@@ -1,5 +1,5 @@
 job.type: search
-job.device: 'cuda:2'
+job.device: 'cuda:0'
 search.type: ax
 dataset.name: wnrr
 train.auto_correct: True

@@ -1,5 +1,5 @@
 job.type: search
-job.device: 'cuda:3'
+job.device: 'cuda:1'
 search.type: hyperband
 dataset.name: wnrr
 train.auto_correct: True
@@ -22,7 +22,7 @@ import: [complex, reciprocal_relations_model]
 # HYPERBAND SETTINGS
 hyperband_search:
   run_id: 'hpb-wnrr-neg-samp'
-  host: '127.0.0.4'
+  host: '127.0.0.1'
   port: "None"
   sleep_interval: 0
   min_budget: 100
