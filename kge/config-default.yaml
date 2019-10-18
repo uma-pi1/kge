@@ -157,7 +157,7 @@ valid:
 
   # Name of the trace entry that holds the validation metric (higher value is
   # better)
-  metric: mean_reciprocal_rank_filtered
+  metric: mean_reciprocal_rank_filtered # Accuracy for triple_classification
 
   # If the above metric is not present in trace (e.g., because a custom metric
   # should be used), a Python expression to compute the metric. Can refer to
@@ -199,13 +199,13 @@ valid:
 # MRR and the specified HITS@k's.
 eval:
   data: valid
-  type: entity_ranking
+  type: entity_ranking # Choose between entity_ranking or triple_classification
   hits_at_k_s: [1, 3, 10, 50, 100, 200, 300, 400, 500, 1000]     # ks for HITS@k
   batch_size: 100
   num_workers: 0
   pin_memory: False
   trace_level: example            # example or batch or epoch
-
+  
 
 
   # Metrics are always computed over the entire evaluation data. Optionally,
@@ -214,7 +214,7 @@ eval:
     relation_type: False          # 1-to-1, 1-to-N, N-to-1, N-to-N
     head_and_tail: False          # head, tail
     argument_frequency: False     # 25%, 50%, 75%, top quantiles per argument
-
+    relation: False
 
 
 

@@ -29,7 +29,7 @@ valid:
 
 eval:
   type: triple_classification
-  metrics_per.relation_type: True
+  metrics_per.relation: False
 
 transe:
   class_name: TransE
