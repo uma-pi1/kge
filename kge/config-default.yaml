@@ -393,7 +393,11 @@ valid:
 
   # Name of the trace entry that holds the validation metric (higher value is
   # better)
+<<<<<<< HEAD
   metric: mean_reciprocal_rank_filtered_with_test
+=======
+  metric: mean_reciprocal_rank_filtered # Accuracy for triple_classification
+>>>>>>> Improved in-code documentation, removed accuracy output from get_thresholds, added comments for triple classification specification in default file, Included specification of evaluating on either test or valid data depending on the task (Test or validation during train)
 
   # If the above metric is not present in trace (e.g., because a custom metric
   # should be used), a Python expression to compute the metric. Can refer to
