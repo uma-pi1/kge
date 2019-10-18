@@ -7,7 +7,7 @@ from IPython import get_ipython
 # get_ipython().magic("matplotlib")
 
 # put tracefile and job id of your search job here
-tracefile = "/home/felix/PycharmProjects/kge/local/experiments/20190728-153856-toy-complex-bohb/trace.yaml"
+tracefile = "/home/felix/PycharmProjects/kge/local/experiments/rnd-wnrr-1vsAll/trace.yaml"
 job_id = "b84123a0-5e13-4cb4-bbe8-4eb88b4786d2"
 
 # load the trace (i.e., the part completed by now)
