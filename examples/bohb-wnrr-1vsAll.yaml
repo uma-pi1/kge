@@ -1,5 +1,5 @@
 job.type: search
-job.device: 'cuda:0'
+job.device: 'cpu'
 search.type: bohb
 dataset.name: wnrr
 train.auto_correct: True

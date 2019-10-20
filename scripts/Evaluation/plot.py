@@ -10,11 +10,18 @@ The metric value is plotted against the time spent in the iteration.
 The mean metric of the iterations of each algorithm are calculated as well as their sleeves.
 The sleeves just represent the min loss and the max loss.
 
+To calculate a mean, the time spent in the iteration is smoothed. This factor can be adjusted.
+The lower the factor, the more accurate the graphs are, but will also show more peaks caused by randomness.
+With a higher number of iterations these peaks should smooth out itself, why I recommend to use a lower
+smoothing factor with a higher iteration count.
+Test data: 10-50 iterations: Smoothing factor: 500
+
 Please adjust the following parameters to suit to your needs:
 """
 # The trace file lies in the directory: base_url/algorithm-dataset-train_type
 dataset = 'wnrr'
 train_type = 'neg-samp'
+smoothing_factor = 500
 
 algorithms = ['ax', 'bohb', 'hpb', 'rnd', 'tpe']
 algo_names = ['Ax', 'BOHB', 'Hyperband', 'Random', 'TPE']
@@ -47,7 +54,8 @@ for a in range(len(algorithms)):
     group = df['timestamp'].groupby(df['folder']).min()
     df['time'] = 0
     for i in df.index:
-        df['time'].loc[i] = round((df['timestamp'].loc[i] - group.loc[df['folder'].loc[i]]) / 500) * 500
+        df['time'].loc[i] = round((df['timestamp'].loc[i] - group.loc[df['folder'].loc[i]])
+                                  / smoothing_factor) * smoothing_factor
 
     df2 = df['metric_value'].groupby(df['time']).describe()
 

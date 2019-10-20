@@ -330,6 +330,7 @@ hyperband_search:
   run_id: 'example'
   host: '127.0.0.1'
   port: "None"
+  n_workers: 1
   sleep_interval: 0
   min_budget: 1
   max_budget: 10
@@ -352,6 +353,7 @@ bohb_search:
   run_id: 'example'
   host: '127.0.0.1'
   port: "None"
+  n_workers: 1
   sleep_interval: 0
   min_budget: 1
   max_budget: 10

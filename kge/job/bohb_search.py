@@ -17,30 +17,34 @@ class BOHBSearchJob(AutoSearchJob):
 
     def __init__(self, config: Config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
-        self.name_server = None
-        self.worker = None
-
-        # TODO: num_workers see example_2_local_parallel_threads
+        self.name_server = None  # Server address to run the job on
+        self.workers = []       # Workers that will run in parallel
 
     def init_search(self):
-
+        # Assigning the port
         port = None \
             if self.config.get("bohb_search.port") == "None" \
             else self.config.get("bohb_search.port")
 
+        # Assigning the address
         self.name_server = hpns.NameServer(run_id=self.config.get("bohb_search.run_id"),
                                            host=self.config.get("bohb_search.host"),
                                            port=port)
+        # Start the server
         self.name_server.start()
 
-        self.worker = BOHBWorker(
-            sleep_interval=self.config.get("bohb_search.sleep_interval"),
-            nameserver=self.config.get("bohb_search.host"),
-            run_id=self.config.get("bohb_search.run_id"),
-            job_config=self.config,
-            parent_job=self
-        )
-        self.worker.run(background=True)
+        # Create workers
+        for i in range(self.config.get("bohb_search.n_workers")):
+            w = BOHBWorker(
+                sleep_interval=self.config.get("bohb_search.sleep_interval"),
+                nameserver=self.config.get("bohb_search.host"),
+                run_id=self.config.get("bohb_search.run_id"),
+                job_config=self.config,
+                parent_job=self,
+                id=i
+            )
+            w.run(background=True)
+            self.workers.append(w)
 
     def register_trial(self, parameters=None):
         # HyperBand does this itself
@@ -55,24 +59,33 @@ class BOHBSearchJob(AutoSearchJob):
         pass
 
     def run(self):
+        """
+        Runs the hyper-parameter optimization program.
+
+        :return:
+        """
         self.init_search()
 
+        # Configure the job
         bohb = BOHB(
-            configspace=self.worker.get_configspace(self.config),
+            configspace=self.workers[0].get_configspace(self.config),
             run_id=self.config.get("bohb_search.run_id"),
             nameserver=self.config.get("bohb_search.host"),
             min_budget=self.config.get("bohb_search.min_budget"),
             max_budget=self.config.get("bohb_search.max_budget")
         )
-        res = bohb.run(n_iterations=self.config.get("bohb_search.n_iter"))
+        # Run it
+        res = bohb.run(n_iterations=self.config.get("bohb_search.n_iter"),
+                       min_n_workers=self.config.get("bohb_search.n_workers"))
 
+        # Shut the job down
         bohb.shutdown(shutdown_workers=True)
         self.name_server.shutdown()
 
+        # Print the best result
         id2config = res.get_id2config_mapping()
         incumbent = res.get_incumbent_id()
 
-        # TODO: Print best loss
         print('Best found configuration:', id2config[incumbent]['config'])
         print('A total of %i unique configurations where sampled.' % len(id2config.keys()))
         print('A total of %i runs where executed.' % len(res.get_all_runs()))
@@ -81,6 +94,9 @@ class BOHBSearchJob(AutoSearchJob):
 
 
 class BOHBWorker(Worker):
+    """
+    Class of a worker for the BOHB hyper-parameter optimization algorithm.
+    """
 
     def __init__(self, *args, sleep_interval=0, **kwargs):
         self.job_config = kwargs.pop('job_config')
@@ -91,13 +107,12 @@ class BOHBWorker(Worker):
 
     def compute(self, config, budget, **kwargs):
         """
-        TODO
-        config: dictionary containing the sampled configurations by the optimizer
-            budget: (float) amount of time/epochs/etc. the model can use to train
-        :param config:
-        :param budget:
+        Creates a trial of the hyper-parameter optimization job and returns the best configuration of the trial.
+
+        :param config: dictionary containing the sampled configurations by the optimizer
+        :param budget: (float) amount of time/epochs/etc. the model can use to train
         :param kwargs:
-        :return:
+        :return: dictionary containing the best hyper-parameter configuration of the trial
         """
         trial_no = self.next_trial_no
 
@@ -110,6 +125,7 @@ class BOHBWorker(Worker):
         conf.set_all(parameters)
         conf.init_folder()
 
+        # run trial
         best = kge.job.search._run_train_job((
             self.parent_job,
             trial_no,
@@ -125,6 +141,13 @@ class BOHBWorker(Worker):
 
     @staticmethod
     def get_configspace(config):
+        """
+        Reads the config file and produces the necessary variables. Returns a configuration space with
+        all variables and their definition.
+
+        :param config: dictionary containing the variables and their possible values
+        :return: ConfigurationSpace containing all variables.
+        """
         config_space = CS.ConfigurationSpace()
 
         parameters = config.get("bohb_search.parameters")
@@ -154,6 +177,5 @@ class BOHBWorker(Worker):
                     value=p['value']
                 ))
             else:
-                # TODO: Raise error
-                pass
+                raise ValueError("Unknown variable type")
         return config_space

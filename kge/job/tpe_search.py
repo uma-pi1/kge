@@ -23,6 +23,7 @@ class TPESearchJob(AutoSearchJob):
         self.space = {}
         self.trial_no = 0
 
+        # Read the parameters
         for i in self.config.get("tpe_search.parameters"):
 
             if i['type'] == "range":
@@ -49,8 +50,7 @@ class TPESearchJob(AutoSearchJob):
             elif i['type'] == "fixed":
                 self.space.update({i['name']: i['value']})
             else:
-                # TODO: Raise error
-                pass
+                raise ValueError("Unknown variable type")
 
     def register_trial(self, parameters=None):
         # Hyperopt does this itself
@@ -82,6 +82,7 @@ class TPESearchJob(AutoSearchJob):
         config.set_all(parameters)
         config.init_folder()
 
+        # Run trial
         best = kge.job.search._run_train_job((
             self,
             trial_no,
@@ -98,6 +99,7 @@ class TPESearchJob(AutoSearchJob):
     def run(self):
         self.init_search()
 
+        # Run TPE optimization program
         best = fmin(
             fn=self.objective,
             space=self.space,
