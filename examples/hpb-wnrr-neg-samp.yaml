@@ -1,5 +1,5 @@
 job.type: search
-job.device: 'cuda:1'
+job.device: 'cuda:0'
 search.type: hyperband
 dataset.name: wnrr
 train.auto_correct: True
@@ -10,7 +10,7 @@ valid.filter_with_test: True
 valid.early_stopping.patience: 10
 valid.early_stopping.min_threshold.epochs: 50
 valid.early_stopping.min_threshold.metric_value: 0.05
-train.max_epochs: 400
+train.max_epochs: 200
 valid.every: 5
 eval.batch_size: 256
 #eval.metric_per_relation_type: True
@@ -27,8 +27,8 @@ hyperband_search:
   sleep_interval: 0
   min_budget: 100
   max_budget: 200
-  n_iter: 60
-  num_train_trials: 60
+  n_iter: 10
+  num_train_trials: 10
   parameters:
     # MODEL
     - name: model
