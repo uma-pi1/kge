@@ -1,29 +1,65 @@
+# Stores explicitly an embedding for each object in a lookup table. See
+# https://pytorch.org/docs/stable/nn.html#torch.nn.Embedding
 lookup_embedder:
   class_name: LookupEmbedder
-  dim: 100                    # dimensionality
-  round_dim_to: []
-  dropout: 0.                 # dropout used for embeddings
-  sparse: False               # ??
-  normalize:
-    p: -1.                    # common choices: 1., 2.
-    with_grad: False          #
-  regularize: 'l2'            # '', 'l1', 'l2'
-  regularize_args:
-    weighted: False           # weight the penalty by the parameters frequency in the training data
-    weight: 0.0
-    +++: +++
-  initialize: normal_         # xavier_uniform_, xavier_normal_, uniform_, normal_
-  initialize_args:            # this is default if specific option below are not specified
-    +++: +++
-  # examples for specifying args for specific initializers (useful for ax search)
-  #  normal_:
-  #    mean: 0.0
-  #    std: 0.1
-  #  uniform_:
-  #    a: 0.5
-  #    #b: -0.5    
-  #  xavier_normal_:
-  #    gain: 1.0
-  #  xavier_uniform_:
-  #    gain: 1.0
 
+  # Dimensionality of the embedding
+  dim: 100
+
+  # The initializer used to initialzed the embeddings. See
+  # https://pytorch.org/docs/stable/nn.init.html for details. Example values
+  # include xavier_uniform_, xavier_normal_, uniform_, and normal_.
+  initialize: normal_
+
+  # Arguments to the initializer. If this field contains a subkey that matches
+  # the value of option lookup_embedder.initialize, pass the options under this
+  # subkey to the corresponding pytorch functions. Otherwise, pass all options
+  # to the initializer.
+  #
+  # Examples for specifying args for specific initializers (those are the defaults):
+  #   normal_:
+  #     mean: 0.0
+  #     std: 1.0
+  #   uniform_:
+  #     a: 0.0
+  #     b: 1.0
+  #    xavier_normal_:
+  #      gain: 1.0
+  #    xavier_uniform_:
+  #      gain: 1.0
+  initialize_args:
+    +++: +++
+
+  # Dropout used for the embeddings.
+  dropout: 0.
+
+  # Whether embeddings should be normalized. Normalization takes place before
+  # each batch is processed.
+  normalize:
+    # l_p norm to use. Negative numbers mean do not initialize.
+    p: -1.                    # common choices: 1., 2.
+
+    # Whether to push gradients through normalization.
+    with_grad: False          #
+
+  # Whether embeddings should be regularized. Possible values are '' (do not
+  # regularize), l1, l2, or l3.
+  regularize: 'l2'            # '', 'l1', 'l2'
+
+  # Arguments for regulariztaion
+  regularize_args:
+    # Weight used for regularization. Interpreted w.r.t. to the empirical risk.
+    weight: 0.0
+
+    # If true, penalty is weighted by parameter frequency in the batch.
+    weighted: False
+
+    # Other options for the regularizer.
+    +++: +++
+
+  # Use a sparse tensor for the gradient. See
+  # https://pytorch.org/docs/stable/nn.html#torch.nn.Embedding.
+  sparse: False
+
+  # Will be deprecated.
+  round_dim_to: []
