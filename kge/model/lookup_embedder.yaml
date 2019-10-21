@@ -36,15 +36,15 @@ lookup_embedder:
   # Whether embeddings should be normalized. Normalization takes place before
   # each batch is processed.
   normalize:
-    # l_p norm to use. Negative numbers mean do not initialize.
+    # l_p norm to use. Negative numbers mean do not normalize.
     p: -1.                    # common choices: 1., 2.
 
     # Whether to push gradients through normalization.
-    with_grad: False          #
+    with_grad: False
 
-  # Whether embeddings should be regularized. Possible values are '' (do not
-  # regularize), l1, l2, or l3.
-  regularize: 'l2'            # '', 'l1', 'l2'
+  # Whether and how embeddings should be regularized. Possible values are '' (do
+  # not regularize), l1, l2, or l3.
+  regularize: 'l2'
 
   # Arguments for regulariztaion
   regularize_args:

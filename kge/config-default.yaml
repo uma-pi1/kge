@@ -144,7 +144,7 @@ negative_sampling:
   # max(num_negatives_s, num_negatives_p, num_negatives_o) > 30. Recommended for
   # models which compute sp_po with an inner product, but not for all other
   # models (e.g., not for TransE in the current implementation).
-  score_func_type: spo
+  implementation: spo
 
 
 ## VALIDATION ##################################################################

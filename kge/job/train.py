@@ -648,17 +648,17 @@ class TrainingJobNegativeSampling(TrainingJob):
         super().__init__(config, dataset, parent_job)
         self._sampler = KgeNegativeSampler.create(config, "negative_sampling", dataset)
         self.is_prepared = False
-        self._score_func_type = self.config.get("negative_sampling.score_func_type")
-        if self._score_func_type == "auto":
+        self._implementation = self.config.get("negative_sampling.implementation")
+        if self._implementation == "auto":
             max_nr_of_negs = max(self._sampler.num_negatives.values())
             if max_nr_of_negs <= 30:
-                self._score_func_type = "spo"
+                self._implementation = "spo"
             elif max_nr_of_negs > 30:
-                self._score_func_type = "sp_po"
+                self._implementation = "sp_po"
 
         config.log(
             "Initializing negative sampling training job with "
-            "'{}' scoring function ...".format(self._score_func_type)
+            "'{}' scoring function ...".format(self._implementation)
         )
         self.type_str = "negative_sampling"
 
@@ -720,7 +720,7 @@ class TrainingJobNegativeSampling(TrainingJob):
 
         loss_value = torch.zeros(1, device=self.device)
 
-        if self._score_func_type == "spo":
+        if self._implementation == "spo":
             # one call to spo
             labels = torch.zeros(
                 (batch_size, self._sampler.num_negatives_total + 1), device=self.device
@@ -759,7 +759,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             loss_value = self.loss(
                 scores, labels, num_negatives=self._sampler.num_negatives_total
             )
-        elif self._score_func_type == "sp_po_loop":
+        elif self._implementation == "sp_po_loop":
             # one call to sp_po per example
             labels = torch.zeros(
                 (batch_size, self._sampler.num_negatives_total + 1), device=self.device
@@ -806,7 +806,7 @@ class TrainingJobNegativeSampling(TrainingJob):
                 scores, labels, num_negatives=self._sampler.num_negatives_total
             )
 
-        elif self._score_func_type == "sp_po":
+        elif self._implementation == "sp_po":
 
             for score_fn, target_slot, slot_1, slot_2 in [
                 (self.model.score_sp, O, S, P),
@@ -849,7 +849,7 @@ class TrainingJobNegativeSampling(TrainingJob):
                     num_negatives=num_negatives,
                 )
         else:
-            raise ValueError("score_func_type")
+            raise ValueError("implementation")
 
         batch_forward_time += time.time()
 
