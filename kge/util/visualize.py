@@ -176,7 +176,6 @@ class VisualizationHandler:
             for include_pattern in include_patterns
             for matched_key in list(filter(lambda match_key: re.search(include_pattern, match_key), keys))
             if matched_key not in list(filter(lambda match_key: re.search(exclude_pattern, match_key), keys))
-
         ]
 
     @classmethod
@@ -246,18 +245,31 @@ class VisualizationHandler:
     def post_process_jobs(cls, session_config):
         """ Scans all the executed jobs in local/experiments and allows submodules to deal with them as they please. """
 
-        path = kge_base_dir() + "/local/experiments/"
+        path = kge_base_dir() + "/" + session_config.get("visualize.post.search_dir") + "/"
 
         handler = VisualizationHandler.create_handler(
             session_type="post",
             session_config=session_config
         )
 
-        folders = session_config.get("visualize.post.folders")
+        folders_patterns = session_config.get("visualize.post.folders")
+        folders = None
+        # obtain all folders in the specified path that regex match with folders specified by the user
+        if len(folders_patterns):
+            folders = [
+                matched_folder
+                for pattern in folders_patterns
+                    for matched_folder in list(
+                        filter(
+                            lambda match_folder: re.search(pattern, match_folder),
+                            os.listdir(path)
+                        )
+                    )
+            ]
+        if not folders:
+            folders = os.listdir(path)
 
-        for parent_job in os.listdir(path):
-            if parent_job not in folders and not len(folders) == 0:
-                continue
+        for parent_job in folders:
             parent_trace = path + parent_job + "/trace.yaml"
             first_entry = None
             job_config = path + parent_job + "/config.yaml"
@@ -662,7 +674,7 @@ class TensorboardHandler(VisualizationHandler):
                 self.writer.log_dir = event_path
                 self._visualize_config(path=subjob_path)
                 self.process_trace(subjob_path + "/" + "trace.yaml", "train", "search")
-                if self.session_config.get("visualize.embeddings"):
+                if self.session_config.get("visualize.post.embeddings"):
                     self._add_embeddings(subjob_path)
                 self.writer.close()
 

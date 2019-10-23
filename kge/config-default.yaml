@@ -376,7 +376,12 @@ visualize:
   # post execution visualizations of the jobs can be obtained with running:
   # "python kge.py visualize visualize-options.yaml"
   post:
-    # folders in local/experiments/ to be visualized; leave empty for all
+    # the directory in which job folders to be visualized are searched
+    # search_dir is relative to the kge base directory
+    search_dir: "local/experiments"
+
+    # job folders to be visualized; leave empty for all
+    # accepts regex, e. g. put in "complex" to visualize all jobs associated with complex in the folder name
     # suggested for visdom: leave empty; for tensorboard: select specific
     folders: []
 

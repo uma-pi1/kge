@@ -8,6 +8,7 @@ visualize:
   exclude_train: []
   exclude_eval: []
   post:
+    search_dir: "local/experiments"
     folders: []
     #folders: ["20191002-154636-toy-complex-ax", "20191002-163137-toy-complex-train", "20191002-161353-toy-complex-train", "20191002-061135-toy-complex-train"]
     embeddings: False
