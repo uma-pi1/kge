@@ -365,8 +365,17 @@ visualize:
   exclude_train: ["avg_loss"]
   exclude_eval: []
 
+  # option to start the server; this should always be true when starting a session
+  # if a session is already running you can run another session with start_server:False to append data to the current session;
+  # e. g. this can be used to compare a broadcast session with a post processing session
+  start_server: True
+
   # set True; only needed for debugging
   surpress_server_output: True
+
+  # host and port to run server on;
+  hostname: "localhost"
+  port: 8097
 
   # set broadcast.enable=True for broadcasting training/search data of an execution
   # of the kge framework. Broadcast is only supported with module:visdom

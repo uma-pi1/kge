@@ -1,18 +1,23 @@
-from kge.job.trace import Trace
-from kge.job import Job, TrainingJob, SearchJob, Trace
+from kge.job import Job, TrainingJob, SearchJob
 from kge.util.misc import kge_base_dir
 from kge.model.kge_model import KgeModel
 from kge.model import ReciprocalRelationsModel
-from kge.config import Config
-from kge import Dataset
+
 import os
 import yaml
 import re
 import json
 import copy
+import subprocess
+import time
+import atexit
+import signal
+import shutil
 from collections import defaultdict
 import numpy as np
 import random
+import socket
+from subprocess import check_output
 
 
 class VisualizationHandler:
@@ -224,7 +229,7 @@ class VisualizationHandler:
     def _get_job_config(self, path=None):
         """ Returns the config of the current job which is visualized.
 
-        This is different from the session-config, e. g. the visualization options of
+        This is different from the session_config, e. g. the visualization options of
         the current visualization session. In "broadcasting", both are the same.
 
         """
@@ -297,6 +302,60 @@ class VisualizationHandler:
                     handler.post_process_trace(parent_trace, "search", "search", subjobs)
         input("Post processing finished.")
 
+    @classmethod
+    def run_server(cls, session_config):
+        port = session_config.get("visualize.port")
+        hostname = session_config.get("visualize.hostname")
+
+        stdout, stderr = None, None
+        if session_config.get("visualize.surpress_server_output"):
+            stdout, stderr = subprocess.DEVNULL, subprocess.STDOUT
+
+        command = None
+        # register framework specific server handling
+        if session_config.get("visualize.module") == "tensorboard":
+            command = "tensorboard"
+            # clean up log_dir from previous visualization
+            logdir = kge_base_dir() + "/local/visualize/tensorboard"
+            if os.path.isdir(logdir):
+                for folder in os.listdir(logdir):
+                    shutil.rmtree(logdir + "/" + folder)
+            full_command = [
+                command + " --logdir={} --port={} --host={}".format(logdir, port, hostname)
+            ]
+        elif session_config.get("visualize.module") == "visdom":
+            command = "visdom"
+            envpath = kge_base_dir() + "/local/visualize/visdomenvs"
+            if not os.path.isdir(envpath):
+                os.mkdir(envpath)
+            full_command = [
+                command + " -env_path={} --hostname={} -port={}".format(envpath, hostname, port)
+            ]
+        # restart the respective module to not mix up data between sessions
+        subprocess.Popen(
+            ["pkill {}".format(command)],
+            shell=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT
+        )
+        # run server
+        process = subprocess.Popen(
+            full_command,
+            shell=True,
+            stdout=stdout,
+            stderr=stderr
+        )
+        time.sleep(1)
+        print(
+            "{} running on http://{}:{}".format(session_config.get("visualize.module"), hostname, port)
+        )
+        # kill server when everyone's done
+        server_pid = process.pid
+        def kill_server():
+            if server_pid:
+                os.kill(server_pid, signal.SIGTERM)
+        atexit.register(kill_server)
+
 
 class VisdomHandler(VisualizationHandler):
     def __init__(
@@ -317,7 +376,7 @@ class VisdomHandler(VisualizationHandler):
     @classmethod
     def create(cls, session_type, session_config, path=None):
         import visdom
-        vis = visdom.Visdom()
+        vis = visdom.Visdom(server=session_config.get("visualize.hostname"), port=session_config.get("visualize.port"))
         return VisdomHandler(
             vis,
             session_type,
@@ -364,11 +423,15 @@ class VisdomHandler(VisualizationHandler):
             x = trace_entry[valid_metric_name]
             names = trace_entry["folder"]
             env = self.extract_summary_envname(envname=self.get_env_from_path("search","search"),jobtype="search")
-            self.writer.bar(
-                X=x,
-                env=env,
-                opts={"legend":names, "title": valid_metric_name + "_best"}
-            )
+            # small visdom bug, it cannot take a list with one element only a scalar or list with multiple elements
+            # instead of skipping this plot you could use the generic plotly dic, but it is only a cornercase
+            # anyway because a search job with only one trial does not make sense in the first place
+            if len(x) > 1:
+                self.writer.bar(
+                    X=x,
+                    env=env,
+                    opts={"legend":names, "title": valid_metric_name + "_best"}
+                )
             params = list(filter(lambda key: "." in key, list(trace_entry.keys())))
             # bar plots for tuned paramter values of the trials (job vs parameter value)
             #  +  scatters valid.metric vs parameter values of trials (scope: train)
@@ -381,11 +444,13 @@ class VisdomHandler(VisualizationHandler):
                     opts={"title": "Best valid vs " + param.split(".")[-1], "xlabel": param, "ylabel": valid_metric_name},
                     env=env
                 )
-                self.writer.bar(
-                    X=x,
-                    env=env,
-                    opts={"legend":names, "title": param}
-                )
+                # same bug as above
+                if len(x)>1:
+                    self.writer.bar(
+                        X=x,
+                        env=env,
+                        opts={"legend":names, "title": param}
+                    )
 
 
     def _visualize_item(self, key, value, x, env, name=None , win=None, update="append", title=None, **kwargs):
@@ -554,48 +619,6 @@ class VisdomHandler(VisualizationHandler):
             opts[key] = value
         return opts
 
-    @classmethod
-    def run_server(cls, session_config):
-        import subprocess
-        import sys, time
-        import signal
-        import atexit
-        import socket
-
-        envpath = kge_base_dir() + "/local/visualize/visdomenvs"
-        if not os.path.isdir(envpath):
-            os.mkdir(envpath)
-
-        DEFAULT_PORT = 8097 #must not be changend atm
-        DEFAULT_HOSTNAME = "localhost"
-
-        # restart the server if it is running to not mix up data from different sessions
-        subprocess.Popen(
-            ["pkill visdom"],
-            shell=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.STDOUT
-        )
-        stdout = None
-        stderr = None
-        if session_config.get("visualize.surpress_server_output"):
-            stdout, stderr = subprocess.DEVNULL, subprocess.STDOUT
-        # run server
-        process = subprocess.Popen(
-            ["visdom" + " -env_path=" + envpath + " --hostname=" + DEFAULT_HOSTNAME + " -port=" + str(DEFAULT_PORT)],
-            shell=True,
-            stdout=stdout,
-            stderr=stderr
-        )
-        time.sleep(1)
-        print("Visdom running on http://{}:{}".format(DEFAULT_HOSTNAME, DEFAULT_PORT))
-        # kill server when everyone's done
-        server_pid = process.pid
-        def kill_server():
-            if server_pid:
-                os.kill(server_pid, signal.SIGTERM)
-        atexit.register(kill_server)
-
 
 class TensorboardHandler(VisualizationHandler):
     def __init__(
@@ -692,7 +715,7 @@ class TensorboardHandler(VisualizationHandler):
             return
         if len(value)>1:
             idx = 0
-            # TODO apparantly tensorboard cannot handle lists
+            # apparantly, tensorboard cannot handle vectors
             for val in value:
                 self.writer.add_scalar(key, val, epoch[idx])
                 idx += 1
@@ -704,55 +727,11 @@ class TensorboardHandler(VisualizationHandler):
             return
         if len(value)>1:
             idx = 0
-            # TODO apparantly tensorboard cannot handle lists
+            # apparantly, tensorboard cannot handle vectors
             for val in value:
                 self.writer.add_scalar(key, val, epoch[idx])
                 idx += 1
 
-    @classmethod
-    def run_server(cls, session_config):
-        import subprocess
-        import time
-        import atexit
-        import signal
-        import shutil
-
-        folders = session_config.get("visualize.post.folders")
-        # clean up log_dir from previous visualization
-        logdir = kge_base_dir() + "/local/visualize/tensorboard"
-        if os.path.isdir(logdir):
-            for folder in os.listdir(logdir):
-                shutil.rmtree(logdir + "/" + folder)
-
-        DEFAULT_PORT = 6006  # set to different port than the visdom port
-        DEFAULT_HOSTNAME = "localhost"
-
-        # restart the server if it is running to not mix up data from different sessions
-        subprocess.Popen(
-            ["pkill tensorboard"],
-            shell=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.STDOUT
-        )
-        stdout = None
-        stderr = None
-        if session_config.get("visualize.surpress_server_output"):
-            stdout, stderr = subprocess.DEVNULL, subprocess.STDOUT
-        # run server
-        process = subprocess.Popen(
-            ["tensorboard --logdir={} --port={} --host={}".format(logdir, DEFAULT_PORT, DEFAULT_HOSTNAME)],
-            shell=True,
-            stdout=stdout,
-            stderr=stderr
-        )
-        time.sleep(1)
-        print("Tensorboard running on http://{}:{}".format(DEFAULT_HOSTNAME, DEFAULT_PORT))
-        # kill server when everyone's done
-        server_pid = process.pid
-        def kill_server():
-            if server_pid:
-                os.kill(server_pid, signal.SIGTERM)
-        atexit.register(kill_server)
 
 def initialize_visualization(session_config, command):
 
@@ -769,11 +748,12 @@ def initialize_visualization(session_config, command):
     if not len(exclude_eval):
         session_config.set("visualize.exclude_eval", [str(random.getrandbits(64))])
 
-    if session_config.get("visualize.module") == "visdom":
-        VisdomHandler.run_server(session_config)
-    elif session_config.get("visualize.module") == "tensorboard":
+    if session_config.get("visualize.module") == "tensorboard":
         session_config.check("visualize.broadcast.enable", [False])
-        TensorboardHandler.run_server(session_config)
+
+    if session_config.get("visualize.start_server"):
+        VisualizationHandler.run_server(session_config)
+
     if command == "visualize":
         VisualizationHandler.post_process_jobs(
             session_config=session_config
