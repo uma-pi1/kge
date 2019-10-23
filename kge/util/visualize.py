@@ -23,47 +23,41 @@ class VisualizationHandler:
     _process_search_trace_entry())
 
     writer: A writer object that writes data to a plotting framework
-    path: path of the job folder which is currently visualized; can change during a session
     session_type: "post" or "broadcast"
-    include_train: metrics from a training job to be included in the visualizations
-    include_eval: metrics from a eval job to be included in the visualizations
-    exclude_train: metrics to exclude; has priority over include train
-    exclude_eval: metrics to exclude; has priority over include eval
     session_config: the options of the current visualization session; does not change in a session. In a broadcast
-    session the session_config = job config of the job that is run by the kge framework
+                    session the session_config = job config of the job that is run by the kge framework
     session_data: can be used to cache arbitrary data
+    path: current path of the job folder which is currently visualized; changes during a post processing session
 
      """
 
-    def __init__(self,
-                 writer,
-                 path=None,
-                 session_type=None,
-                 include_train=None,
-                 include_eval=None,
-                 exclude_train=None,
-                 exclude_eval=None,
-                 session_config=None,
-                 session_data={}
+    def __init__(
+            self,
+            writer,
+            session_type,
+            session_config,
+            path=None,
+            session_data={}
     ):
         self.writer = writer
         self.session_type = session_type
-        self.include_train = include_train
-        self.include_eval = include_eval
-        self.exclude_train = exclude_train
-        self.exclude_eval = exclude_eval
+        self.session_config = session_config
+        self.include_train = session_config.get("visualize.include_train")
+        self.include_eval = session_config.get("visualize.include_eval")
+        self.exclude_train = session_config.get("visualize.exclude_train")
+        self.exclude_eval = session_config.get("visualize.exclude_eval")
         # session data can be used to cache any kind of data that is needed during a visualization session
         # during broadcasting this can be best valid.metric during post processing this can be metadata for envs etc.
         self.session_data = session_data
         self.path = path
-        self.session_config = session_config
 
     @classmethod
-    def create_handler(cls, **kwargs):
-        if kwargs["module"] == "visdom":
-            return VisdomHandler.create(**kwargs)
-        elif kwargs["module"] == "tensorboard":
-            return TensorboardHandler.create(**kwargs)
+    def create_handler(cls, session_type, session_config, path=None):
+        module = session_config.get("visualize.module")
+        if module == "visdom":
+            return VisdomHandler.create(session_type, session_config, path)
+        elif module == "tensorboard":
+            return TensorboardHandler.create(session_type, session_config, path)
 
     def _visualize_train_item(self, key, value, epoch, tracetype, jobtype):
         raise NotImplementedError
@@ -98,12 +92,14 @@ class VisualizationHandler:
                 trace_entry = yaml.safe_load(raw)
                 group_entry = defaultdict(list)
                 # add the very first entry
-                if len(grouped_entries) == 0:
+                if not len(grouped_entries):
                     [group_entry[k].append(v) for k, v in trace_entry.items()]
                     grouped_entries.append(group_entry)
                 else:
                     matched = False
                     for entry in grouped_entries:
+                        # checking if two entries are of the same type appears in two steps:
+                        # 1. do they have the same key signature; 2: is the job type and scope the same
                         if entry.keys() == trace_entry.keys():
                             e_scope = entry.get("scope")
                             e_job = entry.get("job")
@@ -184,7 +180,7 @@ class VisualizationHandler:
         ]
 
     @classmethod
-    def register_broadcast(cls, **kwargs):
+    def register_broadcast(cls, session_config):
         """ Bundles the different information that are needed to perform broadcasting and registers hooks.
 
         The user parameter inputs are collected and depending on the jobtype, broadcasting functionality is
@@ -210,15 +206,10 @@ class VisualizationHandler:
                     session_data = {"valid_metric_name":job.config.get("valid.metric")}
 
                 handler = VisualizationHandler.create_handler(
-                    module=kwargs["module"],
-                    session_type=kwargs["session_type"],
-                    include_train=kwargs["include_train"],
-                    include_eval=kwargs["include_eval"],
-                    exclude_train=kwargs["exclude_train"],
-                    exclude_eval=kwargs["exclude_eval"],
-                    path=jobpath,
+                    session_type="broadcast",
+                    session_config=session_config,
+                    path=jobpath, # in broadcast path is the path of the executed job
                     session_data=session_data,
-                    session_config=job.config.options
                 )
                 handler._visualize_config(
                     env=handler.get_env_from_path(tracetype,jobtype),
@@ -252,21 +243,20 @@ class VisualizationHandler:
         return job_config
 
     @classmethod
-    def post_process_jobs(cls, **kwargs):
+    def post_process_jobs(cls, session_config):
         """ Scans all the executed jobs in local/experiments and allows submodules to deal with them as they please. """
 
         path = kge_base_dir() + "/local/experiments/"
 
         handler = VisualizationHandler.create_handler(
-            module=kwargs["module"],
             session_type="post",
-            include_train=kwargs["include_train"],
-            include_eval=kwargs["include_eval"],
-            exclude_train=kwargs["exclude_train"],
-            exclude_eval=kwargs["include_eval"],
+            session_config=session_config
         )
+
+        folders = session_config.get("visualize.post.folders")
+
         for parent_job in os.listdir(path):
-            if parent_job not in kwargs["folders"] and not len(kwargs["folders"]) == 0:
+            if parent_job not in folders and not len(folders) == 0:
                 continue
             parent_trace = path + parent_job + "/trace.yaml"
             first_entry = None
@@ -277,7 +267,7 @@ class VisualizationHandler:
                 # pure training job
                 if job_config["job"]["type"] == "train":
                     handler.path = path + parent_job
-                    handler.post_process_trace(parent_trace, "train", "train", **kwargs)
+                    handler.post_process_trace(parent_trace, "train", "train")
                 elif job_config["job"]["type"] == "search":
                     # collect the training sub job folders by searching through the parent directory
                     subjobs = [
@@ -292,7 +282,7 @@ class VisualizationHandler:
                                 )
                     ]
                     handler.path = path + parent_job
-                    handler.post_process_trace(parent_trace, "search", "search", subjobs, **kwargs)
+                    handler.post_process_trace(parent_trace, "search", "search", subjobs)
         input("Post processing finished.")
 
 
@@ -300,38 +290,27 @@ class VisdomHandler(VisualizationHandler):
     def __init__(
             self,
             writer,
-            session_type=None,
-            include_train=None,
-            include_eval=None,
-            exclude_train =None,
-            exclude_eval=None,
+            session_type,
+            session_config,
             path=None,
-            session_config=None,
             session_data={}):
 
         super().__init__(
             writer,
-            path,
             session_type,
-            include_train,
-            include_eval,
-            exclude_train,
-            exclude_eval,
             session_config,
+            path,
             session_data)
 
     @classmethod
-    def create(cls, **kwargs):
+    def create(cls, session_type, session_config, path=None):
+        import visdom
         vis = visdom.Visdom()
         return VisdomHandler(
             vis,
-            session_type=kwargs.get("session_type"),
-            include_train=kwargs.get("include_train"),
-            include_eval=kwargs.get("include_eval"),
-            exclude_train=kwargs.get("exclude_train"),
-            exclude_eval=kwargs.get("exclude_eval"),
-            path=kwargs.get("path"),
-            session_data=kwargs.get("session_data"),
+            session_type,
+            session_config,
+            path
         )
 
     def _visualize_train_item(self, key, value, epoch, tracetype, jobtype):
@@ -564,7 +543,7 @@ class VisdomHandler(VisualizationHandler):
         return opts
 
     @classmethod
-    def run_server(cls, session_config, **kwargs):
+    def run_server(cls, session_config):
         import subprocess
         import sys, time
         import signal
@@ -610,40 +589,29 @@ class TensorboardHandler(VisualizationHandler):
     def __init__(
             self,
             writer,
-            session_type=None,
-            include_train=None,
-            include_eval=None,
-            exclude_train=None,
-            exclude_eval=None,
+            session_type,
+            session_config,
             path=None,
-            session_config=None,
             session_data={},
     ):
-
         super().__init__(
             writer,
-            path,
             session_type,
-            include_train,
-            include_eval,
-            exclude_train,
-            exclude_eval,
             session_config,
-            session_data)
+            path,
+            session_data
+        )
         self.writer_path = kge_base_dir() + "/local/visualize/tensorboard/"
 
     @classmethod
-    def create(cls, **kwargs):
+    def create(cls, session_type, session_config, path=None):
+        from torch.utils import tensorboard
         writer = tensorboard.SummaryWriter(kge_base_dir() + "/local/visualize/tensorboard_remove/")
         return TensorboardHandler(
             writer,
-            session_type=kwargs.get("session_type"),
-            include_train=kwargs.get("include_train"),
-            include_eval=kwargs.get("include_eval"),
-            exclude_train=kwargs.get("exclude_train"),
-            exclude_eval=kwargs.get("exclude_eval"),
-            path=kwargs.get("path"),
-            session_data=kwargs.get("session_data"),
+            session_type=session_type,
+            session_config=session_config,
+            path=path
         )
 
     def _add_embeddings(self, path):
@@ -685,7 +653,7 @@ class TensorboardHandler(VisualizationHandler):
             self.writer.log_dir = event_path
             self._visualize_config(path=self.path)
             self.process_trace(tracefile, tracetype, jobtype)
-            if kwargs["embeddings"]:
+            if self.session_config.get("visualize.post.embeddings"):
                 self._add_embeddings(self.path)
             self.writer.close()
         elif jobtype == "search":
@@ -694,7 +662,7 @@ class TensorboardHandler(VisualizationHandler):
                 self.writer.log_dir = event_path
                 self._visualize_config(path=subjob_path)
                 self.process_trace(subjob_path + "/" + "trace.yaml", "train", "search")
-                if kwargs["embeddings"]:
+                if self.session_config.get("visualize.embeddings"):
                     self._add_embeddings(subjob_path)
                 self.writer.close()
 
@@ -704,8 +672,6 @@ class TensorboardHandler(VisualizationHandler):
             "config",
             yaml.dump(config).replace("  ", "&nbsp;&nbsp;&nbsp;").replace("\n", "  \n"),
         )
-
-
 
     def _visualize_train_item(self, key, value, epoch, tracetype, jobtype):
         key = key + " (train)"
@@ -732,7 +698,7 @@ class TensorboardHandler(VisualizationHandler):
                 idx += 1
 
     @classmethod
-    def run_server(cls, session_config, **kwargs):
+    def run_server(cls, session_config):
         import subprocess
         import time
         import atexit
@@ -780,43 +746,27 @@ def initialize_visualization(session_config, command):
 
     include_train = session_config.get("visualize.include_train")
     exclude_train = session_config.get("visualize.exclude_train")
-    if len(include_train) == 0:
-        include_train = [""]
-    if len(exclude_train) == 0:
-        exclude_train = [str(random.getrandbits(64))]
+    if not len(include_train):
+        session_config.set("visualize.include_train", [""])
+    if not len(exclude_train):
+        session_config.set("visualize.exclude_train", [str(random.getrandbits(64))])
     include_eval = session_config.get("visualize.include_eval")
     exclude_eval = session_config.get("visualize.exclude_eval")
-    if len(include_eval) == 0:
-        include_eval = [""]
-    if len(exclude_eval) == 0:
-        exclude_eval = [str(random.getrandbits(64))]
+    if not len(include_eval):
+        session_config.set("visualize.include_eval", [""])
+    if not len(exclude_eval):
+        session_config.set("visualize.exclude_eval", [str(random.getrandbits(64))])
 
     if session_config.get("visualize.module") == "visdom":
-        global visdom
-        import visdom
         VisdomHandler.run_server(session_config)
     elif session_config.get("visualize.module") == "tensorboard":
-        global tensorboard
-        from torch.utils import tensorboard
-        TensorboardHandler.run_server(session_config)
         session_config.check("visualize.broadcast.enable", [False])
+        TensorboardHandler.run_server(session_config)
     if command == "visualize":
         VisualizationHandler.post_process_jobs(
-            include_train=include_train,
-            include_eval=include_eval,
-            exclude_train=exclude_train,
-            exclude_eval=exclude_eval,
-            module=session_config.get("visualize.module"),
-            session_type="post",
-            folders=session_config.get("visualize.post.folders"),
-            embeddings=session_config.get("visualize.post.embeddings")
+            session_config=session_config
         )
     else:
         VisualizationHandler.register_broadcast(
-            module=session_config.get("visualize.module"),
-            include_train=include_train,
-            include_eval=include_eval,
-            exclude_train=exclude_train,
-            exclude_eval=exclude_eval,
-            session_type="broadcast"
+            session_config=session_config
         )
