@@ -11,7 +11,7 @@ from kge.job import Job
 from kge.model import KgeModel
 
 from kge.util import KgeLoss, KgeOptimizer, KgeNegativeSampler, KgeLRScheduler
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 import kge.job.util
 
 SLOTS = [0, 1, 2]
