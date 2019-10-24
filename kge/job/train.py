@@ -293,6 +293,7 @@ class TrainingJob(Job):
                 f(self)
 
             # preprocess batch and perform forward pass
+            self.optimizer.zero_grad()
             loss_value, batch_size, batch_prepare_time, batch_forward_time = self._compute_batch_loss(
                 batch_index, batch
             )
@@ -626,7 +627,6 @@ class TrainingJobKvsAll(TrainingJob):
 
         # forward pass
         batch_forward_time = -time.time()
-        self.optimizer.zero_grad()
         loss_value = torch.zeros(1, device=self.device)
         if len(sp_indexes) > 0:
             scores_sp = self.model.score_sp(
@@ -716,7 +716,6 @@ class TrainingJobNegativeSampling(TrainingJob):
 
         # forward pass
         batch_forward_time = -time.time()
-        self.optimizer.zero_grad()
 
         loss_value = torch.zeros(1, device=self.device)
 
@@ -899,7 +898,6 @@ class TrainingJob1vsAll(TrainingJob):
 
         # forward pass
         batch_forward_time = -time.time()
-        self.optimizer.zero_grad()
         scores_sp = self.model.score_sp(triples[:, 0], triples[:, 1])
         loss_value = self.loss(scores_sp, triples[:, 2])
         scores_po = self.model.score_po(triples[:, 1], triples[:, 2])
