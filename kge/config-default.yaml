@@ -352,49 +352,49 @@ visualize:
   #visdom, tensorboard
   module: visdom
 
-  # metrics to be visualized in post/broadcast; accepts regex
-  # leave empty to select all metrics in the trace (can be slow; when windows overlap in visdom press the repack button or scroll)
-  # currently, values that are not float or int types will be ignored
+  # Metrics to be visualized in post/broadcast, accepts regex.
+  # Leave empty to select all metrics in the trace (can be slow, when windows overlap in visdom press the repack button or scroll).
+  # Currently, values that are not float or int types will be ignored.
   include_train: ["avg_loss", "avg_cost", "avg_penalty", "forward_time", "epoch_time"]
   include_eval: ["rank"]
 
-  # metrics to be excluded, accepts regex; leaving empty will exclude none
-  # has priority over include_train/eval e. g. whatever is in these lists
-  # will not be visualized. Useful usecase: leave include_train/eval empty and then filter out some metrics with
-  # exclude_train/eval
+  # Metrics to be excluded, accepts regex. leaving empty will exclude none.
+  # Has priority over include_train/eval e. g. whatever is in these lists
+  # will not be visualized. Useful usecase: Leave include_train/eval empty and then filter out some metrics with
+  # exclude_train/eval.
   exclude_train: ["avg_loss"]
   exclude_eval: []
 
-  # option to start the server; this should always be true when starting a session
-  # if a session is already running you can run another session with start_server:False to append data to the current session;
-  # e. g. this can be used to compare a broadcast session with a post processing session
+  # Option to start the server. This should always be true when starting a new session.
+  # If a session is already running you can run another session with start_server:False to append data to the current session.
+  # For instance, this can be used to compare a broadcast session with a post processing session.
   start_server: True
 
-  # set True; only needed for debugging
+  # Set True, only needed for debugging.
   surpress_server_output: True
 
-  # host and port to run server on;
+  # Host and port to run server on. If port is used by some other process, port = port + 10 will be tried.
   hostname: "localhost"
   port: 8097
 
-  # set broadcast.enable=True for broadcasting training/search data of an execution
-  # of the kge framework. Broadcast is only supported with module:visdom
+  # Set broadcast.enable=True for broadcasting training/search data of an execution
+  # of the kge framework. Broadcast is only supported with module:visdom.
   broadcast:
     enable: False
 
-  # post execution visualizations of the jobs can be obtained with running:
+  # Post execution visualizations of the jobs can be obtained with running:
   # "python kge.py visualize visualize-options.yaml"
   post:
-    # the directory in which job folders to be visualized are searched
-    # search_dir is relative to the kge base directory
+    # The directory in which job folders to be visualized are searched.
+    # Search_dir is relative to the kge base directory
     search_dir: "local/experiments"
 
-    # job folders to be visualized; leave empty for all
-    # accepts regex, e. g. put in "complex" to visualize all jobs associated with complex in the folder name
-    # suggested for visdom: leave empty; for tensorboard: select specific
+    # Job folders to be visualized, leave empty for all.
+    # Accepts regex, e. g. put in "complex" to visualize all jobs associated with complex in the folder name.
+    # Suggested for visdom: leave empty; for tensorboard: select specific
     folders: []
 
-    # embeddings currently only supported with module:tensorboard
+    # Embeddings currently only supported with module:tensorboard.
     embeddings: False
 
 

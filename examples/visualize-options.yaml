@@ -1,5 +1,5 @@
 visualize:
-  surpress_server_output: False
+  surpress_server_output: True
   module: visdom
   #include_train: ["avg_loss", "avg_cost", "avg_penalty", "forward_time", "epoch_time"]
   #include_eval: ["rank"]

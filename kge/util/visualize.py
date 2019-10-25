@@ -25,7 +25,7 @@ class VisualizationHandler:
     produced by the kge framework.
 
     Subclasses implement create(), _visualize_train_item() _visualize_eval_item(), post_process_trace() (and optionally
-    _process_search_trace_entry())
+    _process_search_trace_entry()) . The have to be registered in create_handler() and run_server()
 
     writer: A writer object that writes data to a plotting framework
     session_type: "post" or "broadcast"
@@ -57,12 +57,12 @@ class VisualizationHandler:
         self.path = path
 
     @classmethod
-    def create_handler(cls, session_type, session_config, path=None):
+    def create_handler(cls, session_type, session_config, path=None, session_data={}):
         module = session_config.get("visualize.module")
         if module == "visdom":
-            return VisdomHandler.create(session_type, session_config, path)
+            return VisdomHandler.create(session_type, session_config, path, session_data)
         elif module == "tensorboard":
-            return TensorboardHandler.create(session_type, session_config, path)
+            return TensorboardHandler.create(session_type, session_config, path, session_data)
 
     def _visualize_train_item(self, key, value, epoch, tracetype, jobtype):
         raise NotImplementedError
@@ -304,6 +304,7 @@ class VisualizationHandler:
 
     @classmethod
     def run_server(cls, session_config):
+
         port = session_config.get("visualize.port")
         hostname = session_config.get("visualize.hostname")
 
@@ -311,11 +312,36 @@ class VisualizationHandler:
         if session_config.get("visualize.surpress_server_output"):
             stdout, stderr = subprocess.DEVNULL, subprocess.STDOUT
 
-        command = None
+        command = session_config.get("visualize.module")
+
+        # close the respective module to not mix up data between sessions
+        subprocess.Popen(
+            ["pkill {}".format(command)],
+            shell=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT
+        )
+
+        # change port if used by some other process
+        tries = 0
+        while len(
+                subprocess.Popen(
+                    ["lsof -i:{}".format(port)],
+                    shell=True,
+                    stderr=None,
+                    stdout=subprocess.PIPE
+                ).communicate()[0].decode("utf8")
+               ):
+            port = port + 10
+            session_config.set("visualize.port", port)
+            print("Port already in use, increased port by 10.")
+            if tries == 5:
+                print("Did not find new port in 5 tries, abort starting server.")
+                return
+
         # register framework specific server handling
         if session_config.get("visualize.module") == "tensorboard":
-            command = "tensorboard"
-            # clean up log_dir from previous visualization
+            # clean up log_dir from previous visualizations
             logdir = kge_base_dir() + "/local/visualize/tensorboard"
             if os.path.isdir(logdir):
                 for folder in os.listdir(logdir):
@@ -324,20 +350,13 @@ class VisualizationHandler:
                 command + " --logdir={} --port={} --host={}".format(logdir, port, hostname)
             ]
         elif session_config.get("visualize.module") == "visdom":
-            command = "visdom"
             envpath = kge_base_dir() + "/local/visualize/visdomenvs"
             if not os.path.isdir(envpath):
                 os.mkdir(envpath)
             full_command = [
                 command + " -env_path={} --hostname={} -port={}".format(envpath, hostname, port)
             ]
-        # restart the respective module to not mix up data between sessions
-        subprocess.Popen(
-            ["pkill {}".format(command)],
-            shell=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.STDOUT
-        )
+
         # run server
         process = subprocess.Popen(
             full_command,
@@ -374,14 +393,15 @@ class VisdomHandler(VisualizationHandler):
             session_data)
 
     @classmethod
-    def create(cls, session_type, session_config, path=None):
+    def create(cls, session_type, session_config, path=None, session_data=None):
         import visdom
         vis = visdom.Visdom(server=session_config.get("visualize.hostname"), port=session_config.get("visualize.port"))
         return VisdomHandler(
             vis,
             session_type,
             session_config,
-            path
+            path,
+            session_data
         )
 
     def _visualize_train_item(self, key, value, epoch, tracetype, jobtype):
@@ -427,11 +447,26 @@ class VisdomHandler(VisualizationHandler):
             # instead of skipping this plot you could use the generic plotly dic, but it is only a cornercase
             # anyway because a search job with only one trial does not make sense in the first place
             if len(x) > 1:
+                self.writer.env = env
                 self.writer.bar(
                     X=x,
                     env=env,
                     opts={"legend":names, "title": valid_metric_name + "_best"}
                 )
+                # TODO with this bar the legend does not work but hoovering over data will not directly crowd the window
+                #  with all ..
+                # bars = [{
+                #     "type": "bar",
+                #     "name": env,
+                #     "x": names,
+                #     "y": x}
+                # ]
+                # fig = {
+                #     "data": bars,
+                #     "layout": {"title": {"text": "best_" + valid_metric_name}, "legend": {"x": names}},
+                # }
+                # self.writer._send(fig)
+
             params = list(filter(lambda key: "." in key, list(trace_entry.keys())))
             # bar plots for tuned paramter values of the trials (job vs parameter value)
             #  +  scatters valid.metric vs parameter values of trials (scope: train)
@@ -444,13 +479,33 @@ class VisdomHandler(VisualizationHandler):
                     opts={"title": "Best valid vs " + param.split(".")[-1], "xlabel": param, "ylabel": valid_metric_name},
                     env=env
                 )
+            for param in params:
+                x = trace_entry[param]
+                # trace = dict(
+                #     type="table",
+                #     header={
+                #         "values": ["Trial", param.split(".")[-1]],
+                #         'fill': {'color': '#C8D4E3'},
+                #         'line': {'color': 'white'}
+                #     },
+                #     cells={
+                #         "values": [names, x],
+                #         "fill": {'color': '#EBF0F8'},
+                #         "line": {'color': 'white'}
+                #     },
+                # )
+                # layout = {"title": "Titel1", "marginleft": 1}
+                # self.writer.env = env
+                # self.writer._send({"data": [trace], "layout": layout})
+
+                # TODO: which one to take the table or bar
                 # same bug as above
-                if len(x)>1:
-                    self.writer.bar(
-                        X=x,
-                        env=env,
-                        opts={"legend":names, "title": param}
-                    )
+                # if len(x)>1:
+                self.writer.bar(
+                    X=x,
+                    env=env,
+                    opts={"legend":names, "title": param}
+                )
 
 
     def _visualize_item(self, key, value, x, env, name=None , win=None, update="append", title=None, **kwargs):
@@ -639,14 +694,15 @@ class TensorboardHandler(VisualizationHandler):
         self.writer_path = kge_base_dir() + "/local/visualize/tensorboard/"
 
     @classmethod
-    def create(cls, session_type, session_config, path=None):
+    def create(cls, session_type, session_config, path=None, session_data={}):
         from torch.utils import tensorboard
         writer = tensorboard.SummaryWriter(kge_base_dir() + "/local/visualize/tensorboard_remove/")
         return TensorboardHandler(
             writer,
             session_type=session_type,
             session_config=session_config,
-            path=path
+            path=path,
+            session_data=session_data
         )
 
     def _add_embeddings(self, path):

@@ -200,6 +200,8 @@ if __name__ == "__main__":
     if args.command == "visualize" or config.get("visualize.broadcast.enable"):
         from kge.util.visualize import initialize_visualization
         initialize_visualization(config, args.command)
+        if args.command =="visualize":
+            exit()
 
     # initialize output folder
     if args.command == "start":
