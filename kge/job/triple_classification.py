@@ -17,13 +17,13 @@ class TripleClassificationJob(EvaluationJob):
     per relation can be returned as well.
     """
 
-    # Todo: Check all datatypes and make them consistent where possible
+    # Todo: Check all tensor datatypes and make them consistent where possible
     # Todo: Stick to torch functions: Calculate accuracy and precision instead of using sklearn function
 
 
     def __init__(self, config, dataset, parent_job, model):
         super().__init__(config, dataset, parent_job, model)
-        self.is_prepared = False
+        self.valid_data_is_prepared = False
 
     def _prepare(self):
         """Prepare the corrupted validation and test data.
@@ -32,7 +32,7 @@ class TripleClassificationJob(EvaluationJob):
         that every epoch is evaluated on the same data.
         """
 
-        if self.is_prepared:
+        if self.valid_data_is_prepared:
             return
 
         self.config.log("Generate data with corrupted and true triples...")
@@ -46,7 +46,7 @@ class TripleClassificationJob(EvaluationJob):
 
         # let the model add some hooks, if it wants to do so
         self.model.prepare_job(self)
-        self.is_prepared = True
+        self.valid_data_is_prepared = True
 
     def run(self):
         """Runs the triple classification job."""
@@ -59,12 +59,13 @@ class TripleClassificationJob(EvaluationJob):
 
         epoch_time = -time.time()
 
-        # Get scores for the corrupted valid and test data
+        # Get scores for the corrupted valid  data
         self.config.log("Compute scores for datasets used...")
         s_valid, p_valid, o_valid = self.triples_valid[:, 0], self.triples_valid[:, 1], self.triples_valid[:, 2]
         valid_scores = self.model.score_spo(s_valid, p_valid, o_valid)
         rel_valid_scores = {int(r): valid_scores[(p_valid == r).nonzero(),:] for r in p_valid.unique()}
 
+        # Get scores for the corrupted test  data
         s_test, p_test, o_test = self.triples_test[:, 0], self.triples_test[:, 1], self.triples_test[:, 2]
         test_scores = self.model.score_spo(s_test, p_test, o_test)
         rel_test_scores = {int(r): test_scores[(p_test == r).nonzero(),:] for r in p_test.unique()}
