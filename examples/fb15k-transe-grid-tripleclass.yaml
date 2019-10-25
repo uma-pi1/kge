@@ -1,6 +1,6 @@
 job:
   device: cuda
-  type: train
+  type: search
 
 model: transe
 
@@ -10,31 +10,33 @@ dataset:
 train:
   batch_size: 256
   loss: margin_ranking
-  loss_arg: 0.2
-  max_epochs: 200
+  loss_arg: 4.0
+  max_epochs: 80
   optimizer: Adagrad
   optimizer_args:
-    lr: 0.01
+    lr: 0.1
   type: negative_sampling
 
 negative_sampling:
   num_negatives_o: 3
+  num_negatives_p: 0
   num_negatives_s: 3
   sampling_type: uniform
 
 valid:
   early_stopping.patience: 5
-  every: 1
+  every: 5
+  filter_with_test: True
   metric: Accuracy
 
 eval:
+  batch_size: 512
   type: triple_classification
-  metrics_per.relation: False
 
 transe:
   class_name: TransE
   entity_embedder:
-    dim: 128
+    dim: 100
     initialize: uniform_
     initialize_args:
       uniform_ :
@@ -44,9 +46,8 @@ transe:
     regularize: l2
     regularize_args:
       weight: 1.e-05
-      weighted: False
   relation_embedder:
-    dim: 128
+    dim: 100
     initialize: uniform_
     initialize_args:
       uniform_ :
@@ -56,5 +57,27 @@ transe:
     regularize: l2
     regularize_args:
       weight: 1.e-05
-      weighted: False
   l_norm: 1.
+
+search.type: grid
+grid_search.parameters:
+
+    train.optimizer_args.lr: [ 0.001, 0,005, 0.01, 0.1 ]
+    
+    transe.entity_embedder.dim: [20, 50, 100]
+
+    train.batch_size: [30, 120, 480, 1920]
+
+    train.loss_arg: [1, 2, 4]
+
+    lookup_embedder.regularize_args.weight: [0.0, 0.001]
+
+
+    lookup_embedder.regularize_args.weight: 
+search.num_workers: 4
+train.num_workers: 4
+eval.num_workers: 4
+
+
+
+
