@@ -157,7 +157,7 @@ valid:
 
   # Name of the trace entry that holds the validation metric (higher value is
   # better)
-  metric: mean_reciprocal_rank_filtered # Accuracy for triple_classification
+  metric: mean_reciprocal_rank_filtered # accuracy for triple_classification
 
   # If the above metric is not present in trace (e.g., because a custom metric
   # should be used), a Python expression to compute the metric. Can refer to
@@ -205,7 +205,7 @@ eval:
   num_workers: 0
   pin_memory: False
   trace_level: example            # example or batch or epoch
-  
+  triple_classification_random_seed: False
 
 
   # Metrics are always computed over the entire evaluation data. Optionally,

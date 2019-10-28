@@ -1,9 +1,9 @@
 import time
-import random
 
 import torch
 from sklearn.metrics import accuracy_score, precision_score
 from kge.job import EvaluationJob
+from kge.util.sampler import TripleClassificationSampler
 
 class TripleClassificationJob(EvaluationJob):
     """Triple classification evaluation protocol.
@@ -13,13 +13,9 @@ class TripleClassificationJob(EvaluationJob):
     triple, produced by the model to evaluate, is retrieved. Afterwards a threshold is determined for each relation.
     The best threshold for every relation is determined by maximizing the accuracy on validation data. The unseen
     triples from the train data will then be predicted as True if the score is higher than the threshold of the
-    respective relation. The metrics include accuracy and precision on test data. IF necessary the accuracy/precision
+    respective relation. The metrics include accuracy and precision on test data. If necessary the accuracy/precision
     per relation can be returned as well.
     """
-
-    # Todo: Check all tensor datatypes and make them consistent where possible
-    # Todo: Stick to torch functions: Calculate accuracy and precision instead of using sklearn function
-
 
     def __init__(self, config, dataset, parent_job, model):
         super().__init__(config, dataset, parent_job, model)
@@ -29,7 +25,9 @@ class TripleClassificationJob(EvaluationJob):
         """Prepare the corrupted validation and test data.
 
         The triples are corrupted only for the first evaluated epoch. Afterwards is_prepared is set to true to make sure
-        that every epoch is evaluated on the same data.
+        that every epoch is evaluated on the same data. For model selection, the thresholds are found for validation
+        data and the accuracy on validation data is used. For testing the thresholds are found for validation data and
+        evaluated on test data.
         """
 
         if self.valid_data_is_prepared:
@@ -38,11 +36,11 @@ class TripleClassificationJob(EvaluationJob):
         self.config.log("Generate data with corrupted and true triples...")
 
         if self.eval_data == "test":
-            self.triples_valid, self.valid_labels, self.rel_valid_labels = self._generate_negatives(self.dataset.valid)
-            self.triples_test, self.test_labels, self.rel_test_labels = self._generate_negatives(self.dataset.test)
+            self.triples_valid, self.valid_labels, self.rel_valid_labels = TripleClassificationSampler.sample(self, self.dataset.valid)
+            self.triples_test, self.test_labels, self.rel_test_labels = TripleClassificationSampler.sample(self, self.dataset.test)
         else:
-            self.triples_valid, self.valid_labels, self.rel_valid_label = self._generate_negatives(self.dataset.valid)
-            self.triples_test, self.test_labels, self.rel_test_labels = self._generate_negatives(self.dataset.valid)
+            self.triples_valid, self.valid_labels, self.rel_valid_label = TripleClassificationSampler.sample(self, self.dataset.valid)
+            self.triples_test, self.test_labels, self.rel_test_labels = TripleClassificationSampler.sample(self, self.dataset.valid)
 
         # let the model add some hooks, if it wants to do so
         self.model.prepare_job(self)
@@ -59,13 +57,13 @@ class TripleClassificationJob(EvaluationJob):
 
         epoch_time = -time.time()
 
-        # Get scores for the corrupted valid  data
-        self.config.log("Compute scores for datasets used...")
+        # Get scores and scores per relation for the corrupted valid data
+        self.config.log("Compute scores for validation and test datasets...")
         s_valid, p_valid, o_valid = self.triples_valid[:, 0], self.triples_valid[:, 1], self.triples_valid[:, 2]
         valid_scores = self.model.score_spo(s_valid, p_valid, o_valid)
         rel_valid_scores = {int(r): valid_scores[(p_valid == r).nonzero(),:] for r in p_valid.unique()}
 
-        # Get scores for the corrupted test  data
+        # Get scores and scores per relation for the corrupted test data
         s_test, p_test, o_test = self.triples_test[:, 0], self.triples_test[:, 1], self.triples_test[:, 2]
         test_scores = self.model.score_spo(s_test, p_test, o_test)
         rel_test_scores = {int(r): test_scores[(p_test == r).nonzero(),:] for r in p_test.unique()}
@@ -74,11 +72,11 @@ class TripleClassificationJob(EvaluationJob):
         self.config.log("Learning thresholds on validation data.")
         rel_thresholds = self.findThresholds(p_valid, valid_scores, rel_valid_scores, self.valid_labels, self.triples_valid)
 
-        # Make prediction on the specified evaluation data
+        # Make prediction for the specified evaluation data
         self.config.log("Evaluating on {} data.".format(self.eval_data))
         rel_predictions, not_in_eval = self.predict(rel_thresholds, rel_test_scores, p_valid, p_test)
 
-        # ComputeReport Metrics
+        # Compute Metrics
         self.config.log("Classification results:")
         metrics = self._compute_metrics(self.test_labels, self.rel_test_labels, rel_predictions, p_test, not_in_eval)
 
@@ -118,103 +116,53 @@ class TripleClassificationJob(EvaluationJob):
 
         return trace_entry
 
-    def _generate_negatives(self, dataset):
-        """Generates dataset with negative triples.
-
-        Takes each triple of the specified dataset and randomly replaces either the subject or the object with another
-        subject/object. Only allows a subject/object to be sampled if it appeared as a subject/object at the same
-        position in the dataset. The term corrupted dataset is used throughout the document for a dataset containing
-        both corrupted and original triples.
-
-        Returns:
-            corrupted: A new dataset with the original and corrupted triples.
-
-            labels: A vector with labels for the corresponding triples in the dataset.
-
-            rel_labels: A dictionary mapping relations to labels. The values contain as many 1,0-pairs as we have triples
-            for the relation in the specified dataset Example for 2 original triples: {9: [1, 0, 1, 0]}
-        """
-
-        # Create objects for the corrupted dataset and the corresponding labels
-        corrupted = dataset.repeat(1, 2).view(-1, 3)
-        labels = torch.as_tensor([1, 0] * len(dataset)).to(self.device)
-
-        # Random decision if sample subject(sample=nonzero) or object(sample=zero)
-        sample = torch.randint(0,2,(1,len(dataset))).to(self.device)
-
-        # Sample subjects from subjects which appeared in the dataset
-        corrupted[1::2][:, 0][sample.nonzero()[:, 1]] = \
-            torch.as_tensor(random.choice(
-                list(map(int, list(map(int, dataset[:, 0].unique()))))), dtype=torch.int32).to(self.device)
-
-        # Sample objects from objects which appeared in the dataset
-        corrupted[1::2][:, 2][(sample==0).nonzero()[:, 1]] = \
-            torch.as_tensor(random.choice(
-                list(map(int, list(map(int, dataset[:, 2].unique()))))), dtype=torch.int32).to(self.device)
-
-        # TODO: Create a function in util.sampler for that task. Optionally include: Allow to choose from which entities
-        #  to sample (e.g. from test, train and valid entities instead of only valid;
-        #  Add condition that corrupted triple!=original triple
-
-        # Save the labels per relation, since this will be needed frequently later on
-        p = corrupted[:, 1]
-        rel_labels = {int(r): labels[p == r] for r in p.unique()}
-
-
-        return corrupted, labels, rel_labels
-
     def findThresholds(self, p, valid_scores, rel_scores, valid_labels, valid_data):
         """Find the best thresholds per relation by maximizing accuracy on validation data.
 
-        Method 1 is what seems the most reasonable for me, Method 2 is the reimplementation of the
-        NTN Paper of Socher et al. 2013. Method 1 is much faster and delivers equally good results. Since the
-        threshold entirely is determined by the valid_scores and is a cut between them, the best threshold in terms of
-        valid data is any value between two specific score values. Thus I assume, that we can just use one of these
-        score values as the threshold, since we can't know better anyway. Is this thought correct?
-        The two methods are not equivalent. Method 1 leads to slightly (~0.01) better result in terms of accuracy. The
-        reason most likely is, that it is really a better threshold, since it is more based on the data than just the
-        lowest arbitrary threshold that produces the best accuracy. If we would have infinite valid triples, the two
-        methods would be equivalent. Nevertheless, since other Triple Classification papers probably used Method 2 and
-        the goal is evaluation, we maybe should stick to Method 2 to make comparisons to others possible. If it is only
-        important for us to make comparisons inside our framework possible, then I would prefer Method 1.
+        The thresholds are found for every relation by maximizing the accuracy on the validation data. For a given
+        relation, if the scores of all triple in the relation are sorted, the perfect threshold is always a cut between
+        two of the scores. This means, that multiple possible values can be defined as thresholds and give the highest
+        accuracy. To evaluate only as many possible thresholds as really necessary, the scores themselves are considered
+        as possible thresholds. This allows for a fast implementation.
 
         Args:
             p: 1-D tensor containing the relations of the corrupted validation dataset.
-            valid_scores: 1D tensor containing the scores of all corrupted validation triples.
+            valid_scores: 2-D tensor containing the scores of all corrupted validation triples.
             rel_scores: Dictionary containing the scores of the triples in a relation.
-            valid_labels: 1D tensor containing the labels of all corrupted validation triples.
-            valid_data: Dataset used. Should be corrupted validation dataset.
+            valid_labels: 1-D tensor containing the labels of all corrupted validation triples.
+            valid_data: Dataset used. Should be the corrupted validation dataset.
 
         Returns:
-            rel_thresholds: Dictionary with thresholds per relation {relation: threshold}.
+            rel_thresholds: Dictionary with thresholds per relation {relation: thresholds}.
+                            E.g.: {1: tensor(-2.0843, grad_fn=<SelectBackward>)}
         """
 
-        #Method 1: Threshold is always one of the scores
-        #Initialize accuracies, thresholds (and predictions)
+        # Initialize accuracies and thresholds
         rel_accuracies = {int(r): -1 for r in p.unique()}
         rel_thresholds = {int(r): 0 for r in p.unique()}
 
-        # Change the scores from a 2D to a 1D tensor
+        # Change the valid scores from a 2D to a 1D tensor
         valid_scores = torch.as_tensor([float(valid_scores[i]) for i in range(len(valid_scores))]).to(self.device)
 
-
         for r in p.unique():
-            #Predict
-            current_rel = (valid_data[:, 1] == r)
+            current_rel = (valid_data[:, 1] == r) # 0-1 vector for indexing triples of the current relation
             true_labels = valid_labels[current_rel.nonzero()].type(torch.int)
-            # true_labels = valid_labels[current_rel]
-            preds = (valid_scores[current_rel.nonzero()] >= rel_scores[int(r)]).type(torch.int)
-            accuracy = [int(((true_labels==preds[i]).sum(dim=0)))/len(true_labels) for i in range(len(rel_scores[int(r)]))]
-            # accuracy = [int(((true_labels==preds[i]).sum(dim=0)))/len(true_labels) for i in range(len(rel_scores[int(r)]))]
+
+            # valid_scores[current_rel.nonzero()] and rel_scores[int(r)] both contain the scores of the current
+            # relation. In the comparison, every score is evaluated as possible threshold against all scores.
+            predictions = (valid_scores[current_rel.nonzero()] >= rel_scores[int(r)]).type(torch.int)
+
+            accuracy = [int(((true_labels==predictions[i]).sum(dim=0)))/len(true_labels) for i in range(len(rel_scores[int(r)]))]
             rel_accuracies[int(r)] = max(accuracy)
-            # Choose the smallest score of the ones which give the maximum accuracy as threshold to stay as consistent
-            # as possible with original implementation
+
+            # Choose the smallest score of the ones which give the maximum accuracy as threshold to stay consistent.
             rel_thresholds[int(r)] = min(rel_scores[int(r)][list(filter(lambda x: accuracy[x] == max(accuracy), range(len(accuracy))))])[0,0]
 
-#     #Method 2: Search for best threshold in an interval
-#     #https://github.com/siddharth-agrawal/Neural-Tensor-Network/blob/master/neuralTensorNetwork.py
-      # or https://github.com/dddoss/tensorflow-socher-ntn/blob/master/code/ntn_eval.py
-#     # Initialize accuracies, thresholds (and predictions)
+#     # Alternative implementation: Search for best threshold in an interval
+#     # Following https://github.com/siddharth-agrawal/Neural-Tensor-Network/blob/master/neuralTensorNetwork.py or
+#     # https://github.com/dddoss/tensorflow-socher-ntn/blob/master/code/ntn_eval.py (reimplemented Socher et al. 2013)
+#
+#     # Initialize accuracies, thresholds and interval
 #     min_score = valid_scores.min()
 #     max_score = valid_scores.max()
 #
@@ -223,10 +171,10 @@ class TripleClassificationJob(EvaluationJob):
 #
 #     score = min_score
 #
-#     # Original implementation uses an interval 0.01, implemented for NTN model. In general the interval imo should
-#     # depend on the range of the score values of the model
-#     # Suggestion: float((max_score-min_score)/len(valid_scores))
-#     interval = 0.01#float((max_score-min_score)/len(valid_scores))
+#     # Original implementation uses an interval of 0.01, implemented for NTN model. In general the interval should
+#     # depend on the range of the score values of the model and be at least as large as teh smallest distance between
+#     # two of the sorted scores
+#     interval = 0.01
 #     valid_scores = torch.as_tensor([float(valid_scores[i]) for i in range(len(valid_scores))]).to(self.device)
 #
 #     while(score<=max_score):
@@ -234,8 +182,8 @@ class TripleClassificationJob(EvaluationJob):
 #             #Predict
 #             current_rel = (valid_data[:, 1] == r)
 #             true_labels = valid_labels[current_rel.nonzero()].type(torch.int)
-#             preds = (valid_scores[current_rel.nonzero()] >= score).type(torch.int)
-#             accuracy = int(((true_labels==preds).sum(dim=0)))/len(true_labels)
+#             predictions = (valid_scores[current_rel.nonzero()] >= score).type(torch.int)
+#             accuracy = int(((true_labels==predictions).sum(dim=0)))/len(true_labels)
 #
 #             if accuracy > rel_accuracies[int(r)]:
 #                 rel_accuracies[int(r)] = accuracy
@@ -249,13 +197,13 @@ class TripleClassificationJob(EvaluationJob):
         """Makes predictions on evaluation/test data.
 
         Parameters:
-            rel_thresholds: dictionary with relation thresholds, e.g. {1: 1.5}.
-            rel_scores: dictionary with scores of triples in each relation:
+            rel_thresholds: Dictionary with relation thresholds.
+            rel_scores: Dictionary with scores of triples in each relation:
                         E.g. relation with four triples in it:, e.g. {1: [-2, 1, 2, 4]}.
 
         Returns:
-            rel_predictions: dictionary with predictions for the triples in a relation, e.g. {1: [0, 0, 1, 1]}.
-            not_in_eval: list with relations that are in the test data, but not in the validation data.
+            rel_predictions: Dictionary with predictions for the triples in a relation, e.g. {1: [0, 0, 1, 1]}.
+            not_in_eval: List with relations that are in the test data, but not in the validation data.
         """
 
         rel_predictions = {int(r): torch.as_tensor([0]*len(rel_scores[int(r)])).to(self.device) for r in p_test.unique()}
@@ -274,8 +222,8 @@ class TripleClassificationJob(EvaluationJob):
         """Computes accuracy and precision metrics of predictions.
 
         Returns:
-            metrics: dictionary with the specified metrics accuracy and precision as keys. If spedified, metric per
-            relation are safed as dictionaries in the dictionary.
+            metrics: dictionary with the specified metrics accuracy and precision as keys. If specified, metrics per
+            relation are stored as dictionaries in the dictionary.
             E.g.: {accuracy: 0.9
                    accuracy_per_relation:
                         {relation 1: 0.8}
@@ -289,21 +237,23 @@ class TripleClassificationJob(EvaluationJob):
                      for r in p_test.unique()
                      for i in rel_predictions[int(r)]], dtype=torch.int64)
 
-        metrics["Accuracy"] = float(accuracy_score(test_labels, pred_list))
-        metrics["Precision"] = float(precision_score(test_labels, pred_list))
+        metrics["accuracy"] = float(accuracy_score(test_labels, pred_list))
+        metrics["precision"] = float(precision_score(test_labels, pred_list))
 
         if self.config.get("eval.metrics_per.relation"):
             precision_per_r = {}
             accuracy_per_r = {}
             for r in p_test.unique():
-                    precision_per_r[str(self.dataset.relations[int(r)])] = float(precision_score(rel_test_labels[int(r)], rel_predictions[int(r)]))
-                    accuracy_per_r[str(self.dataset.relations[int(r)])] = float(accuracy_score(rel_test_labels[int(r)], rel_predictions[int(r)]))
+                    precision_per_r[str(self.dataset.relations[int(r)])] = \
+                        float(precision_score(rel_test_labels[int(r)], rel_predictions[int(r)]))
+                    accuracy_per_r[str(self.dataset.relations[int(r)])] = \
+                        float(accuracy_score(rel_test_labels[int(r)], rel_predictions[int(r)]))
 
-            metrics["Accuracy_per_Relation"] = accuracy_per_r
+            metrics["accuracy_per_relation"] = accuracy_per_r
 
-            metrics["Precision_Per_Relation"] = precision_per_r
+            metrics["precision_per_relation"] = precision_per_r
 
 
-        metrics["Untested relations due to missing in evaluation data"] = len(not_in_eval)
+        metrics["untested relations due to missing in evaluation data"] = len(not_in_eval)
 
         return metrics

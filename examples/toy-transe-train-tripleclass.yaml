@@ -5,7 +5,7 @@ job:
 model: transe
 
 dataset:
-  name: fb15k
+  name: toy
 
 train:
   batch_size: 256
@@ -25,7 +25,7 @@ negative_sampling:
 valid:
   early_stopping.patience: 5
   every: 1
-  metric: Accuracy
+  metric: accuracy
 
 eval:
   type: triple_classification
