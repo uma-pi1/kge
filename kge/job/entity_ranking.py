@@ -279,6 +279,19 @@ class EntityRankingJob(EvaluationJob):
                 )
         epoch_time += time.time()
 
+        # Find and report best k predictions per triple
+        if self.top_k_predictions_predict:
+            top_k_predictions = output.get_top_k_predictions(self, self.triples, self.top_k_predictions_k)
+
+            # Save the the best predictions to the log file and output them if specified
+            self.config.log("Print the {} best predictions for the {} triples:".format(self.top_k_predictions_k, self.eval_data) + "\n" + "\n",
+                            echo=self.top_k_predictions_print)
+            for t, p in zip(top_k_predictions.keys(), top_k_predictions.values()):
+                self.config.log(
+                    "For triple " + t + ", the {} best predictions are: ".format(self.top_k_predictions_k) + "\n" + str(
+                        p[0]) + "\n" + str(p[1]) + "\n" + str(p[2]) + "\n" + str(p[3]) + "\n" + str(p[4]) + "\n" + "\n",
+                    echo=self.top_k_predictions_print)
+
         # compute trace
         trace_entry = dict(
             type="entity_ranking",
@@ -310,40 +323,8 @@ class EntityRankingJob(EvaluationJob):
             self.model.train()
         self.config.log("Finished evaluating on " + self.eval_data + " data.")
 
-
         for f in self.post_valid_hooks:
             f(self, trace_entry)
-
-        # predict output
-        if self.predict_output:
-            # get the scores for all possible variations of the test triples
-            s_all, p_all, o_all = self.triples[:, 0], self.triples[:, 1], self.triples[:, 2]
-            scores_all = self.model.score_sp_po(s_all, p_all, o_all)
-
-            # get the k triples with the highest predicted scores
-            best_predictions_per_triple = output.get_best_predictions_per_triple(self, self.triples, scores_all, self.predict_output_k)
-
-            # load mapping to real entity names
-            #Todo: Add map to the dataset part of default configurations to address the file from there (Mappings for other datasets needed!)
-            entities_map = output._load_map(self, "/home/andrej/GIT/kge/data/toy/entities_names.txt")
-
-            # Create a dictionary with the best predictions per triple and save it to the trace
-            predictions = output.create_output_best_predictions(self, best_predictions_per_triple, entities_map)
-            trace_entry["best_predictions_per_triple"] = predictions
-
-            # Log the best predictions and print if specified in self.predict_output_log
-            self.config.log("{} best predictions for the test triples:".format(self.predict_output_k) + "\n" + "\n", echo=self.predict_output_print)
-            for t, p in zip(predictions.keys(), predictions.values()):
-               self.config.log("For triple " + t + ", the {} best predictions are: ".format(self.predict_output_k) + "\n" + str(
-                        p[0]) + "\n" + str(p[1]) + "\n" + str(p[2]) + "\n" + str(p[3]) + "\n" + str(p[4]) + "\n" + "\n", echo=self.predict_output_print)
-
-            # create a file for the predictions
-            f = open('{}/predictions_epoch_{}.txt'.format(self.config.folder, self.epoch), 'w')
-            for t, p in zip(predictions.keys(), predictions.values()):
-                f.write(
-                    "For triple " + t + ", the {} best predictions are: ".format(self.predict_output_k) + "\n" + str(
-                        p[0]) + "\n" + str(p[1]) + "\n" + str(p[2]) + "\n" + str(p[3]) + "\n" + str(p[4]) + "\n" + "\n")
-            f.close()
 
         return trace_entry
 

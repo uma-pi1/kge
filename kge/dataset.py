@@ -22,6 +22,7 @@ class Dataset:
         valid_meta,
         test,
         test_meta,
+        entities_map,
     ):
         self.config = config
         self.num_entities = num_entities
@@ -41,6 +42,7 @@ class Dataset:
             test_meta
         )  # array: triple row number -> metadata array of strings
         self.indexes = {}  # map: name of index -> index (used mainly by training jobs)
+        self.entities_map = entities_map # metadata array of strings -> realname string
 
     @staticmethod
     def load(config):
@@ -53,6 +55,10 @@ class Dataset:
         )
         num_relations, relations = Dataset._load_map(
             os.path.join(base_dir, config.get("dataset.relation_map"))
+        )
+
+        entities_map = Dataset._load_map(
+            os.path.join(base_dir, config.get("dataset.entity_map_realnames")), "realnames"
         )
 
         train, train_meta = Dataset._load_triples(
@@ -79,6 +85,7 @@ class Dataset:
             valid_meta,
             test,
             test_meta,
+            entities_map,
         )
 
         config.log(str(num_entities) + " entities", prefix="  ")
@@ -90,20 +97,27 @@ class Dataset:
         return result
 
     @staticmethod
-    def _load_map(filename):
+    def _load_map(filename, maptype="normal"):
         n = 0
         dictionary = {}
         with open(filename, "r") as file:
             reader = csv.reader(file, delimiter="\t")
-            for row in reader:
-                index = int(row[0])
-                meta = row[1:]
-                dictionary[index] = meta
-                n = max(n, index + 1)
-        array = [[]] * n
-        for index, meta in dictionary.items():
-            array[index] = meta
-        return n, array
+            if maptype != "realnames":
+                for row in reader:
+                    index = int(row[0])
+                    meta = row[1:]
+                    dictionary[index] = meta
+                    n = max(n, index + 1)
+                array = [[]] * n
+                for index, meta in dictionary.items():
+                    array[index] = meta
+                return n, array
+            else:
+                for row in reader:
+                    index = row[0]
+                    meta = row[1:]
+                    dictionary[index] = meta
+                return dictionary
 
     @staticmethod
     def _load_triples(filename):

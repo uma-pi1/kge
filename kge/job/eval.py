@@ -24,9 +24,9 @@ class EvaluationJob(Job):
         self.eval_data = self.config.check("eval.data", ["valid", "test"])
         self.filter_valid_with_test = config.get("valid.filter_with_test")
         self.epoch = -1
-        self.predict_output = config.get("eval.predict_output")
-        self.predict_output_k = config.get("eval.predict_output_k")
-        self.predict_output_print = config.get("eval.predict_output_print")
+        self.top_k_predictions_predict = config.get("eval.top_k_predictions.predict")
+        self.top_k_predictions_k = config.get("eval.top_k_predictions.k")
+        self.top_k_predictions_print = config.get("eval.top_k_predictions.print")
 
         #: Hooks run after evaluation for an epoch.
         #: Signature: job, trace_entry
@@ -221,26 +221,23 @@ def hist_per_frequency_percentile(hists, s, p, o, s_ranks, o_ranks, job, **kwarg
 
 
 class output_predictions_per_triple():
+    # Todo: Need a complete and unique-valued, english-only mapping, atm output is in different languages and unreadable
 
     def __init__(self, config):
         self.config = config
 
-    def _load_map(self, filename):
-        import csv
-        # Read the entities from file
-        # Todo: Move function to dataset.py or change the function in dataset.py for reading the entities.txt file
-        #   First, mappings to real names of entities of othewr datasets have to be added
-        dictionary = {}
-        with open(filename, "r") as file:
-            reader = csv.reader(file, delimiter="\t")
-            for row in reader:
-                index = row[0]
-                meta = row[1:]
-                dictionary[index] = meta
-        return dictionary
+    def get_top_k_predictions(self, triples, k):
 
-    def get_best_predictions_per_triple(self, triples, scores, k):
-        best_predictions_per_triple = {}
+        s_all, p_all, o_all = triples[:, 0], triples[:, 1], triples[:, 2]
+        scores = self.model.score_sp_po(s_all, p_all, o_all)
+
+        top_k_predictions = {}
+
+        entities_map = self.dataset.entities_map
+        num_entities = self.dataset.num_entities
+        relations = self.dataset.relations
+        entities = self.dataset.entities
+
         # Loop over every test triple to find the best predictions for it
         for t in range(len(triples)):
             # Get indices of the k largest scores
@@ -250,42 +247,35 @@ class output_predictions_per_triple():
             best_triples = torch.as_tensor([triples[t].tolist()] * k)
 
             for i, j in enumerate(indices):
-                if j < self.dataset.num_entities:
+                if j < num_entities:
                     best_triples[:, 0][i] = j
                 else:
-                    best_triples[:, 2][i] = j - self.dataset.num_entities
+                    best_triples[:, 2][i] = j - num_entities
 
-            best_predictions_per_triple[triples[t]] = best_triples
+            top_k_predictions[triples[t]] = best_triples
 
-        return best_predictions_per_triple
-
-    # Todo: Need a complete and unique-valued, english-only mapping, atm output is in different languages and unreadable
-
-    def create_output_best_predictions(self, best_predictions_per_triple, entities_map):
-        # Todo after feedback if approach is good: Make the predictions more beuatiful in trace and output file
-        # For printing only last part of relation add: .rsplit('/', 1)[1][:-2]
-        predictions = {}
-        triple_count = 1
-        for i, j in zip(best_predictions_per_triple.keys(), best_predictions_per_triple.values()):
+        # For printing only last part of relation add: ".rsplit('/', 1)[1][:-2]" to relations part
+        top_k_predictions_realnames = {}
+        for i, j in zip(top_k_predictions.keys(), top_k_predictions.values()):
             # At the moment, we don't have a mapping to real names where every entity is listed. Therefore,
             # we need to output the IDs in those cases. Whenever an ID key is not present in the mapping, we use the ID.
             try:
-                predictions[str(entities_map[''.join(self.dataset.entities[int(i[0])])]) +
-                            str(self.dataset.relations[int(i[1])]) +
-                            str(entities_map[''.join(self.dataset.entities[int(i[2])])])] = \
+                top_k_predictions_realnames[str(entities_map[''.join(entities[int(i[0])])]) +
+                            str(relations[int(i[1])]) +
+                            str(entities_map[''.join(entities[int(i[2])])])] = \
                     ["Best prediction no. {}: ".format(n+1) +
-                     str(entities_map[''.join(self.dataset.entities[int(t[0])])] +
-                         self.dataset.relations[int(t[1])] +
-                    entities_map[''.join(self.dataset.entities[int(t[2])])]) for n,t in enumerate(j)]
+                     str(entities_map[''.join(entities[int(t[0])])] +
+                         relations[int(t[1])] +
+                    entities_map[''.join(entities[int(t[2])])]) for n,t in enumerate(j)]
             except KeyError:
-                predictions[str(entities_map[''.join(self.dataset.entities[int(i[0])])]) +
-                            str(self.dataset.relations[int(i[1])]) +
-                            str(entities_map[''.join(self.dataset.entities[int(i[2])])])] = \
+                top_k_predictions_realnames[str(entities_map[''.join(entities[int(i[0])])]) +
+                            str(relations[int(i[1])]) +
+                            str(entities_map[''.join(entities[int(i[2])])])] = \
                     ["Best prediction no. {}: ".format(n+1) +
-                     ''.join(self.dataset.entities[int(t[0])]) +
-                         str(self.dataset.relations[int(t[1])]) +
-                    ''.join(self.dataset.entities[int(t[2])]) for n,t in enumerate(j)]
+                     ''.join(entities[int(t[0])]) +
+                         str(relations[int(t[1])]) +
+                    ''.join(entities[int(t[2])]) for n,t in enumerate(j)]
 
-            triple_count += 1
+        return top_k_predictions_realnames
 
-        return predictions
+
