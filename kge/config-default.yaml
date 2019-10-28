@@ -205,7 +205,7 @@ eval:
   num_workers: 0
   pin_memory: False
   trace_level: example            # example or batch or epoch
-  triple_classification_random_seed: False
+  triple_classification_random_seed: False # If True, sets seed to make results comparable
 
 
   # Metrics are always computed over the entire evaluation data. Optionally,

@@ -9,8 +9,10 @@ train:
 lookup_embedder.dim: 100
 #lookup_embedder.initialize: normal_
 lookup_embedder.initialize: xavier_uniform_
-eval.type: triple_classification
+eval:
+  type: triple_classification
+  metrics_per.relation: False
+  triple_classification_random_seed: False
 valid.metric: accuracy
-eval.metrics_per.relation: False
-valid.every: 1
+
 
