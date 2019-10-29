@@ -43,14 +43,11 @@ class EvaluationJob(Job):
         #: Hooks run before outputting the trace of an epoch. Can modify trace entry.
         #: Signature: job, trace_entry
         self.post_epoch_trace_hooks = []
+        if self.top_k_predictions_predict:
+            self.post_epoch_trace_hooks.append(get_top_k_predictions)
 
         #: Signature: job, trace_entry
-        # Todo: Should be moved to post_epoch_trace_hooks, so that the predictions are also in the trace. Unfortunately,
-        #  when writing out the trace the prediction strings get corrupted.
         self.post_valid_hooks = []
-        if self.top_k_predictions_predict:
-            self.post_valid_hooks.append(get_top_k_predictions)
-
 
         #: Hooks after computing the ranks for each batch entry.
         #: Signature: job, trace_entry
@@ -185,9 +182,11 @@ def hist_per_frequency_percentile(hists, s, p, o, s_ranks, o_ranks, job, **kwarg
 def get_top_k_predictions(self, trace_entry):
     # Todo: Need a complete and unique-valued, english-only mapping, atm output is in different languages and unreadable
 
+    # Retrieve all possible scores for the test triples
     s_all, p_all, o_all = self.triples[:, 0], self.triples[:, 1], self.triples[:, 2]
     scores = self.model.score_sp_po(s_all, p_all, o_all)
 
+    # Initialize prediction dictionary
     top_k_predictions = {}
 
     entities_map = self.dataset.entities_map
@@ -195,7 +194,7 @@ def get_top_k_predictions(self, trace_entry):
     relations = self.dataset.relations
     entities = self.dataset.entities
 
-    # Loop over every test triple to find the best predictions for it
+    # Find the best predictions for every test triple
     for t in range(len(self.triples)):
         # Get indices of the k largest scores
         indices = scores[t,:].topk(self.top_k_predictions_k).indices
@@ -211,6 +210,11 @@ def get_top_k_predictions(self, trace_entry):
 
         top_k_predictions[self.triples[t]] = best_triples
 
+    # Add single predictions to trace
+    for key, value in zip(top_k_predictions.keys(), list(top_k_predictions.values())):
+        trace_entry["Prediction for {}".format(key.tolist())] = str(value.tolist())
+
+    # Map the predictions to readable names, save them to the log file and output them if specified
     if entities_map != "Not available":
         top_k_predictions_real_names = {}
         for i, j in zip(top_k_predictions.keys(), top_k_predictions.values()):
@@ -233,9 +237,6 @@ def get_top_k_predictions(self, trace_entry):
                          str(relations[int(t[1])]) +
                     ''.join(entities[int(t[2])]) for n,t in enumerate(j)]
 
-        # Add to trace
-        trace_entry["Top_{}_predictions_per_triple".format(self.top_k_predictions_k)] = top_k_predictions_real_names
-
         # Save the the best predictions to the log file and output them if specified
         self.config.log("Best {} predictions for the {} triples:".format(self.top_k_predictions_k, self.eval_data) + "\n" + "\n",
                         echo=self.top_k_predictions_print)
@@ -244,13 +245,3 @@ def get_top_k_predictions(self, trace_entry):
                 "For triple " + t + ", the {} best predictions are: ".format(self.top_k_predictions_k) + "\n" + str(
                     p[0]) + "\n" + str(p[1]) + "\n" + str(p[2]) + "\n" + str(p[3]) + "\n" + str(p[4]) + "\n" + "\n",
                 echo=self.top_k_predictions_print)
-    else:
-        self.config.log(
-            "Best {} predictions for the {} triples:".format(self.top_k_predictions_k, self.eval_data) + "\n" + "\n",
-            echo=self.top_k_predictions_print)
-        for t, p in zip(top_k_predictions.keys(), top_k_predictions.values()):
-            self.config.log("For triple " + str(t.tolist()) + ", the {} best predictions are: ".format(self.top_k_predictions_k)
-                            + "\n" + str(p[0].tolist()) + "\n" + str(p[1].tolist()) + "\n" + str(p[2].tolist()) + "\n" +
-                            str(p[3].tolist()) + "\n" + str(p[4].tolist()) + "\n" + "\n", echo=self.top_k_predictions_print)
-        # Add to trace
-        trace_entry["Top_{}_predictions_per_triple".format(self.top_k_predictions_k)] = top_k_predictions
