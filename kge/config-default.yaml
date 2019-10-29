@@ -206,10 +206,10 @@ eval:
   num_workers: 0
   pin_memory: False
   trace_level: example            # example or batch or epoch
-  top_k_predictions:	# Possibility to inspect the predictions a model makes
-    predict: False    	# If true, the best predictions are added to the log file  
-    k: 5		# No. of best predictions retrieved
-    print: False	# If true, the predictions are outputted to the terminal
+  top_k_predictions:              # Possibility to inspect the predictions a model makes
+    predict: False                # If true, the best predictions are added to the log file  
+    k: 5                          # No. of best predictions retrieved
+    print: False                  # If true, the predictions are outputted to the terminal
 
   # Metrics are always computed over the entire evaluation data. Optionally,
   # certain more specific metric can be computed in addition.

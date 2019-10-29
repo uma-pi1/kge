@@ -45,7 +45,12 @@ class EvaluationJob(Job):
         self.post_epoch_trace_hooks = []
 
         #: Signature: job, trace_entry
+        # Todo: Should be moved to post_epoch_trace_hooks, so that the predictions are also in the trace. Unfortunately,
+        #  when writing out the trace the prediction strings get corrupted.
         self.post_valid_hooks = []
+        if self.top_k_predictions_predict:
+            self.post_valid_hooks.append(get_top_k_predictions)
+
 
         #: Hooks after computing the ranks for each batch entry.
         #: Signature: job, trace_entry
@@ -177,45 +182,38 @@ def hist_per_frequency_percentile(hists, s, p, o, s_ranks, o_ranks, job, **kwarg
                 hists["{}_{}".format("relation", perc)][r] += 1
 
 
-class output_predictions_per_triple():
+def get_top_k_predictions(self, trace_entry):
     # Todo: Need a complete and unique-valued, english-only mapping, atm output is in different languages and unreadable
 
-    def __init__(self, config):
-        self.config = config
+    s_all, p_all, o_all = self.triples[:, 0], self.triples[:, 1], self.triples[:, 2]
+    scores = self.model.score_sp_po(s_all, p_all, o_all)
 
-    def get_top_k_predictions(self, triples, k):
+    top_k_predictions = {}
 
-        s_all, p_all, o_all = triples[:, 0], triples[:, 1], triples[:, 2]
-        scores = self.model.score_sp_po(s_all, p_all, o_all)
+    entities_map = self.dataset.entities_map
+    num_entities = self.dataset.num_entities
+    relations = self.dataset.relations
+    entities = self.dataset.entities
 
-        top_k_predictions = {}
+    # Loop over every test triple to find the best predictions for it
+    for t in range(len(self.triples)):
+        # Get indices of the k largest scores
+        indices = scores[t,:].topk(self.top_k_predictions_k).indices
 
-        entities_map = self.dataset.entities_map
-        num_entities = self.dataset.num_entities
-        relations = self.dataset.relations
-        entities = self.dataset.entities
+        # Get best triples
+        best_triples = torch.as_tensor([self.triples[t].tolist()] * self.top_k_predictions_k)
 
-        # Loop over every test triple to find the best predictions for it
-        for t in range(len(triples)):
-            # Get indices of the k largest scores
-            indices = scores[t,:].topk(k).indices
+        for i, j in enumerate(indices):
+            if j < num_entities:
+                best_triples[:, 0][i] = j
+            else:
+                best_triples[:, 2][i] = j - num_entities
 
-            # Get best triples
-            best_triples = torch.as_tensor([triples[t].tolist()] * k)
+        top_k_predictions[self.triples[t]] = best_triples
 
-            for i, j in enumerate(indices):
-                if j < num_entities:
-                    best_triples[:, 0][i] = j
-                else:
-                    best_triples[:, 2][i] = j - num_entities
-
-            top_k_predictions[triples[t]] = best_triples
-
-        # For printing only last part of relation add: ".rsplit('/', 1)[1][:-2]" to relations part
+    if entities_map != "Not available":
         top_k_predictions_realnames = {}
         for i, j in zip(top_k_predictions.keys(), top_k_predictions.values()):
-            # At the moment, we don't have a mapping to real names where every entity is listed. Therefore,
-            # we need to output the IDs in those cases. Whenever an ID key is not present in the mapping, we use the ID.
             try:
                 top_k_predictions_realnames[str(entities_map[''.join(entities[int(i[0])])]) +
                             str(relations[int(i[1])]) +
@@ -224,6 +222,8 @@ class output_predictions_per_triple():
                      str(entities_map[''.join(entities[int(t[0])])] +
                          relations[int(t[1])] +
                     entities_map[''.join(entities[int(t[2])])]) for n,t in enumerate(j)]
+            # Often there is no complete mapping to real names where every entity is listed. Therefore,
+            # we need to output the IDs in those cases. Whenever an ID key is not present in the mapping, we use the ID.
             except KeyError:
                 top_k_predictions_realnames[str(entities_map[''.join(entities[int(i[0])])]) +
                             str(relations[int(i[1])]) +
@@ -233,6 +233,24 @@ class output_predictions_per_triple():
                          str(relations[int(t[1])]) +
                     ''.join(entities[int(t[2])]) for n,t in enumerate(j)]
 
-        return top_k_predictions_realnames
+        # Add to trace
+        trace_entry["Top_{}_predictions_per_triple".format(self.top_k_predictions_k)] = top_k_predictions_realnames
 
-
+        # Save the the best predictions to the log file and output them if specified
+        self.config.log("Best {} predictions for the {} triples:".format(self.top_k_predictions_k, self.eval_data) + "\n" + "\n",
+                        echo=self.top_k_predictions_print)
+        for t, p in zip(top_k_predictions_realnames.keys(), top_k_predictions_realnames.values()):
+            self.config.log(
+                "For triple " + t + ", the {} best predictions are: ".format(self.top_k_predictions_k) + "\n" + str(
+                    p[0]) + "\n" + str(p[1]) + "\n" + str(p[2]) + "\n" + str(p[3]) + "\n" + str(p[4]) + "\n" + "\n",
+                echo=self.top_k_predictions_print)
+    else:
+        self.config.log(
+            "Best {} predictions for the {} triples:".format(self.top_k_predictions_k, self.eval_data) + "\n" + "\n",
+            echo=self.top_k_predictions_print)
+        for t, p in zip(top_k_predictions.keys(), top_k_predictions.values()):
+            self.config.log("For triple " + str(t.tolist()) + ", the {} best predictions are: ".format(self.top_k_predictions_k)
+                            + "\n" + str(p[0].tolist()) + "\n" + str(p[1].tolist()) + "\n" + str(p[2].tolist()) + "\n" +
+                            str(p[3].tolist()) + "\n" + str(p[4].tolist()) + "\n" + "\n", echo=self.top_k_predictions_print)
+        # Add to trace
+        trace_entry["Top_{}_predictions_per_triple".format(self.top_k_predictions_k)] = top_k_predictions

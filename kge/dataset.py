@@ -56,10 +56,13 @@ class Dataset:
         num_relations, relations = Dataset._load_map(
             os.path.join(base_dir, config.get("dataset.relation_map"))
         )
-
-        entities_map = Dataset._load_map(
-            os.path.join(base_dir, config.get("dataset.entity_map_realnames")), "realnames"
-        )
+        try:
+            entities_map = Dataset._load_map(
+                os.path.join(base_dir, config.get("dataset.entity_map_realnames")), "realnames"
+            )
+        except FileNotFoundError:
+            config.log("No mapping from entity string ID's to real names available")
+            entities_map = "Not available"
 
         train, train_meta = Dataset._load_triples(
             os.path.join(base_dir, config.get("dataset.train"))

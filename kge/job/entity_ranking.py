@@ -4,8 +4,6 @@ import time
 import torch
 import kge.job
 from kge.job import EvaluationJob, Job
-from kge.job.eval import output_predictions_per_triple as output
-
 
 class EntityRankingJob(EvaluationJob):
     """ Entity ranking evaluation protocol """
@@ -278,19 +276,6 @@ class EntityRankingJob(EvaluationJob):
                     )
                 )
         epoch_time += time.time()
-
-        # Find and report best k predictions per triple
-        if self.top_k_predictions_predict:
-            top_k_predictions = output.get_top_k_predictions(self, self.triples, self.top_k_predictions_k)
-
-            # Save the the best predictions to the log file and output them if specified
-            self.config.log("Print the {} best predictions for the {} triples:".format(self.top_k_predictions_k, self.eval_data) + "\n" + "\n",
-                            echo=self.top_k_predictions_print)
-            for t, p in zip(top_k_predictions.keys(), top_k_predictions.values()):
-                self.config.log(
-                    "For triple " + t + ", the {} best predictions are: ".format(self.top_k_predictions_k) + "\n" + str(
-                        p[0]) + "\n" + str(p[1]) + "\n" + str(p[2]) + "\n" + str(p[3]) + "\n" + str(p[4]) + "\n" + "\n",
-                    echo=self.top_k_predictions_print)
 
         # compute trace
         trace_entry = dict(
