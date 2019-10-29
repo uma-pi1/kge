@@ -56,13 +56,10 @@ class Dataset:
         num_relations, relations = Dataset._load_map(
             os.path.join(base_dir, config.get("dataset.relation_map"))
         )
-        try:
-            entities_map = Dataset._load_map(
-                os.path.join(base_dir, config.get("dataset.entity_map_realnames")), "realnames"
-            )
-        except FileNotFoundError:
-            config.log("No mapping from entity string ID's to real names available")
-            entities_map = "Not available"
+
+        entities_map = Dataset._load_entity_map(
+            os.path.join(base_dir, config.get("dataset.entity_map_real_names")), config
+        )
 
         train, train_meta = Dataset._load_triples(
             os.path.join(base_dir, config.get("dataset.train"))
@@ -100,27 +97,35 @@ class Dataset:
         return result
 
     @staticmethod
-    def _load_map(filename, maptype="normal"):
+    def _load_map(filename):
         n = 0
         dictionary = {}
         with open(filename, "r") as file:
             reader = csv.reader(file, delimiter="\t")
-            if maptype != "realnames":
-                for row in reader:
-                    index = int(row[0])
-                    meta = row[1:]
-                    dictionary[index] = meta
-                    n = max(n, index + 1)
-                array = [[]] * n
-                for index, meta in dictionary.items():
-                    array[index] = meta
-                return n, array
-            else:
+            for row in reader:
+                index = int(row[0])
+                meta = row[1:]
+                dictionary[index] = meta
+                n = max(n, index + 1)
+        array = [[]] * n
+        for index, meta in dictionary.items():
+            array[index] = meta
+        return n, array
+
+    @staticmethod
+    def _load_entity_map(filename, config):
+        entities_map = {}
+        try:
+            with open(filename, "r") as file:
+                reader = csv.reader(file, delimiter="\t")
                 for row in reader:
                     index = row[0]
                     meta = row[1:]
-                    dictionary[index] = meta
-                return dictionary
+                    entities_map[index] = meta
+        except FileNotFoundError:
+            config.log("No mapping from entity ID's to real names available or filename not 'entity_map_real_names'.")
+            entities_map = "Not available"
+        return entities_map
 
     @staticmethod
     def _load_triples(filename):

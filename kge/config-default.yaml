@@ -38,7 +38,7 @@ dataset:
   # - 1...: arbitrary metadata fields
   entity_map: entity_map.del
   relation_map: relation_map.del
-  entity_map_realnames: entity_map_realnames.txt
+  entity_map_real_names: entity_map_real_names.txt
 
 
 ## MODEL #######################################################################

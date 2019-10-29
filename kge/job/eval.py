@@ -212,10 +212,10 @@ def get_top_k_predictions(self, trace_entry):
         top_k_predictions[self.triples[t]] = best_triples
 
     if entities_map != "Not available":
-        top_k_predictions_realnames = {}
+        top_k_predictions_real_names = {}
         for i, j in zip(top_k_predictions.keys(), top_k_predictions.values()):
             try:
-                top_k_predictions_realnames[str(entities_map[''.join(entities[int(i[0])])]) +
+                top_k_predictions_real_names[str(entities_map[''.join(entities[int(i[0])])]) +
                             str(relations[int(i[1])]) +
                             str(entities_map[''.join(entities[int(i[2])])])] = \
                     ["Best prediction no. {}: ".format(n+1) +
@@ -225,7 +225,7 @@ def get_top_k_predictions(self, trace_entry):
             # Often there is no complete mapping to real names where every entity is listed. Therefore,
             # we need to output the IDs in those cases. Whenever an ID key is not present in the mapping, we use the ID.
             except KeyError:
-                top_k_predictions_realnames[str(entities_map[''.join(entities[int(i[0])])]) +
+                top_k_predictions_real_names[str(entities_map[''.join(entities[int(i[0])])]) +
                             str(relations[int(i[1])]) +
                             str(entities_map[''.join(entities[int(i[2])])])] = \
                     ["Best prediction no. {}: ".format(n+1) +
@@ -234,12 +234,12 @@ def get_top_k_predictions(self, trace_entry):
                     ''.join(entities[int(t[2])]) for n,t in enumerate(j)]
 
         # Add to trace
-        trace_entry["Top_{}_predictions_per_triple".format(self.top_k_predictions_k)] = top_k_predictions_realnames
+        trace_entry["Top_{}_predictions_per_triple".format(self.top_k_predictions_k)] = top_k_predictions_real_names
 
         # Save the the best predictions to the log file and output them if specified
         self.config.log("Best {} predictions for the {} triples:".format(self.top_k_predictions_k, self.eval_data) + "\n" + "\n",
                         echo=self.top_k_predictions_print)
-        for t, p in zip(top_k_predictions_realnames.keys(), top_k_predictions_realnames.values()):
+        for t, p in zip(top_k_predictions_real_names.keys(), top_k_predictions_real_names.values()):
             self.config.log(
                 "For triple " + t + ", the {} best predictions are: ".format(self.top_k_predictions_k) + "\n" + str(
                     p[0]) + "\n" + str(p[1]) + "\n" + str(p[2]) + "\n" + str(p[3]) + "\n" + str(p[4]) + "\n" + "\n",

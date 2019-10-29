@@ -5,6 +5,7 @@ import torch
 import kge.job
 from kge.job import EvaluationJob, Job
 
+
 class EntityRankingJob(EvaluationJob):
     """ Entity ranking evaluation protocol """
 
