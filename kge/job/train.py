@@ -731,21 +731,20 @@ class TrainingJobNegativeSampling(TrainingJob):
 
         return collate
 
-    def _compute_batch_loss(self, batch_index, batch):
+    def _process_batch(self, batch_index, batch) -> TrainingJob._ProcessBatchResult:
         # prepare
-        batch_prepare_time = -time.time()
+        prepare_time = -time.time()
         triples = batch["triples"].to(self.device)
         negative_samples = [ns.to(self.device) for ns in batch["negative_samples"]]
         batch_size = len(triples)
-        batch_prepare_time += time.time()
+        prepare_time += time.time()
 
-        # forward pass
-        batch_forward_time = -time.time()
-
-        loss_value = torch.zeros(1, device=self.device)
-
+        loss_value = 0.0
+        forward_time = 0.0
+        backward_time = 0.0
         if self._implementation == "spo":
             # one call to spo
+            prepare_time -= time.time()
             labels = torch.zeros(
                 (batch_size, self._sampler.num_negatives_total + 1), device=self.device
             )
@@ -775,16 +774,27 @@ class TrainingJobNegativeSampling(TrainingJob):
                         ([slot] * self._sampler.num_negatives[slot]) * batch_size,
                     ] = negative_samples[slot].view(-1)
                     offset += self._sampler.num_negatives[slot]
+            prepare_time += time.time()
 
+            # forward pass
+            forward_time -= time.time()
             scores = self.model.score_spo(
                 triples_input[:, 0], triples_input[:, 1], triples_input[:, 2]
             ).view(batch_size, -1)
-
-            loss_value = self.loss(
+            loss_value_torch = self.loss(
                 scores, labels, num_negatives=self._sampler.num_negatives_total
             )
+            loss_value = loss_value_torch.item()
+            forward_time += time.time()
+
+            # backward pass
+            backward_time -= time.time()
+            loss_value_torch.backward()
+            backward_time += time.time()
         elif self._implementation == "sp_po_loop":
             # one call to sp_po per example
+            # TODO push backward pass further (e.g., after every example)
+            prepare_time -= time.time()
             labels = torch.zeros(
                 (batch_size, self._sampler.num_negatives_total + 1), device=self.device
             )
@@ -793,8 +803,10 @@ class TrainingJobNegativeSampling(TrainingJob):
             scores = torch.zeros(
                 (batch_size, self._sampler.num_negatives_total + 1), device=self.device
             )
+            prepare_time += time.time()
 
             # positives
+            forward_time -= time.time()
             scores[:, 0] = self.model.score_spo(
                 triples[:, 0], triples[:, 1], triples[:, 2]
             ).view(-1)
@@ -804,8 +816,8 @@ class TrainingJobNegativeSampling(TrainingJob):
             if n > 0:
                 for i in range(batch_size):
                     scores[i, o : (o + n)] = self.model.score_po(
-                        triples[i, P].view(1, 1),
-                        triples[i, O].view(1, 1),
+                        triples[i, P].view(1),
+                        triples[i, O].view(1),
                         negative_samples[S][i, :],
                     )
 
@@ -821,15 +833,21 @@ class TrainingJobNegativeSampling(TrainingJob):
             if n > 0:
                 for i in range(batch_size):
                     scores[i, o : (o + n)] = self.model.score_sp(
-                        triples[i, S].view(1, 1),
-                        triples[i, P].view(1, 1),
+                        triples[i, S].view(1),
+                        triples[i, P].view(1),
                         negative_samples[O][i, :],
                     )
 
-            loss_value = self.loss(
+            loss_value_torch = self.loss(
                 scores, labels, num_negatives=self._sampler.num_negatives_total
             )
+            loss_value = loss_value_torch.item()
+            forward_time += time.time()
 
+            # backward pass
+            backward_time -= time.time()
+            loss_value_torch.backward()
+            backward_time += time.time()
         elif self._implementation == "sp_po":
 
             for score_fn, target_slot, slot_1, slot_2 in [
@@ -875,9 +893,10 @@ class TrainingJobNegativeSampling(TrainingJob):
         else:
             raise ValueError("implementation")
 
-        batch_forward_time += time.time()
-
-        return loss_value, batch_size, batch_prepare_time, batch_forward_time
+        # all done
+        return TrainingJob._ProcessBatchResult(
+            loss_value, batch_size, prepare_time, forward_time, backward_time
+        )
 
 
 class TrainingJob1vsAll(TrainingJob):
