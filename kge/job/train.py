@@ -2,6 +2,7 @@ import itertools
 import os
 import math
 import time
+from dataclasses import dataclass
 
 import torch
 import torch.utils.data
@@ -292,72 +293,59 @@ class TrainingJob(Job):
             for f in self.pre_batch_hooks:
                 f(self)
 
-            # preprocess batch and perform forward pass
+            # process batch (preprocessing + forward pass + backward pass on loss)
             self.optimizer.zero_grad()
-            loss_value, batch_size, batch_prepare_time, batch_forward_time = self._compute_batch_loss(
+            batch_result: TrainingJob._ProcessBatchResult = self._process_batch(
                 batch_index, batch
             )
-            sum_loss += loss_value.item() * batch_size
-            prepare_time += batch_prepare_time
+            sum_loss += batch_result.avg_loss * batch_result.size
 
-            # determine penalty terms (part of forward pass)
-            batch_forward_time -= time.time()
-            penalty_value = torch.zeros(1, device=self.device)
-            penalty_values = self.model.penalty(
+            # determine penalty terms (forward pass)
+            batch_forward_time = batch_result.forward_time - time.time()
+            penalties_torch = self.model.penalty(
                 epoch=self.epoch,
                 batch_index=batch_index,
                 num_batches=len(self.loader),
                 batch=batch,
             )
-            for pv_index, pv_value in enumerate(penalty_values):
-                penalty_value = penalty_value + pv_value
-                if len(sum_penalties) > pv_index:
-                    sum_penalties[pv_index] += pv_value.item()
-                else:
-                    sum_penalties.append(pv_value.item())
-            sum_penalty += penalty_value.item()
             batch_forward_time += time.time()
 
-            # determine full cost
-            cost_value = loss_value + penalty_value
-            forward_time += batch_forward_time
-
-            # visualize graph
-            if (
-                self.epoch == 1
-                and batch_index == 0
-                and self.config.get("train.visualize_graph")
-            ):
-                from torchviz import make_dot
-
-                f = os.path.join(self.config.folder, "cost_value")
-                graph = make_dot(cost_value, params=dict(self.model.named_parameters()))
-                graph.save(f"{f}.gv")
-                graph.render(f)  # needs graphviz installed
-                self.config.log("Exported compute graph to " + f + ".{gv,pdf}")
-
-            # print memory stats
-            if self.epoch == 1 and batch_index == 0:
-                if self.device.startswith("cuda"):
-                    self.config.log(
-                        "CUDA memory after forward pass: allocated={:14,} cached={:14,} max_allocated={:14,}".format(
-                            torch.cuda.memory_allocated(self.device),
-                            torch.cuda.memory_cached(self.device),
-                            torch.cuda.max_memory_allocated(self.device),
-                        )
-                    )
-
-            # backward pass
-            batch_backward_time = -time.time()
-            cost_value.backward()
+            # backward pass on penalties
+            batch_backward_time = batch_result.backward_time - time.time()
+            penalty = 0.0
+            for index, penalty_value_torch in enumerate(penalties_torch):
+                penalty_value_torch.backward()
+                penalty += penalty_value_torch.item()
+                if len(sum_penalties) > index:
+                    sum_penalties[index] += penalty_value_torch.item()
+                else:
+                    sum_penalties.append(penalty_value_torch.item())
+            sum_penalty += penalty
             batch_backward_time += time.time()
-            backward_time += batch_backward_time
+
+            # determine full cost
+            cost_value = batch_result.avg_loss + penalty
+
+            # TODO # visualize graph
+            # if (
+            #     self.epoch == 1
+            #     and batch_index == 0
+            #     and self.config.get("train.visualize_graph")
+            # ):
+            #     from torchviz import make_dot
+
+            #     f = os.path.join(self.config.folder, "cost_value")
+            #     graph = make_dot(cost_value, params=dict(self.model.named_parameters()))
+            #     graph.save(f"{f}.gv")
+            #     graph.render(f)  # needs graphviz installed
+            #     self.config.log("Exported compute graph to " + f + ".{gv,pdf}")
 
             # print memory stats
             if self.epoch == 1 and batch_index == 0:
                 if self.device.startswith("cuda"):
                     self.config.log(
-                        "CUDA memory after backwrd pass: allocated={:14,} cached={:14,} max_allocated={:14,}".format(
+                        "CUDA memory after first batch: allocated={:14,} "
+                        "cached={:14,} max_allocated={:14,}".format(
                             torch.cuda.memory_allocated(self.device),
                             torch.cuda.memory_cached(self.device),
                             torch.cuda.max_memory_allocated(self.device),
@@ -368,7 +356,6 @@ class TrainingJob(Job):
             batch_optimizer_time = -time.time()
             self.optimizer.step()
             batch_optimizer_time += time.time()
-            optimizer_time += batch_optimizer_time
 
             # tracing/logging
             if self.trace_batch:
@@ -377,13 +364,13 @@ class TrainingJob(Job):
                     "scope": "batch",
                     "epoch": self.epoch,
                     "batch": batch_index,
-                    "size": batch_size,
+                    "size": batch_result.size,
                     "batches": len(self.loader),
-                    "avg_loss": loss_value.item(),
-                    "penalties": [p.item() for p in penalty_values],
-                    "penalty": penalty_value.item(),
+                    "avg_loss": batch_result.avg_loss,
+                    "penalties": [p.item() for p in penalties_torch],
+                    "penalty": penalty,
                     "cost": cost_value.item(),
-                    "prepare_time": batch_prepare_time,
+                    "prepare_time": batch_result.prepare_time,
                     "forward_time": batch_forward_time,
                     "backward_time": batch_backward_time,
                     "optimizer_time": batch_optimizer_time,
@@ -396,16 +383,17 @@ class TrainingJob(Job):
                     "\r"  # go back
                     + "{}  batch{: "
                     + str(1 + int(math.ceil(math.log10(len(self.loader)))))
-                    + "d}/{}, loss {:.4E}, penalty {:.4E}, cost {:.4E}, time {:6.2f}s"
+                    + "d}/{}"
+                    + ", avg_loss {:.4E}, penalty {:.4E}, cost {:.4E}, time {:6.2f}s"
                     + "\033[K"  # clear to right
                 ).format(
                     self.config.log_prefix,
                     batch_index,
                     len(self.loader) - 1,
-                    loss_value.item(),
-                    penalty_value.item(),
-                    cost_value.item(),
-                    batch_prepare_time
+                    batch_result.avg_loss,
+                    penalty,
+                    cost_value,
+                    batch_result.prepare_time
                     + batch_forward_time
                     + batch_backward_time
                     + batch_optimizer_time,
@@ -413,6 +401,12 @@ class TrainingJob(Job):
                 end="",
                 flush=True,
             )
+
+            # update times
+            prepare_time += batch_result.prepare_time
+            forward_time += batch_forward_time
+            backward_time += batch_backward_time
+            optimizer_time += batch_optimizer_time
 
         # all done; now trace and log
         epoch_time += time.time()
@@ -455,8 +449,20 @@ class TrainingJob(Job):
         """
         raise NotImplementedError
 
-    def _compute_batch_loss(self, batch_index, batch):
-        "Returns loss_value (avg over batch), batch size, prepare time, forward time."
+    @dataclass
+    class _ProcessBatchResult:
+        """Result of running forward+backward pass on a batch."""
+
+        avg_loss: float
+        size: int
+        prepare_time: float
+        forward_time: float
+        backward_time: float
+
+    def _process_batch(
+        self, batch_index: int, batch
+    ) -> "TrainingJob._ProcessBatchResult":
+        "Run forward and backward pass on batch and return results."
         raise NotImplementedError
 
 
@@ -608,9 +614,9 @@ class TrainingJobKvsAll(TrainingJob):
 
         return collate
 
-    def _compute_batch_loss(self, batch_index, batch):
+    def _process_batch(self, batch_index, batch) -> TrainingJob._ProcessBatchResult:
         # prepare
-        batch_prepare_time = -time.time()
+        prepare_time = -time.time()
         sp_po_batch = batch["sp_po_batch"].to(self.device)
         batch_size = len(sp_po_batch)
         label_coords = batch["label_coords"].to(self.device)
@@ -623,24 +629,43 @@ class TrainingJobKvsAll(TrainingJob):
         if self.label_smoothing > 0.0:
             # as in ConvE: https://github.com/TimDettmers/ConvE
             labels = (1.0 - self.label_smoothing) * labels + 1.0 / labels.size(1)
-        batch_prepare_time += time.time()
+        prepare_time += time.time()
 
-        # forward pass
-        batch_forward_time = -time.time()
-        loss_value = torch.zeros(1, device=self.device)
+        # forward/backward pass (sp)
+        loss_value = 0.0
         if len(sp_indexes) > 0:
+            forward_time = -time.time()
             scores_sp = self.model.score_sp(
                 sp_po_batch[sp_indexes, 0], sp_po_batch[sp_indexes, 1]
             )
-            loss_value = loss_value + self.loss(scores_sp, labels[sp_indexes,])
+            loss_value_sp = (
+                self.loss(scores_sp, labels[sp_indexes,]) * len(sp_indexes) / batch_size
+            )
+            loss_value = +loss_value_sp.item()
+            forward_time += time.time()
+            backward_time = -time.time()
+            loss_value_sp.backward()
+            backward_time += time.time()
+
+        # forward/backward pass (po)
         if len(po_indexes) > 0:
+            forward_time = -time.time()
             scores_po = self.model.score_po(
                 sp_po_batch[po_indexes, 0], sp_po_batch[po_indexes, 1]
             )
-            loss_value = loss_value + self.loss(scores_po, labels[po_indexes,])
-        batch_forward_time += time.time()
+            loss_value_po = (
+                self.loss(scores_po, labels[po_indexes,]) * len(po_indexes) / batch_size
+            )
+            loss_value = loss_value_po.item()
+            forward_time += time.time()
+            backward_time = -time.time()
+            loss_value_po.backward()
+            backward_time += time.time()
 
-        return loss_value, batch_size, batch_prepare_time, batch_forward_time
+        # all done
+        return TrainingJob._ProcessBatchResult(
+            loss_value, batch_size, prepare_time, forward_time, backward_time
+        )
 
 
 class TrainingJobNegativeSampling(TrainingJob):
@@ -856,10 +881,7 @@ class TrainingJobNegativeSampling(TrainingJob):
 
 
 class TrainingJob1vsAll(TrainingJob):
-    """Samples SPO pairs and queries sp* and *po, treating all other entities as negative.
-
-    Currently only works with ce loss.
-    """
+    """Samples SPO pairs and queries sp* and *po, treating all other entities as negative."""
 
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)

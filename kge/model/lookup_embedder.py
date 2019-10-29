@@ -39,7 +39,6 @@ class LookupEmbedder(KgeEmbedder):
             init_args = self.get_option("initialize_args." + init_)
         except KeyError:
             init_args = self.get_option("initialize_args")
-        print(init_args)
 
         # Automatically set arg a (lower bound) for uniform_ if not given
         if init_ == "uniform_" and "a" not in init_args:
