@@ -2,6 +2,8 @@ from kge.job import Job, TrainingJob, SearchJob
 from kge.util.misc import kge_base_dir
 from kge.model.kge_model import KgeModel
 from kge.model import ReciprocalRelationsModel
+from kge import Config
+from kge import Dataset
 
 import os
 import yaml
@@ -507,7 +509,6 @@ class VisdomHandler(VisualizationHandler):
                     opts={"legend":names, "title": param}
                 )
 
-
     def _visualize_item(self, key, value, x, env, name=None , win=None, update="append", title=None, **kwargs):
         if win == None:
             win = self.extract_window_name(env, key)
@@ -526,7 +527,7 @@ class VisdomHandler(VisualizationHandler):
             val = [value]
 
         # skip datatypes that cannot be handled at the moment to prevent errors
-        if type(val[0]) == list or type(val[0]) == str:
+        if type(value[0]) == list or type(value[0]) == str or type(value[0]==None):
             return
 
         if not self.writer.win_exists(win, env):
@@ -708,7 +709,10 @@ class TensorboardHandler(VisualizationHandler):
     def _add_embeddings(self, path):
         checkpoint = self._get_checkpoint_path(path)
         if checkpoint:
-            model = KgeModel.load_from_checkpoint(checkpoint)
+            job_config = Config(path)
+            job_config.options = self._get_job_config()
+            dataset = Dataset.load(job_config)
+            model = KgeModel.load_from_checkpoint(checkpoint,dataset)
             meta_ent = model.dataset.entities
             meta_rel = model.dataset.relations
             if isinstance(model, ReciprocalRelationsModel):
@@ -767,19 +771,21 @@ class TensorboardHandler(VisualizationHandler):
     def _visualize_train_item(self, key, value, epoch, tracetype, jobtype):
         key = key + " (train)"
         # skip datatypes that cannot be handled
-        if type(value[0]) == list or type(value[0]) == str:
+        if type(value[0]) == list or type(value[0]) == str or type(value[0]==None):
             return
         if len(value)>1:
             idx = 0
             # apparantly, tensorboard cannot handle vectors
             for val in value:
+                if val == {}:
+                    print("debug")
                 self.writer.add_scalar(key, val, epoch[idx])
                 idx += 1
 
     def _visualize_eval_item(self, key, value, epoch, tracetype, jobtype):
         key = key + " (eval)"
         # skip datatypes that cannot be handled
-        if type(value[0]) == list or type(value[0]) == str:
+        if type(value[0]) == list or type(value[0]) == str or type(value[0]==None):
             return
         if len(value)>1:
             idx = 0
