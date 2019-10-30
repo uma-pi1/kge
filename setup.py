@@ -19,5 +19,11 @@ setup(
         "torchviz",
         "dataclasses"
     ],
+    extras_require={
+        "visualize":[
+        "tensorboard>=1.14.0",
+        "visdom"
+        ],
+    },
     zip_safe=False,
 )

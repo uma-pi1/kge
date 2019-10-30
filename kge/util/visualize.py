@@ -527,7 +527,7 @@ class VisdomHandler(VisualizationHandler):
             val = [value]
 
         # skip datatypes that cannot be handled at the moment to prevent errors
-        if type(value[0]) == list or type(value[0]) == str or type(value[0]==None):
+        if type(value[0]) == list or type(value[0]) == str or type(value[0])==None:
             return
 
         if not self.writer.win_exists(win, env):
@@ -771,21 +771,19 @@ class TensorboardHandler(VisualizationHandler):
     def _visualize_train_item(self, key, value, epoch, tracetype, jobtype):
         key = key + " (train)"
         # skip datatypes that cannot be handled
-        if type(value[0]) == list or type(value[0]) == str or type(value[0]==None):
+        if type(value[0]) == list or type(value[0]) == str or value[0]==None:
             return
         if len(value)>1:
             idx = 0
             # apparantly, tensorboard cannot handle vectors
             for val in value:
-                if val == {}:
-                    print("debug")
                 self.writer.add_scalar(key, val, epoch[idx])
                 idx += 1
 
     def _visualize_eval_item(self, key, value, epoch, tracetype, jobtype):
         key = key + " (eval)"
         # skip datatypes that cannot be handled
-        if type(value[0]) == list or type(value[0]) == str or type(value[0]==None):
+        if type(value[0]) == list or type(value[0]) == str or value[0]==None:
             return
         if len(value)>1:
             idx = 0
