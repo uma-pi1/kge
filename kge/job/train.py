@@ -25,7 +25,7 @@ class TrainingJob(Job):
     Also used by jobs such as :class:`SearchJob`.
 
     Subclasses for specific training methods need to implement `_prepare` and
-    `_compute_batch_loss`.
+    `_process_batch`.
 
     """
 
@@ -639,7 +639,7 @@ class TrainingJobKvsAll(TrainingJob):
                 sp_po_batch[sp_indexes, 0], sp_po_batch[sp_indexes, 1]
             )
             loss_value_sp = (
-                self.loss(scores_sp, labels[sp_indexes,]) * len(sp_indexes) / batch_size
+                self.loss(scores_sp, labels[sp_indexes,]) / batch_size
             )
             loss_value = +loss_value_sp.item()
             forward_time += time.time()
@@ -654,7 +654,7 @@ class TrainingJobKvsAll(TrainingJob):
                 sp_po_batch[po_indexes, 0], sp_po_batch[po_indexes, 1]
             )
             loss_value_po = (
-                self.loss(scores_po, labels[po_indexes,]) * len(po_indexes) / batch_size
+                self.loss(scores_po, labels[po_indexes,]) / batch_size
             )
             loss_value = loss_value_po.item()
             forward_time += time.time()
@@ -821,7 +821,7 @@ class TrainingJobNegativeSampling(TrainingJob):
 
             # compute loss
             forward_time -= time.time()
-            loss_value_torch = self.loss(scores, labels, num_negatives=num_negatives)
+            loss_value_torch = self.loss(scores, labels, num_negatives=num_negatives) / batch_size
             loss_value += loss_value_torch.item()
             forward_time += time.time()
 
@@ -877,7 +877,7 @@ class TrainingJob1vsAll(TrainingJob):
         # forward/backward pass (sp)
         forward_time = -time.time()
         scores_sp = self.model.score_sp(triples[:, 0], triples[:, 1])
-        loss_value_sp = self.loss(scores_sp, triples[:, 2])
+        loss_value_sp = self.loss(scores_sp, triples[:, 2]) / batch_size
         loss_value = loss_value_sp.item()
         forward_time = +time.time()
         backward_time = -time.time()
@@ -887,7 +887,7 @@ class TrainingJob1vsAll(TrainingJob):
         # forward/backward pass (po)
         forward_time -= time.time()
         scores_po = self.model.score_po(triples[:, 1], triples[:, 2])
-        loss_value_po = self.loss(scores_po, triples[:, 0])
+        loss_value_po = self.loss(scores_po, triples[:, 0]) / batch_size
         loss_value += loss_value_po.item()
         forward_time += time.time()
         backward_time -= time.time()

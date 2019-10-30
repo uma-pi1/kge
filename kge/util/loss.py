@@ -3,7 +3,11 @@ import torch.nn.functional as F
 
 
 class KgeLoss:
-    """A loss function"""
+    """A loss function.
+
+    When applied to a batch, the resulting loss MUST NOT be averaged by the batch size.
+
+    """
 
     def __init__(self, config):
         self.config = config
@@ -75,7 +79,7 @@ class KgeLoss:
 
 
 class BCEWithLogitsKgeLoss(KgeLoss):
-    def __init__(self, config, reduction="mean", **kwargs):
+    def __init__(self, config, reduction="sum", **kwargs):
         super().__init__(config)
         self._loss = torch.nn.BCEWithLogitsLoss(reduction=reduction, **kwargs)
 
@@ -85,7 +89,7 @@ class BCEWithLogitsKgeLoss(KgeLoss):
 
 
 class KLDivWithSoftmaxKgeLoss(KgeLoss):
-    def __init__(self, config, reduction="batchmean", **kwargs):
+    def __init__(self, config, reduction="sum", **kwargs):
         super().__init__(config)
         self._loss = torch.nn.KLDivLoss(reduction=reduction, **kwargs)
 
@@ -97,7 +101,7 @@ class KLDivWithSoftmaxKgeLoss(KgeLoss):
 
 
 class CrossEntropyKgeLoss(KgeLoss):
-    def __init__(self, config, reduction="mean", **kwargs):
+    def __init__(self, config, reduction="sum", **kwargs):
         super().__init__(config)
         self._loss = torch.nn.CrossEntropyLoss(reduction=reduction, **kwargs)
 
@@ -107,7 +111,7 @@ class CrossEntropyKgeLoss(KgeLoss):
 
 
 class SoftMarginKgeLoss(KgeLoss):
-    def __init__(self, config, reduction="mean", **kwargs):
+    def __init__(self, config, reduction="sum", **kwargs):
         super().__init__(config)
         self._loss = torch.nn.SoftMarginLoss(reduction=reduction, **kwargs)
 
@@ -118,7 +122,7 @@ class SoftMarginKgeLoss(KgeLoss):
 
 
 class MarginRankingKgeLoss(KgeLoss):
-    def __init__(self, config, margin, reduction="mean", **kwargs):
+    def __init__(self, config, margin, reduction="sum", **kwargs):
         super().__init__(config)
         self._device = config.get("job.device")
         self._train_type = config.get("train.type")
