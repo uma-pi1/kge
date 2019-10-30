@@ -742,148 +742,93 @@ class TrainingJobNegativeSampling(TrainingJob):
         loss_value = 0.0
         forward_time = 0.0
         backward_time = 0.0
-        if self._implementation == "spo":
-            # one call to spo
-            prepare_time -= time.time()
-            labels = torch.zeros(
-                (batch_size, self._sampler.num_negatives_total + 1), device=self.device
-            )
-            labels[:, 0] = 1
+        num_negatives = None
+        labels = None
+        for slot in [S, P, O]:
+            if self._sampler.num_negatives[slot] <= 0:
+                continue
 
-            triples_input = triples.repeat(
-                1, 1 + self._sampler.num_negatives_total
-            ).view(-1, 3)
-            offset = 0
-            for slot in [S, P, O]:
-                if self._sampler.num_negatives[slot] > 0:
-                    triples_input[
-                        list(
-                            itertools.chain(
-                                *map(
-                                    lambda x: range(
-                                        x + 1, x + self._sampler.num_negatives[slot] + 1
-                                    ),
-                                    range(
-                                        offset,
-                                        triples_input.size(0),
-                                        1 + self._sampler.num_negatives_total,
-                                    ),
-                                )
-                            )
-                        ),
-                        ([slot] * self._sampler.num_negatives[slot]) * batch_size,
-                    ] = negative_samples[slot].view(-1)
-                    offset += self._sampler.num_negatives[slot]
-            prepare_time += time.time()
+            # construct gold labels: first column corresponds to positives, rest to negatives
+            if self._sampler.num_negatives[slot] != num_negatives:
+                prepare_time -= time.time()
+                num_negatives = self._sampler.num_negatives[slot]
+                labels = torch.zeros(
+                    (batch_size, 1 + num_negatives), device=self.device
+                )
+                labels[:, 0] = 1
+                prepare_time += time.time()
 
-            # forward pass
-            forward_time -= time.time()
-            scores = self.model.score_spo(
-                triples_input[:, 0], triples_input[:, 1], triples_input[:, 2]
-            ).view(batch_size, -1)
-            loss_value_torch = self.loss(
-                scores, labels, num_negatives=self._sampler.num_negatives_total
-            )
-            loss_value = loss_value_torch.item()
-            forward_time += time.time()
+            # compute corresponding scores
+            scores = None
+            if self._implementation == "spo":
+                # construct triples
+                prepare_time -= time.time()
+                triples_to_score = triples.repeat(1, 1 + num_negatives).view(-1, 3)
+                triples_to_score[:, slot] = torch.cat(
+                    (
+                        triples[:, [slot]],  # positives
+                        negative_samples[slot],  # negatives
+                    ),
+                    1,
+                ).view(-1)
+                prepare_time += time.time()
 
-            # backward pass
-            backward_time -= time.time()
-            loss_value_torch.backward()
-            backward_time += time.time()
-        elif self._implementation == "sp_po" or self._implementation == "sp_po_loop":
-            #  one call to sp & po OR loop via one call to sp & po per example
-            # TODO push backward pass further
-            prepare_time -= time.time()
-            labels = torch.zeros(
-                (batch_size, self._sampler.num_negatives_total + 1), device=self.device
-            )
-            labels[:, 0] = 1
-
-            scores = torch.zeros(
-                (batch_size, self._sampler.num_negatives_total + 1), device=self.device
-            )
-            prepare_time += time.time()
-
-            # score positives
-            forward_time -= time.time()
-            scores[:, 0] = self.model.score_spo(
-                triples[:, 0], triples[:, 1], triples[:, 2]
-            ).view(-1)
-            forward_time += time.time()
-
-            # score negatives
-            if self._implementation == "sp_po":
-                # using one call to sp & po overall; compute all scores and pick the
-                # needed scores afterwards
-                o = 1
-                for score_fn, target_slot, slot_1, slot_2 in [
-                    (self.model.score_sp, O, S, P),
-                    (self.model.score_po, S, P, O),
-                ]:
-                    prepare_time -= time.time()
-                    num_negatives = self._sampler.num_negatives[target_slot]
-                    rows = (
-                        torch.arange(batch_size, device=self.device)
-                        .view(-1, 1)
-                        .repeat(1, num_negatives)
-                        .view(-1)
-                    )  # 000 111 222; each num_negative times (here: 3)
-                    prepare_time += time.time()
-
-                    forward_time -= time.time()
-                    slot_scores = score_fn(triples[:, slot_1], triples[:, slot_2])
-                    scores[:, o : (o + num_negatives)] = slot_scores[
-                        rows, negative_samples[target_slot].view(-1)
-                    ].view(batch_size, -1)
-                    forward_time += time.time()
-
-                    o += num_negatives
-            else:
-                # using one call to sp & po per example; compute only needed scores
+                # and score them
                 forward_time -= time.time()
-                # subject samples
-                o, n = 1, self._sampler.num_negatives[S]
-                if n > 0:
-                    for i in range(batch_size):
-                        scores[i, o : (o + n)] = self.model.score_po(
-                            triples[i, P].view(1),
-                            triples[i, O].view(1),
-                            negative_samples[S][i, :],
-                        )
-
-                # predicate samples
-                o += n
-                n = self._sampler.num_negatives[P]
-                if n > 0:
-                    raise NotImplementedError
-
-                # object samples
-                o += n
-                n = self._sampler.num_negatives[O]
-                if n > 0:
-                    for i in range(batch_size):
-                        scores[i, o : (o + n)] = self.model.score_sp(
-                            triples[i, S].view(1),
-                            triples[i, P].view(1),
-                            negative_samples[O][i, :],
-                        )
+                scores = self.model.score_spo(
+                    triples_to_score[:, 0],
+                    triples_to_score[:, 1],
+                    triples_to_score[:, 2],
+                )
                 forward_time += time.time()
+            elif self._implementation == "sp_po":
+                # compute all scores for slot
+                forward_time -= time.time()
+                if slot == S:
+                    all_scores = self.model.score_po(triples[:, P], triples[:, O])
+                elif slot == O:
+                    all_scores = self.model.score_sp(triples[:, S], triples[:, P])
+                else:
+                    raise NotImplementedError
+                forward_time += time.time()
+
+                # determine indexes of relevant scores in scoring matrix
+                prepare_time -= time.time()
+                row_indexes = (
+                    torch.arange(batch_size, device=self.device)
+                    .unsqueeze(1)
+                    .repeat(1, 1 + num_negatives)
+                    .view(-1)
+                )  # 000 111 222; each 1+num_negative times (here: 3)
+                column_indexes = torch.cat(
+                    (
+                        triples[:, [slot]],  # positives
+                        negative_samples[slot],  # negatives
+                    ),
+                    1,
+                ).view(-1)
+                prepare_time += time.time()
+
+                # now pick the scores we need
+                forward_time -= time.time()
+                scores = all_scores[row_indexes, column_indexes].view(batch_size, -1)
+                forward_time += time.time()
+            else:
+                raise ValueError(
+                    "invalid implementation: "
+                    "negative_sampling.implementation={}".format(self._implementation)
+                )
 
             # compute loss
             forward_time -= time.time()
-            loss_value_torch = self.loss(
-                scores, labels, num_negatives=self._sampler.num_negatives_total
-            )
-            loss_value = loss_value_torch.item()
+            loss_value_torch = self.loss(scores, labels, num_negatives=num_negatives)
+            loss_value += loss_value_torch.item()
             forward_time += time.time()
 
             # backward pass
             backward_time -= time.time()
             loss_value_torch.backward()
             backward_time += time.time()
-        else:
-            raise ValueError("implementation")
 
         # all done
         return TrainingJob._ProcessBatchResult(
