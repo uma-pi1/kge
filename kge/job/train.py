@@ -779,7 +779,7 @@ class TrainingJobNegativeSampling(TrainingJob):
                     triples_to_score[:, 0],
                     triples_to_score[:, 1],
                     triples_to_score[:, 2],
-                )
+                ).view(batch_size, -1)
                 forward_time += time.time()
             elif self._implementation == "sp_po":
                 # compute all scores for slot
