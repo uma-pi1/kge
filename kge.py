@@ -170,6 +170,11 @@ if __name__ == "__main__":
         if value is not None:
             if key == "search.device_pool":
                 value = "".join(value).split(",")
+            try:
+                if isinstance(config.get(key), bool):
+                    value = argparse_bool_type(value)
+            except KeyError:
+                pass
             config.set(key, value)
             if key == "model":
                 config._import(value)

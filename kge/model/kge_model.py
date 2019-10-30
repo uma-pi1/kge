@@ -398,6 +398,9 @@ class KgeModel(KgeBase):
                 self.config.get("job.device")
             )
         return (
+            # Note: If the subject and object embedder are identical, embeddings may be
+            # penalized twice. This is intended (and necessary, e.g., if the penalty is
+            # weighted).
             super().penalty(**kwargs)
             + self.get_s_embedder().penalty(slot=S, **kwargs)
             + self.get_p_embedder().penalty(slot=P, **kwargs)
