@@ -557,6 +557,9 @@ def _process_deprecated_options(options: Dict[str, Any]):
             if old_key != new_key:
                 rename_key(old_key, new_key)
 
+    # 30.10.2019
+    rename_value("train.loss", "ce", "kl")
+
     # 21.10.2019
     rename_key("negative_sampling.score_func_type", "negative_sampling.implementation")
 
