@@ -119,8 +119,8 @@ class LookupEmbedder(KgeEmbedder):
                     self.get_option("regularize_weight")
                     / p
                     * (parameters ** p * counts.float().view(-1, 1)).sum()
-                    # In contrast to unweighted Lp regulariztion, rescaling by batch
-                    # size is necessary here so that penalty term is correct in
+                    # In contrast to unweighted Lp regulariztion, rescaling by number of
+                    # triples is necessary here so that penalty term is correct in
                     # expectation
                     / len(kwargs["batch"]["triples"])
                 ]

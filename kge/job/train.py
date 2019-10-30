@@ -552,6 +552,7 @@ class TrainingJobKvsAll(TrainingJob):
             - pairs (nx2 tensor, row = sp or po indexes),
             - label coordinates (position of ones in a batch_size x num_entities tensor)
             - is_sp (vector of size n, 1 if corresponding example_index is sp, 0 if po)
+            - triples (all true triples in the batch: needed for weighted penalties only)
 
             """
             # count how many labels we have
