@@ -27,7 +27,7 @@ class VisualizationHandler:
     produced by the kge framework.
 
     Subclasses implement create(), _visualize_train_item() _visualize_eval_item(), post_process_trace() (and optionally
-    _process_search_trace_entry()) . The have to be registered in create_handler() and run_server()
+    _process_search_trace_entry()) . They have to be registered in create_handler() and run_server()
 
     writer: A writer object that writes data to a plotting framework
     session_type: "post" or "broadcast"
@@ -366,7 +366,7 @@ class VisualizationHandler:
             stdout=stdout,
             stderr=stderr
         )
-        time.sleep(1)
+        time.sleep(session_config.get("visualize.secs_sleep"))
         print(
             "{} running on http://{}:{}".format(session_config.get("visualize.module"), hostname, port)
         )
@@ -527,7 +527,7 @@ class VisdomHandler(VisualizationHandler):
             val = [value]
 
         # skip datatypes that cannot be handled at the moment to prevent errors
-        if type(value[0]) == list or type(value[0]) == str or type(value[0])==None:
+        if type(val[0]) == list or type(val[0]) == str or val[0] == None:
             return
 
         if not self.writer.win_exists(win, env):

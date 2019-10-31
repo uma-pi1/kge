@@ -192,3 +192,72 @@ to score triples.
   - `''` for strings
   - `-1` for non-negative integers
   - `.nan` for floats
+  
+  
+# Visualization Support
+The framework supports [visdom](https://github.com/facebookresearch/visdom) and  [tensorboard](https://www.tensorflow.org/tensorboard)
+as visualization engines to plot data that was produced while executing jobs. For further infos and all options please also check the config
+key `visualize` in config_default.yaml.
+## Installation 
+For installing the visualization support, tensorboard and/or visdom is needed. 
+- run locally `pip install -e .[visualize]`
+- alternatively, install visdom or tensorboard separately
+
+## Modes
+While training a model or running a search job, the training loss, the `valid.metric` and various other
+quantities produced can be **broadcasted** simultaneously (visdom only). Alternatively, trace files can be
+**post**-processed and plots can be generated after job execution.<br>**Note**: Broadcasting is performed during job execution and therefore can directly
+ affect training times whereas post-processing sessions are independent of job execution. <br>Finally, data that is broadcasted can directly be compared with
+data from older executions. 
+
+## General Options
+With the options `visualize.include_eval`, `visualize.include_train` metrics can be selected which will be plotted against the epoch in a visualization session. Leaving these lists empty
+will lead to all metrics being selected but this can lead to performance instabilites.
+On the other hand, `visualize.exclude_eval`, `visualize.exclude_train` can be used to de-select specific metrics.   
+## Post-Processing
+Post-Processing sessions take a specific config file and are started with the command `visualize`. Please see config-default.yaml for all options. Run `python kge.py visualize examples/visualize-options.yaml` to start a visualization session.
+In `visualize.post.search_dir` a relative directory where the program will search for job folders can be specified. 
+In  `visualize.post.folders` folder names or regex patterns can be entered to decide which folders to select.
+If `visualize.post.folders` specifies an empy list, then all folders will be selected.
+
+### Visdom Post-Processing
+After running the the post processing command `python kge.py visualize examples/visualize-options.yaml` 
+with module: visdom, the session can be opened in the browser at the specified host and port.<br><br>
+You will see a selection field at the top of the page where all folder names are listed. These so called 'environments' can 
+be selected by clicking on the respective checkbox.<br> Training jobs only have one checkbox whereas search jobs follow a nested structure 
+and also have a summary environment. Click on one of the checkboxes to open the environment. This will show a window which displays the config of the 
+respective job and a window with a `syncronize` button. Click this button to load data into the environment. <br>
+
+For a training job environment, when `synchronize` is clicked, all the specified metrics plotted against the epoch number will be loaded.
+**Tipp**: To compare data between two or multiple training jobs, synchronize them and then select their checkboxes simultaneously. This will combine all line charts
+with the same title together in single line plots.
+
+For a search job, after clicking `syncronize` sub environments are created which contain data of the search trials (sub training jobs). 
+
+Additionally, for a search job, when you click `synchronize` in the {folder}_SummaryEnvironment you will see the following windows:
+- A bar plot window with title {valid.metric}_best which shows for every search trial its best result for the valid.metric. **Tipp:** you can move the mouse into the window and it will directly show you on top
+the value of the best job. In the window options on the top of the window you can also select "show closest data on hover" to parse through
+the results of single trials.<br><br>
+- A line chart all_{valid.metric} where every search trial's progress of {valid.metric} against the epoch number is plotted. **Tipp**: Click on one of the names in the legend to de-select one of the lines. Double click on one of the names in the legend to exclusively select one of the lines. <br><br>
+- Scatter plots that show the best {valid.metric} against the values of the hyperparmeters which were assigned to  the search trials by the search algorithm.<br><br>
+- Bar plots which show the values of the hyperparamters for every search trial. Every bar denotes the value that was assigned to the respective trial.  
+
+### Tensorboard Post-Processing
+Activate tensorboard by setting the option`visualize.module: tensorboard` then run the visualize command as above. It is suggested to only add some specific folders
+in the `visualize.post.folders` option such that the tensorboard interface is not overcrowded. When using tensorboard, the option `visualize.post.embeddings` can be
+used to show the embeddings of the respective model with the tensorboard projector functionality.
+
+   
+## Visdom Broadcasting
+Broadcasting is supported only for module:visom. When running a training job or a search job use the flag `visualize.broadcast.enable: True` this will start the server
+at the specified port and host and the progress of the executed job can be monitored synchronously.
+Note that the config file to run the kge job is directly used to also specify the visualization options. For instance, define the options
+`visualize.include_eval` and `visualize.include_train` in your usual config file to define which metrics shall be tracked in broadcasting.
+
+### Comparing a job that is currently broadcasted with older data
+In general, visdom will always restart the server when a new session is started. If you want to compare a job which is currently run with older jobs
+then start a post-processing session and syncronize the jobs you want to compare. Then start your kge job with the `visualize.broadcast.enable` option.
+Additionally set the option `visualize.start_server: False` to not restart the server. This will append your currently broadcasted job to the post-processing
+session. And by selecting multiple environments simultaneously, you can directly compare them. Note: this can lead to a performance decrease and should only be 
+done for investigating/debugging model configurations but it should not be used when efficient training times are desired. Note: only set `visualize.start_server: False`
+if your are certain that the server is already running, otherwise set it to `True`.

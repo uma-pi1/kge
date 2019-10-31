@@ -362,7 +362,7 @@ visualize:
   # Has priority over include_train/eval e. g. whatever is in these lists
   # will not be visualized. Useful usecase: Leave include_train/eval empty and then filter out some metrics with
   # exclude_train/eval.
-  exclude_train: ["avg_loss"]
+  exclude_train: []
   exclude_eval: []
 
   # Option to start the server. This should always be true when starting a new session.
@@ -376,6 +376,9 @@ visualize:
   # Host and port to run server on. If port is used by some other process, port = port + 10 will be tried.
   hostname: "localhost"
   port: 8097
+
+  # Seconds for server start. Decrease for lower waiting time.
+  secs_sleep: 5
 
   # Set broadcast.enable=True for broadcasting training/search data of an execution
   # of the kge framework. Broadcast is only supported with module:visdom.
