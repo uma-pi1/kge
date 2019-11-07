@@ -639,9 +639,7 @@ class TrainingJobKvsAll(TrainingJob):
             scores_sp = self.model.score_sp(
                 sp_po_batch[sp_indexes, 0], sp_po_batch[sp_indexes, 1]
             )
-            loss_value_sp = (
-                self.loss(scores_sp, labels[sp_indexes,]) / batch_size
-            )
+            loss_value_sp = self.loss(scores_sp, labels[sp_indexes,]) / batch_size
             loss_value = +loss_value_sp.item()
             forward_time += time.time()
             backward_time = -time.time()
@@ -654,9 +652,7 @@ class TrainingJobKvsAll(TrainingJob):
             scores_po = self.model.score_po(
                 sp_po_batch[po_indexes, 0], sp_po_batch[po_indexes, 1]
             )
-            loss_value_po = (
-                self.loss(scores_po, labels[po_indexes,]) / batch_size
-            )
+            loss_value_po = self.loss(scores_po, labels[po_indexes,]) / batch_size
             loss_value = loss_value_po.item()
             forward_time += time.time()
             backward_time = -time.time()
@@ -780,6 +776,7 @@ class TrainingJobNegativeSampling(TrainingJob):
                     triples_to_score[:, 0],
                     triples_to_score[:, 1],
                     triples_to_score[:, 2],
+                    direction="s" if slot == S else ("o" if slot == O else P),
                 ).view(batch_size, -1)
                 forward_time += time.time()
             elif self._implementation == "sp_po":
@@ -822,7 +819,9 @@ class TrainingJobNegativeSampling(TrainingJob):
 
             # compute loss
             forward_time -= time.time()
-            loss_value_torch = self.loss(scores, labels, num_negatives=num_negatives) / batch_size
+            loss_value_torch = (
+                self.loss(scores, labels, num_negatives=num_negatives) / batch_size
+            )
             loss_value += loss_value_torch.item()
             forward_time += time.time()
 

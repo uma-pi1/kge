@@ -1,4 +1,5 @@
 import torch
+from torch import Tensor
 from kge import Config, Dataset
 from kge.model.kge_model import KgeModel
 
@@ -50,8 +51,16 @@ class ReciprocalRelationsModel(KgeModel):
     def penalty(self, **kwargs):
         return super().penalty(**kwargs) + self._base_model.penalty(**kwargs)
 
-    def score_spo(self, s, p, o):
-        raise Exception("The reciprocal relations model cannot compute spo scores.")
+    def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
+        if direction == "o":
+            return super().score_spo(s, p, o, "o")
+        elif direction == "s":
+            return super().score_spo(o, p + self.dataset.num_relations, s, "o")
+        else:
+            raise Exception(
+                "The reciprocal relations model cannot compute "
+                "undirected spo scores."
+            )
 
     def score_po(self, p, o, s=None):
         if s is None:
