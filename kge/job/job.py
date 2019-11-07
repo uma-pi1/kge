@@ -20,7 +20,6 @@ def _trace_job_creation(job: "Job"):
         hostname=socket.gethostname(),
         folder=job.config.folder,
         event="job_created",
-        device=job.device,
     )
 
 
