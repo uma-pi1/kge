@@ -776,7 +776,7 @@ class TrainingJobNegativeSampling(TrainingJob):
                     triples_to_score[:, 0],
                     triples_to_score[:, 1],
                     triples_to_score[:, 2],
-                    direction="s" if slot == S else ("o" if slot == O else P),
+                    direction="s" if slot == S else ("o" if slot == O else "p"),
                 ).view(batch_size, -1)
                 forward_time += time.time()
             elif self._implementation == "sp_po":
