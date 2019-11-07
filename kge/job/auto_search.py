@@ -2,6 +2,7 @@ import concurrent.futures
 from typing import List
 import torch
 from kge import Config
+from kge.config import _process_deprecated_options
 from kge.job import SearchJob, Job
 import kge.job.search
 
@@ -158,7 +159,7 @@ class AutoSearchJob(SearchJob):
                 folder = str("{:05d}".format(trial_no))
                 config = self.config.clone(folder)
                 config.set("job.type", "train")
-                config.set_all(parameters)
+                config.set_all(_process_deprecated_options(parameters))
                 config.init_folder()
 
                 # save checkpoint here so that trial is not lost
