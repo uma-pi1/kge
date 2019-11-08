@@ -456,9 +456,9 @@ class EntityRankingJob(EvaluationJob):
     def _calc_ranks_from_counts(num_ranks_greater: torch.Tensor, num_ranks_equal: torch.Tensor) -> torch.Tensor:
         """
         calculates the actual ranks from the counts
-        :param num_ranks_greater: vector with number of ranks greater than the one of the true score
-        :param num_ranks_equal: vector with number of ranks equal as the one of the true score
-        :return: vector of ranks
+        :param num_ranks_greater: batch_size x 1 tensor with number of ranks greater than the one of the true score
+        :param num_ranks_equal: batch_size x tensor with number of ranks equal as the one of the true score
+        :return: batch_size x 1 tensor of ranks
         """
         ranks = num_ranks_greater + num_ranks_equal // 2
         return ranks
