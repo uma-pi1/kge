@@ -112,6 +112,24 @@ def create_parser(config, additional_args=[]):
             default="default",
         )
 
+    parser_dump = subparsers.add_parser(
+        "dump",
+        help="Dump objects to stdout.",
+        parents=[parser_conf]
+    )
+
+    parser_dump.add_argument("what")
+    parser_dump.add_argument("source")
+
+    for argument in ["--train", "--eval", "--test", "--batch", "--csv"]:
+        parser_dump.add_argument(
+            argument,
+            action="store_const",
+            const=True,
+            default=False,
+        )
+    parser_dump.add_argument("--keys", default=False)
+
     return parser
 
 
@@ -140,6 +158,11 @@ if __name__ == "__main__":
     process_meta_command(
         args, "valid", {"command": "resume", "job.type": "eval", "eval.data": "valid"}
     )
+
+    if args.command == "dump":
+        from kge.job.trace import ObjectDumper
+        ObjectDumper.dump(args)
+        exit()
 
     # start command
     if args.command == "start":

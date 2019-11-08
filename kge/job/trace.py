@@ -1,6 +1,12 @@
 import yaml
 import pandas as pd
 import re
+import os
+import torch
+import sys
+import csv
+
+from kge.util.misc import kge_base_dir
 
 
 class Trace:
@@ -53,3 +59,92 @@ class Trace:
             else:
                 return entry.get("hits_at_k")[k - 1]
         raise ValueError("metric " + metric_name + " not found")
+
+
+class ObjectDumper:
+
+    @classmethod
+    def dump(cls, args):
+        if ".pt" in args.source.split("/")[-1]:
+            checkpoint = args.source
+            folder_path = args.source.split("/")[-1]
+        else:
+            checkpoint = cls.get_checkpoint_from_path(args.source)
+            folder_path = args.source
+        what = args.what
+        if what == "trace":
+            trace = folder_path + "/" + "trace.yaml"
+            if not os.path.isfile(trace):
+                print("Nothing dumped. No trace found at {}".format(trace))
+        else:
+            raise NotImplementedError
+
+        checkpoint = torch.load(f=checkpoint, map_location="cpu")
+        epoch = checkpoint["epoch"]
+        config = checkpoint["config"]
+
+        disjunctions = []
+        conjunctions = []
+        for arg, pattern in zip(
+                                 [args.train, args.eval, args.test],
+                                 ["job: train", "job: eval", "(?=.*data: test)(?=.*job: eval)"]
+                            ):
+            if arg:
+                disjunctions.append(pattern)
+        if not args.batch:
+            # TODO: if --batch is set then also scope:example is included like this
+            conjunctions.append("scope: epoch")
+
+        # throw away meta entries
+        conjunctions.append("epoch: ")
+
+        write = None
+        if args.csv:
+            csvfile = open(kge_base_dir() + '/local/dump.csv', 'w', newline="")
+            csvwriter = csv.writer(csvfile)
+            valid_metric = config.get("valid.metric")
+            use_from_trace = [
+                "epoch",
+                valid_metric,
+                "avg_loss",
+                "job"
+            ]
+            use_from_config = [
+                "model",
+                "dataset.name",
+                "train.optimizer",
+                "train.optimizer_args.lr"
+
+            ]
+            csvwriter.writerow(use_from_config + use_from_trace)
+        with open(trace, "r") as file:
+            for line in file:
+                if not(
+                        any(map(lambda string: re.compile(string).search(line), disjunctions)) and
+                        all(map(lambda string: re.compile(string).search(line), conjunctions))
+                ):
+                    continue
+                entry = yaml.load(line, Loader=yaml.SafeLoader)
+                if entry["epoch"] > epoch:
+                    break
+                line = line.replace("{", "").replace("}", "")
+                if args.csv:
+                    row_config = [config.get(el) for el in use_from_config]
+                    row_trace = [entry.get(el) for el in use_from_trace]
+                    csvwriter.writerow(row_config + row_trace)
+                else:
+                    sys.stdout.write(line)
+            if args.csv:
+                csvfile.close()
+
+    @classmethod
+    def get_checkpoint_from_path(cls, path):
+        if "checkpoint_best.pt" in os.listdir(path):
+            return path + "/" + "checkpoint_best.pt"
+        else:
+            checkpoints = sorted(list(filter(lambda file: "checkpoint" in file, os.listdir(path))))
+            if len(checkpoints) > 0:
+                return path + "/" + checkpoints[-1]
+            else:
+                print("Nothing was dumped. Did not find a checkpoint in {}".format(path))
+                exit()
