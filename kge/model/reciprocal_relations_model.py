@@ -62,18 +62,26 @@ class ReciprocalRelationsModel(KgeModel):
         o = self.get_o_embedder().embed(o)
         return self._scorer.score_emb(o, p, s, combine="sp*")
 
-    def score_sp_po(self, s, p, o):
+    def score_sp_po(self, s: torch.Tensor, p: torch.Tensor, o: torch.Tensor,
+                    index: torch.Tensor = None) -> torch.Tensor:
         s = self.get_s_embedder().embed(s)
         p_inv = self.get_p_embedder().embed(p + self.dataset.num_relations)
         p = self.get_p_embedder().embed(p)
         o = self.get_o_embedder().embed(o)
         if self.get_s_embedder() is self.get_o_embedder():
-            all_entities = self.get_s_embedder().embed_all()
+            if index is not None:
+                all_entities = self.get_s_embedder().embed(index)
+            else:
+                all_entities = self.get_s_embedder().embed_all()
             sp_scores = self._scorer.score_emb(s, p, all_entities, combine="sp*")
             po_scores = self._scorer.score_emb(o, p_inv, all_entities, combine="sp*")
         else:
-            all_objects = self.get_o_embedder().embed_all()
+            if index is not None:
+                all_objects = self.get_o_embedder().embed(index)
+                all_subjects = self.get_s_embedder().embed(index)
+            else:
+                all_objects = self.get_o_embedder().embed_all()
+                all_subjects = self.get_s_embedder().embed_all()
             sp_scores = self._scorer.score_emb(s, p, all_objects, combine="sp*")
-            all_subjects = self.get_s_embedder().embed_all()
             po_scores = self._scorer.score_emb(o, p_inv, all_subjects, combine="sp*")
         return torch.cat((sp_scores, po_scores), dim=1)
