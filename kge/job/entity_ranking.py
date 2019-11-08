@@ -155,11 +155,9 @@ class EntityRankingJob(EvaluationJob):
             # calculate scores in chunk to not have the complete score matrix in memory
             prev_i = 0
             chunk_size = self.config.get("eval.chunk_size")
-            for i in range(chunk_size, num_entities + (chunk_size - (num_entities % chunk_size) + 1), chunk_size):
+            for i in range(chunk_size, num_entities + chunk_size, chunk_size):
                 if i > num_entities:
                     i = num_entities
-                if i == prev_i:
-                    break
 
                 # compute scores of chunk
                 scores = self.model.score_sp_po(
