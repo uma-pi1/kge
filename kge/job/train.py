@@ -11,7 +11,8 @@ from kge import Config, Dataset
 from kge.job import Job
 from kge.model import KgeModel
 
-from kge.util import KgeLoss, KgeOptimizer, KgeNegativeSampler, KgeLRScheduler
+from kge.util import KgeLoss, KgeOptimizer, KgeNegativeSampler, KgeLRScheduler, CPUEmbeddingSwitcher, \
+    CPUOptimizerSwitcher
 from typing import Any, Callable, Dict, List, Optional
 import kge.job.util
 
@@ -101,6 +102,8 @@ class TrainingJob(Job):
             return TrainingJobNegativeSampling(config, dataset, parent_job)
         elif config.get("train.type") == "1vsAll":
             return TrainingJob1vsAll(config, dataset, parent_job)
+        elif config.get("train.type") == "cpu_gpu":
+            return TrainingJobCPUGPU(config, dataset, parent_job)
         else:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError("train.type")
@@ -356,6 +359,7 @@ class TrainingJob(Job):
             batch_optimizer_time = -time.time()
             self.optimizer.step()
             batch_optimizer_time += time.time()
+            self._finish_batch()
 
             # tracing/logging
             if self.trace_batch:
@@ -448,6 +452,13 @@ class TrainingJob(Job):
 
         """
         raise NotImplementedError
+
+    def _finish_batch(self):
+        """
+        Runs job specific steps after each epoch
+        :return: nothing
+        """
+        pass
 
     @dataclass
     class _ProcessBatchResult:
@@ -893,6 +904,174 @@ class TrainingJob1vsAll(TrainingJob):
         backward_time -= time.time()
         loss_value_po.backward()
         backward_time += time.time()
+
+        # all done
+        return TrainingJob._ProcessBatchResult(
+            loss_value, batch_size, prepare_time, forward_time, backward_time
+        )
+
+
+class TrainingJobCPUGPU(TrainingJobNegativeSampling):
+    def __init__(self, config, dataset, parent_job=None):
+        super().__init__(config, dataset, parent_job)
+        dim = self.model._entity_embedder.dim
+        self.embedding_cpu_switcher = CPUEmbeddingSwitcher(self.model._entity_embedder.embeddings, dataset.num_entities,
+                                                           dim, device=config.get("job.device"))
+        self.optimizer_cpu_switcher = CPUOptimizerSwitcher(self.optimizer, dataset.num_entities, dim, self.model,
+                                                           device=config.get("job.device"))
+        self._init_tensor(self.embedding_cpu_switcher.cpu_tensor)
+
+    def _init_tensor(self, tensor):
+        # TODO: make this work for all embedders, not only lookup_embedder
+        init_ = self.config.get("lookup_embedder.initialize")
+        try:
+            init_args = self.config.get("lookup_embedder.initialize_args." + init_)
+        except KeyError:
+            init_args = self.config.get("lookup_embedder.initialize_args")
+        print(init_args)
+
+        # Automatically set arg a (lower bound) for uniform_ if not given
+        if init_ == "uniform_" and "a" not in init_args:
+            init_args["a"] = init_args["b"] * -1
+            self.config.set("lookup_embedder.initialize_args.a", init_args["a"], log=True)
+
+        KgeModel.initialize(tensor, init_, init_args)
+
+    def _finish_batch(self):
+        """
+        move new embeddings back to embedding tensor on cpu
+        :return: nothing
+        """
+        self.embedding_cpu_switcher.to_cpu()
+        self.optimizer_cpu_switcher.to_cpu()
+
+    def _process_batch(self, batch_index, batch) -> TrainingJob._ProcessBatchResult:
+        # prepare
+        prepare_time = -time.time()
+        triples = batch["triples"].to(self.device)
+        negative_samples = [ns.to(self.device) for ns in batch["negative_samples"]]
+        batch_size = len(triples)
+        # prepare cpugpu swapping
+        num_negative_samples_s = negative_samples[S].size()[0] * negative_samples[S].size()[1]
+        num_negative_samples_o = negative_samples[O].size()[0] * negative_samples[O].size()[1]
+        unique_entities = torch.unique(torch.cat((triples[:, S], triples[:, O], negative_samples[S].view(
+            num_negative_samples_s), negative_samples[O].view(
+            num_negative_samples_o)), dim=0))
+        self.embedding_cpu_switcher.create_indexes(unique_entities, self.device)
+        self.optimizer_cpu_switcher.create_indexes(unique_entities, self.device)
+        self.optimizer_cpu_switcher.set_indexes(self.embedding_cpu_switcher.indexes)
+        self.optimizer_cpu_switcher.set_mapped_index(self.embedding_cpu_switcher.mapped_indexes)
+        self.embedding_cpu_switcher.to_gpu()
+        self.optimizer_cpu_switcher.to_gpu()
+
+        # create mappings for embeddings of large cpu tensor to embeddings in small gpu tensor
+        s_mapped = self.embedding_cpu_switcher.map_indexes(triples[:, S], self.device)
+        o_mapped = self.embedding_cpu_switcher.map_indexes(triples[:, O], self.device)
+        triples_mapped = torch.stack((s_mapped, triples[:, P],
+                                      o_mapped), dim=1)
+        # now map negatives
+        s_neg_mapped = self.embedding_cpu_switcher.map_indexes(negative_samples[S].view(num_negative_samples_s),
+                                                               self.device).view(batch_size,
+                                                                                 negative_samples[S].size()[1])
+        o_neg_mapped = self.embedding_cpu_switcher.map_indexes(negative_samples[O].view(num_negative_samples_o),
+                                                               self.device).view(batch_size,
+                                                                                 negative_samples[O].size()[1])
+        negative_samples_mapped = [s_neg_mapped, negative_samples[P], o_neg_mapped]
+        prepare_time += time.time()
+
+        loss_value = 0.0
+        forward_time = 0.0
+        backward_time = 0.0
+        num_negatives = None
+        labels = None
+        for slot in [S, P, O]:
+            if self._sampler.num_negatives[slot] <= 0:
+                continue
+
+            # construct gold labels: first column corresponds to positives, rest to negatives
+            if self._sampler.num_negatives[slot] != num_negatives:
+                prepare_time -= time.time()
+                num_negatives = self._sampler.num_negatives[slot]
+                labels = torch.zeros(
+                    (batch_size, 1 + num_negatives), device=self.device
+                )
+                labels[:, 0] = 1
+                prepare_time += time.time()
+
+            # compute corresponding scores
+            scores = None
+            if self._implementation == "spo":
+                # construct triples
+                prepare_time -= time.time()
+                triples_to_score = triples_mapped.repeat(1, 1 + num_negatives).view(-1, 3)
+                triples_to_score[:, slot] = torch.cat(
+                    (
+                        triples_mapped[:, [slot]],  # positives
+                        negative_samples_mapped[slot],  # negatives
+                    ),
+                    1,
+                ).view(-1)
+                prepare_time += time.time()
+
+                # and score them
+                forward_time -= time.time()
+                scores = self.model.score_spo(
+                    triples_to_score[:, 0],
+                    triples_to_score[:, 1],
+                    triples_to_score[:, 2],
+                    direction="s" if slot == S else ("o" if slot == O else "p"),
+                ).view(batch_size, -1)
+                forward_time += time.time()
+            elif self._implementation == "sp_po":
+                # compute all scores for slot
+                forward_time -= time.time()
+                if slot == S:
+                    all_scores = self.model.score_po(triples_mapped[:, P], triples_mapped[:, O])
+                elif slot == O:
+                    all_scores = self.model.score_sp(triples_mapped[:, S], triples_mapped[:, P])
+                else:
+                    raise NotImplementedError
+                forward_time += time.time()
+
+                # determine indexes of relevant scores in scoring matrix
+                prepare_time -= time.time()
+                row_indexes = (
+                    torch.arange(batch_size, device=self.device)
+                    .unsqueeze(1)
+                    .repeat(1, 1 + num_negatives)
+                    .view(-1)
+                )  # 000 111 222; each 1+num_negative times (here: 3)
+                column_indexes = torch.cat(
+                    (
+                        triples_mapped[:, [slot]],  # positives
+                        negative_samples_mapped[slot],  # negatives
+                    ),
+                    1,
+                ).view(-1)
+                prepare_time += time.time()
+
+                # now pick the scores we need
+                forward_time -= time.time()
+                scores = all_scores[row_indexes, column_indexes].view(batch_size, -1)
+                forward_time += time.time()
+            else:
+                raise ValueError(
+                    "invalid implementation: "
+                    "negative_sampling.implementation={}".format(self._implementation)
+                )
+
+            # compute loss
+            forward_time -= time.time()
+            loss_value_torch = (
+                self.loss(scores, labels, num_negatives=num_negatives) / batch_size
+            )
+            loss_value += loss_value_torch.item()
+            forward_time += time.time()
+
+            # backward pass
+            backward_time -= time.time()
+            loss_value_torch.backward()
+            backward_time += time.time()
 
         # all done
         return TrainingJob._ProcessBatchResult(

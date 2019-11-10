@@ -23,7 +23,8 @@ class KgeBase(torch.nn.Module, Configurable):
         self.dataset = dataset
         self.meta: Dict[str, Any] = dict()  #: meta-data stored with this module
 
-    def initialize(self, what: Tensor, initialize: str, initialize_args):
+    @staticmethod
+    def initialize(what: Tensor, initialize: str, initialize_args):
         try:
             getattr(torch.nn.init, initialize)(what, **initialize_args)
         except:
@@ -254,11 +255,25 @@ class KgeModel(KgeBase):
         self._relation_embedder: KgeEmbedder
 
         if initialize_embedders:
+            if config.get("train.type") == "cpu_gpu":
+                num_negatives_s = config.get("negative_sampling.num_negatives_s")
+                if config.get("negative_sampling.num_negatives_o") == -1:
+                    num_negatives_o = config.get("negative_sampling.num_negatives_s")
+                else:
+                    num_negatives_o = config.get("negative_sampling.num_negatives_o")
+
+                embedding_layer_size = int(config.get("train.batch_size")) * 2 + int(
+                    num_negatives_s * num_negatives_o * int(config.get("train.batch_size")))
+                if embedding_layer_size > dataset.num_entities:
+                    embedding_layer_size = dataset.num_entities
+            else:
+                embedding_layer_size = dataset.num_entities
+
             self._entity_embedder = KgeEmbedder.create(
                 config,
                 dataset,
                 self.configuration_key + ".entity_embedder",
-                dataset.num_entities,
+                embedding_layer_size,
             )
 
             #: Embedder used for relations
