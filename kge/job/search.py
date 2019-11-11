@@ -187,7 +187,14 @@ def _run_train_job(sicnk, device=None):
             best["parent_job_id"],
             best["scope"],
         )
-        search_job.trace(echo=True, echo_prefix="  ", log=True, scope="train", **best)
+        search_job.trace(
+            event="search_completed",
+            echo=True,
+            echo_prefix="  ",
+            log=True,
+            scope="train",
+            **best
+        )
 
         return (train_job_index, best, best_metric)
     except BaseException as e:

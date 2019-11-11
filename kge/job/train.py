@@ -219,6 +219,7 @@ class TrainingJob(Job):
 
         for f in self.post_train_hooks:
             f(self, trace_entry)
+        self.trace(event="train_completed")
 
     def save(self, filename) -> None:
         """Save current state to specified file"""
@@ -261,6 +262,7 @@ class TrainingJob(Job):
 
         if checkpoint_file is not None:
             self.resumed_from_job_id = self.load(checkpoint_file)
+            self.trace(event="job_resumed")
             self.config.log(
                 "Resumed from {} of job {}".format(
                     checkpoint_file, self.resumed_from_job_id
@@ -377,7 +379,7 @@ class TrainingJob(Job):
                 }
                 for f in self.post_batch_trace_hooks:
                     f(self, batch_trace)
-                self.trace(**batch_trace)
+                self.trace(**batch_trace, event="batch_completed")
             print(
                 (
                     "\r"  # go back
@@ -431,6 +433,7 @@ class TrainingJob(Job):
             backward_time=backward_time,
             optimizer_time=optimizer_time,
             other_time=other_time,
+            event="epoch_completed",
         )
         for f in self.post_epoch_trace_hooks:
             f(self, trace_entry)

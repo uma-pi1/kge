@@ -88,6 +88,7 @@ class EvaluationJob(Job):
         self.model = training_job.model
         self.epoch = training_job.epoch
         self.resumed_from_job_id = training_job.resumed_from_job_id
+        self.trace(event="job_resumed")
 
 
 ## HISTOGRAM COMPUTATION ################################################################

@@ -240,6 +240,7 @@ class AutoSearchJob(SearchJob):
             )
 
             self.trace(
+                even="search_completed",
                 echo=True,
                 echo_prefix="  ",
                 log=True,
