@@ -5,6 +5,7 @@ from kge import Config
 from kge.config import _process_deprecated_options
 from kge.job import SearchJob, Job
 import kge.job.search
+import copy
 
 # TODO handle "max_epochs" in some sensible way
 
@@ -136,7 +137,9 @@ class AutoSearchJob(SearchJob):
                 parameters, trial_id = self.register_trial(self.parameters[trial_no])
                 self.trial_ids.append(trial_id)
                 self.config.log(
-                    "Resumed trial {:05d} with parameters: {}".format(trial_no, parameters)
+                    "Resumed trial {:05d} with parameters: {}".format(
+                        trial_no, parameters
+                    )
                 )
 
             if trial_id is None:
@@ -159,7 +162,7 @@ class AutoSearchJob(SearchJob):
                 folder = str("{:05d}".format(trial_no))
                 config = self.config.clone(folder)
                 config.set("job.type", "train")
-                config.set_all(_process_deprecated_options(parameters))
+                config.set_all(_process_deprecated_options(copy.deepcopy(parameters)))
                 config.init_folder()
 
                 # save checkpoint here so that trial is not lost
