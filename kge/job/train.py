@@ -262,7 +262,9 @@ class TrainingJob(Job):
 
         if checkpoint_file is not None:
             self.resumed_from_job_id = self.load(checkpoint_file)
-            self.trace(event="job_resumed")
+            self.trace(
+                event="job_resumed", epoch=self.epoch, checkpoint_file=checkpoint_file
+            )
             self.config.log(
                 "Resumed from {} of job {}".format(
                     checkpoint_file, self.resumed_from_job_id
