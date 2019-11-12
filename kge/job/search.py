@@ -186,6 +186,7 @@ def _run_train_job(sicnk, device=None):
             best["type"],
             best["parent_job_id"],
             best["scope"],
+            best["event"]
         )
         search_job.trace(
             event="search_completed",
