@@ -4,6 +4,7 @@ import time
 import torch
 import kge.job
 from kge.job import EvaluationJob, Job
+from collections import defaultdict
 
 
 class EntityRankingJob(EvaluationJob):
@@ -85,6 +86,8 @@ class EntityRankingJob(EvaluationJob):
             self.eval_data == "valid" and self.filter_valid_with_test
         )
 
+        rank_options = ['_raw', '_filt', '_filt_test'] if filtered_valid_with_test else ['_raw', '_filt', '_filt_test']
+
         # Initiliaze dictionaries that hold the overall histogram of ranks of true
         # answers. These histograms are used to compute relevant metrics. The dictionary
         # entry with key 'all' collects the overall statistics and is the default.
@@ -135,92 +138,69 @@ class EntityRankingJob(EvaluationJob):
             labels[indices, (s + num_entities).long()] = 0
 
             # compute true scores beforehand, since we can't get them from a chunked score table
-            o_true_scores = self.model.score_sp(s, p, o)[range(o.size(0)), torch.arange(o.size(0)).long()]
-            s_true_scores = self.model.score_po(p, o, s)[range(s.size(0)), torch.arange(s.size(0)).long()]
+            o_true_scores = self.model.score_spo(s, p, o, 'o').view(-1)
+            s_true_scores = self.model.score_spo(s, p, o, 's').view(-1)
 
-            # initialize all needed tensors and move them to device
-            s_num_ranks_greater = torch.zeros(s.size(0), dtype=torch.long).to(self.device)
-            s_num_ranks_equal = torch.zeros(s.size(0), dtype=torch.long).to(self.device)
-            o_num_ranks_greater = torch.zeros(o.size(0), dtype=torch.long).to(self.device)
-            o_num_ranks_equal = torch.zeros(o.size(0), dtype=torch.long).to(self.device)
-            s_num_ranks_greater_filt = torch.zeros(s.size(0), dtype=torch.long).to(self.device)
-            s_num_ranks_equal_filt = torch.zeros(s.size(0), dtype=torch.long).to(self.device)
-            o_num_ranks_greater_filt = torch.zeros(o.size(0), dtype=torch.long).to(self.device)
-            o_num_ranks_equal_filt = torch.zeros(o.size(0), dtype=torch.long).to(self.device)
-            s_num_ranks_greater_filt_test = torch.zeros(s.size(0), dtype=torch.long).to(self.device)
-            s_num_ranks_equal_filt_test = torch.zeros(s.size(0), dtype=torch.long).to(self.device)
-            o_num_ranks_greater_filt_test = torch.zeros(o.size(0), dtype=torch.long).to(self.device)
-            o_num_ranks_equal_filt_test = torch.zeros(o.size(0), dtype=torch.long).to(self.device)
+            # default dictionary returning a list of len 2: [rank, num_ties]
+            num_ranks = defaultdict(lambda: [torch.zeros(s.size(0), dtype=torch.long).to(self.device),
+                                             torch.zeros(s.size(0), dtype=torch.long).to(self.device)])
 
             # calculate scores in chunk to not have the complete score matrix in memory
-            prev_i = 0
-            chunk_size = self.config.get("eval.chunk_size")
-            for i in range(chunk_size, num_entities + chunk_size, chunk_size):
-                if i > num_entities:
-                    i = num_entities
+            if self.config.get("eval.chunk_size") > -1:
+                chunk_size = self.config.get("eval.chunk_size")
+            else:
+                chunk_size = self.dataset.num_entities
+            for chunk_number in range(math.ceil(num_entities/chunk_size)):
+                chunk_start = chunk_size * chunk_number
+                chunk_end = chunk_size * (chunk_number + 1)
+                if chunk_end > num_entities:
+                    chunk_end = num_entities
 
                 # compute scores of chunk
                 scores = self.model.score_sp_po(
-                    s, p, o, torch.arange(prev_i, i).to(self.device)
+                    s, p, o, torch.arange(chunk_start, chunk_end).to(self.device)
                 )
-                scores_sp = scores[:, :i - prev_i]
-                scores_po = scores[:, i - prev_i:]
+                scores_sp = scores[:, :chunk_end - chunk_start]
+                scores_po = scores[:, chunk_end - chunk_start:]
 
                 # replace the precomputed true_scores with the ones occurring in the scores matrix
                 # to avoid floating point issues
-                s_in_chunk_mask = (prev_i <= s) & (s < i)
-                o_in_chunk_mask = (prev_i <= o) & (o < i)
-                scores_sp[o_in_chunk_mask, (o[o_in_chunk_mask] - prev_i).long()] = o_true_scores[o_in_chunk_mask]
-                scores_po[s_in_chunk_mask, (s[s_in_chunk_mask] - prev_i).long()] = s_true_scores[s_in_chunk_mask]
+                s_in_chunk_mask = (chunk_start <= s) & (s < chunk_end)
+                o_in_chunk_mask = (chunk_start <= o) & (o < chunk_end)
+                scores_sp[o_in_chunk_mask, (o[o_in_chunk_mask] - chunk_start).long()] = o_true_scores[o_in_chunk_mask]
+                scores_po[s_in_chunk_mask, (s[s_in_chunk_mask] - chunk_start).long()] = s_true_scores[s_in_chunk_mask]
 
                 # load the needed part of the labels on the device
-                labels_chunk = torch.cat((labels[:, prev_i:i], labels[:, num_entities + prev_i:num_entities + i]),
-                                         dim=1).to(self.device)
+                labels_chunk = self._load_labels_chunk_to_gpu(labels, chunk_start, chunk_end)
+                labels_dict = defaultdict(lambda: None)
+                labels_dict['_filt'] = labels_chunk
 
-                # compute raw ranks
-                s_num_ranks_greater_chunk, s_num_ranks_equal_chunk, o_num_ranks_greater_chunk, \
-                    o_num_ranks_equal_chunk, _, _ = self._filter_and_count_to_rank_in_chunk(
-                        s, o, scores_sp, scores_po, None, o_true_scores, s_true_scores)
-                s_num_ranks_greater += s_num_ranks_greater_chunk
-                s_num_ranks_equal += s_num_ranks_equal_chunk
-                o_num_ranks_greater += o_num_ranks_greater_chunk
-                o_num_ranks_equal += o_num_ranks_equal_chunk
-
-                # same for filtered ranks
-                s_num_ranks_greater_filt_chunk, s_num_ranks_equal_filt_chunk, o_num_ranks_greater_filt_chunk, \
-                    o_num_ranks_equal_filt_chunk, scores_sp_filt, scores_po_filt = \
-                    self._filter_and_count_to_rank_in_chunk(
-                        s, o, scores_sp, scores_po, labels_chunk, o_true_scores, s_true_scores
-                    )
-                s_num_ranks_greater_filt += s_num_ranks_greater_filt_chunk
-                s_num_ranks_equal_filt += s_num_ranks_equal_filt_chunk
-                o_num_ranks_greater_filt += o_num_ranks_greater_filt_chunk
-                o_num_ranks_equal_filt += o_num_ranks_equal_filt_chunk
-
-                # and the same for filtered_with_test ranks
+                # load test labels if needed
                 if filtered_valid_with_test:
-                    # load the needed part of the labels on the device
-                    test_labels_chunk = torch.cat(
-                        (test_labels[:, prev_i: i], test_labels[:, num_entities + prev_i: num_entities + i]), dim=1).to(
-                        self.device)
-                    batch_hists_filt_test = dict()
-                    s_num_ranks_greater_filt_test_chunk, s_num_ranks_equal_filt_test_chunk, \
-                        o_num_ranks_greater_filt_test_chunk, o_num_ranks_equal_filt_test_chunk, _, _ = \
-                        self._filter_and_count_to_rank_in_chunk(
-                            s, o, scores_sp_filt, scores_po_filt, test_labels_chunk, o_true_scores, s_true_scores
-                        )
-                    s_num_ranks_greater_filt_test += s_num_ranks_greater_filt_test_chunk
-                    s_num_ranks_equal_filt_test += s_num_ranks_equal_filt_test_chunk
-                    o_num_ranks_greater_filt_test += o_num_ranks_greater_filt_test_chunk
-                    o_num_ranks_equal_filt_test += o_num_ranks_equal_filt_test_chunk
+                    test_labels_chunk = self._load_labels_chunk_to_gpu(test_labels, chunk_start, chunk_end)
+                    labels_dict['_filt_test'] = test_labels_chunk
 
-                prev_i = i
+                for rank_option in rank_options:
+                    # for _filt_test reuse filtered scores
+                    if rank_option == '_filt_test':
+                        scores_sp = scores_sp_filt
+                        scores_po = scores_po_filt
+
+                    s_rank_chunk, s_num_ties_chunk, o_rank_chunk, o_num_ties_chunk, scores_sp_filt, scores_po_filt = \
+                        self._filter_and_rank(
+                            scores_sp, scores_po, labels_dict[rank_option], o_true_scores, s_true_scores
+                        )
+
+                    num_ranks['s' + rank_option][0] += s_rank_chunk
+                    num_ranks['s' + rank_option][1] += s_num_ties_chunk
+                    num_ranks['o' + rank_option][0] += o_rank_chunk
+                    num_ranks['o' + rank_option][1] += o_num_ties_chunk
 
             # now calculate complete ranks from counts
-            s_ranks = self._calc_ranks_from_counts(s_num_ranks_greater, s_num_ranks_equal)
-            o_ranks = self._calc_ranks_from_counts(o_num_ranks_greater, o_num_ranks_equal)
-            s_ranks_filt = self._calc_ranks_from_counts(s_num_ranks_greater_filt, s_num_ranks_equal_filt)
-            o_ranks_filt = self._calc_ranks_from_counts(o_num_ranks_greater_filt, o_num_ranks_equal_filt)
+            s_ranks = self._get_ranks(num_ranks['s_raw'][0], num_ranks['s_raw'][1])
+            o_ranks = self._get_ranks(num_ranks['o_raw'][0], num_ranks['o_raw'][1])
+            s_ranks_filt = self._get_ranks(num_ranks['s_filt'][0], num_ranks['s_filt'][1])
+            o_ranks_filt = self._get_ranks(num_ranks['o_filt'][0], num_ranks['o_filt'][1])
 
             # Now update the histograms of of raw ranks and filtered ranks
             batch_hists = dict()
@@ -232,10 +212,8 @@ class EntityRankingJob(EvaluationJob):
             # and the same for filtered_with_test ranks
             if filtered_valid_with_test:
                 batch_hists_filt_test = dict()
-                s_ranks_filt_test = self._calc_ranks_from_counts(s_num_ranks_greater_filt_test,
-                                                                 s_num_ranks_equal_filt_test)
-                o_ranks_filt_test = self._calc_ranks_from_counts(o_num_ranks_greater_filt_test,
-                                                                 o_num_ranks_equal_filt_test)
+                s_ranks_filt_test = self._get_ranks(num_ranks['s_filt_test'][0], num_ranks['s_filt_test'][1])
+                o_ranks_filt_test = self._get_ranks(num_ranks['o_filt_test'][0], num_ranks['o_filt_test'][1])
                 for f in self.hist_hooks:
                     f(
                         batch_hists_filt_test,
@@ -405,13 +383,24 @@ class EntityRankingJob(EvaluationJob):
 
         return trace_entry
 
-    def _filter_and_count_to_rank_in_chunk(self, s, o, scores_sp, scores_po, labels,
-                                           o_true_scores=None, s_true_scores=None):
+    def _load_labels_chunk_to_gpu(self, labels, chunk_start, chunk_end):
         """
-        Filters the current examples form the labels and returns counts num_ranks_greater and num_ranks_equal
+        loads labels corresponding to a chunk from cpu to gpu
+        :param labels: batch_size x num_entities*2 cpu tensor containing labels
+        :param chunk_start: int start index of the chunk
+        :param chunk_end: int end index of the chunk
+        :return: chunk of labels tensor on gpu
+        """
+        num_entities = self.dataset.num_entities
+        return torch.cat(
+            (labels[:, chunk_start:chunk_end], labels[:, num_entities + chunk_start:num_entities + chunk_end]),
+            dim=1).to(self.device)
+
+    def _filter_and_rank(self, scores_sp, scores_po, labels,
+                         o_true_scores=None, s_true_scores=None):
+        """
+        Filters the current examples form the labels and returns counts rank and num_ties
         to calculate the ranks
-        :param s: subjects
-        :param o: objects
         :param scores_sp: batch_size x chunk_size tensor of scores
         :param scores_po: batch_size x chunk_size tensor of scores
         :param labels: batch_size x 2*chunk_size tensor of scores
@@ -426,45 +415,41 @@ class EntityRankingJob(EvaluationJob):
             labels_po = labels[:, chunk_size:]
             scores_sp = scores_sp - labels_sp
             scores_po = scores_po - labels_po
-        o_num_ranks_greater, o_num_ranks_equal = self._get_counts_to_rank(scores_sp, o, o_true_scores)
-        s_num_ranks_greater, s_num_ranks_equal = self._get_counts_to_rank(scores_po, s, s_true_scores)
-        return s_num_ranks_greater, s_num_ranks_equal, o_num_ranks_greater, o_num_ranks_equal, scores_sp, scores_po
+        o_rank, o_num_ties = self._get_counts_to_rank(scores_sp, o_true_scores)
+        s_rank, s_num_ties = self._get_counts_to_rank(scores_po, s_true_scores)
+        return s_rank, s_num_ties, o_rank, o_num_ties, scores_sp, scores_po
 
     @staticmethod
-    def _get_counts_to_rank(scores: torch.Tensor, answers: torch.Tensor, true_scores: torch.Tensor = None) -> (
-                            torch.Tensor, torch.Tensor):
+    def _get_counts_to_rank(scores: torch.Tensor, true_scores: torch.Tensor) -> (torch.Tensor, torch.Tensor):
         """
-        Returns the counts num_ranks_greater and num_ranks_equal to calculate the ranks
+        Returns the counts rank and num_ties to calculate the ranks
         :param scores: batch_size x entities tensor of scores
-        :param answers: batch_size x 1 tensor holding the index of the true answer in each row of `scores`
         :param true_scores: batch_size x 1 tensor containing the actual scores of the batch
         :return: batch_size x 1 tensors num_ranks_greater and num_ranks_equal to calculate the ranks
         """
         # process NaN values and extract scores of true answers
         scores = scores.clone()
         scores[torch.isnan(scores)] = float("-Inf")
-        if true_scores is None:
-            true_scores = scores[range(answers.size(0)), answers.long()]
 
         # Determine how many scores are greater than / equal to each true answer (in its
         # corresponding row of scores)
-        num_ranks_greater = torch.sum(
+        rank = torch.sum(
             scores > true_scores.view(-1, 1), dim=1, dtype=torch.long
         )
-        num_ranks_equal = torch.sum(
+        num_ties = torch.sum(
             scores == true_scores.view(-1, 1), dim=1, dtype=torch.long
         )
-        return num_ranks_greater, num_ranks_equal
+        return rank, num_ties
 
     @staticmethod
-    def _calc_ranks_from_counts(num_ranks_greater: torch.Tensor, num_ranks_equal: torch.Tensor) -> torch.Tensor:
+    def _get_ranks(rank: torch.Tensor, num_ties: torch.Tensor) -> torch.Tensor:
         """
         calculates the actual ranks from the counts
         :param num_ranks_greater: batch_size x 1 tensor with number of ranks greater than the one of the true score
         :param num_ranks_equal: batch_size x tensor with number of ranks equal as the one of the true score
         :return: batch_size x 1 tensor of ranks
         """
-        ranks = num_ranks_greater + num_ranks_equal // 2
+        ranks = rank + num_ties // 2
         return ranks
 
     def _compute_metrics(self, rank_hist, suffix=""):
