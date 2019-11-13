@@ -175,8 +175,8 @@ class EntityRankingJob(EvaluationJob):
 
                         # remove current example from labels
                         indices = torch.arange(0, o.size(0)).long()
-                        labels_chunk[indices, (o[o_in_chunk_mask] - chunk_start).long()] = 0
-                        labels_chunk[indices, (s[s_in_chunk_mask] - chunk_start + (chunk_end - chunk_start)).long()] = 0
+                        labels_chunk[o_in_chunk_mask, (o[o_in_chunk_mask] - chunk_start).long()] = 0
+                        labels_chunk[s_in_chunk_mask, (s[s_in_chunk_mask] - chunk_start + (chunk_end - chunk_start)).long()] = 0
 
                     # for _filt_test reuse filtered scores
                     if rank_option == '_filt_test':
@@ -392,9 +392,14 @@ class EntityRankingJob(EvaluationJob):
         """
         num_entities = self.dataset.num_entities
         indices = labels._indices()
-        mask = (((chunk_start <= indices[1, :]) & (indices[1, :] < chunk_end)) |
-                ((chunk_start + num_entities <= indices[1, :]) & (indices[1, :] < chunk_end + num_entities)))
-        dense_labels = torch.sparse.LongTensor(labels._indices()[:, mask], labels._values()[mask],
+        mask_sp = ((chunk_start <= indices[1, :]) & (indices[1, :] < chunk_end))
+        mask_po = ((chunk_start + num_entities) <= indices[1, :]) & (indices[1, :] < (chunk_end + num_entities))
+        indices_sp_chunk = indices[:, mask_sp]
+        indices_sp_chunk[1, :] = indices_sp_chunk[1, :] - chunk_start
+        indices_po_chunk = indices[:, mask_po]
+        indices_po_chunk[1, :] = indices_po_chunk[1, :] - num_entities - chunk_start*2 + chunk_end
+        indices_chunk = torch.cat((indices_sp_chunk, indices_po_chunk), dim=1)
+        dense_labels = torch.sparse.LongTensor(indices_chunk, labels._values()[mask_sp | mask_po],
                                                torch.Size([labels.size()[0], (chunk_end-chunk_start)*2])).to_dense()
         return dense_labels
 
