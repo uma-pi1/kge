@@ -488,11 +488,12 @@ class KgeModel(KgeBase):
 
         `s`, `p` and `o` are vectors of common size :math:`n`, holding the indexes of
         the subjects, relations, and objects to score.
-        `entity_subset` is a vector holding subset of entities to score against (if None: score against all)
+        `entity_subset` is a vector holding subset of entities to score against
+        (if None: score against all known entities)
 
         The result is the horizontal concatenation of the outputs of
         :code:`score_sp(s,p)` and :code:`score_po(p,o)`. I.e., returns an :math:`n\times
-        2E` tensor, where :math:`E` is the total number of known entities. For
+        2E` tensor, where :math:`E` is the `entity_subset`. For
         :math:`j<E`, the :math:`(i,j)`-entry holds the score for triple :math:`(s_i,
         p_i, j)`. For :math:`j\ge E`, the :math:`(i,j)`-entry holds the score for triple
         :math:`(j-E, p_i, o_i)`.
