@@ -96,6 +96,3 @@ class Job:
         return self.config.trace(
             job_id=self.job_id, job=self.config.get("job.type"), **kwargs
         )
-
-    def __del__(self):
-        self.trace(event="job_cleaned_up")
