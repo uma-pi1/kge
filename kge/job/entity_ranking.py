@@ -417,14 +417,14 @@ class EntityRankingJob(EvaluationJob):
             labels_po = labels[:, chunk_size:]
             scores_sp = scores_sp - labels_sp
             scores_po = scores_po - labels_po
-        o_rank, o_num_ties = self._get_counts_to_rank(scores_sp, o_true_scores)
-        s_rank, s_num_ties = self._get_counts_to_rank(scores_po, s_true_scores)
+        o_rank, o_num_ties = self._get_ranks_and_num_ties(scores_sp, o_true_scores)
+        s_rank, s_num_ties = self._get_ranks_and_num_ties(scores_po, s_true_scores)
         return s_rank, s_num_ties, o_rank, o_num_ties, scores_sp, scores_po
 
     @staticmethod
-    def _get_counts_to_rank(scores: torch.Tensor, true_scores: torch.Tensor) -> (torch.Tensor, torch.Tensor):
+    def _get_ranks_and_num_ties(scores: torch.Tensor, true_scores: torch.Tensor) -> (torch.Tensor, torch.Tensor):
         """
-        Returns the counts rank and num_ties to calculate the ranks
+        Returns rank and num_ties
         :param scores: batch_size x entities tensor of scores
         :param true_scores: batch_size x 1 tensor containing the actual scores of the batch
         :return: batch_size x 1 tensors rank and num_ties to calculate the ranks
