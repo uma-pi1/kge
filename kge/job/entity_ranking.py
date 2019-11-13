@@ -397,7 +397,7 @@ class EntityRankingJob(EvaluationJob):
             dim=1).to(self.device)
 
     def _filter_and_rank(self, scores_sp, scores_po, labels,
-                         o_true_scores=None, s_true_scores=None):
+                         o_true_scores, s_true_scores):
         """
         Filters the current examples form the labels and returns counts rank and num_ties
         to calculate the ranks
