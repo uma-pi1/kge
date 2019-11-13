@@ -427,7 +427,7 @@ class EntityRankingJob(EvaluationJob):
         Returns the counts rank and num_ties to calculate the ranks
         :param scores: batch_size x entities tensor of scores
         :param true_scores: batch_size x 1 tensor containing the actual scores of the batch
-        :return: batch_size x 1 tensors num_ranks_greater and num_ranks_equal to calculate the ranks
+        :return: batch_size x 1 tensors rank and num_ties to calculate the ranks
         """
         # process NaN values and extract scores of true answers
         scores = scores.clone()
@@ -447,8 +447,8 @@ class EntityRankingJob(EvaluationJob):
     def _get_ranks(rank: torch.Tensor, num_ties: torch.Tensor) -> torch.Tensor:
         """
         calculates the actual ranks from the counts
-        :param num_ranks_greater: batch_size x 1 tensor with number of ranks greater than the one of the true score
-        :param num_ranks_equal: batch_size x tensor with number of ranks equal as the one of the true score
+        :param rank: batch_size x 1 tensor with number of ranks greater than the one of the true score
+        :param num_ties: batch_size x tensor with number of ranks equal as the one of the true score
         :return: batch_size x 1 tensor of ranks
         """
         ranks = rank + num_ties // 2
