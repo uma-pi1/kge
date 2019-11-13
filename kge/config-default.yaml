@@ -61,10 +61,9 @@ train:
   type: KvsAll
 
   # Loss used for training. Not all combination of losses and job types are supported.
-  # - bce: binary cross entropy after taking logits (KvsAll, negative_sampling, 1vsAll)
-  # - margin_ranking (negative_sampling)
-  # - kl: KL divergence after taking softmax (KvsAll)
-  # - ce: cross entropy after taking softmax (spo)
+  # - bce: binary cross entropy after taking logits (all training types)
+  # - kl: KL divergence between model and data distribution (all training types)
+  # - margin_ranking (negative_sampling only)
   loss: bce
 
   ## Argument of loss function (if any)

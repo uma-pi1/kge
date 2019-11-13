@@ -5,8 +5,8 @@ train:
   optimizer: Adagrad
   optimizer_args:
     lr: 0.2
-    weight_decay: 0.4e-7
 lookup_embedder.dim: 100
+lookup_embedder.regularize_weight: 0.8e-7
 train.lr_scheduler: ReduceLROnPlateau
 train.lr_scheduler_args: 
   mode: max

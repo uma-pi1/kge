@@ -50,16 +50,16 @@ class ProjectionEmbedder(KgeEmbedder):
 
     def penalty(self, **kwargs):
         # TODO factor out to a utility method
-        if self.regularize == "" or self.get_option("regularize_args.weight") == 0.0:
+        if self.regularize == "" or self.get_option("regularize_weight") == 0.0:
             p = []
         elif self.regularize == "l1":
             p = [
-                self.get_option("regularize_args.weight")
+                self.get_option("regularize_weight")
                 * self.projection.weight.norm(p=1)
             ]
         elif self.regularize == "l2":
             p = [
-                self.get_option("regularize_args.weight")
+                self.get_option("regularize_weight")
                 * self.projection.weight.norm(p=2) ** 2
             ]
         else:

@@ -43,15 +43,19 @@ lookup_embedder:
     with_grad: False
 
   # Whether and how embeddings should be regularized. Possible values are '' (do
-  # not regularize), l1, l2, or l3.
-  regularize: 'l2'
+  # not regularize) or lp (defaults to p=2; else set regularize_args.p)
+  regularize: 'lp'
 
-  # Arguments for regulariztaion
+  # Weight used for regularization. Interpreted w.r.t. to the empirical risk.
+  regularize_weight: 0.0
+
+  # Further arguments for regulariztaion
   regularize_args:
-    # Weight used for regularization. Interpreted w.r.t. to the empirical risk.
-    weight: 0.0
-
-    # If true, penalty is weighted by parameter frequency in the batch.
+    # If true, penalty for the embedding of an object is weighted by the
+    # object's *relative* frequency in the training data. Note that this
+    # generally reduces the magnitude of the penalty (for random embeddings: by
+    # roughly a factor corresponding to the number of objects in the lookup
+    # table) compared to unweighted regularization.
     weighted: False
 
     # Other options for the regularizer.

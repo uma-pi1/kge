@@ -19,7 +19,7 @@ class LookupEmbedder(KgeEmbedder):
         # read config
         self.normalize_p = self.get_option("normalize.p")
         self.normalize_with_grad = self.get_option("normalize.with_grad")
-        self.regularize = self.check_option("regularize", ["", "l1", "l2", "l3"])
+        self.regularize = self.check_option("regularize", ["", "lp"])
         self.sparse = self.get_option("sparse")
         self.config.check("train.trace_level", ["batch", "epoch"])
         self.vocab_size = vocab_size
@@ -39,7 +39,6 @@ class LookupEmbedder(KgeEmbedder):
             init_args = self.get_option("initialize_args." + init_)
         except KeyError:
             init_args = self.get_option("initialize_args")
-        print(init_args)
 
         # Automatically set arg a (lower bound) for uniform_ if not given
         if init_ == "uniform_" and "a" not in init_args:
@@ -91,72 +90,41 @@ class LookupEmbedder(KgeEmbedder):
 
     def penalty(self, **kwargs) -> List[Tensor]:
         # TODO factor out to a utility method
-        if self.regularize == "" or self.get_option("regularize_args.weight") == 0.0:
-            return super().penalty(**kwargs)
-        elif self.regularize == "l1":
-            if self.get_option("regularize_args.weighted"):
-                result = super().penalty(**kwargs)
-                if "batch" in kwargs and "triples" in kwargs["batch"]:
-                    unique_ids, counts = torch.unique(
-                        kwargs["batch"]["triples"][:, kwargs["slot"]],
-                        return_counts=True,
-                    )
-                    parameters = self.embeddings(unique_ids)
-                    result += [
-                        self.get_option("regularize_args.weight")
-                        * (torch.abs(parameters) * counts.float().view(-1, 1)).sum()
-                        / parameters.size(0)
-                    ]
-                return result
-            else:
-                return super().penalty(**kwargs) + [
-                    self.get_option("regularize_args.weight")
-                    * self.embeddings.weight.norm(p=1)
+        result = super().penalty(**kwargs)
+        if self.regularize == "" or self.get_option("regularize_weight") == 0.0:
+            pass
+        elif self.regularize == "lp":
+            p = (
+                self.get_option("regularize_args.p")
+                if self.has_option("regularize_args.p")
+                else 2
+            )
+            if not self.get_option("regularize_args.weighted"):
+                # unweighted Lp regularization
+                parameters = self.embeddings.weight
+                if p % 2 == 1:
+                    parameters = torch.abs(parameters)
+                result += [
+                    self.get_option("regularize_weight") / p * (parameters ** p).sum()
                 ]
-        elif self.regularize == "l2":
-            if self.get_option("regularize_args.weighted"):
-                result = super().penalty(**kwargs)
-                if "batch" in kwargs and "triples" in kwargs["batch"]:
-                    unique_ids, counts = torch.unique(
-                        kwargs["batch"]["triples"][:, kwargs["slot"]],
-                        return_counts=True,
-                    )
-                    parameters = self.embeddings(unique_ids)
-                    result += [
-                        self.get_option("regularize_args.weight")
-                        * (parameters ** 2 * counts.float().view(-1, 1)).sum()
-                        / parameters.size(0)
-                    ]
-                return result
             else:
-                return super().penalty(**kwargs) + [
-                    self.get_option("regularize_args.weight")
-                    * self.embeddings.weight.norm(p=2) ** 2
+                # weighted Lp regularization
+                unique_ids, counts = torch.unique(
+                    kwargs["batch"]["triples"][:, kwargs["slot"]], return_counts=True
+                )
+                parameters = self.embeddings(unique_ids)
+                if p % 2 == 1:
+                    parameters = torch.abs(parameters)
+                result += [
+                    self.get_option("regularize_weight")
+                    / p
+                    * (parameters ** p * counts.float().view(-1, 1)).sum()
+                    # In contrast to unweighted Lp regulariztion, rescaling by number of
+                    # triples is necessary here so that penalty term is correct in
+                    # expectation
+                    / len(kwargs["batch"]["triples"])
                 ]
-        elif self.regularize == "l3":
-            if self.get_option("regularize_args.weighted"):
-                result = super().penalty(**kwargs)
-                if "batch" in kwargs and "triples" in kwargs["batch"]:
-                    unique_ids, counts = torch.unique(
-                        kwargs["batch"]["triples"][:, kwargs["slot"]],
-                        return_counts=True,
-                    )
-                    parameters = self.embeddings(unique_ids)
-                    result += [
-                        self.get_option("regularize_args.weight")
-                        * (
-                            torch.abs(parameters) ** 3 * counts.float().view(-1, 1)
-                        ).sum()
-                        / parameters.size(0)
-                    ]
-                return result
-            else:
-                # As in CP-N3 paper, Eq. (4): Timothée Lacroix, Nicolas Usunier, Guillaume
-                # Obozinski. Canonical Tensor Decomposition for Knowledge Base Completion.
-                # ICML 2018. https://arxiv.org/abs/1806.07297
-                return super().penalty(**kwargs) + [
-                    self.get_option("regularize_args.weight")
-                    * self.embeddings.weight.norm(p=3) ** 3
-                ]
-        else:
-            raise ValueError("unknown penalty")
+        else:  # unknown regularziation
+            raise ValueError(f"Invalid value regularize={self.regularize}")
+
+        return result

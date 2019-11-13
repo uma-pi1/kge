@@ -2,6 +2,7 @@ import itertools
 import os
 import math
 import time
+from dataclasses import dataclass
 
 import torch
 import torch.utils.data
@@ -24,7 +25,7 @@ class TrainingJob(Job):
     Also used by jobs such as :class:`SearchJob`.
 
     Subclasses for specific training methods need to implement `_prepare` and
-    `_compute_batch_loss`.
+    `_process_batch`.
 
     """
 
@@ -218,6 +219,7 @@ class TrainingJob(Job):
 
         for f in self.post_train_hooks:
             f(self, trace_entry)
+        self.trace(event="train_completed")
 
     def save(self, filename) -> None:
         """Save current state to specified file"""
@@ -260,6 +262,9 @@ class TrainingJob(Job):
 
         if checkpoint_file is not None:
             self.resumed_from_job_id = self.load(checkpoint_file)
+            self.trace(
+                event="job_resumed", epoch=self.epoch, checkpoint_file=checkpoint_file
+            )
             self.config.log(
                 "Resumed from {} of job {}".format(
                     checkpoint_file, self.resumed_from_job_id
@@ -292,72 +297,59 @@ class TrainingJob(Job):
             for f in self.pre_batch_hooks:
                 f(self)
 
-            # preprocess batch and perform forward pass
+            # process batch (preprocessing + forward pass + backward pass on loss)
             self.optimizer.zero_grad()
-            loss_value, batch_size, batch_prepare_time, batch_forward_time = self._compute_batch_loss(
+            batch_result: TrainingJob._ProcessBatchResult = self._process_batch(
                 batch_index, batch
             )
-            sum_loss += loss_value.item() * batch_size
-            prepare_time += batch_prepare_time
+            sum_loss += batch_result.avg_loss * batch_result.size
 
-            # determine penalty terms (part of forward pass)
-            batch_forward_time -= time.time()
-            penalty_value = torch.zeros(1, device=self.device)
-            penalty_values = self.model.penalty(
+            # determine penalty terms (forward pass)
+            batch_forward_time = batch_result.forward_time - time.time()
+            penalties_torch = self.model.penalty(
                 epoch=self.epoch,
                 batch_index=batch_index,
                 num_batches=len(self.loader),
                 batch=batch,
             )
-            for pv_index, pv_value in enumerate(penalty_values):
-                penalty_value = penalty_value + pv_value
-                if len(sum_penalties) > pv_index:
-                    sum_penalties[pv_index] += pv_value.item()
-                else:
-                    sum_penalties.append(pv_value.item())
-            sum_penalty += penalty_value.item()
             batch_forward_time += time.time()
 
-            # determine full cost
-            cost_value = loss_value + penalty_value
-            forward_time += batch_forward_time
-
-            # visualize graph
-            if (
-                self.epoch == 1
-                and batch_index == 0
-                and self.config.get("train.visualize_graph")
-            ):
-                from torchviz import make_dot
-
-                f = os.path.join(self.config.folder, "cost_value")
-                graph = make_dot(cost_value, params=dict(self.model.named_parameters()))
-                graph.save(f"{f}.gv")
-                graph.render(f)  # needs graphviz installed
-                self.config.log("Exported compute graph to " + f + ".{gv,pdf}")
-
-            # print memory stats
-            if self.epoch == 1 and batch_index == 0:
-                if self.device.startswith("cuda"):
-                    self.config.log(
-                        "CUDA memory after forward pass: allocated={:14,} cached={:14,} max_allocated={:14,}".format(
-                            torch.cuda.memory_allocated(self.device),
-                            torch.cuda.memory_cached(self.device),
-                            torch.cuda.max_memory_allocated(self.device),
-                        )
-                    )
-
-            # backward pass
-            batch_backward_time = -time.time()
-            cost_value.backward()
+            # backward pass on penalties
+            batch_backward_time = batch_result.backward_time - time.time()
+            penalty = 0.0
+            for index, penalty_value_torch in enumerate(penalties_torch):
+                penalty_value_torch.backward()
+                penalty += penalty_value_torch.item()
+                if len(sum_penalties) > index:
+                    sum_penalties[index] += penalty_value_torch.item()
+                else:
+                    sum_penalties.append(penalty_value_torch.item())
+            sum_penalty += penalty
             batch_backward_time += time.time()
-            backward_time += batch_backward_time
+
+            # determine full cost
+            cost_value = batch_result.avg_loss + penalty
+
+            # TODO # visualize graph
+            # if (
+            #     self.epoch == 1
+            #     and batch_index == 0
+            #     and self.config.get("train.visualize_graph")
+            # ):
+            #     from torchviz import make_dot
+
+            #     f = os.path.join(self.config.folder, "cost_value")
+            #     graph = make_dot(cost_value, params=dict(self.model.named_parameters()))
+            #     graph.save(f"{f}.gv")
+            #     graph.render(f)  # needs graphviz installed
+            #     self.config.log("Exported compute graph to " + f + ".{gv,pdf}")
 
             # print memory stats
             if self.epoch == 1 and batch_index == 0:
                 if self.device.startswith("cuda"):
                     self.config.log(
-                        "CUDA memory after backwrd pass: allocated={:14,} cached={:14,} max_allocated={:14,}".format(
+                        "CUDA memory after first batch: allocated={:14,} "
+                        "cached={:14,} max_allocated={:14,}".format(
                             torch.cuda.memory_allocated(self.device),
                             torch.cuda.memory_cached(self.device),
                             torch.cuda.max_memory_allocated(self.device),
@@ -368,7 +360,6 @@ class TrainingJob(Job):
             batch_optimizer_time = -time.time()
             self.optimizer.step()
             batch_optimizer_time += time.time()
-            optimizer_time += batch_optimizer_time
 
             # tracing/logging
             if self.trace_batch:
@@ -377,35 +368,36 @@ class TrainingJob(Job):
                     "scope": "batch",
                     "epoch": self.epoch,
                     "batch": batch_index,
-                    "size": batch_size,
+                    "size": batch_result.size,
                     "batches": len(self.loader),
-                    "avg_loss": loss_value.item(),
-                    "penalties": [p.item() for p in penalty_values],
-                    "penalty": penalty_value.item(),
+                    "avg_loss": batch_result.avg_loss,
+                    "penalties": [p.item() for p in penalties_torch],
+                    "penalty": penalty,
                     "cost": cost_value.item(),
-                    "prepare_time": batch_prepare_time,
+                    "prepare_time": batch_result.prepare_time,
                     "forward_time": batch_forward_time,
                     "backward_time": batch_backward_time,
                     "optimizer_time": batch_optimizer_time,
                 }
                 for f in self.post_batch_trace_hooks:
                     f(self, batch_trace)
-                self.trace(**batch_trace)
+                self.trace(**batch_trace, event="batch_completed")
             print(
                 (
                     "\r"  # go back
                     + "{}  batch{: "
                     + str(1 + int(math.ceil(math.log10(len(self.loader)))))
-                    + "d}/{}, loss {:.4E}, penalty {:.4E}, cost {:.4E}, time {:6.2f}s"
+                    + "d}/{}"
+                    + ", avg_loss {:.4E}, penalty {:.4E}, cost {:.4E}, time {:6.2f}s"
                     + "\033[K"  # clear to right
                 ).format(
                     self.config.log_prefix,
                     batch_index,
                     len(self.loader) - 1,
-                    loss_value.item(),
-                    penalty_value.item(),
-                    cost_value.item(),
-                    batch_prepare_time
+                    batch_result.avg_loss,
+                    penalty,
+                    cost_value,
+                    batch_result.prepare_time
                     + batch_forward_time
                     + batch_backward_time
                     + batch_optimizer_time,
@@ -413,6 +405,12 @@ class TrainingJob(Job):
                 end="",
                 flush=True,
             )
+
+            # update times
+            prepare_time += batch_result.prepare_time
+            forward_time += batch_forward_time
+            backward_time += batch_backward_time
+            optimizer_time += batch_optimizer_time
 
         # all done; now trace and log
         epoch_time += time.time()
@@ -437,6 +435,7 @@ class TrainingJob(Job):
             backward_time=backward_time,
             optimizer_time=optimizer_time,
             other_time=other_time,
+            event="epoch_completed",
         )
         for f in self.post_epoch_trace_hooks:
             f(self, trace_entry)
@@ -455,8 +454,20 @@ class TrainingJob(Job):
         """
         raise NotImplementedError
 
-    def _compute_batch_loss(self, batch_index, batch):
-        "Returns loss_value (avg over batch), batch size, prepare time, forward time."
+    @dataclass
+    class _ProcessBatchResult:
+        """Result of running forward+backward pass on a batch."""
+
+        avg_loss: float
+        size: int
+        prepare_time: float
+        forward_time: float
+        backward_time: float
+
+    def _process_batch(
+        self, batch_index: int, batch
+    ) -> "TrainingJob._ProcessBatchResult":
+        "Run forward and backward pass on batch and return results."
         raise NotImplementedError
 
 
@@ -546,6 +557,7 @@ class TrainingJobKvsAll(TrainingJob):
             - pairs (nx2 tensor, row = sp or po indexes),
             - label coordinates (position of ones in a batch_size x num_entities tensor)
             - is_sp (vector of size n, 1 if corresponding example_index is sp, 0 if po)
+            - triples (all true triples in the batch: needed for weighted penalties only)
 
             """
             # count how many labels we have
@@ -608,9 +620,9 @@ class TrainingJobKvsAll(TrainingJob):
 
         return collate
 
-    def _compute_batch_loss(self, batch_index, batch):
+    def _process_batch(self, batch_index, batch) -> TrainingJob._ProcessBatchResult:
         # prepare
-        batch_prepare_time = -time.time()
+        prepare_time = -time.time()
         sp_po_batch = batch["sp_po_batch"].to(self.device)
         batch_size = len(sp_po_batch)
         label_coords = batch["label_coords"].to(self.device)
@@ -623,24 +635,39 @@ class TrainingJobKvsAll(TrainingJob):
         if self.label_smoothing > 0.0:
             # as in ConvE: https://github.com/TimDettmers/ConvE
             labels = (1.0 - self.label_smoothing) * labels + 1.0 / labels.size(1)
-        batch_prepare_time += time.time()
+        prepare_time += time.time()
 
-        # forward pass
-        batch_forward_time = -time.time()
-        loss_value = torch.zeros(1, device=self.device)
+        # forward/backward pass (sp)
+        loss_value = 0.0
         if len(sp_indexes) > 0:
+            forward_time = -time.time()
             scores_sp = self.model.score_sp(
                 sp_po_batch[sp_indexes, 0], sp_po_batch[sp_indexes, 1]
             )
-            loss_value = loss_value + self.loss(scores_sp, labels[sp_indexes,])
+            loss_value_sp = self.loss(scores_sp, labels[sp_indexes,]) / batch_size
+            loss_value = +loss_value_sp.item()
+            forward_time += time.time()
+            backward_time = -time.time()
+            loss_value_sp.backward()
+            backward_time += time.time()
+
+        # forward/backward pass (po)
         if len(po_indexes) > 0:
+            forward_time = -time.time()
             scores_po = self.model.score_po(
                 sp_po_batch[po_indexes, 0], sp_po_batch[po_indexes, 1]
             )
-            loss_value = loss_value + self.loss(scores_po, labels[po_indexes,])
-        batch_forward_time += time.time()
+            loss_value_po = self.loss(scores_po, labels[po_indexes,]) / batch_size
+            loss_value = loss_value_po.item()
+            forward_time += time.time()
+            backward_time = -time.time()
+            loss_value_po.backward()
+            backward_time += time.time()
 
-        return loss_value, batch_size, batch_prepare_time, batch_forward_time
+        # all done
+        return TrainingJob._ProcessBatchResult(
+            loss_value, batch_size, prepare_time, forward_time, backward_time
+        )
 
 
 class TrainingJobNegativeSampling(TrainingJob):
@@ -706,160 +733,116 @@ class TrainingJobNegativeSampling(TrainingJob):
 
         return collate
 
-    def _compute_batch_loss(self, batch_index, batch):
+    def _process_batch(self, batch_index, batch) -> TrainingJob._ProcessBatchResult:
         # prepare
-        batch_prepare_time = -time.time()
+        prepare_time = -time.time()
         triples = batch["triples"].to(self.device)
         negative_samples = [ns.to(self.device) for ns in batch["negative_samples"]]
         batch_size = len(triples)
-        batch_prepare_time += time.time()
+        prepare_time += time.time()
 
-        # forward pass
-        batch_forward_time = -time.time()
+        loss_value = 0.0
+        forward_time = 0.0
+        backward_time = 0.0
+        num_negatives = None
+        labels = None
+        for slot in [S, P, O]:
+            if self._sampler.num_negatives[slot] <= 0:
+                continue
 
-        loss_value = torch.zeros(1, device=self.device)
-
-        if self._implementation == "spo":
-            # one call to spo
-            labels = torch.zeros(
-                (batch_size, self._sampler.num_negatives_total + 1), device=self.device
-            )
-            labels[:, 0] = 1
-
-            triples_input = triples.repeat(
-                1, 1 + self._sampler.num_negatives_total
-            ).view(-1, 3)
-            offset = 0
-            for slot in [S, P, O]:
-                if self._sampler.num_negatives[slot] > 0:
-                    triples_input[
-                        list(
-                            itertools.chain(
-                                *map(
-                                    lambda x: range(
-                                        x + 1, x + self._sampler.num_negatives[slot] + 1
-                                    ),
-                                    range(
-                                        offset,
-                                        triples_input.size(0),
-                                        1 + self._sampler.num_negatives_total,
-                                    ),
-                                )
-                            )
-                        ),
-                        ([slot] * self._sampler.num_negatives[slot]) * batch_size,
-                    ] = negative_samples[slot].view(-1)
-                    offset += self._sampler.num_negatives[slot]
-
-            scores = self.model.score_spo(
-                triples_input[:, 0], triples_input[:, 1], triples_input[:, 2]
-            ).view(batch_size, -1)
-
-            loss_value = self.loss(
-                scores, labels, num_negatives=self._sampler.num_negatives_total
-            )
-        elif self._implementation == "sp_po_loop":
-            # one call to sp_po per example
-            labels = torch.zeros(
-                (batch_size, self._sampler.num_negatives_total + 1), device=self.device
-            )
-            labels[:, 0] = 1
-
-            scores = torch.zeros(
-                (batch_size, self._sampler.num_negatives_total + 1), device=self.device
-            )
-
-            # positives
-            scores[:, 0] = self.model.score_spo(
-                triples[:, 0], triples[:, 1], triples[:, 2]
-            ).view(-1)
-
-            # subject samples
-            o, n = 1, self._sampler.num_negatives[S]
-            if n > 0:
-                for i in range(batch_size):
-                    scores[i, o : (o + n)] = self.model.score_po(
-                        triples[i, P].view(1, 1),
-                        triples[i, O].view(1, 1),
-                        negative_samples[S][i, :],
-                    )
-
-            # predicate samples
-            o += n
-            n = self._sampler.num_negatives[P]
-            if n > 0:
-                raise NotImplementedError
-
-            # object samples
-            o += n
-            n = self._sampler.num_negatives[O]
-            if n > 0:
-                for i in range(batch_size):
-                    scores[i, o : (o + n)] = self.model.score_sp(
-                        triples[i, S].view(1, 1),
-                        triples[i, P].view(1, 1),
-                        negative_samples[O][i, :],
-                    )
-
-            loss_value = self.loss(
-                scores, labels, num_negatives=self._sampler.num_negatives_total
-            )
-
-        elif self._implementation == "sp_po":
-
-            for score_fn, target_slot, slot_1, slot_2 in [
-                (self.model.score_sp, O, S, P),
-                (self.model.score_po, S, P, O),
-            ]:
-
-                num_negatives = self._sampler.num_negatives[target_slot]
-
+            # construct gold labels: first column corresponds to positives, rest to negatives
+            if self._sampler.num_negatives[slot] != num_negatives:
+                prepare_time -= time.time()
+                num_negatives = self._sampler.num_negatives[slot]
                 labels = torch.zeros(
-                    (batch_size, num_negatives + 1), device=self.device
+                    (batch_size, 1 + num_negatives), device=self.device
                 )
                 labels[:, 0] = 1
-                labels = labels.view(-1)
+                prepare_time += time.time()
 
-                slot_scores = score_fn(triples[:, slot_1], triples[:, slot_2])
-                target_labels = triples[:, target_slot]
-
-                target_labels_coords = target_labels.view(-1, 1).repeat(1, 2)
-                target_labels_coords[:, 0] = torch.arange(0, target_labels.size(0))
-                label_coords_pick = target_labels_coords.repeat(1, 1 + num_negatives)
-
-                label_coords_pick[
-                    torch.arange(0, target_labels_coords.size(0))
-                    .repeat(num_negatives, 1)
-                    .t()
-                    .contiguous()
-                    .view(-1),
-                    torch.arange(3, (num_negatives + 1) * 2, 2)
-                    .repeat(target_labels_coords.size(0), 1)
-                    .view(-1),
-                ] = negative_samples[target_slot].view(-1)
-
-                label_coords_pick = label_coords_pick.view(-1, 2)
-
-                loss_value = loss_value + self.loss(
-                    slot_scores[label_coords_pick[:, 0], label_coords_pick[:, 1]].view(
-                        batch_size, -1
+            # compute corresponding scores
+            scores = None
+            if self._implementation == "spo":
+                # construct triples
+                prepare_time -= time.time()
+                triples_to_score = triples.repeat(1, 1 + num_negatives).view(-1, 3)
+                triples_to_score[:, slot] = torch.cat(
+                    (
+                        triples[:, [slot]],  # positives
+                        negative_samples[slot],  # negatives
                     ),
-                    labels.view(batch_size, -1),
-                    num_negatives=num_negatives,
+                    1,
+                ).view(-1)
+                prepare_time += time.time()
+
+                # and score them
+                forward_time -= time.time()
+                scores = self.model.score_spo(
+                    triples_to_score[:, 0],
+                    triples_to_score[:, 1],
+                    triples_to_score[:, 2],
+                    direction="s" if slot == S else ("o" if slot == O else "p"),
+                ).view(batch_size, -1)
+                forward_time += time.time()
+            elif self._implementation == "sp_po":
+                # compute all scores for slot
+                forward_time -= time.time()
+                if slot == S:
+                    all_scores = self.model.score_po(triples[:, P], triples[:, O])
+                elif slot == O:
+                    all_scores = self.model.score_sp(triples[:, S], triples[:, P])
+                else:
+                    raise NotImplementedError
+                forward_time += time.time()
+
+                # determine indexes of relevant scores in scoring matrix
+                prepare_time -= time.time()
+                row_indexes = (
+                    torch.arange(batch_size, device=self.device)
+                    .unsqueeze(1)
+                    .repeat(1, 1 + num_negatives)
+                    .view(-1)
+                )  # 000 111 222; each 1+num_negative times (here: 3)
+                column_indexes = torch.cat(
+                    (
+                        triples[:, [slot]],  # positives
+                        negative_samples[slot],  # negatives
+                    ),
+                    1,
+                ).view(-1)
+                prepare_time += time.time()
+
+                # now pick the scores we need
+                forward_time -= time.time()
+                scores = all_scores[row_indexes, column_indexes].view(batch_size, -1)
+                forward_time += time.time()
+            else:
+                raise ValueError(
+                    "invalid implementation: "
+                    "negative_sampling.implementation={}".format(self._implementation)
                 )
-        else:
-            raise ValueError("implementation")
 
-        batch_forward_time += time.time()
+            # compute loss
+            forward_time -= time.time()
+            loss_value_torch = (
+                self.loss(scores, labels, num_negatives=num_negatives) / batch_size
+            )
+            loss_value += loss_value_torch.item()
+            forward_time += time.time()
 
-        return loss_value, batch_size, batch_prepare_time, batch_forward_time
+            # backward pass
+            backward_time -= time.time()
+            loss_value_torch.backward()
+            backward_time += time.time()
+
+        # all done
+        return TrainingJob._ProcessBatchResult(
+            loss_value, batch_size, prepare_time, forward_time, backward_time
+        )
 
 
 class TrainingJob1vsAll(TrainingJob):
-    """Samples SPO pairs and queries sp* and *po, treating all other entities as negative.
-
-    Currently only works with ce loss.
-    """
+    """Samples SPO pairs and queries sp* and *po, treating all other entities as negative."""
 
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
@@ -889,19 +872,34 @@ class TrainingJob1vsAll(TrainingJob):
 
         self.is_prepared = True
 
-    def _compute_batch_loss(self, batch_index, batch):
+    def _process_batch(self, batch_index, batch) -> TrainingJob._ProcessBatchResult:
         # prepare
-        batch_prepare_time = -time.time()
+        prepare_time = -time.time()
         triples = batch["triples"].to(self.device)
         batch_size = len(triples)
-        batch_prepare_time += time.time()
+        prepare_time += time.time()
 
-        # forward pass
-        batch_forward_time = -time.time()
+        # forward/backward pass (sp)
+        forward_time = -time.time()
         scores_sp = self.model.score_sp(triples[:, 0], triples[:, 1])
-        loss_value = self.loss(scores_sp, triples[:, 2])
-        scores_po = self.model.score_po(triples[:, 1], triples[:, 2])
-        loss_value = loss_value + self.loss(scores_po, triples[:, 0])
-        batch_forward_time += time.time()
+        loss_value_sp = self.loss(scores_sp, triples[:, 2]) / batch_size
+        loss_value = loss_value_sp.item()
+        forward_time = +time.time()
+        backward_time = -time.time()
+        loss_value_sp.backward()
+        backward_time += time.time()
 
-        return loss_value, batch_size, batch_prepare_time, batch_forward_time
+        # forward/backward pass (po)
+        forward_time -= time.time()
+        scores_po = self.model.score_po(triples[:, 1], triples[:, 2])
+        loss_value_po = self.loss(scores_po, triples[:, 0]) / batch_size
+        loss_value += loss_value_po.item()
+        forward_time += time.time()
+        backward_time -= time.time()
+        loss_value_po.backward()
+        backward_time += time.time()
+
+        # all done
+        return TrainingJob._ProcessBatchResult(
+            loss_value, batch_size, prepare_time, forward_time, backward_time
+        )

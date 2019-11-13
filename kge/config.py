@@ -478,6 +478,13 @@ class Configurable:
     def __init__(self, config: Config, configuration_key: str = None):
         self._init_configuration(config, configuration_key)
 
+    def has_option(self, name: str) -> bool:
+        try:
+            self.get_option(name)
+            return True
+        except KeyError:
+            return False
+
     def get_option(self, name: str) -> Any:
         if self.configuration_key:
             return self.config.get_default(self.configuration_key + "." + name)
@@ -523,6 +530,8 @@ class Configurable:
 
 
 def _process_deprecated_options(options: Dict[str, Any]):
+    import re
+
     # renames given key (but not subkeys!)
     def rename_key(old_key, new_key):
         if old_key in options:
@@ -536,6 +545,8 @@ def _process_deprecated_options(options: Dict[str, Any]):
             value = options[old_key]
             del options[old_key]
             options[new_key] = value
+            return True
+        return False
 
     # renames a value
     def rename_value(key, old_value, new_value):
@@ -546,16 +557,38 @@ def _process_deprecated_options(options: Dict[str, Any]):
                 )
             )
             options[key] = new_value
+            return True
+        return False
 
     # renames a set of keys matching a regular expression
     def rename_keys_re(key_regex, replacement):
-        import re
-
+        renamed_keys = set()
         regex = re.compile(key_regex)
         for old_key in options.keys():
             new_key = regex.sub(replacement, old_key)
             if old_key != new_key:
                 rename_key(old_key, new_key)
+                renamed_keys.add(new_key)
+        return renamed_keys
+
+    # renames a value of keys matching a regular expression
+    def rename_value_re(key_regex, old_value, new_value):
+        renamed_keys = set()
+        regex = re.compile(key_regex)
+        for key in options.keys():
+            if regex.match(key):
+                if rename_value(key, old_value, new_value):
+                    renamed_keys.add(key)
+        return renamed_keys
+
+    # 30.10.2019
+    rename_value("train.loss", "ce", "kl")
+    rename_keys_re(r"\.regularize_args\.weight$", ".regularize_weight")
+    for p in [1,2,3]:
+        for key in rename_value_re(r".*\.regularize$", f"l{p}", "lp"):
+            new_key = re.sub(r"\.regularize$", ".regularize_args.p", key)
+            options[new_key] = p
+            print(f"Set {new_key}={p}.")
 
     # 21.10.2019
     rename_key("negative_sampling.score_func_type", "negative_sampling.implementation")

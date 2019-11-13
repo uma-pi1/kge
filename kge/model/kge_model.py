@@ -398,6 +398,9 @@ class KgeModel(KgeBase):
                 self.config.get("job.device")
             )
         return (
+            # Note: If the subject and object embedder are identical, embeddings may be
+            # penalized twice. This is intended (and necessary, e.g., if the penalty is
+            # weighted).
             super().penalty(**kwargs)
             + self.get_s_embedder().penalty(slot=S, **kwargs)
             + self.get_p_embedder().penalty(slot=P, **kwargs)
@@ -416,11 +419,15 @@ class KgeModel(KgeBase):
     def get_scorer(self) -> RelationalScorer:
         return self._scorer
 
-    def score_spo(self, s: Tensor, p: Tensor, o: Tensor) -> Tensor:
+    def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         r"""Compute scores for a set of triples.
 
         `s`, `p`, and `o` are vectors of common size :math:`n`, holding the indexes of
         the subjects, relations, and objects to score.
+
+        `direction` may influence how scores are computed. For most models, this setting
+        has no meaning. For reciprocal relations, direction must be either `"s"` or
+        `"o"` (depending on what is predicted).
 
         Returns a vector of size :math:`n`, in which the :math:`i`-th entry holds the
         score of triple :math:`(s_i, p_i, o_i)`.

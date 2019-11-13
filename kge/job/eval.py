@@ -88,9 +88,13 @@ class EvaluationJob(Job):
         self.model = training_job.model
         self.epoch = training_job.epoch
         self.resumed_from_job_id = training_job.resumed_from_job_id
+        self.trace(
+            event="job_resumed", epoch=self.epoch, checkpoint_file=checkpoint_file
+        )
 
 
-## HISTOGRAM COMPUTATION ################################################################
+# HISTOGRAM COMPUTATION ###############################################################
+
 
 def __initialize_hist(hists, key, job):
     """If there is no histogram with given `key` in `hists`, add an empty one."""
@@ -132,7 +136,6 @@ def hist_per_head_and_tail(hists, s, p, o, s_ranks, o_ranks, job, **kwargs):
 
 def hist_per_relation_type(hists, s, p, o, s_ranks, o_ranks, job, **kwargs):
     job.dataset.index_relation_types()
-    masks = list()
     for rel_type, rels in job.dataset.indexes["relations_per_type"].items():
         __initialize_hist(hists, rel_type, job)
         mask = [_p in rels for _p in p.tolist()]

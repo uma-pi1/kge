@@ -9,10 +9,13 @@ from typing import Any, Callable, Dict, List, Optional
 
 def _trace_job_creation(job: "Job"):
     """Create a trace entry for a job"""
+    from torch import __version__ as torch_version
+
     userhome = os.path.expanduser("~")
     username = os.path.split(userhome)[-1]
     job.trace_entry = job.trace(
         git_head=get_git_revision_short_hash(),
+        torch_version=torch_version,
         username=username,
         hostname=socket.gethostname(),
         folder=job.config.folder,
@@ -36,9 +39,7 @@ class Job:
         _save_job_config,
     ]
 
-    def __init__(
-        self, config: Config, dataset: Dataset, parent_job: "Job" = None
-    ):
+    def __init__(self, config: Config, dataset: Dataset, parent_job: "Job" = None):
         self.config = config
         self.dataset = dataset
         self.job_id = str(uuid.uuid4())

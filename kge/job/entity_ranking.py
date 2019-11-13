@@ -269,6 +269,7 @@ class EntityRankingJob(EvaluationJob):
                             o_ranks_filt_test[i].item() + 1
                         )
                     self.trace(
+                        event="example_rank",
                         task="sp",
                         rank=o_ranks[i].item() + 1,
                         rank_filtered=o_ranks_filt[i].item() + 1,
@@ -279,6 +280,7 @@ class EntityRankingJob(EvaluationJob):
                             s_ranks_filt_test[i].item() + 1
                         )
                     self.trace(
+                        event="example_rank",
                         task="po",
                         rank=s_ranks[i].item() + 1,
                         rank_filtered=s_ranks_filt[i].item() + 1,
@@ -300,6 +302,7 @@ class EntityRankingJob(EvaluationJob):
             # optionally: trace batch metrics
             if self.trace_batch:
                 self.trace(
+                    event="batch_completed",
                     type="entity_ranking",
                     scope="batch",
                     data=self.eval_data,
@@ -374,6 +377,7 @@ class EntityRankingJob(EvaluationJob):
             batches=len(self.loader),
             size=len(self.triples),
             epoch_time=epoch_time,
+            event="eval_completed",
             **metrics,
         )
         for f in self.post_epoch_trace_hooks:

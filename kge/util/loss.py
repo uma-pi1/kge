@@ -3,7 +3,11 @@ import torch.nn.functional as F
 
 
 class KgeLoss:
-    """A loss function"""
+    """A loss function.
+
+    When applied to a batch, the resulting loss MUST NOT be averaged by the batch size.
+
+    """
 
     def __init__(self, config):
         self.config = config
@@ -24,10 +28,8 @@ class KgeLoss:
             return MarginRankingKgeLoss(config, margin)
         elif config.get("train.loss") == "soft_margin":
             return SoftMarginKgeLoss(config)
-        elif config.get("train.loss") == "ce":
-            return CrossEntropyKgeLoss(config)
         else:
-            raise ValueError("train.loss")
+            raise ValueError("invalid value train.loss={}".format(config.get("train.loss")))
 
     def __call__(self, scores, labels, **kwargs):
         """Computes the loss given the scores and corresponding labels.
@@ -71,11 +73,11 @@ class KgeLoss:
                 torch.arange(len(labels), device=self.config.get("job.device"))
             ):
                 raise ValueError("exactly one 1 per row required")
-            return x[:,1]
+            return x[:, 1]
 
 
 class BCEWithLogitsKgeLoss(KgeLoss):
-    def __init__(self, config, reduction="mean", **kwargs):
+    def __init__(self, config, reduction="sum", **kwargs):
         super().__init__(config)
         self._loss = torch.nn.BCEWithLogitsLoss(reduction=reduction, **kwargs)
 
@@ -85,40 +87,42 @@ class BCEWithLogitsKgeLoss(KgeLoss):
 
 
 class KLDivWithSoftmaxKgeLoss(KgeLoss):
-    def __init__(self, config, reduction="batchmean", **kwargs):
+    def __init__(self, config, reduction="sum", **kwargs):
         super().__init__(config)
-        self._loss = torch.nn.KLDivLoss(reduction=reduction, **kwargs)
+        self._celoss = torch.nn.CrossEntropyLoss(reduction=reduction, **kwargs)
+        self._klloss = torch.nn.KLDivLoss(reduction=reduction, **kwargs)
 
     def __call__(self, scores, labels, **kwargs):
-        labels = self._labels_as_matrix(scores, labels)
-        return self._loss(
-            F.log_softmax(scores, dim=1), F.normalize(labels.float(), p=1, dim=1)
-        )
-
-
-class CrossEntropyKgeLoss(KgeLoss):
-    def __init__(self, config, reduction="mean", **kwargs):
-        super().__init__(config)
-        self._loss = torch.nn.CrossEntropyLoss(reduction=reduction, **kwargs)
-
-    def __call__(self, scores, labels, **kwargs):
-        labels = self._labels_as_indexes(scores, labels)
-        return self._loss(scores, labels)
+        if labels.dim() == 1:
+            # Labels are indexes of positive classes, i.e., we are in a multiclass
+            # setting. Then kl divergence can be computed more efficiently using
+            # pytorch's CrossEntropyLoss. (since the entropy of the data distribution is
+            # then 0 so kl divergence equals cross entropy)
+            #
+            # Gives same result as:
+            #   labels = self._labels_as_matrix(scores, labels)
+            # followed by using _klloss as below.
+            return self._celoss(scores, labels)
+        else:
+            # label matrix; use KlDivLoss
+            return self._klloss(
+                F.log_softmax(scores, dim=1), F.normalize(labels.float(), p=1, dim=1)
+            )
 
 
 class SoftMarginKgeLoss(KgeLoss):
-    def __init__(self, config, reduction="mean", **kwargs):
+    def __init__(self, config, reduction="sum", **kwargs):
         super().__init__(config)
         self._loss = torch.nn.SoftMarginLoss(reduction=reduction, **kwargs)
 
     def __call__(self, scores, labels, **kwargs):
         labels = self._labels_as_matrix(scores, labels)
-        labels = labels*2 - 1 # expects 1 / -1 as label
+        labels = labels * 2 - 1  # expects 1 / -1 as label
         return self._loss(scores.view(-1), labels.view(-1))
 
 
 class MarginRankingKgeLoss(KgeLoss):
-    def __init__(self, config, margin, reduction="mean", **kwargs):
+    def __init__(self, config, margin, reduction="sum", **kwargs):
         super().__init__(config)
         self._device = config.get("job.device")
         self._train_type = config.get("train.type")
@@ -155,4 +159,3 @@ class MarginRankingKgeLoss(KgeLoss):
             )
         else:
             raise ValueError("train.type for margin ranking.")
-
