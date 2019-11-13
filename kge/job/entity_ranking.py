@@ -88,6 +88,9 @@ class EntityRankingJob(EvaluationJob):
 
         rank_options = ['_raw', '_filt', '_filt_test'] if filtered_valid_with_test else ['_raw', '_filt', '_filt_test']
 
+        # dictionary to specify, which labels to use depending on rank_option
+        labels_dict = defaultdict(lambda: None)
+
         # Initiliaze dictionaries that hold the overall histogram of ranks of true
         # answers. These histograms are used to compute relevant metrics. The dictionary
         # entry with key 'all' collects the overall statistics and is the default.
@@ -117,35 +120,28 @@ class EntityRankingJob(EvaluationJob):
                     test_labels = kge.job.util.coord_to_sparse_tensor(
                         len(batch),
                         2 * num_entities,
-                        test_label_coords.to("cpu"),
-                        "cpu",
+                        test_label_coords,
+                        self.device,
                         float("Inf"),
-                    ).to_dense()
-
-                    # remove current example from labels before chunking
-                    indices = torch.arange(0, o.size(0)).long()
-                    test_labels[indices, o.long()] = 0
-                    test_labels[indices, (s + num_entities).long()] = 0
+                    )
+                    labels_dict['_filt_test'] = test_labels
 
             # compute labels on cpu, since they can be too large for gpu memory
             labels = kge.job.util.coord_to_sparse_tensor(
-                len(batch), 2 * num_entities, label_coords.to("cpu"), "cpu", float("Inf")
-            ).to_dense()
-
-            # remove current example from labels before chunking
-            indices = torch.arange(0, o.size(0)).long()
-            labels[indices, o.long()] = 0
-            labels[indices, (s + num_entities).long()] = 0
+                len(batch), 2 * num_entities, label_coords, self.device, float("Inf")
+            )
+            labels_dict['_filt'] = labels
 
             # compute true scores beforehand, since we can't get them from a chunked score table
             o_true_scores = self.model.score_spo(s, p, o, 'o').view(-1)
             s_true_scores = self.model.score_spo(s, p, o, 's').view(-1)
 
-            # default dictionary returning a list of len 2: [rank, num_ties]
+            # default dictionary storing rank and num_ties for rank_options as list of len 2: [rank, num_ties]
             num_ranks = defaultdict(lambda: [torch.zeros(s.size(0), dtype=torch.long).to(self.device),
                                              torch.zeros(s.size(0), dtype=torch.long).to(self.device)])
 
-            # calculate scores in chunk to not have the complete score matrix in memory
+            # calculate scores in chunks to not have the complete score matrix in memory
+            # a chunk here represents a range of entity_values to score against
             if self.config.get("eval.chunk_size") > -1:
                 chunk_size = self.config.get("eval.chunk_size")
             else:
@@ -170,17 +166,18 @@ class EntityRankingJob(EvaluationJob):
                 scores_sp[o_in_chunk_mask, (o[o_in_chunk_mask] - chunk_start).long()] = o_true_scores[o_in_chunk_mask]
                 scores_po[s_in_chunk_mask, (s[s_in_chunk_mask] - chunk_start).long()] = s_true_scores[s_in_chunk_mask]
 
-                # load the needed part of the labels on the device
-                labels_chunk = self._load_labels_chunk_to_gpu(labels, chunk_start, chunk_end)
-                labels_dict = defaultdict(lambda: None)
-                labels_dict['_filt'] = labels_chunk
-
-                # load test labels if needed
-                if filtered_valid_with_test:
-                    test_labels_chunk = self._load_labels_chunk_to_gpu(test_labels, chunk_start, chunk_end)
-                    labels_dict['_filt_test'] = test_labels_chunk
-
                 for rank_option in rank_options:
+                    if labels_dict[rank_option] is None:
+                        labels_chunk = None
+                    else:
+                        # densify the needed part of the sparse labels tensor
+                        labels_chunk = self._densify_chunk_of_labels(labels_dict[rank_option], chunk_start, chunk_end)
+
+                        # remove current example from labels
+                        indices = torch.arange(0, o.size(0)).long()
+                        labels_chunk[indices, (o[o_in_chunk_mask] - chunk_start).long()] = 0
+                        labels_chunk[indices, (s[s_in_chunk_mask] - chunk_start + (chunk_end - chunk_start)).long()] = 0
+
                     # for _filt_test reuse filtered scores
                     if rank_option == '_filt_test':
                         scores_sp = scores_sp_filt
@@ -188,7 +185,7 @@ class EntityRankingJob(EvaluationJob):
 
                     s_rank_chunk, s_num_ties_chunk, o_rank_chunk, o_num_ties_chunk, scores_sp_filt, scores_po_filt = \
                         self._filter_and_rank(
-                            scores_sp, scores_po, labels_dict[rank_option], o_true_scores, s_true_scores
+                            scores_sp, scores_po, labels_chunk, o_true_scores, s_true_scores
                         )
 
                     num_ranks['s' + rank_option][0] += s_rank_chunk
@@ -383,21 +380,26 @@ class EntityRankingJob(EvaluationJob):
 
         return trace_entry
 
-    def _load_labels_chunk_to_gpu(self, labels, chunk_start, chunk_end):
+    def _densify_chunk_of_labels(self, labels: torch.Tensor, chunk_start: int, chunk_end: int) -> torch.Tensor:
         """
-        loads labels corresponding to a chunk from cpu to gpu
-        :param labels: batch_size x num_entities*2 cpu tensor containing labels
+        Makes a chunk of the sparse labels tensor dense.
+        A chunk here is a range of entity values with 'chunk_start' being the lower bound and
+        'chunk_end' the upper bound
+        :param labels: sparse tensor containing the labels corresponding to the batch
         :param chunk_start: int start index of the chunk
         :param chunk_end: int end index of the chunk
-        :return: chunk of labels tensor on gpu
+        :return: labels corresponding to the chunk as dense tensor
         """
         num_entities = self.dataset.num_entities
-        return torch.cat(
-            (labels[:, chunk_start:chunk_end], labels[:, num_entities + chunk_start:num_entities + chunk_end]),
-            dim=1).to(self.device)
+        indices = labels._indices()
+        mask = (((chunk_start <= indices[1, :]) & (indices[1, :] < chunk_end)) |
+                ((chunk_start + num_entities <= indices[1, :]) & (indices[1, :] < chunk_end + num_entities)))
+        dense_labels = torch.sparse.LongTensor(labels._indices()[:, mask], labels._values()[mask],
+                                               torch.Size([labels.size()[0], (chunk_end-chunk_start)*2])).to_dense()
+        return dense_labels
 
-    def _filter_and_rank(self, scores_sp, scores_po, labels,
-                         o_true_scores, s_true_scores):
+    def _filter_and_rank(self, scores_sp: torch.Tensor, scores_po: torch.Tensor, labels: torch.Tensor,
+                         o_true_scores: torch.Tensor, s_true_scores: torch.Tensor):
         """
         Filters the current examples form the labels and returns counts rank and num_ties
         to calculate the ranks
