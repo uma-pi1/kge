@@ -116,7 +116,7 @@ class EntityRankingJob(EvaluationJob):
             else:  # it's valid
                 label_coords = torch.cat([train_label_coords, valid_label_coords])
                 if filtered_valid_with_test:
-                    # compute labels on cpu, since they can be too large for gpu memory
+                    # create sparse labels tensor
                     test_labels = kge.job.util.coord_to_sparse_tensor(
                         len(batch),
                         2 * num_entities,
@@ -126,7 +126,7 @@ class EntityRankingJob(EvaluationJob):
                     )
                     labels_dict['_filt_test'] = test_labels
 
-            # compute labels on cpu, since they can be too large for gpu memory
+            # create sparse labels tensor
             labels = kge.job.util.coord_to_sparse_tensor(
                 len(batch), 2 * num_entities, label_coords, self.device, float("Inf")
             )
@@ -174,7 +174,6 @@ class EntityRankingJob(EvaluationJob):
                         labels_chunk = self._densify_chunk_of_labels(labels_dict[rank_option], chunk_start, chunk_end)
 
                         # remove current example from labels
-                        indices = torch.arange(0, o.size(0)).long()
                         labels_chunk[o_in_chunk_mask, (o[o_in_chunk_mask] - chunk_start).long()] = 0
                         labels_chunk[s_in_chunk_mask, (s[s_in_chunk_mask] - chunk_start + (chunk_end - chunk_start)).long()] = 0
 
@@ -388,7 +387,7 @@ class EntityRankingJob(EvaluationJob):
         :param labels: sparse tensor containing the labels corresponding to the batch
         :param chunk_start: int start index of the chunk
         :param chunk_end: int end index of the chunk
-        :return: labels corresponding to the chunk as dense tensor
+        :return: batch_size x chunk_size*2 dense tensor with labels corresponding to the chunk
         """
         num_entities = self.dataset.num_entities
         indices = labels._indices()
@@ -413,7 +412,7 @@ class EntityRankingJob(EvaluationJob):
         :param labels: batch_size x 2*chunk_size tensor of scores
         :param o_true_scores: batch_size x 1 tensor containing the scores of the actual objects in batch
         :param s_true_scores: batch_size x 1 tensor containing the scores of the actual subjects in batch
-        :return: batch_size x 1 tensors tensors num_ranks_greater and num_ranks_equal to calculate the ranks
+        :return: batch_size x 1 tensors rank and num_ties for s and o and filtered scores_sp and scores_po
         """
         chunk_size = scores_sp.shape[1]
         if labels is not None:
@@ -432,9 +431,9 @@ class EntityRankingJob(EvaluationJob):
         Returns rank and num_ties
         :param scores: batch_size x entities tensor of scores
         :param true_scores: batch_size x 1 tensor containing the actual scores of the batch
-        :return: batch_size x 1 tensors rank and num_ties to calculate the ranks
+        :return: batch_size x 1 tensors rank and num_ties
         """
-        # process NaN values and extract scores of true answers
+        # process NaN values
         scores = scores.clone()
         scores[torch.isnan(scores)] = float("-Inf")
 
