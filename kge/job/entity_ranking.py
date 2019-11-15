@@ -390,7 +390,7 @@ class EntityRankingJob(EvaluationJob):
         :param labels: sparse tensor containing the labels corresponding to the batch for sp and po
         :param chunk_start: int start index of the chunk
         :param chunk_end: int end index of the chunk
-        :return: batch_size x chunk_size*2 dense tensor with labels corresponding to the chunk
+        :return: batch_size x chunk_size*2 dense tensor with labels for the sp chunk and the po chunk.
         """
         num_entities = self.dataset.num_entities
         indices = labels._indices()
