@@ -148,9 +148,7 @@ class EntityRankingJob(EvaluationJob):
                 chunk_size = self.dataset.num_entities
             for chunk_number in range(math.ceil(num_entities/chunk_size)):
                 chunk_start = chunk_size * chunk_number
-                chunk_end = chunk_size * (chunk_number + 1)
-                if chunk_end > num_entities:
-                    chunk_end = num_entities
+                chunk_end = min(chunk_size * (chunk_number + 1), num_entities)
 
                 # compute scores of chunk
                 scores = self.model.score_sp_po(
