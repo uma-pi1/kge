@@ -163,8 +163,10 @@ class EntityRankingJob(EvaluationJob):
                 # to avoid floating point issues
                 s_in_chunk_mask = (chunk_start <= s) & (s < chunk_end)
                 o_in_chunk_mask = (chunk_start <= o) & (o < chunk_end)
-                scores_sp[o_in_chunk_mask, (o[o_in_chunk_mask] - chunk_start).long()] = o_true_scores[o_in_chunk_mask]
-                scores_po[s_in_chunk_mask, (s[s_in_chunk_mask] - chunk_start).long()] = s_true_scores[s_in_chunk_mask]
+                o_in_chunk = (o[o_in_chunk_mask] - chunk_start).long()
+                s_in_chunk = (s[s_in_chunk_mask] - chunk_start).long()
+                scores_sp[o_in_chunk_mask, o_in_chunk] = o_true_scores[o_in_chunk_mask]
+                scores_po[s_in_chunk_mask, s_in_chunk] = s_true_scores[s_in_chunk_mask]
 
                 for rank_option in rank_options:
                     if labels_dict[rank_option] is None:
@@ -174,8 +176,8 @@ class EntityRankingJob(EvaluationJob):
                         labels_chunk = self._densify_chunk_of_labels(labels_dict[rank_option], chunk_start, chunk_end)
 
                         # remove current example from labels
-                        labels_chunk[o_in_chunk_mask, (o[o_in_chunk_mask] - chunk_start).long()] = 0
-                        labels_chunk[s_in_chunk_mask, (s[s_in_chunk_mask] - chunk_start + (chunk_end - chunk_start)).long()] = 0
+                        labels_chunk[o_in_chunk_mask, o_in_chunk] = 0
+                        labels_chunk[s_in_chunk_mask, s_in_chunk + (chunk_end - chunk_start)] = 0
 
                     # for _filt_test reuse filtered scores
                     if rank_option == '_filt_test':
@@ -383,8 +385,9 @@ class EntityRankingJob(EvaluationJob):
         """
         Makes a chunk of the sparse labels tensor dense.
         A chunk here is a range of entity values with 'chunk_start' being the lower bound and
-        'chunk_end' the upper bound
-        :param labels: sparse tensor containing the labels corresponding to the batch
+        'chunk_end' the upper bound.
+        The resulting tensor contains the labels for the sp chunk and the po chunk.
+        :param labels: sparse tensor containing the labels corresponding to the batch for sp and po
         :param chunk_start: int start index of the chunk
         :param chunk_end: int end index of the chunk
         :return: batch_size x chunk_size*2 dense tensor with labels corresponding to the chunk
@@ -451,8 +454,8 @@ class EntityRankingJob(EvaluationJob):
     def _get_ranks(rank: torch.Tensor, num_ties: torch.Tensor) -> torch.Tensor:
         """
         calculates the actual ranks from the counts
-        :param rank: batch_size x 1 tensor with number of ranks greater than the one of the true score
-        :param num_ties: batch_size x tensor with number of ranks equal as the one of the true score
+        :param rank: batch_size x 1 tensor with number of scores greater than the one of the true score
+        :param num_ties: batch_size x tensor with number of scores equal as the one of the true score
         :return: batch_size x 1 tensor of ranks
         """
         ranks = rank + num_ties // 2
