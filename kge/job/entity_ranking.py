@@ -86,7 +86,7 @@ class EntityRankingJob(EvaluationJob):
             self.eval_data == "valid" and self.filter_valid_with_test
         )
 
-        rank_options = ['_raw', '_filt', '_filt_test'] if filtered_valid_with_test else ['_raw', '_filt', '_filt_test']
+        rank_options = ['_raw', '_filt', '_filt_test'] if filtered_valid_with_test else ['_raw', '_filt']
 
         # dictionary to specify, which labels to use depending on rank_option
         labels_dict = defaultdict(lambda: None)
