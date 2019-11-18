@@ -86,10 +86,16 @@ class EntityRankingJob(EvaluationJob):
             self.eval_data == "valid" and self.filter_valid_with_test
         )
 
-        rank_options = ['_raw', '_filt', '_filt_test'] if filtered_valid_with_test else ['_raw', '_filt']
+        # which rankings to compute (DO NOT REORDER; code assumes the order given here)
+        rankings = (
+            ["_raw", "_filt", "_filt_test"]
+            if filtered_valid_with_test
+            else ["_raw", "_filt"]
+        )
 
-        # dictionary to specify, which labels to use depending on rank_option
-        labels_dict = defaultdict(lambda: None)
+        # dictionary that maps entry of rankings to a sparse tensor containing the
+        # true labels for this option
+        labels_for_ranking = defaultdict(lambda: None)
 
         # Initiliaze dictionaries that hold the overall histogram of ranks of true
         # answers. These histograms are used to compute relevant metrics. The dictionary
@@ -101,7 +107,7 @@ class EntityRankingJob(EvaluationJob):
         # let's go
         epoch_time = -time.time()
         for batch_number, batch_coords in enumerate(self.loader):
-            # construct a label tensor of shape batch_size x 2*num_entities
+            # construct a sparse label tensor of shape batch_size x 2*num_entities
             # entries are either 0 (false) or infinity (true)
             # TODO add timing information
             batch = batch_coords[0].to(self.device)
@@ -113,7 +119,7 @@ class EntityRankingJob(EvaluationJob):
                 label_coords = torch.cat(
                     [train_label_coords, valid_label_coords, test_label_coords]
                 )
-            else:  # it's valid
+            elif self.eval_data == "valid":  # it's valid
                 label_coords = torch.cat([train_label_coords, valid_label_coords])
                 if filtered_valid_with_test:
                     # create sparse labels tensor
@@ -124,21 +130,29 @@ class EntityRankingJob(EvaluationJob):
                         self.device,
                         float("Inf"),
                     )
-                    labels_dict['_filt_test'] = test_labels
+                    labels_for_ranking["_filt_test"] = test_labels
+            else:  # neither test nor valid
+                raise ValueError()
 
             # create sparse labels tensor
             labels = kge.job.util.coord_to_sparse_tensor(
                 len(batch), 2 * num_entities, label_coords, self.device, float("Inf")
             )
-            labels_dict['_filt'] = labels
+            labels_for_ranking["_filt"] = labels
 
-            # compute true scores beforehand, since we can't get them from a chunked score table
-            o_true_scores = self.model.score_spo(s, p, o, 'o').view(-1)
-            s_true_scores = self.model.score_spo(s, p, o, 's').view(-1)
+            # compute true scores beforehand, since we can't get them from a chunked
+            # score table
+            o_true_scores = self.model.score_spo(s, p, o, "o").view(-1)
+            s_true_scores = self.model.score_spo(s, p, o, "s").view(-1)
 
-            # default dictionary storing rank and num_ties for rank_options as list of len 2: [rank, num_ties]
-            num_ranks = defaultdict(lambda: [torch.zeros(s.size(0), dtype=torch.long).to(self.device),
-                                             torch.zeros(s.size(0), dtype=torch.long).to(self.device)])
+            # default dictionary storing rank and num_ties for each key in rankings
+            # as list of len 2: [rank, num_ties]
+            ranks_and_ties_for_ranking = defaultdict(
+                lambda: [
+                    torch.zeros(s.size(0), dtype=torch.long).to(self.device),
+                    torch.zeros(s.size(0), dtype=torch.long).to(self.device),
+                ]
+            )
 
             # calculate scores in chunks to not have the complete score matrix in memory
             # a chunk here represents a range of entity_values to score against
@@ -146,7 +160,9 @@ class EntityRankingJob(EvaluationJob):
                 chunk_size = self.config.get("eval.chunk_size")
             else:
                 chunk_size = self.dataset.num_entities
-            for chunk_number in range(math.ceil(num_entities/chunk_size)):
+
+            # process chunk by chung
+            for chunk_number in range(math.ceil(num_entities / chunk_size)):
                 chunk_start = chunk_size * chunk_number
                 chunk_end = min(chunk_size * (chunk_number + 1), num_entities)
 
@@ -154,11 +170,11 @@ class EntityRankingJob(EvaluationJob):
                 scores = self.model.score_sp_po(
                     s, p, o, torch.arange(chunk_start, chunk_end).to(self.device)
                 )
-                scores_sp = scores[:, :chunk_end - chunk_start]
-                scores_po = scores[:, chunk_end - chunk_start:]
+                scores_sp = scores[:, : chunk_end - chunk_start]
+                scores_po = scores[:, chunk_end - chunk_start :]
 
-                # replace the precomputed true_scores with the ones occurring in the scores matrix
-                # to avoid floating point issues
+                # replace the precomputed true_scores with the ones occurring in the
+                # scores matrix to avoid floating point issues
                 s_in_chunk_mask = (chunk_start <= s) & (s < chunk_end)
                 o_in_chunk_mask = (chunk_start <= o) & (o < chunk_end)
                 o_in_chunk = (o[o_in_chunk_mask] - chunk_start).long()
@@ -166,39 +182,59 @@ class EntityRankingJob(EvaluationJob):
                 scores_sp[o_in_chunk_mask, o_in_chunk] = o_true_scores[o_in_chunk_mask]
                 scores_po[s_in_chunk_mask, s_in_chunk] = s_true_scores[s_in_chunk_mask]
 
-                for rank_option in rank_options:
-                    if labels_dict[rank_option] is None:
+                # now compute the rankings (assumes order: None, _filt, _filt_test)
+                for ranking in rankings:
+                    if labels_for_ranking[ranking] is None:
                         labels_chunk = None
                     else:
                         # densify the needed part of the sparse labels tensor
-                        labels_chunk = self._densify_chunk_of_labels(labels_dict[rank_option], chunk_start, chunk_end)
+                        labels_chunk = self._densify_chunk_of_labels(
+                            labels_for_ranking[ranking], chunk_start, chunk_end
+                        )
 
                         # remove current example from labels
                         labels_chunk[o_in_chunk_mask, o_in_chunk] = 0
-                        labels_chunk[s_in_chunk_mask, s_in_chunk + (chunk_end - chunk_start)] = 0
+                        labels_chunk[
+                            s_in_chunk_mask, s_in_chunk + (chunk_end - chunk_start)
+                        ] = 0
 
-                    # for _filt_test reuse filtered scores
-                    if rank_option == '_filt_test':
-                        scores_sp = scores_sp_filt
-                        scores_po = scores_po_filt
+                    # compute partial ranking and filter the scores (sets scores of true
+                    # labels to infinity)
+                    s_rank_chunk, s_num_ties_chunk, o_rank_chunk, o_num_ties_chunk, scores_sp_filt, scores_po_filt = self._filter_and_rank(
+                        scores_sp, scores_po, labels_chunk, o_true_scores, s_true_scores
+                    )
 
-                    s_rank_chunk, s_num_ties_chunk, o_rank_chunk, o_num_ties_chunk, scores_sp_filt, scores_po_filt = \
-                        self._filter_and_rank(
-                            scores_sp, scores_po, labels_chunk, o_true_scores, s_true_scores
-                        )
+                    # from now on, use filtered scores
+                    scores_sp = scores_sp_filt
+                    scores_po = scores_po_filt
 
-                    num_ranks['s' + rank_option][0] += s_rank_chunk
-                    num_ranks['s' + rank_option][1] += s_num_ties_chunk
-                    num_ranks['o' + rank_option][0] += o_rank_chunk
-                    num_ranks['o' + rank_option][1] += o_num_ties_chunk
+                    # update rankings
+                    ranks_and_ties_for_ranking["s" + ranking][0] += s_rank_chunk
+                    ranks_and_ties_for_ranking["s" + ranking][1] += s_num_ties_chunk
+                    ranks_and_ties_for_ranking["o" + ranking][0] += o_rank_chunk
+                    ranks_and_ties_for_ranking["o" + ranking][1] += o_num_ties_chunk
 
-            # now calculate complete ranks from counts
-            s_ranks = self._get_ranks(num_ranks['s_raw'][0], num_ranks['s_raw'][1])
-            o_ranks = self._get_ranks(num_ranks['o_raw'][0], num_ranks['o_raw'][1])
-            s_ranks_filt = self._get_ranks(num_ranks['s_filt'][0], num_ranks['s_filt'][1])
-            o_ranks_filt = self._get_ranks(num_ranks['o_filt'][0], num_ranks['o_filt'][1])
+                # we are done with the chunk
 
-            # Now update the histograms of of raw ranks and filtered ranks
+            # We are done with all chunks; calculate final ranks from counts
+            s_ranks = self._get_ranks(
+                ranks_and_ties_for_ranking["s_raw"][0],
+                ranks_and_ties_for_ranking["s_raw"][1],
+            )
+            o_ranks = self._get_ranks(
+                ranks_and_ties_for_ranking["o_raw"][0],
+                ranks_and_ties_for_ranking["o_raw"][1],
+            )
+            s_ranks_filt = self._get_ranks(
+                ranks_and_ties_for_ranking["s_filt"][0],
+                ranks_and_ties_for_ranking["s_filt"][1],
+            )
+            o_ranks_filt = self._get_ranks(
+                ranks_and_ties_for_ranking["o_filt"][0],
+                ranks_and_ties_for_ranking["o_filt"][1],
+            )
+
+            # Update the histograms of of raw ranks and filtered ranks
             batch_hists = dict()
             batch_hists_filt = dict()
             for f in self.hist_hooks:
@@ -208,8 +244,14 @@ class EntityRankingJob(EvaluationJob):
             # and the same for filtered_with_test ranks
             if filtered_valid_with_test:
                 batch_hists_filt_test = dict()
-                s_ranks_filt_test = self._get_ranks(num_ranks['s_filt_test'][0], num_ranks['s_filt_test'][1])
-                o_ranks_filt_test = self._get_ranks(num_ranks['o_filt_test'][0], num_ranks['o_filt_test'][1])
+                s_ranks_filt_test = self._get_ranks(
+                    ranks_and_ties_for_ranking["s_filt_test"][0],
+                    ranks_and_ties_for_ranking["s_filt_test"][1],
+                )
+                o_ranks_filt_test = self._get_ranks(
+                    ranks_and_ties_for_ranking["o_filt_test"][0],
+                    ranks_and_ties_for_ranking["o_filt_test"][1],
+                )
                 for f in self.hist_hooks:
                     f(
                         batch_hists_filt_test,
@@ -261,7 +303,7 @@ class EntityRankingJob(EvaluationJob):
                         **entry,
                     )
 
-            # now compute the batch metrics for the full histogram (key "all")
+            # Compute the batch metrics for the full histogram (key "all")
             metrics = self._compute_metrics(batch_hists["all"])
             metrics.update(
                 self._compute_metrics(batch_hists_filt["all"], suffix="_filtered")
@@ -379,41 +421,73 @@ class EntityRankingJob(EvaluationJob):
 
         return trace_entry
 
-    def _densify_chunk_of_labels(self, labels: torch.Tensor, chunk_start: int, chunk_end: int) -> torch.Tensor:
-        """
-        Makes a chunk of the sparse labels tensor dense.
-        A chunk here is a range of entity values with 'chunk_start' being the lower bound and
-        'chunk_end' the upper bound.
+    def _densify_chunk_of_labels(
+        self, labels: torch.Tensor, chunk_start: int, chunk_end: int
+    ) -> torch.Tensor:
+        """Creates a dense chunk of a sparse label tensor.
+
+        A chunk here is a range of entity values with 'chunk_start' being the lower
+        bound and 'chunk_end' the upper bound.
+
         The resulting tensor contains the labels for the sp chunk and the po chunk.
-        :param labels: sparse tensor containing the labels corresponding to the batch for sp and po
+
+        :param labels: sparse tensor containing the labels corresponding to the batch
+        for sp and po
+
         :param chunk_start: int start index of the chunk
+
         :param chunk_end: int end index of the chunk
-        :return: batch_size x chunk_size*2 dense tensor with labels for the sp chunk and the po chunk.
+
+        :return: batch_size x chunk_size*2 dense tensor with labels for the sp chunk and
+        the po chunk.
+
         """
         num_entities = self.dataset.num_entities
         indices = labels._indices()
-        mask_sp = ((chunk_start <= indices[1, :]) & (indices[1, :] < chunk_end))
-        mask_po = ((chunk_start + num_entities) <= indices[1, :]) & (indices[1, :] < (chunk_end + num_entities))
+        mask_sp = (chunk_start <= indices[1, :]) & (indices[1, :] < chunk_end)
+        mask_po = ((chunk_start + num_entities) <= indices[1, :]) & (
+            indices[1, :] < (chunk_end + num_entities)
+        )
         indices_sp_chunk = indices[:, mask_sp]
         indices_sp_chunk[1, :] = indices_sp_chunk[1, :] - chunk_start
         indices_po_chunk = indices[:, mask_po]
-        indices_po_chunk[1, :] = indices_po_chunk[1, :] - num_entities - chunk_start*2 + chunk_end
+        indices_po_chunk[1, :] = (
+            indices_po_chunk[1, :] - num_entities - chunk_start * 2 + chunk_end
+        )
         indices_chunk = torch.cat((indices_sp_chunk, indices_po_chunk), dim=1)
-        dense_labels = torch.sparse.LongTensor(indices_chunk, labels._values()[mask_sp | mask_po],
-                                               torch.Size([labels.size()[0], (chunk_end-chunk_start)*2])).to_dense()
+        dense_labels = torch.sparse.LongTensor(
+            indices_chunk,
+            labels._values()[mask_sp | mask_po],
+            torch.Size([labels.size()[0], (chunk_end - chunk_start) * 2]),
+        ).to_dense()
         return dense_labels
 
-    def _filter_and_rank(self, scores_sp: torch.Tensor, scores_po: torch.Tensor, labels: torch.Tensor,
-                         o_true_scores: torch.Tensor, s_true_scores: torch.Tensor):
-        """
-        Filters the current examples form the labels and returns counts rank and num_ties
-        to calculate the ranks
+    def _filter_and_rank(
+        self,
+        scores_sp: torch.Tensor,
+        scores_po: torch.Tensor,
+        labels: torch.Tensor,
+        o_true_scores: torch.Tensor,
+        s_true_scores: torch.Tensor,
+    ):
+        """Filters the current examples with the given labels and returns counts rank and
+num_ties for each true score.
+
         :param scores_sp: batch_size x chunk_size tensor of scores
+
         :param scores_po: batch_size x chunk_size tensor of scores
+
         :param labels: batch_size x 2*chunk_size tensor of scores
-        :param o_true_scores: batch_size x 1 tensor containing the scores of the actual objects in batch
-        :param s_true_scores: batch_size x 1 tensor containing the scores of the actual subjects in batch
-        :return: batch_size x 1 tensors rank and num_ties for s and o and filtered scores_sp and scores_po
+
+        :param o_true_scores: batch_size x 1 tensor containing the scores of the actual
+        objects in batch
+
+        :param s_true_scores: batch_size x 1 tensor containing the scores of the actual
+        subjects in batch
+
+        :return: batch_size x 1 tensors rank and num_ties for s and o and filtered
+        scores_sp and scores_po
+
         """
         chunk_size = scores_sp.shape[1]
         if labels is not None:
@@ -427,11 +501,15 @@ class EntityRankingJob(EvaluationJob):
         return s_rank, s_num_ties, o_rank, o_num_ties, scores_sp, scores_po
 
     @staticmethod
-    def _get_ranks_and_num_ties(scores: torch.Tensor, true_scores: torch.Tensor) -> (torch.Tensor, torch.Tensor):
-        """
-        Returns rank and num_ties
+    def _get_ranks_and_num_ties(
+        scores: torch.Tensor, true_scores: torch.Tensor
+    ) -> (torch.Tensor, torch.Tensor):
+        """Returns rank and number of ties of each true score in scores.
+
         :param scores: batch_size x entities tensor of scores
+
         :param true_scores: batch_size x 1 tensor containing the actual scores of the batch
+
         :return: batch_size x 1 tensors rank and num_ties
         """
         # process NaN values
@@ -440,26 +518,28 @@ class EntityRankingJob(EvaluationJob):
 
         # Determine how many scores are greater than / equal to each true answer (in its
         # corresponding row of scores)
-        rank = torch.sum(
-            scores > true_scores.view(-1, 1), dim=1, dtype=torch.long
-        )
-        num_ties = torch.sum(
-            scores == true_scores.view(-1, 1), dim=1, dtype=torch.long
-        )
+        rank = torch.sum(scores > true_scores.view(-1, 1), dim=1, dtype=torch.long)
+        num_ties = torch.sum(scores == true_scores.view(-1, 1), dim=1, dtype=torch.long)
         return rank, num_ties
 
     @staticmethod
     def _get_ranks(rank: torch.Tensor, num_ties: torch.Tensor) -> torch.Tensor:
-        """
-        calculates the actual ranks from the counts
-        :param rank: batch_size x 1 tensor with number of scores greater than the one of the true score
-        :param num_ties: batch_size x tensor with number of scores equal as the one of the true score
+        """Calculates the final rank from (minimum) rank and number of ties.
+
+        :param rank: batch_size x 1 tensor with number of scores greater than the one of
+        the true score
+
+        :param num_ties: batch_size x tensor with number of scores equal as the one of
+        the true score
+
         :return: batch_size x 1 tensor of ranks
+
         """
         ranks = rank + num_ties // 2
         return ranks
 
     def _compute_metrics(self, rank_hist, suffix=""):
+        """Computes desired matrix from rank histogram"""
         metrics = {}
         n = torch.sum(rank_hist).item()
 

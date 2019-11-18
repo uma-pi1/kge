@@ -483,20 +483,24 @@ class KgeModel(KgeBase):
 
         return self._scorer.score_emb(s, p, o, combine="*po")
 
-    def score_sp_po(self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None) -> Tensor:
+    def score_sp_po(
+        self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None
+    ) -> Tensor:
         r"""Combine `score_sp` and `score_po`.
 
         `s`, `p` and `o` are vectors of common size :math:`n`, holding the indexes of
         the subjects, relations, and objects to score.
-        `entity_subset` is a vector holding subset of entities to score against
-        (if None: score against all known entities)
+
+        Each sp-pair and each po-pair is scored against the entities in `entity_subset`
+        (also holds indexes). If set to `entity_subset` is `None`, scores against all
+        entities.
 
         The result is the horizontal concatenation of the outputs of
-        :code:`score_sp(s,p)` and :code:`score_po(p,o)`. I.e., returns an :math:`n\times
-        2E` tensor, where :math:`E` is the `entity_subset`. For
-        :math:`j<E`, the :math:`(i,j)`-entry holds the score for triple :math:`(s_i,
-        p_i, j)`. For :math:`j\ge E`, the :math:`(i,j)`-entry holds the score for triple
-        :math:`(j-E, p_i, o_i)`.
+        :code:`score_sp(s,p,entity_subset)` and :code:`score_po(p,o,entity_subset)`.
+        I.e., returns an :math:`n\times 2E` tensor, where :math:`E` is the size of
+        `entity_subset`. For :math:`j<E`, the :math:`(i,j)`-entry holds the score for
+        triple :math:`(s_i, p_i, e_j)`. For :math:`j\ge E`, the :math:`(i,j)`-entry
+        holds the score for triple :math:`(e_{j-E}, p_i, o_i)`.
 
         """
 
