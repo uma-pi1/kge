@@ -918,6 +918,7 @@ class TrainingJob1vsAll(TrainingJob):
 
 class TrainingJobCPUGPU(TrainingJobNegativeSampling):
     def __init__(self, config, dataset, parent_job=None):
+        from kge.job import EvaluationJob
         super().__init__(config, dataset, parent_job)
         dim = self.model._entity_embedder.dim
         self.embedding_cpu_switcher = CPUEmbeddingSwitcher(self.model._entity_embedder.embeddings, dataset.num_entities,
@@ -925,6 +926,13 @@ class TrainingJobCPUGPU(TrainingJobNegativeSampling):
         self.optimizer_cpu_switcher = CPUOptimizerSwitcher(self.optimizer, dataset.num_entities, dim, self.model,
                                                            device=config.get("job.device"))
         self._init_tensor(self.embedding_cpu_switcher.cpu_tensor)
+        valid_conf = config.clone()
+        valid_conf.set("job.type", "eval")
+        valid_conf.set("eval.data", "valid")
+        valid_conf.set("eval.trace_level", self.config.get("valid.trace_level"))
+        self.valid_job = EvaluationJob.create(
+            valid_conf, dataset, parent_job=self, model=self.model, embedding_cpu_switcher=self.embedding_cpu_switcher
+        )
 
     def _init_tensor(self, tensor):
         # TODO: make this work for all embedders, not only lookup_embedder
@@ -1082,3 +1090,35 @@ class TrainingJobCPUGPU(TrainingJobNegativeSampling):
         return TrainingJob._ProcessBatchResult(
             loss_value, batch_size, prepare_time, forward_time, backward_time
         )
+
+    def save(self, filename) -> None:
+        """Save current state to specified file"""
+        self.config.log("Saving checkpoint to {}...".format(filename))
+        torch.save(
+            {
+                "config": self.config,
+                "epoch": self.epoch,
+                "valid_trace": self.valid_trace,
+                "model": self.model.save(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "embedding_cpu_switcher": self.embedding_cpu_switcher.cpu_tensor,
+                "optimizer_cpu_switcher": self.optimizer_cpu_switcher.cpu_var,
+                "job_id": self.job_id,
+            },
+            filename,
+        )
+
+    def load(self, filename: str) -> str:
+        """Load job state from specified file.
+
+        Returns job id of the job that created the checkpoint."""
+        self.config.log("Loading checkpoint from {}...".format(filename))
+        checkpoint = torch.load(filename, map_location="cpu")
+        self.model.load(checkpoint["model"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        self.embedding_cpu_switcher.load(checkpoint["embedding_cpu_switcher"])
+        self.optimizer_cpu_switcher.load(checkpoint["optimizer_cpu_switcher"])
+        self.epoch = checkpoint["epoch"]
+        self.valid_trace = checkpoint["valid_trace"]
+        self.model.train()
+        return checkpoint.get("job_id")

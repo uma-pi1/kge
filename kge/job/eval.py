@@ -60,9 +60,9 @@ class EvaluationJob(Job):
                 f(self)
 
     @staticmethod
-    def create(config, dataset, parent_job=None, model=None):
+    def create(config, dataset, parent_job=None, model=None, embedding_cpu_switcher=None):
         """Factory method to create an evaluation job """
-        from kge.job import EntityRankingJob, EntityPairRankingJob
+        from kge.job import EntityRankingJob, EntityPairRankingJob, EntityRankingJobCpuGpuSwitcher
 
         # create the job
         if config.get("eval.type") == "entity_ranking":
@@ -71,6 +71,10 @@ class EvaluationJob(Job):
             return EntityPairRankingJob(
                 config, dataset, parent_job=parent_job, model=model
             )
+        elif config.get("eval.type") == "entity_ranking_cpu_gpu_switch":
+            return EntityRankingJobCpuGpuSwitcher(config, dataset, parent_job=parent_job, model=model,
+                                                  embedding_cpu_switcher=embedding_cpu_switcher)
+
         else:
             raise ValueError("eval.type")
 

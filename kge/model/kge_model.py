@@ -255,19 +255,7 @@ class KgeModel(KgeBase):
         self._relation_embedder: KgeEmbedder
 
         if initialize_embedders:
-            if config.get("train.type") == "cpu_gpu":
-                num_negatives_s = config.get("negative_sampling.num_negatives_s")
-                if config.get("negative_sampling.num_negatives_o") == -1:
-                    num_negatives_o = config.get("negative_sampling.num_negatives_s")
-                else:
-                    num_negatives_o = config.get("negative_sampling.num_negatives_o")
-
-                embedding_layer_size = int(config.get("train.batch_size")) * 2 + int(
-                    num_negatives_s * num_negatives_o * int(config.get("train.batch_size")))
-                if embedding_layer_size > dataset.num_entities:
-                    embedding_layer_size = dataset.num_entities
-            else:
-                embedding_layer_size = dataset.num_entities
+            embedding_layer_size = self._calc_embedding_layer_size(config, dataset)
 
             self._entity_embedder = KgeEmbedder.create(
                 config,
@@ -294,6 +282,24 @@ class KgeModel(KgeBase):
             )
         else:
             self._scorer = scorer
+
+    @staticmethod
+    def _calc_embedding_layer_size(config, dataset):
+        if config.get("train.type") == "cpu_gpu":
+            num_negatives_s = config.get("negative_sampling.num_negatives_s")
+            if config.get("negative_sampling.num_negatives_o") == -1:
+                num_negatives_o = config.get("negative_sampling.num_negatives_s")
+            else:
+                num_negatives_o = config.get("negative_sampling.num_negatives_o")
+            config_chunk_size = int(config.get("eval.chunk_size"))
+            chunk_size = dataset.num_entities if config_chunk_size == -1 else config_chunk_size
+
+            embedding_layer_size = int(config.get("train.batch_size")) * 2 + int(
+                num_negatives_s * num_negatives_o * int(config.get("train.batch_size"))) + chunk_size
+            embedding_layer_size = min(embedding_layer_size, dataset.num_entities)
+        else:
+            embedding_layer_size = dataset.num_entities
+        return embedding_layer_size
 
     # overridden to also set self.model
     def _init_configuration(self, config: Config, configuration_key: Optional[str]):
