@@ -1,6 +1,6 @@
 import copy
 from kge import Config, Dataset
-from kge.job import SearchJob,Job
+from kge.job import SearchJob, Job
 import kge.job.search
 import concurrent.futures
 
@@ -114,5 +114,10 @@ class ManualSearchJob(SearchJob):
         )
         self.config.log("Best overall result:")
         self.trace(
-            echo=True, echo_prefix="  ", log=True, scope="search", **overall_best
+            event="search_completed",
+            echo=True,
+            echo_prefix="  ",
+            log=True,
+            scope="search",
+            **overall_best
         )
