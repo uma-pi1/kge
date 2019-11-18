@@ -204,6 +204,7 @@ eval:
   num_workers: 0
   pin_memory: False
   trace_level: example            # example or batch or epoch
+  chunk_size: -1                  # default no chunking
 
   # Metrics are always computed over the entire evaluation data. Optionally,
   # certain more specific metric can be computed in addition.

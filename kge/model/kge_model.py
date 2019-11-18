@@ -483,18 +483,24 @@ class KgeModel(KgeBase):
 
         return self._scorer.score_emb(s, p, o, combine="*po")
 
-    def score_sp_po(self, s: Tensor, p: Tensor, o: Tensor) -> Tensor:
+    def score_sp_po(
+        self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None
+    ) -> Tensor:
         r"""Combine `score_sp` and `score_po`.
 
         `s`, `p` and `o` are vectors of common size :math:`n`, holding the indexes of
         the subjects, relations, and objects to score.
 
+        Each sp-pair and each po-pair is scored against the entities in `entity_subset`
+        (also holds indexes). If set to `entity_subset` is `None`, scores against all
+        entities.
+
         The result is the horizontal concatenation of the outputs of
-        :code:`score_sp(s,p)` and :code:`score_po(p,o)`. I.e., returns an :math:`n\times
-        2E` tensor, where :math:`E` is the total number of known entities. For
-        :math:`j<E`, the :math:`(i,j)`-entry holds the score for triple :math:`(s_i,
-        p_i, j)`. For :math:`j\ge E`, the :math:`(i,j)`-entry holds the score for triple
-        :math:`(j-E, p_i, o_i)`.
+        :code:`score_sp(s,p,entity_subset)` and :code:`score_po(p,o,entity_subset)`.
+        I.e., returns an :math:`n\times 2E` tensor, where :math:`E` is the size of
+        `entity_subset`. For :math:`j<E`, the :math:`(i,j)`-entry holds the score for
+        triple :math:`(s_i, p_i, e_j)`. For :math:`j\ge E`, the :math:`(i,j)`-entry
+        holds the score for triple :math:`(e_{j-E}, p_i, o_i)`.
 
         """
 
@@ -502,12 +508,19 @@ class KgeModel(KgeBase):
         p = self.get_p_embedder().embed(p)
         o = self.get_o_embedder().embed(o)
         if self.get_s_embedder() is self.get_o_embedder():
-            all_entities = self.get_s_embedder().embed_all()
+            if entity_subset is not None:
+                all_entities = self.get_s_embedder().embed(entity_subset)
+            else:
+                all_entities = self.get_s_embedder().embed_all()
             sp_scores = self._scorer.score_emb(s, p, all_entities, combine="sp*")
             po_scores = self._scorer.score_emb(all_entities, p, o, combine="*po")
         else:
-            all_objects = self.get_o_embedder().embed_all()
+            if entity_subset is not None:
+                all_objects = self.get_o_embedder().embed(entity_subset)
+                all_subjects = self.get_s_embedder().embed(entity_subset)
+            else:
+                all_objects = self.get_o_embedder().embed_all()
+                all_subjects = self.get_s_embedder().embed_all()
             sp_scores = self._scorer.score_emb(s, p, all_objects, combine="sp*")
-            all_subjects = self.get_s_embedder().embed_all()
             po_scores = self._scorer.score_emb(all_subjects, p, o, combine="*po")
         return torch.cat((sp_scores, po_scores), dim=1)
