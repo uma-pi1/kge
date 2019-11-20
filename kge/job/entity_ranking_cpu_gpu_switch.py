@@ -31,10 +31,16 @@ class EntityRankingJobCpuGpuSwitcher(EntityRankingJob):
                 self.eval_data == "valid" and self.filter_valid_with_test
         )
 
-        rank_options = ['_raw', '_filt', '_filt_test'] if filtered_valid_with_test else ['_raw', '_filt']
+        # which rankings to compute (DO NOT REORDER; code assumes the order given here)
+        rankings = (
+            ["_raw", "_filt", "_filt_test"]
+            if filtered_valid_with_test
+            else ["_raw", "_filt"]
+        )
 
-        # dictionary to specify, which labels to use depending on rank_option
-        labels_dict = defaultdict(lambda: None)
+        # dictionary that maps entry of rankings to a sparse tensor containing the
+        # true labels for this option
+        labels_for_ranking = defaultdict(lambda: None)
 
         # Initiliaze dictionaries that hold the overall histogram of ranks of true
         # answers. These histograms are used to compute relevant metrics. The dictionary
@@ -46,7 +52,7 @@ class EntityRankingJobCpuGpuSwitcher(EntityRankingJob):
         # let's go
         epoch_time = -time.time()
         for batch_number, batch_coords in enumerate(self.loader):
-            # construct a label tensor of shape batch_size x 2*num_entities
+            # construct a sparse label tensor of shape batch_size x 2*num_entities
             # entries are either 0 (false) or infinity (true)
             # TODO add timing information
             batch = batch_coords[0].to(self.device)
@@ -58,7 +64,7 @@ class EntityRankingJobCpuGpuSwitcher(EntityRankingJob):
                 label_coords = torch.cat(
                     [train_label_coords, valid_label_coords, test_label_coords]
                 )
-            else:  # it's valid
+            elif self.eval_data == "valid":  # it's valid
                 label_coords = torch.cat([train_label_coords, valid_label_coords])
                 if filtered_valid_with_test:
                     # create sparse labels tensor
@@ -69,13 +75,15 @@ class EntityRankingJobCpuGpuSwitcher(EntityRankingJob):
                         self.device,
                         float("Inf"),
                     )
-                    labels_dict['_filt_test'] = test_labels
+                    labels_for_ranking["_filt_test"] = test_labels
+            else:  # neither test nor valid
+                raise ValueError()
 
             # create sparse labels tensor
             labels = kge.job.util.coord_to_sparse_tensor(
                 len(batch), 2 * num_entities, label_coords, self.device, float("Inf")
             )
-            labels_dict['_filt'] = labels
+            labels_for_ranking["_filt"] = labels
 
             # move embeddings of batch to gpu
             s = s.clone()
@@ -87,13 +95,19 @@ class EntityRankingJobCpuGpuSwitcher(EntityRankingJob):
             s = s.clone()
             o = o.clone()
 
-            # compute true scores beforehand, since we can't get them from a chunked score table
-            o_true_scores = self.model.score_spo(s_mapped, p, o_mapped, 'o').view(-1)
-            s_true_scores = self.model.score_spo(s_mapped, p, o_mapped, 's').view(-1)
+            # compute true scores beforehand, since we can't get them from a chunked
+            # score table
+            o_true_scores = self.model.score_spo(s_mapped, p, o_mapped, "o").view(-1)
+            s_true_scores = self.model.score_spo(s_mapped, p, o_mapped, "s").view(-1)
 
-            # default dictionary storing rank and num_ties for rank_options as list of len 2: [rank, num_ties]
-            num_ranks = defaultdict(lambda: [torch.zeros(s.size(0), dtype=torch.long).to(self.device),
-                                             torch.zeros(s.size(0), dtype=torch.long).to(self.device)])
+            # default dictionary storing rank and num_ties for each key in rankings
+            # as list of len 2: [rank, num_ties]
+            ranks_and_ties_for_ranking = defaultdict(
+                lambda: [
+                    torch.zeros(s.size(0), dtype=torch.long).to(self.device),
+                    torch.zeros(s.size(0), dtype=torch.long).to(self.device),
+                ]
+            )
 
             # calculate scores in chunks to not have the complete score matrix in memory
             # a chunk here represents a range of entity_values to score against
@@ -101,6 +115,8 @@ class EntityRankingJobCpuGpuSwitcher(EntityRankingJob):
                 chunk_size = self.config.get("eval.chunk_size")
             else:
                 chunk_size = self.dataset.num_entities
+
+            # process chunk by chung
             for chunk_number in range(math.ceil(num_entities / chunk_size)):
                 chunk_start = chunk_size * chunk_number
                 chunk_end = min(chunk_size * (chunk_number + 1), num_entities)
@@ -120,11 +136,11 @@ class EntityRankingJobCpuGpuSwitcher(EntityRankingJob):
                 scores = self.model.score_sp_po(
                     s_mapped, p, o_mapped, chunk_index_mapped
                 )
-                scores_sp = scores[:, :chunk_end - chunk_start]
+                scores_sp = scores[:, : chunk_end - chunk_start]
                 scores_po = scores[:, chunk_end - chunk_start:]
 
-                # replace the precomputed true_scores with the ones occurring in the scores matrix
-                # to avoid floating point issues
+                # replace the precomputed true_scores with the ones occurring in the
+                # scores matrix to avoid floating point issues
                 s_in_chunk_mask = (chunk_start <= s) & (s < chunk_end)
                 o_in_chunk_mask = (chunk_start <= o) & (o < chunk_end)
                 o_in_chunk = (o[o_in_chunk_mask] - chunk_start).long()
@@ -132,39 +148,59 @@ class EntityRankingJobCpuGpuSwitcher(EntityRankingJob):
                 scores_sp[o_in_chunk_mask, o_in_chunk] = o_true_scores[o_in_chunk_mask]
                 scores_po[s_in_chunk_mask, s_in_chunk] = s_true_scores[s_in_chunk_mask]
 
-                for rank_option in rank_options:
-                    if labels_dict[rank_option] is None:
+                # now compute the rankings (assumes order: None, _filt, _filt_test)
+                for ranking in rankings:
+                    if labels_for_ranking[ranking] is None:
                         labels_chunk = None
                     else:
                         # densify the needed part of the sparse labels tensor
-                        labels_chunk = self._densify_chunk_of_labels(labels_dict[rank_option], chunk_start, chunk_end)
+                        labels_chunk = self._densify_chunk_of_labels(
+                            labels_for_ranking[ranking], chunk_start, chunk_end
+                        )
 
                         # remove current example from labels
                         labels_chunk[o_in_chunk_mask, o_in_chunk] = 0
-                        labels_chunk[s_in_chunk_mask, s_in_chunk + (chunk_end - chunk_start)] = 0
+                        labels_chunk[
+                            s_in_chunk_mask, s_in_chunk + (chunk_end - chunk_start)
+                        ] = 0
 
-                    # for _filt_test reuse filtered scores
-                    if rank_option == '_filt_test':
-                        scores_sp = scores_sp_filt
-                        scores_po = scores_po_filt
+                    # compute partial ranking and filter the scores (sets scores of true
+                    # labels to infinity)
+                    s_rank_chunk, s_num_ties_chunk, o_rank_chunk, o_num_ties_chunk, scores_sp_filt, scores_po_filt = self._filter_and_rank(
+                        scores_sp, scores_po, labels_chunk, o_true_scores, s_true_scores
+                    )
 
-                    s_rank_chunk, s_num_ties_chunk, o_rank_chunk, o_num_ties_chunk, scores_sp_filt, scores_po_filt = \
-                        self._filter_and_rank(
-                            scores_sp, scores_po, labels_chunk, o_true_scores, s_true_scores
-                        )
+                    # from now on, use filtered scores
+                    scores_sp = scores_sp_filt
+                    scores_po = scores_po_filt
 
-                    num_ranks['s' + rank_option][0] += s_rank_chunk
-                    num_ranks['s' + rank_option][1] += s_num_ties_chunk
-                    num_ranks['o' + rank_option][0] += o_rank_chunk
-                    num_ranks['o' + rank_option][1] += o_num_ties_chunk
+                    # update rankings
+                    ranks_and_ties_for_ranking["s" + ranking][0] += s_rank_chunk
+                    ranks_and_ties_for_ranking["s" + ranking][1] += s_num_ties_chunk
+                    ranks_and_ties_for_ranking["o" + ranking][0] += o_rank_chunk
+                    ranks_and_ties_for_ranking["o" + ranking][1] += o_num_ties_chunk
 
-            # now calculate complete ranks from counts
-            s_ranks = self._get_ranks(num_ranks['s_raw'][0], num_ranks['s_raw'][1])
-            o_ranks = self._get_ranks(num_ranks['o_raw'][0], num_ranks['o_raw'][1])
-            s_ranks_filt = self._get_ranks(num_ranks['s_filt'][0], num_ranks['s_filt'][1])
-            o_ranks_filt = self._get_ranks(num_ranks['o_filt'][0], num_ranks['o_filt'][1])
+                # we are done with the chunk
 
-            # Now update the histograms of of raw ranks and filtered ranks
+            # We are done with all chunks; calculate final ranks from counts
+            s_ranks = self._get_ranks(
+                ranks_and_ties_for_ranking["s_raw"][0],
+                ranks_and_ties_for_ranking["s_raw"][1],
+            )
+            o_ranks = self._get_ranks(
+                ranks_and_ties_for_ranking["o_raw"][0],
+                ranks_and_ties_for_ranking["o_raw"][1],
+            )
+            s_ranks_filt = self._get_ranks(
+                ranks_and_ties_for_ranking["s_filt"][0],
+                ranks_and_ties_for_ranking["s_filt"][1],
+            )
+            o_ranks_filt = self._get_ranks(
+                ranks_and_ties_for_ranking["o_filt"][0],
+                ranks_and_ties_for_ranking["o_filt"][1],
+            )
+
+            # Update the histograms of of raw ranks and filtered ranks
             batch_hists = dict()
             batch_hists_filt = dict()
             for f in self.hist_hooks:
@@ -174,8 +210,14 @@ class EntityRankingJobCpuGpuSwitcher(EntityRankingJob):
             # and the same for filtered_with_test ranks
             if filtered_valid_with_test:
                 batch_hists_filt_test = dict()
-                s_ranks_filt_test = self._get_ranks(num_ranks['s_filt_test'][0], num_ranks['s_filt_test'][1])
-                o_ranks_filt_test = self._get_ranks(num_ranks['o_filt_test'][0], num_ranks['o_filt_test'][1])
+                s_ranks_filt_test = self._get_ranks(
+                    ranks_and_ties_for_ranking["s_filt_test"][0],
+                    ranks_and_ties_for_ranking["s_filt_test"][1],
+                )
+                o_ranks_filt_test = self._get_ranks(
+                    ranks_and_ties_for_ranking["o_filt_test"][0],
+                    ranks_and_ties_for_ranking["o_filt_test"][1],
+                )
                 for f in self.hist_hooks:
                     f(
                         batch_hists_filt_test,
@@ -227,7 +269,7 @@ class EntityRankingJobCpuGpuSwitcher(EntityRankingJob):
                         **entry,
                     )
 
-            # now compute the batch metrics for the full histogram (key "all")
+            # Compute the batch metrics for the full histogram (key "all")
             metrics = self._compute_metrics(batch_hists["all"])
             metrics.update(
                 self._compute_metrics(batch_hists_filt["all"], suffix="_filtered")
