@@ -5,6 +5,7 @@ import os
 import torch
 import sys
 import csv
+import configparser
 
 from kge.util.misc import kge_base_dir
 
@@ -79,15 +80,22 @@ class ObjectDumper:
         else:
             raise NotImplementedError
 
+        keymap = {}
         if args.keys:
-            with open(args.keys, "rb") as keyfile:
-                keys = keyfile.readlines()
+
+            suffix = ""
+            if not args.csv:
+                suffix = "_name"
+            with open(args.keys, "r") as keyfile:
+                for line in keyfile:
+                    keymap[line.rstrip("\n").split("=")[0].strip()+suffix] = line.rstrip("\n").split("=")[1].strip()
 
         checkpoint = torch.load(f=checkpoint, map_location="cpu")
         config = checkpoint["config"]
         job_id = checkpoint["job_id"]
+        epoch = checkpoint["epoch"]
 
-        #TODO if args.csv a predefined set of keys is used
+        #TODO if args.csv a predefined set of keymap is used
         # until this is discussed, don't filter out anything
         if args.csv:
             args.eval = True
@@ -97,18 +105,16 @@ class ObjectDumper:
         conjunctions = []
         for arg, pattern in zip(
                                  [args.eval, args.test],
-                                 ["job: eval", "(?=.*data: test)(?=.*job: eval)"]
+                                 ["(?=.*data: valid)(?=.*job: eval)", "(?=.*data: test)(?=.*job: eval)"]
                             ):
             if arg:
                 disjunctions.append(pattern)
         if not args.batch:
-            # TODO: if --batch is set then also scope:example is included like this
             conjunctions.append("scope: epoch")
         # train entries have to be kept initially in all cases to be able to reconstruct the chain
         disjunctions.append("job: train")
         # throw away meta entries
         conjunctions.append("epoch: ")
-
         write = None
         if args.csv:
             csvwriter = csv.writer(sys.stdout)
@@ -124,14 +130,14 @@ class ObjectDumper:
                 "dataset.name",
                 "train.optimizer",
                 "train.optimizer_args.lr"
-
             ]
-            csvwriter.writerow(use_from_config + use_from_trace)
-
+            csvwriter.writerow(
+                [keymap[key] if key in keymap.keys() else key for key in use_from_config] +
+                [keymap[key] if key in keymap.keys() else key for key in use_from_trace]
+            )
         entries = []
         conjunctions = [re.compile(pattern) for pattern in conjunctions]
         disjunctions = [re.compile(pattern) for pattern in disjunctions]
-
         with open(trace, "r") as file:
             for line in file:
                 if not(
@@ -141,49 +147,48 @@ class ObjectDumper:
                     continue
                 entry = yaml.load(line, Loader=yaml.SafeLoader)
                 entries.append(entry)
-
+        # unique sequence of job id's that led to the checkpoint
+        job_ids = [job_id]
         current_job_id = job_id
-        previous_job_id = "None"
-        idx = len(entries) - 1
-        # when the user only wants eval entries you still need the training entries here
-        # because only they give you the correct chain to the checkpoint, i. e. help to determine the relevant eval entries
-        while(idx>=0):
-            use = False
-            entry = entries[idx]
-            # train entry of current job id
+        resumed_from = None
+        for entry in entries[::-1]:
             if entry.get("job") == "train":
-                if entry.get("job_id") == current_job_id:
-                    previous_job_id = entry.get("resumed_from_job_id")
-                    if not previous_job_id:
-                        # job is not resumed
-                        previous_job_id == current_job_id
-                    if args.train:
-                        use = True
-                # resumed train entry
-                elif entry.get("job_id") == previous_job_id:
-                    if args.train:
-                        use = True
-                    current_job_id = entry.get("job_id")
-            # valid/test
-            elif entry.get("job") == "eval":
-                if (
-                        # valid entries can appear between the same training job or between different jobs
-                        entry.get("parent_job_id") == previous_job_id or
-                        entry.get("parent_job_id") == current_job_id or
-                        # this part includes test entries and eval entries created from 'kge test' / 'kge eval'
-                        entry.get("resumed_from_job_id") == previous_job_id or
-                        entry.get("resumed_from_job_id") == previous_job_id
-                ):
-                  use = True
-            if not use:
-                del entries[idx]
-            idx -= 1
+                entry_job_id = entry.get("job_id")
+                if entry_job_id == current_job_id:
+                    resumed_id = entry.get("resumed_from_job_id")
+                    if not resumed_id:
+                        break
+                    elif resumed_id:
+                        resumed_from = resumed_id
+                elif entry_job_id == resumed_from:
+                    current_job_id = entry_job_id
+                    job_ids.insert(0, current_job_id)
+                    resumed_id = entry.get("resumed_from_job_id")
+                    if not resumed_id:
+                        break
+                    elif resumed_id:
+                        resumed_from = resumed_id
         for entry in entries:
+            if not (
+                     (
+                        (entry.get("job") == "train" and entry.get("job_id") in job_ids) or
+                        # test and eval entries from "kge test", "kge eval"
+                        (entry.get("job") == "eval" and entry.get("resumed_from_job_id") in job_ids) or
+                        # eval entries from a training job
+                        (entry.get("job") == "eval" and entry.get("parent_job_id") in job_ids)
+                     ) and
+                     (entry.get("epoch") <= epoch)
+            ):
+                continue
+            if not args.train and entry.get("job") == "train":
+                continue
             if args.csv:
                 row_config = [config.get(el) for el in use_from_config]
                 row_trace = [entry.get(el) for el in use_from_trace]
                 csvwriter.writerow(row_config + row_trace)
             else:
+                if keymap:
+                    entry.update(keymap)
                 sys.stdout.write(yaml.dump(entry).replace("\n",", "))
                 sys.stdout.write("\n")
 
