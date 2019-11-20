@@ -17,18 +17,40 @@ class SwitcherBase:
         self.device = device
 
     def set_indexes(self, index):
+        """
+        set the indexes for the tensor on CPU
+        :param index: one dimensional tensor containing indexes for CPU tensor
+        :return: None
+        """
         self.indexes = index.to("cpu").long()
 
     def set_mapped_index(self, mapped_index):
+        """
+        set the mapped indexes for tensor on GPU
+        :param mapped_index: one dimensional tensor containing mapped indexes for GPU
+        :return: None
+        """
         self.mapped_indexes = mapped_index.to(self.device).long()
 
     def create_indexes(self, indexes, device="cuda"):
+        """
+        create indexes to map the ids of the entities to the ids corresponding to the smaller tensors on GPU
+        :param indexes: one dimensional tensor with the indexes to map.
+        :param device: cuda device
+        :return: None
+        """
         self.indexes = indexes.to("cpu").long()
         self.mapped_indexes = torch.arange(len(indexes))
         self.mapper = dict(zip(self.indexes.numpy(), self.mapped_indexes.cpu().numpy()))
         self.mapped_indexes = self.mapped_indexes.to(device).long()
 
     def map_indexes(self, values, device="cuda"):
+        """
+        map ids of the entities to the ids corresponding to the smaller tensors on GPU
+        :param values: one dimensional tensor containing ids to map
+        :param device: cuda device
+        :return: one dimensional tensor containing the mapped indexes
+        """
         mapped = np.vectorize(self.mapper.get)(values.cpu().numpy())
         #mapped = values.cpu().apply_(lambda x: self.mapper[x])
         return torch.LongTensor(mapped).to(device)
@@ -68,29 +90,34 @@ class CPUOptimizerSwitcher(SwitcherBase):
         self._pin_tensors()
 
     def _get_optimizer_key(self):
-        # Figure out which index for given variable
+        """
+        get the optimizer key for the layer/tensor to optimize
+        :return: optimizer key
+        """
         optimizer_index = None
         for i, item in enumerate(self.model.named_parameters()):
-            # with -7 we cut off .weight of _entity_embedder.embeddings.weight
-            if item[0][:-7] == self.variable_name:
+            if item[0] == f"{self.variable_name}.weight":
                 optimizer_index = i
         if optimizer_index is None:
             print("Error: No variable with that name is in Model. Please initialize again with correct name")
-            return
+            exit(1)
 
         optimizer_key_list = list(self.optimizer.state_dict()["state"].keys())
         optimizer_key = optimizer_key_list[optimizer_index]
         return optimizer_key
 
     def _initialize_optimizer_state(self):
-        # Some optimizers do not initialize its state until after first step
-        # So they need to initialized here
+        """
+        Some optimizers do not initialize its state until after the first step.
+        Therefore initialize them here
+        :return: list of optimizer variables
+        """
         for group in self.optimizer.param_groups:
             for p in group["params"]:
                 state = self.optimizer.state[p]
                 # State initialization
 
-                if self.optimizer.__str__().split(' ', 1)[0] == "Adagrad":
+                if self.optimizer.__str__().split(" ", 1)[0] == "Adagrad":
                     optimizer_variable_list = ["sum"]
                     return optimizer_variable_list
                 else:
@@ -98,6 +125,10 @@ class CPUOptimizerSwitcher(SwitcherBase):
                     exit(1)
 
     def _initialize_tensors(self):
+        """
+        Initialize the tensors for the optimizer variables on cpu
+        :return: None
+        """
         for i in range(len(self.optimizer_variable_list)):
             self.cpu_var.append(torch.zeros(size=(self.num_embeddings, self.dimension),
                                             dtype=torch.float, device="cpu"))
