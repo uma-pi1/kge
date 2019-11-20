@@ -79,29 +79,39 @@ class ObjectDumper:
         else:
             raise NotImplementedError
 
-        checkpoint = torch.load(f=checkpoint, map_location="cpu")
-        epoch = checkpoint["epoch"]
-        config = checkpoint["config"]
+        if args.keys:
+            with open(args.keys, "rb") as keyfile:
+                keys = keyfile.readlines()
 
+        checkpoint = torch.load(f=checkpoint, map_location="cpu")
+        config = checkpoint["config"]
+        job_id = checkpoint["job_id"]
+
+        #TODO if args.csv a predefined set of keys is used
+        # until this is discussed, don't filter out anything
+        if args.csv:
+            args.eval = True
+            args.test = True
+            args.train = True
         disjunctions = []
         conjunctions = []
         for arg, pattern in zip(
-                                 [args.train, args.eval, args.test],
-                                 ["job: train", "job: eval", "(?=.*data: test)(?=.*job: eval)"]
+                                 [args.eval, args.test],
+                                 ["job: eval", "(?=.*data: test)(?=.*job: eval)"]
                             ):
             if arg:
                 disjunctions.append(pattern)
         if not args.batch:
             # TODO: if --batch is set then also scope:example is included like this
             conjunctions.append("scope: epoch")
-
+        # train entries have to be kept initially in all cases to be able to reconstruct the chain
+        disjunctions.append("job: train")
         # throw away meta entries
         conjunctions.append("epoch: ")
 
         write = None
         if args.csv:
-            csvfile = open(kge_base_dir() + '/local/dump.csv', 'w', newline="")
-            csvwriter = csv.writer(csvfile)
+            csvwriter = csv.writer(sys.stdout)
             valid_metric = config.get("valid.metric")
             use_from_trace = [
                 "epoch",
@@ -117,25 +127,65 @@ class ObjectDumper:
 
             ]
             csvwriter.writerow(use_from_config + use_from_trace)
+
+        entries = []
+        conjunctions = [re.compile(pattern) for pattern in conjunctions]
+        disjunctions = [re.compile(pattern) for pattern in disjunctions]
+
         with open(trace, "r") as file:
             for line in file:
                 if not(
-                        any(map(lambda string: re.compile(string).search(line), disjunctions)) and
-                        all(map(lambda string: re.compile(string).search(line), conjunctions))
+                        any(map(lambda pattern: pattern.search(line), disjunctions)) and
+                        all(map(lambda pattern: pattern.search(line), conjunctions))
                 ):
                     continue
                 entry = yaml.load(line, Loader=yaml.SafeLoader)
-                if entry["epoch"] > epoch:
-                    break
-                line = line.replace("{", "").replace("}", "")
-                if args.csv:
-                    row_config = [config.get(el) for el in use_from_config]
-                    row_trace = [entry.get(el) for el in use_from_trace]
-                    csvwriter.writerow(row_config + row_trace)
-                else:
-                    sys.stdout.write(line)
+                entries.append(entry)
+
+        current_job_id = job_id
+        previous_job_id = "None"
+        idx = len(entries) - 1
+        # when the user only wants eval entries you still need the training entries here
+        # because only they give you the correct chain to the checkpoint, i. e. help to determine the relevant eval entries
+        while(idx>=0):
+            use = False
+            entry = entries[idx]
+            # train entry of current job id
+            if entry.get("job") == "train":
+                if entry.get("job_id") == current_job_id:
+                    previous_job_id = entry.get("resumed_from_job_id")
+                    if not previous_job_id:
+                        # job is not resumed
+                        previous_job_id == current_job_id
+                    if args.train:
+                        use = True
+                # resumed train entry
+                elif entry.get("job_id") == previous_job_id:
+                    if args.train:
+                        use = True
+                    current_job_id = entry.get("job_id")
+            # valid/test
+            elif entry.get("job") == "eval":
+                if (
+                        # valid entries can appear between the same training job or between different jobs
+                        entry.get("parent_job_id") == previous_job_id or
+                        entry.get("parent_job_id") == current_job_id or
+                        # this part includes test entries and eval entries created from 'kge test' / 'kge eval'
+                        entry.get("resumed_from_job_id") == previous_job_id or
+                        entry.get("resumed_from_job_id") == previous_job_id
+                ):
+                  use = True
+            if not use:
+                del entries[idx]
+            idx -= 1
+        for entry in entries:
             if args.csv:
-                csvfile.close()
+                row_config = [config.get(el) for el in use_from_config]
+                row_trace = [entry.get(el) for el in use_from_trace]
+                csvwriter.writerow(row_config + row_trace)
+            else:
+                sys.stdout.write(yaml.dump(entry).replace("\n",", "))
+                sys.stdout.write("\n")
 
     @classmethod
     def get_checkpoint_from_path(cls, path):
