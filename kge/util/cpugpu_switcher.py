@@ -8,6 +8,9 @@ https://github.com/Santosh-Gupta/SpeedTorch
 
 
 class SwitcherBase:
+    """
+    This class handles the mapping of indexes between two tensors.
+    """
     def __init__(self, num_embeddings, dimension, device="cuda"):
         self.num_embeddings = num_embeddings
         self.dimension = dimension
@@ -57,6 +60,9 @@ class SwitcherBase:
 
 
 class CPUEmbeddingSwitcher(SwitcherBase):
+    """
+    This class handles the switching between the currently on GPU needed embeddings and the embedding tensor on CPU.
+    """
     def __init__(self, gpu_embedding_layer, num_embeddings, dimension, device="cuda"):
         super().__init__(num_embeddings, dimension, device)
         self.gpu_embedding_layer = gpu_embedding_layer
@@ -78,6 +84,10 @@ class CPUEmbeddingSwitcher(SwitcherBase):
 
 
 class CPUOptimizerSwitcher(SwitcherBase):
+    """
+    This class handles the switching of the parts of the optimizer corresponding to the currently on GPU needed
+    embeddings and the complete optimizer tensors on CPU
+    """
     def __init__(self, optimizer, num_embeddings, dimension, model, device="cuda"):
         super().__init__(num_embeddings, dimension, device)
         self.optimizer = optimizer

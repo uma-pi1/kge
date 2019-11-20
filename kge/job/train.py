@@ -917,6 +917,10 @@ class TrainingJob1vsAll(TrainingJob):
 
 
 class TrainingJobCPUGPU(TrainingJobNegativeSampling):
+    """
+    This is a basic Negative Sampling Job, which only keeps the needed embeddings for the batch on GPU.
+    The complete embedding tensor is kept on CPU
+    """
     def __init__(self, config, dataset, parent_job=None):
         from kge.job import EvaluationJob
         super().__init__(config, dataset, parent_job)
