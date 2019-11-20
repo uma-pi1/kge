@@ -387,3 +387,17 @@ class EntityRankingJobCpuGpuSwitcher(EntityRankingJob):
 
         return trace_entry
 
+    def resume(self, checkpoint_file=None):
+        """Load model state from last or specified checkpoint."""
+        # load model
+        from kge.job import TrainingJob
+
+        training_job = TrainingJob.create(self.config, self.dataset)
+        training_job.resume(checkpoint_file)
+        self.model = training_job.model
+        self.embedding_cpu_switcher = training_job.embedding_cpu_switcher
+        self.epoch = training_job.epoch
+        self.resumed_from_job_id = training_job.resumed_from_job_id
+        self.trace(
+            event="job_resumed", epoch=self.epoch, checkpoint_file=checkpoint_file
+        )
