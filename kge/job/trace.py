@@ -5,9 +5,10 @@ import os
 import torch
 import sys
 import csv
-import configparser
+
 
 from kge.util.misc import kge_base_dir
+from kge.config import Config
 
 
 class Trace:
@@ -61,17 +62,38 @@ class Trace:
                 return entry.get("hits_at_k")[k - 1]
         raise ValueError("metric " + metric_name + " not found")
 
-
+#893389c9-ef09-4c51-823a-f4024fad2714
+#--keys=/home/patrick/Desktop/kge/local/dump/keys.cfg
+# 2424d62b-8b5a-43b6-9608-6233b9f045c3
 class ObjectDumper:
 
     @classmethod
     def dump(cls, args):
+
+        if not(args.train or args.eval or args.test):
+            raise ValueError(
+                "You did not specify data types to process. Please choose a combination of --train --eval --test."
+            )
+
+        checkpoint = None
         if ".pt" in args.source.split("/")[-1]:
+            if args.auto or args.job_id or args.epoch:
+                raise ValueError(
+                    "A checkpoint file was specified to determine job_id and epoch. Please don't use" \
+                    + " --auto --job_id --epoch"
+                )
             checkpoint = args.source
-            folder_path = args.source.split("/")[-1]
+            folder_path = "/".join(args.source.split("/")[:-1])
         else:
-            checkpoint = cls.get_checkpoint_from_path(args.source)
+            if args.auto and (args.job_id or args.epoch):
+                raise ValueError(
+                    "You cannot use --auto and  (--job_id, --epoch) together. Choose either of them"
+                )
+            # dermine job_id and epoch from last/best checkpoit automatically
+            elif args.auto:
+                checkpoint = cls.get_checkpoint_from_path(args.source)
             folder_path = args.source
+
         what = args.what
         if what == "trace":
             trace = folder_path + "/" + "trace.yaml"
@@ -82,7 +104,6 @@ class ObjectDumper:
 
         keymap = {}
         if args.keys:
-
             suffix = ""
             if not args.csv:
                 suffix = "_name"
@@ -90,17 +111,26 @@ class ObjectDumper:
                 for line in keyfile:
                     keymap[line.rstrip("\n").split("=")[0].strip()+suffix] = line.rstrip("\n").split("=")[1].strip()
 
-        checkpoint = torch.load(f=checkpoint, map_location="cpu")
-        config = checkpoint["config"]
-        job_id = checkpoint["job_id"]
-        epoch = checkpoint["epoch"]
+        config = None
+        epoch = None
+        job_id = None
+        epoch = args.epoch
+        # checkpoint was specified by using a folder with --auto or because a checkpoint file was given
+        if checkpoint:
+            checkpoint = torch.load(f=checkpoint, map_location="cpu")
+            config = checkpoint["config"]
+            epoch = checkpoint["epoch"]
+            job_id = checkpoint["job_id"]
+        # folder path was given as source
+        elif args.job_id:
+            job_id = args.job_id
+            config = cls.get_config_for_job_id(job_id, folder_path)
 
-        #TODO if args.csv a predefined set of keymap is used
-        # until this is discussed, don't filter out anything
-        if args.csv:
-            args.eval = True
-            args.test = True
-            args.train = True
+        # #TODO debatable if --eval --train --test have effect when csv is specified
+        # if args.csv:
+        #     args.eval = True
+        #     args.test = True
+        #     args.train = True
         disjunctions = []
         conjunctions = []
         for arg, pattern in zip(
@@ -115,26 +145,6 @@ class ObjectDumper:
         disjunctions.append("job: train")
         # throw away meta entries
         conjunctions.append("epoch: ")
-        write = None
-        if args.csv:
-            csvwriter = csv.writer(sys.stdout)
-            valid_metric = config.get("valid.metric")
-            use_from_trace = [
-                "epoch",
-                valid_metric,
-                "avg_loss",
-                "job"
-            ]
-            use_from_config = [
-                "model",
-                "dataset.name",
-                "train.optimizer",
-                "train.optimizer_args.lr"
-            ]
-            csvwriter.writerow(
-                [keymap[key] if key in keymap.keys() else key for key in use_from_config] +
-                [keymap[key] if key in keymap.keys() else key for key in use_from_trace]
-            )
         entries = []
         conjunctions = [re.compile(pattern) for pattern in conjunctions]
         disjunctions = [re.compile(pattern) for pattern in disjunctions]
@@ -147,10 +157,23 @@ class ObjectDumper:
                     continue
                 entry = yaml.load(line, Loader=yaml.SafeLoader)
                 entries.append(entry)
-        # unique sequence of job id's that led to the checkpoint
+
+        #if job_id is not specified, obtain the job id from the last training entry of the trace
+        idx = len(entries) - 1
+        while(not job_id):
+            entry = entries[idx]
+            if entry.get("job") == "train":
+                job_id = entry.get("job_id")
+            idx -= 1
+
+        # determine the unique sequence of job id's that led to job_id
+        # this is needed to filter out irrelevant entries
         job_ids = [job_id]
         current_job_id = job_id
         resumed_from = None
+        # if no epoch is specified take all epochs
+        if not epoch:
+            epoch = float("inf")
         for entry in entries[::-1]:
             if entry.get("job") == "train":
                 entry_job_id = entry.get("job_id")
@@ -168,6 +191,40 @@ class ObjectDumper:
                         break
                     elif resumed_id:
                         resumed_from = resumed_id
+        if args.csv:
+            if not config:
+                config = cls.get_config_for_job_id(job_id, folder_path)
+            csvwriter = csv.writer(sys.stdout)
+            valid_metric = config.get("valid.metric")
+            # add keys from config for general information
+            use_from_config = [
+                "model",
+                "dataset.name",
+                "train.optimizer",
+                "train.optimizer_args.lr",
+            ]
+            # keys from the trace in the "train" section of the csv
+            use_from_trace_for_train = [
+                "epoch",
+                "avg_loss",
+                "job",
+            ]
+
+            # keys from the trace in the "eval" section of the csv
+            use_from_trace_for_eval = [
+                "epoch",
+                "job",
+                "data",
+                valid_metric,
+            ]
+
+            csvwriter.writerow(
+                [keymap[key] if key in keymap.keys() else key for key in use_from_config] +
+                ["config_split_train"] +
+                [keymap[key] if key in keymap.keys() else key for key in use_from_trace_for_train] +
+                ["train_split_eval"] +
+                [keymap[key] if key in keymap.keys() else key for key in use_from_trace_for_eval]
+            )
         for entry in entries:
             if not (
                      (
@@ -177,15 +234,24 @@ class ObjectDumper:
                         # eval entries from a training job
                         (entry.get("job") == "eval" and entry.get("parent_job_id") in job_ids)
                      ) and
-                     (entry.get("epoch") <= epoch)
+                     (entry.get("epoch") <= float(epoch))
             ):
                 continue
             if not args.train and entry.get("job") == "train":
                 continue
             if args.csv:
+                # load the config for the current job as resumed jobs might have different config parameters
+                config = cls.get_config_for_job_id(entry.get("job_id"), folder_path)
                 row_config = [config.get(el) for el in use_from_config]
-                row_trace = [entry.get(el) for el in use_from_trace]
-                csvwriter.writerow(row_config + row_trace)
+                if entry.get("job") == "train":
+                    row_trace_train = [entry.get(el) for el in use_from_trace_for_train]
+                    row_trace_eval = ["" for el in range(len(use_from_trace_for_eval))]
+                elif entry.get("job") == "eval":
+                    row_trace_train = ["" for el in range(len(use_from_trace_for_train))]
+                    row_trace_eval = [entry.get(el) for el in use_from_trace_for_eval]
+                csvwriter.writerow(
+                    row_config + ["config_split_train"] + row_trace_train + ["train_split_eval"] + row_trace_eval
+                )
             else:
                 if keymap:
                     entry.update(keymap)
@@ -203,3 +269,15 @@ class ObjectDumper:
             else:
                 print("Nothing was dumped. Did not find a checkpoint in {}".format(path))
                 exit()
+
+    @classmethod
+    def get_config_for_job_id(cls, job_id, folder_path):
+        config = Config(load_default=False)
+        config_path = folder_path + "/config/" + job_id.split("-")[0] + ".yaml"
+        if os.path.isfile(config_path):
+            with open(config_path, "r") as file:
+                options = yaml.load(file, Loader=yaml.SafeLoader)
+        else:
+            raise Exception("Could not find config file for job_id")
+        config.options = options
+        return config

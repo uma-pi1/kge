@@ -115,11 +115,30 @@ def create_parser(config, additional_args=[]):
     parser_dump = subparsers.add_parser(
         "dump",
         help="Dump objects to stdout.",
-        parents=[parser_conf]
     )
 
-    parser_dump.add_argument("what")
-    parser_dump.add_argument("source")
+    parser_dump.add_argument("what", help="which type of object to dump, i. e. 'trace'.")
+    parser_dump.add_argument("source", help="a path to either a checkpoint or a job folder")
+    parser_dump.add_argument(
+        "--job_id",
+        default=False,
+        help=
+        "if source is a path to a job folder, specifies the job id in the trace from where to start processing backward"
+    )
+    parser_dump.add_argument(
+        "--epoch",
+        default=False,
+        help=
+        "if source is a path to a job folder, specifies the epoch in the trace from where to start processing backwards"
+    )
+    parser_dump.add_argument(
+        "--auto",
+        default=False,
+        action="store_const",
+        const=True,
+        help=
+        "if source is a path to a job folder, --auto sets the job_id to the best or (if not present) last checkpoint"
+    )
 
     for argument in ["--train", "--eval", "--test", "--batch", "--csv"]:
         parser_dump.add_argument(
