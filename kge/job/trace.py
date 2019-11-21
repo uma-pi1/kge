@@ -62,9 +62,7 @@ class Trace:
                 return entry.get("hits_at_k")[k - 1]
         raise ValueError("metric " + metric_name + " not found")
 
-#893389c9-ef09-4c51-823a-f4024fad2714
-#--keys=/home/patrick/Desktop/kge/local/dump/keys.cfg
-# 2424d62b-8b5a-43b6-9608-6233b9f045c3
+
 class ObjectDumper:
 
     @classmethod
@@ -77,20 +75,16 @@ class ObjectDumper:
 
         checkpoint = None
         if ".pt" in args.source.split("/")[-1]:
-            if args.auto or args.job_id or args.epoch:
+            if args.auto:
                 raise ValueError(
-                    "A checkpoint file was specified to determine job_id and epoch. Please don't use" \
-                    + " --auto --job_id --epoch"
+                    "You specified a checkpoint to determine job_id and epoch, --auto cannot be used."
                 )
+
             checkpoint = args.source
             folder_path = "/".join(args.source.split("/")[:-1])
         else:
-            if args.auto and (args.job_id or args.epoch):
-                raise ValueError(
-                    "You cannot use --auto and  (--job_id, --epoch) together. Choose either of them"
-                )
             # dermine job_id and epoch from last/best checkpoit automatically
-            elif args.auto:
+            if args.auto:
                 checkpoint = cls.get_checkpoint_from_path(args.source)
             folder_path = args.source
 
@@ -121,10 +115,12 @@ class ObjectDumper:
             config = checkpoint["config"]
             epoch = checkpoint["epoch"]
             job_id = checkpoint["job_id"]
-        # folder path was given as source
-        elif args.job_id:
+        # override job_id and epoch with user arguments if given
+        if args.job_id:
             job_id = args.job_id
             config = cls.get_config_for_job_id(job_id, folder_path)
+        if args.epoch:
+            epoch = args.epoch
 
         # #TODO debatable if --eval --train --test have effect when csv is specified
         # if args.csv:
