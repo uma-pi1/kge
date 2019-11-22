@@ -68,26 +68,23 @@ class ObjectDumper:
     @classmethod
     def dump(cls, args):
 
-        if not(args.train or args.eval or args.test):
-            raise ValueError(
-                "You did not specify data types to process. Please choose a combination of --train --eval --test."
-            )
+        if not(args.train or args.valid or args.test):
+            args.train = True
+            args.valid = True
+            args.test = True
 
         checkpoint = None
         if ".pt" in args.source.split("/")[-1]:
-            if args.auto:
-                raise ValueError(
-                    "You specified a checkpoint to determine job_id and epoch, --auto cannot be used."
-                )
-
             checkpoint = args.source
             folder_path = "/".join(args.source.split("/")[:-1])
         else:
-            # dermine job_id and epoch from last/best checkpoit automatically
-            if args.auto:
+            # dermine job_id and epoch from last/best checkpoint automatically
+            if args.checkpoint:
                 checkpoint = cls.get_checkpoint_from_path(args.source)
             folder_path = args.source
-
+            if not args.checkpoint and args.truncate:
+                raise ValueError("You can only use --truncate when a checkpoint is specified. Consider using " +
+                                 "--checkpoint or provide a checkpoint file as source")
         what = args.what
         if what == "trace":
             trace = folder_path + "/" + "trace.yaml"
@@ -97,11 +94,11 @@ class ObjectDumper:
             raise NotImplementedError
 
         keymap = {}
-        if args.keys:
+        if args.keysfile:
             suffix = ""
             if not args.csv:
                 suffix = "_name"
-            with open(args.keys, "r") as keyfile:
+            with open(args.keysfile, "r") as keyfile:
                 for line in keyfile:
                     keymap[line.rstrip("\n").split("=")[0].strip()+suffix] = line.rstrip("\n").split("=")[1].strip()
 
@@ -109,11 +106,16 @@ class ObjectDumper:
         epoch = None
         job_id = None
         epoch = args.epoch
-        # checkpoint was specified by using a folder with --auto or because a checkpoint file was given
-        if checkpoint:
+        # use job_id and epoch from checkpoint
+        if checkpoint and args.truncate:
             checkpoint = torch.load(f=checkpoint, map_location="cpu")
             config = checkpoint["config"]
+            job_id = checkpoint["job_id"]
             epoch = checkpoint["epoch"]
+        # only use job_id from checkpoint
+        elif checkpoint:
+            checkpoint = torch.load(f=checkpoint, map_location="cpu")
+            config = checkpoint["config"]
             job_id = checkpoint["job_id"]
         # override job_id and epoch with user arguments if given
         if args.job_id:
@@ -121,16 +123,19 @@ class ObjectDumper:
             config = cls.get_config_for_job_id(job_id, folder_path)
         if args.epoch:
             epoch = args.epoch
+        # if no epoch is specified take all epochs
+        if not epoch:
+            epoch = float("inf")
 
-        # #TODO debatable if --eval --train --test have effect when csv is specified
+        # #TODO debatable if --valid --train --test have effect when csv is specified
         # if args.csv:
-        #     args.eval = True
+        #     args.valid = True
         #     args.test = True
         #     args.train = True
         disjunctions = []
         conjunctions = []
         for arg, pattern in zip(
-                                 [args.eval, args.test],
+                                 [args.valid, args.test],
                                  ["(?=.*data: valid)(?=.*job: eval)", "(?=.*data: test)(?=.*job: eval)"]
                             ):
             if arg:
@@ -167,9 +172,6 @@ class ObjectDumper:
         job_ids = [job_id]
         current_job_id = job_id
         resumed_from = None
-        # if no epoch is specified take all epochs
-        if not epoch:
-            epoch = float("inf")
         for entry in entries[::-1]:
             if entry.get("job") == "train":
                 entry_job_id = entry.get("job_id")
