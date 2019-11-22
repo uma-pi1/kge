@@ -123,14 +123,14 @@ def create_parser(config, additional_args=[]):
         "--job_id",
         default=False,
         help=
-        "if source is a path to a job folder, specifies the training job id in the trace " +
+        "specifies the training job id in the trace " +
         "from where to start processing backward"
     )
     parser_dump.add_argument(
-        "--epoch",
+        "--max_epoch",
         default=False,
         help=
-        "if source is a path to a job folder, specifies the epoch in the trace" +
+        "specifies the epoch in the trace" +
         "from where to start processing backwards"
     )
     parser_dump.add_argument(

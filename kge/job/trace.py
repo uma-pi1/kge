@@ -5,6 +5,7 @@ import os
 import torch
 import sys
 import csv
+from collections import OrderedDict
 
 
 from kge.util.misc import kge_base_dir
@@ -93,7 +94,7 @@ class ObjectDumper:
         else:
             raise NotImplementedError
 
-        keymap = {}
+        keymap = OrderedDict()
         if args.keysfile:
             suffix = ""
             if not args.csv:
@@ -105,7 +106,7 @@ class ObjectDumper:
         config = None
         epoch = None
         job_id = None
-        epoch = args.epoch
+        epoch = args.max_epoch
         # use job_id and epoch from checkpoint
         if checkpoint and args.truncate:
             checkpoint = torch.load(f=checkpoint, map_location="cpu")
@@ -121,8 +122,8 @@ class ObjectDumper:
         if args.job_id:
             job_id = args.job_id
             config = cls.get_config_for_job_id(job_id, folder_path)
-        if args.epoch:
-            epoch = args.epoch
+        if args.max_epoch:
+            epoch = args.max_epoch
         # if no epoch is specified take all epochs
         if not epoch:
             epoch = float("inf")
@@ -194,34 +195,25 @@ class ObjectDumper:
                 config = cls.get_config_for_job_id(job_id, folder_path)
             csvwriter = csv.writer(sys.stdout)
             valid_metric = config.get("valid.metric")
-            # add keys from config for general information
+
+            # keys from the trace
+            use_from_trace = [
+                "epoch",
+                "avg_loss",
+                "data",
+                valid_metric
+            ]
+            # keys from config
             use_from_config = [
                 "model",
                 "dataset.name",
                 "train.optimizer",
                 "train.optimizer_args.lr",
             ]
-            # keys from the trace in the "train" section of the csv
-            use_from_trace_for_train = [
-                "epoch",
-                "avg_loss",
-                "job",
-            ]
-
-            # keys from the trace in the "eval" section of the csv
-            use_from_trace_for_eval = [
-                "epoch",
-                "job",
-                "data",
-                valid_metric,
-            ]
-
             csvwriter.writerow(
-                [keymap[key] if key in keymap.keys() else key for key in use_from_config] +
-                ["config_split_train"] +
-                [keymap[key] if key in keymap.keys() else key for key in use_from_trace_for_train] +
-                ["train_split_eval"] +
-                [keymap[key] if key in keymap.keys() else key for key in use_from_trace_for_eval]
+                ["split"] + # the split column helps to distinguish train,eval,valid and test entries
+                [key for key in use_from_trace] +
+                [key for key in use_from_config]
             )
         for entry in entries:
             if not (
@@ -239,18 +231,27 @@ class ObjectDumper:
                 continue
             if args.csv:
                 # load the config for the current job as resumed jobs might have different config parameters
+                # TODO should be save when you eg test with some other metric but doublecheck
                 config = cls.get_config_for_job_id(entry.get("job_id"), folder_path)
                 row_config = [config.get(el) for el in use_from_config]
+                split = ""
                 if entry.get("job") == "train":
-                    row_trace_train = [entry.get(el) for el in use_from_trace_for_train]
-                    row_trace_eval = ["" for el in range(len(use_from_trace_for_eval))]
-                elif entry.get("job") == "eval":
-                    row_trace_train = ["" for el in range(len(use_from_trace_for_train))]
-                    row_trace_eval = [entry.get(el) for el in use_from_trace_for_eval]
+                    split = ["train"]
+                elif entry.get("job") == "eval" and entry.get("resumed_from_job_id"):
+                    if entry.get("data") == "test":
+                        split = ["test"]
+                    elif entry.get("data") == "valid":
+                        split = ["eval"]
+                elif entry.get("job") == "eval" and entry.get("parent_job_id"):
+                        split = ["valid"]
+                row_trace = [entry.get(el) for el in use_from_trace]
+                row_config = [config.get(el) for el in use_from_config]
                 csvwriter.writerow(
-                    row_config + ["config_split_train"] + row_trace_train + ["train_split_eval"] + row_trace_eval
+                    split + row_trace + row_config
                 )
             else:
+                # TODO: you might want to read the job's config here as well
+                #  maybe in further modifications of the functionality we want config entries in the trace
                 if keymap:
                     entry.update(keymap)
                 sys.stdout.write(yaml.dump(entry).replace("\n",", "))
