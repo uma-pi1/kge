@@ -85,7 +85,7 @@ class ObjectDumper:
             folder_path = args.source
             if not args.checkpoint and args.truncate:
                 raise ValueError("You can only use --truncate when a checkpoint is specified. Consider using " +
-                                 "--checkpoint or provide a checkpoint file as source")
+                                 "--checkpoint or provide a checkpoint file as the --source argument")
         what = args.what
         if what == "trace":
             trace = folder_path + "/" + "trace.yaml"
@@ -97,11 +97,9 @@ class ObjectDumper:
         keymap = OrderedDict()
         if args.keysfile:
             suffix = ""
-            if not args.csv:
-                suffix = "_name"
             with open(args.keysfile, "r") as keyfile:
                 for line in keyfile:
-                    keymap[line.rstrip("\n").split("=")[0].strip()+suffix] = line.rstrip("\n").split("=")[1].strip()
+                    keymap[line.rstrip("\n").split("=")[0].strip()] = line.rstrip("\n").split("=")[1].strip()
 
         config = None
         epoch = None
@@ -159,7 +157,6 @@ class ObjectDumper:
                     continue
                 entry = yaml.load(line, Loader=yaml.SafeLoader)
                 entries.append(entry)
-
         #if job_id is not specified, obtain the job id from the last training entry of the trace
         idx = len(entries) - 1
         while(not job_id):
@@ -191,29 +188,37 @@ class ObjectDumper:
                     elif resumed_id:
                         resumed_from = resumed_id
         if args.csv:
-            if not config:
-                config = cls.get_config_for_job_id(job_id, folder_path)
-            csvwriter = csv.writer(sys.stdout)
-            valid_metric = config.get("valid.metric")
-
-            # keys from the trace
-            use_from_trace = [
-                "epoch",
-                "avg_loss",
-                "data",
-                valid_metric
-            ]
-            # keys from config
-            use_from_config = [
-                "model",
-                "dataset.name",
-                "train.optimizer",
-                "train.optimizer_args.lr",
-            ]
-            csvwriter.writerow(
-                ["split"] + # the split column helps to distinguish train,eval,valid and test entries
-                [key for key in use_from_trace] +
-                [key for key in use_from_config]
+            csv_writer = csv.writer(sys.stdout)
+            # default attributes from the trace; some have to be treated independently
+            # format: Dict[new_name] = original_name
+            # change the keys to rename the attribute keys that appear in the csv
+            trace_attributes = OrderedDict(
+                {
+                    "epoch": "epoch",
+                    "job": "job",
+                    "avg_loss": "avg_loss",
+                    "data": "data",
+                }
+            )
+            # default attributes from config
+            # format: Dict[new_name] = original_name
+            # change the keys to rename the attribute keys that appear in the csv
+            config_attributes = OrderedDict(
+                {
+                    # first comes valid_metric_value which is added separately below
+                    "valid.metric": "valid.metric",
+                    "train.optimizer_args.lr": "train.optimizer_args.lr",
+                    "dataset.name": "dataset.name",
+                    "model": "model",
+                }
+            )
+            csv_writer.writerow(
+                ["job_id"] +
+                [trace_attributes[new_key] for new_key in trace_attributes.keys()] +
+                ["split"] +  # the split column helps to distinguish train,eval,valid and test entries
+                ["valid_metric_value"] +
+                [config_attributes[new_key] for new_key in config_attributes.keys()] +
+                [key for key in keymap.keys()]
             )
         for entry in entries:
             if not (
@@ -223,18 +228,22 @@ class ObjectDumper:
                         (entry.get("job") == "eval" and entry.get("resumed_from_job_id") in job_ids) or
                         # eval entries from a training job
                         (entry.get("job") == "eval" and entry.get("parent_job_id") in job_ids)
-                     ) and
-                     (entry.get("epoch") <= float(epoch))
+                     ) and (entry.get("epoch") <= float(epoch))
             ):
                 continue
             if not args.train and entry.get("job") == "train":
                 continue
+            # load the config for the job associated with the current entry
+            config = cls.get_config_for_job_id(entry.get("job_id"), folder_path)
+            new_attributes = OrderedDict()
+            for new_key in keymap.keys():
+                try:
+                    new_attributes[new_key] = config.get(keymap[new_key])
+                except:
+                    # if key is not in entry or config, an empty field is added to have consistency between datasets
+                    new_attributes[new_key] = entry.get(keymap[new_key])
             if args.csv:
-                # load the config for the current job as resumed jobs might have different config parameters
-                # TODO should be save when you eg test with some other metric but doublecheck
-                config = cls.get_config_for_job_id(entry.get("job_id"), folder_path)
-                row_config = [config.get(el) for el in use_from_config]
-                split = ""
+                split = [""]
                 if entry.get("job") == "train":
                     split = ["train"]
                 elif entry.get("job") == "eval" and entry.get("resumed_from_job_id"):
@@ -243,21 +252,22 @@ class ObjectDumper:
                     elif entry.get("data") == "valid":
                         split = ["eval"]
                 elif entry.get("job") == "eval" and entry.get("parent_job_id"):
-                        split = ["valid"]
-                row_trace = [entry.get(el) for el in use_from_trace]
-                row_config = [config.get(el) for el in use_from_config]
-                csvwriter.writerow(
-                    split + row_trace + row_config
+                    split = ["valid"]
+                row_trace = [entry.get(trace_attributes[new_key]) for new_key in trace_attributes.keys()]
+                row_config = [config.get(config_attributes[new_key]) for new_key in config_attributes.keys()]
+                csv_writer.writerow(
+                    [entry.get("job_id").split("-")[0]] + row_trace + split +
+                    [entry.get(config.get("valid.metric"))] + row_config +
+                    [new_attributes[new_key] for new_key in new_attributes.keys()]
                 )
             else:
-                # TODO: you might want to read the job's config here as well
-                #  maybe in further modifications of the functionality we want config entries in the trace
                 if keymap:
-                    entry.update(keymap)
+                    entry.update(new_attributes)
                 sys.stdout.write(yaml.dump(entry).replace("\n",", "))
                 sys.stdout.write("\n")
 
     @classmethod
+    # TODO is there a utility method already
     def get_checkpoint_from_path(cls, path):
         if "checkpoint_best.pt" in os.listdir(path):
             return path + "/" + "checkpoint_best.pt"
@@ -270,13 +280,12 @@ class ObjectDumper:
                 exit()
 
     @classmethod
+    # TODO maybe outfactor into config.py
     def get_config_for_job_id(cls, job_id, folder_path):
         config = Config(load_default=False)
         config_path = folder_path + "/config/" + job_id.split("-")[0] + ".yaml"
         if os.path.isfile(config_path):
-            with open(config_path, "r") as file:
-                options = yaml.load(file, Loader=yaml.SafeLoader)
+            config.load(config_path, create=True)
         else:
             raise Exception("Could not find config file for job_id")
-        config.options = options
         return config
