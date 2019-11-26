@@ -68,7 +68,6 @@ class ObjectDumper:
 
     @classmethod
     def dump(cls, args):
-
         if not(args.train or args.valid or args.test):
             args.train = True
             args.valid = True
@@ -100,37 +99,27 @@ class ObjectDumper:
             with open(args.keysfile, "r") as keyfile:
                 for line in keyfile:
                     keymap[line.rstrip("\n").split("=")[0].strip()] = line.rstrip("\n").split("=")[1].strip()
-
-        config = None
         epoch = None
         job_id = None
         epoch = args.max_epoch
         # use job_id and epoch from checkpoint
         if checkpoint and args.truncate:
             checkpoint = torch.load(f=checkpoint, map_location="cpu")
-            config = checkpoint["config"]
             job_id = checkpoint["job_id"]
             epoch = checkpoint["epoch"]
         # only use job_id from checkpoint
         elif checkpoint:
             checkpoint = torch.load(f=checkpoint, map_location="cpu")
-            config = checkpoint["config"]
             job_id = checkpoint["job_id"]
         # override job_id and epoch with user arguments if given
         if args.job_id:
             job_id = args.job_id
-            config = cls.get_config_for_job_id(job_id, folder_path)
         if args.max_epoch:
             epoch = args.max_epoch
         # if no epoch is specified take all epochs
         if not epoch:
             epoch = float("inf")
 
-        # #TODO debatable if --valid --train --test have effect when csv is specified
-        # if args.csv:
-        #     args.valid = True
-        #     args.test = True
-        #     args.train = True
         disjunctions = []
         conjunctions = []
         for arg, pattern in zip(
@@ -148,45 +137,116 @@ class ObjectDumper:
         entries = []
         conjunctions = [re.compile(pattern) for pattern in conjunctions]
         disjunctions = [re.compile(pattern) for pattern in disjunctions]
-        with open(trace, "r") as file:
-            for line in file:
-                if not(
-                        any(map(lambda pattern: pattern.search(line), disjunctions)) and
-                        all(map(lambda pattern: pattern.search(line), conjunctions))
-                ):
-                    continue
-                entry = yaml.load(line, Loader=yaml.SafeLoader)
-                entries.append(entry)
-        #if job_id is not specified, obtain the job id from the last training entry of the trace
-        idx = len(entries) - 1
-        while(not job_id):
-            entry = entries[idx]
-            if entry.get("job") == "train":
-                job_id = entry.get("job_id")
-            idx -= 1
 
-        # determine the unique sequence of job id's that led to job_id
-        # this is needed to filter out irrelevant entries
-        job_ids = [job_id]
+        # TODO ignore the case where you have to determine the job id from the last trace entry for now
+        #  and start to determine job sequence with grep
+        import subprocess
+        entries = []
         current_job_id = job_id
-        resumed_from = None
-        for entry in entries[::-1]:
-            if entry.get("job") == "train":
-                entry_job_id = entry.get("job_id")
-                if entry_job_id == current_job_id:
-                    resumed_id = entry.get("resumed_from_job_id")
-                    if not resumed_id:
-                        break
-                    elif resumed_id:
-                        resumed_from = resumed_id
-                elif entry_job_id == resumed_from:
-                    current_job_id = entry_job_id
-                    job_ids.insert(0, current_job_id)
-                    resumed_id = entry.get("resumed_from_job_id")
-                    if not resumed_id:
-                        break
-                    elif resumed_id:
-                        resumed_from = resumed_id
+        job_ids = [current_job_id]
+        found = True
+        while(found):
+            out = \
+            subprocess.Popen(
+                ['grep  "job_id: {}" '.format(current_job_id) + trace + ' | grep "epoch: " | grep "job: train"'],
+                shell=True,
+                stdout=subprocess.PIPE
+            ).communicate()[0]
+            current_entries = [yaml.load(entry, Loader=yaml.SafeLoader) for entry in out.decode("utf-8").split("\n")]
+            # it does not matter which one to take to determine if there is a predecessor job
+            resumed_id = current_entries[0].get("resumed_from_job_id")
+            if resumed_id:
+                if args.train:
+                    current_entries.extend(entries)
+                    entries = current_entries
+                job_ids.append(resumed_id)
+                found = True
+                current_job_id = resumed_id
+            else:
+                found = False
+                break
+            if args.valid:
+                out = \
+                subprocess.Popen(
+                    [
+                        'grep  "resumed_from_job_id: {}" '.format(current_job_id) + trace +
+                        ' | grep "epoch: " | grep "job: eval"  | grep "data: valid"' # TODO you could validate on train data
+                    ],
+                    shell=True,
+                    stdout=subprocess.PIPE
+                ).communicate()[0]
+                current_entries = [yaml.load(entry, Loader=yaml.SafeLoader) for entry in
+                                   out.decode("utf-8").split("\n")]
+                current_entries.extend(entries)
+                entries = current_entries
+                out = \
+                    subprocess.Popen(
+                        [
+                            'grep  "parent_job_id: {}" '.format(current_job_id) + trace +
+                            ' | grep "epoch: " | grep "job: eval"'
+                        ],
+                        shell=True,
+                        stdout=subprocess.PIPE
+                    ).communicate()[0]
+                current_entries = [yaml.load(entry, Loader=yaml.SafeLoader) for entry in
+                                   out.decode("utf-8").split("\n")]
+                current_entries.extend(entries)
+                entries = current_entries
+            if args.test:
+                out = \
+                    subprocess.Popen(
+                        [
+                            'grep  "resumed_from_job_id: {}" '.format(current_job_id) + trace +
+                            ' | grep "epoch: " | grep "job: eval"  | grep "data: test"'
+
+                        ],
+                        shell=True,
+                        stdout=subprocess.PIPE
+                    ).communicate()[0]
+                current_entries = [yaml.load(entry, Loader=yaml.SafeLoader) for entry in
+                                   out.decode("utf-8").split("\n")]
+                current_entries.extend(entries)
+                entries = current_entries
+
+        # with open(trace, "r") as file:
+        #     for line in file:
+        #         if not(
+        #                 any(map(lambda pattern: pattern.search(line), disjunctions)) and
+        #                 all(map(lambda pattern: pattern.search(line), conjunctions))
+        #         ):
+        #             continue
+        #         entry = yaml.load(line, Loader=yaml.SafeLoader)
+        #         entries.append(entry)
+        # #if job_id is not specified, obtain the job id from the last training entry of the trace
+        # idx = len(entries) - 1
+        # while(not job_id):
+        #     entry = entries[idx]
+        #     if entry.get("job") == "train":
+        #         job_id = entry.get("job_id")
+        #     idx -= 1
+        #
+        # # determine the unique sequence of job id's that led to job_id
+        # # this is needed to filter out irrelevant entries
+        # job_ids = [job_id]
+        # current_job_id = job_id
+        # resumed_from = None
+        # for entry in entries[::-1]:
+        #     if entry.get("job") == "train":
+        #         entry_job_id = entry.get("job_id")
+        #         if entry_job_id == current_job_id:
+        #             resumed_id = entry.get("resumed_from_job_id")
+        #             if not resumed_id:
+        #                 break
+        #             elif resumed_id:
+        #                 resumed_from = resumed_id
+        #         elif entry_job_id == resumed_from:
+        #             current_job_id = entry_job_id
+        #             job_ids.insert(0, current_job_id)
+        #             resumed_id = entry.get("resumed_from_job_id")
+        #             if not resumed_id:
+        #                 break
+        #             elif resumed_id:
+        #                 resumed_from = resumed_id
         if args.csv:
             csv_writer = csv.writer(sys.stdout)
             # default attributes from the trace; some have to be treated independently
@@ -221,6 +281,8 @@ class ObjectDumper:
                 [key for key in keymap.keys()]
             )
         for entry in entries:
+            if not entry:
+                continue
             if not (
                      (
                         (entry.get("job") == "train" and entry.get("job_id") in job_ids) or
