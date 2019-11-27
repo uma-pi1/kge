@@ -6,6 +6,8 @@ import torch
 import sys
 import csv
 from collections import OrderedDict
+import subprocess
+import time
 
 
 from kge.util.misc import kge_base_dir
@@ -63,11 +65,11 @@ class Trace:
                 return entry.get("hits_at_k")[k - 1]
         raise ValueError("metric " + metric_name + " not found")
 
-
 class ObjectDumper:
 
     @classmethod
-    def dump(cls, args):
+    def dump_trace(cls, args):
+        start = time.time()
         if not(args.train or args.valid or args.test):
             args.train = True
             args.valid = True
@@ -78,28 +80,25 @@ class ObjectDumper:
             checkpoint = args.source
             folder_path = "/".join(args.source.split("/")[:-1])
         else:
-            # dermine job_id and epoch from last/best checkpoint automatically
+            # determine job_id and epoch from last/best checkpoint automatically
             if args.checkpoint:
                 checkpoint = cls.get_checkpoint_from_path(args.source)
             folder_path = args.source
             if not args.checkpoint and args.truncate:
-                raise ValueError("You can only use --truncate when a checkpoint is specified. Consider using " +
-                                 "--checkpoint or provide a checkpoint file as the --source argument")
-        what = args.what
-        if what == "trace":
-            trace = folder_path + "/" + "trace.yaml"
-            if not os.path.isfile(trace):
-                print("Nothing dumped. No trace found at {}".format(trace))
-        else:
-            raise NotImplementedError
+                raise ValueError(
+                    "You can only use --truncate when a checkpoint is specified. Consider using " +
+                    "--checkpoint or provide a checkpoint file as the --source argument"
+                )
+        trace = folder_path + "/" + "trace.yaml"
+        if not os.path.isfile(trace):
+            sys.stdout.write("Nothing dumped. No trace found at {}".format(trace))
+            exit()
 
         keymap = OrderedDict()
         if args.keysfile:
-            suffix = ""
             with open(args.keysfile, "r") as keyfile:
                 for line in keyfile:
                     keymap[line.rstrip("\n").split("=")[0].strip()] = line.rstrip("\n").split("=")[1].strip()
-        epoch = None
         job_id = None
         epoch = args.max_epoch
         # use job_id and epoch from checkpoint
@@ -116,137 +115,74 @@ class ObjectDumper:
             job_id = args.job_id
         if args.max_epoch:
             epoch = args.max_epoch
-        # if no epoch is specified take all epochs
         if not epoch:
             epoch = float("inf")
 
-        disjunctions = []
-        conjunctions = []
-        for arg, pattern in zip(
-                                 [args.valid, args.test],
-                                 ["(?=.*data: valid)(?=.*job: eval)", "(?=.*data: test)(?=.*job: eval)"]
-                            ):
-            if arg:
-                disjunctions.append(pattern)
-        if not args.batch:
-            conjunctions.append("scope: epoch")
-        # train entries have to be kept initially in all cases to be able to reconstruct the chain
-        disjunctions.append("job: train")
-        # throw away meta entries
-        conjunctions.append("epoch: ")
-        entries = []
-        conjunctions = [re.compile(pattern) for pattern in conjunctions]
-        disjunctions = [re.compile(pattern) for pattern in disjunctions]
-
-        # TODO ignore the case where you have to determine the job id from the last trace entry for now
-        #  and start to determine job sequence with grep
-        import subprocess
-        entries = []
-        current_job_id = job_id
-        job_ids = [current_job_id]
-        found = True
-        while(found):
-            out = \
-            subprocess.Popen(
-                ['grep  "job_id: {}" '.format(current_job_id) + trace + ' | grep "epoch: " | grep "job: train"'],
-                shell=True,
-                stdout=subprocess.PIPE
-            ).communicate()[0]
-            current_entries = [yaml.load(entry, Loader=yaml.SafeLoader) for entry in out.decode("utf-8").split("\n")]
-            # it does not matter which one to take to determine if there is a predecessor job
-            resumed_id = current_entries[0].get("resumed_from_job_id")
-            if resumed_id:
-                if args.train:
-                    current_entries.extend(entries)
-                    entries = current_entries
-                job_ids.append(resumed_id)
-                found = True
-                current_job_id = resumed_id
-            else:
-                found = False
-                break
-            if args.valid:
-                out = \
-                subprocess.Popen(
-                    [
-                        'grep  "resumed_from_job_id: {}" '.format(current_job_id) + trace +
-                        ' | grep "epoch: " | grep "job: eval"  | grep "data: valid"' # TODO you could validate on train data
-                    ],
+        # if no job_id is specified yet, determine job_id from the last training entry in the trace
+        if not job_id:
+            out = subprocess.Popen(
+                    ['grep "epoch: " ' + trace + ' | grep " job: train"'],
                     shell=True,
                     stdout=subprocess.PIPE
                 ).communicate()[0]
-                current_entries = [yaml.load(entry, Loader=yaml.SafeLoader) for entry in
-                                   out.decode("utf-8").split("\n")]
-                current_entries.extend(entries)
-                entries = current_entries
-                out = \
-                    subprocess.Popen(
-                        [
-                            'grep  "parent_job_id: {}" '.format(current_job_id) + trace +
-                            ' | grep "epoch: " | grep "job: eval"'
-                        ],
+            job_id = yaml.load(out.decode("utf-8").split("\n")[-2], Loader=yaml.SafeLoader).get("job_id")
+        entries = []
+        current_job_id = job_id
+        job_ids = [current_job_id]
+        found_previous = True
+        scope_command = ""
+        if args.example and args.batch:
+            pass
+        elif args.example:
+            scope_command = " | grep -e 'scope: epoch' -e 'scope: example'"
+        elif args.batch:
+            scope_command = " | grep -e 'scope: epoch' -e 'scope: batch'"
+        else:
+            scope_command = " | grep 'scope: epoch'"
+        while(found_previous):
+            for arg, command in zip(
+                    [args.valid, args.test],
+                    [
+                        "grep -e 'resumed_from_job_id: {}' -e 'parent_job_id: {}' "
+                        .format(current_job_id, current_job_id) + trace +
+                        " | grep 'job: eval' | grep 'epoch: ' | grep -e 'data: valid' -e 'data: train'" + scope_command,
+                        "grep  'resumed_from_job_id: {}' ".format(current_job_id) + trace +
+                        " | grep 'epoch: ' | grep 'job: eval'  | grep 'data: test'" + scope_command
+                    ]
+            ):
+                if arg:
+                    out = subprocess.Popen(
+                        command,
                         shell=True,
                         stdout=subprocess.PIPE
                     ).communicate()[0]
-                current_entries = [yaml.load(entry, Loader=yaml.SafeLoader) for entry in
-                                   out.decode("utf-8").split("\n")]
+                    if len(out):
+                        current_entries = [
+                            yaml.load(entry, Loader=yaml.SafeLoader) for entry in out.decode("utf-8").split("\n")[0:-1]
+                        ]
+                        current_entries.extend(entries)
+                        entries = current_entries
+            # always load train entries to determine the job sequence of 'relevant' jobs
+            train_out = subprocess.Popen(
+                ['grep  " job_id: {}" '.format(current_job_id) + trace + ' | grep "epoch: " | grep "job: train"'],
+                shell=True,
+                stdout=subprocess.PIPE
+            ).communicate()[0]
+            if len(train_out):
+                current_entries = [
+                    yaml.load(entry, Loader=yaml.SafeLoader) for entry in train_out.decode("utf-8").split("\n")[0:-1]
+                ]
+            resumed_id = current_entries[0].get("resumed_from_job_id")
+            if args.train:
                 current_entries.extend(entries)
                 entries = current_entries
-            if args.test:
-                out = \
-                    subprocess.Popen(
-                        [
-                            'grep  "resumed_from_job_id: {}" '.format(current_job_id) + trace +
-                            ' | grep "epoch: " | grep "job: eval"  | grep "data: test"'
-
-                        ],
-                        shell=True,
-                        stdout=subprocess.PIPE
-                    ).communicate()[0]
-                current_entries = [yaml.load(entry, Loader=yaml.SafeLoader) for entry in
-                                   out.decode("utf-8").split("\n")]
-                current_entries.extend(entries)
-                entries = current_entries
-
-        # with open(trace, "r") as file:
-        #     for line in file:
-        #         if not(
-        #                 any(map(lambda pattern: pattern.search(line), disjunctions)) and
-        #                 all(map(lambda pattern: pattern.search(line), conjunctions))
-        #         ):
-        #             continue
-        #         entry = yaml.load(line, Loader=yaml.SafeLoader)
-        #         entries.append(entry)
-        # #if job_id is not specified, obtain the job id from the last training entry of the trace
-        # idx = len(entries) - 1
-        # while(not job_id):
-        #     entry = entries[idx]
-        #     if entry.get("job") == "train":
-        #         job_id = entry.get("job_id")
-        #     idx -= 1
-        #
-        # # determine the unique sequence of job id's that led to job_id
-        # # this is needed to filter out irrelevant entries
-        # job_ids = [job_id]
-        # current_job_id = job_id
-        # resumed_from = None
-        # for entry in entries[::-1]:
-        #     if entry.get("job") == "train":
-        #         entry_job_id = entry.get("job_id")
-        #         if entry_job_id == current_job_id:
-        #             resumed_id = entry.get("resumed_from_job_id")
-        #             if not resumed_id:
-        #                 break
-        #             elif resumed_id:
-        #                 resumed_from = resumed_id
-        #         elif entry_job_id == resumed_from:
-        #             current_job_id = entry_job_id
-        #             job_ids.insert(0, current_job_id)
-        #             resumed_id = entry.get("resumed_from_job_id")
-        #             if not resumed_id:
-        #                 break
-        #             elif resumed_id:
-        #                 resumed_from = resumed_id
+            if resumed_id:
+                job_ids.append(resumed_id)
+                found_previous = True
+                current_job_id = resumed_id
+            else:
+                found_previous = False
+        middle = time.time()
         if args.csv:
             csv_writer = csv.writer(sys.stdout)
             # default attributes from the trace; some have to be treated independently
@@ -276,27 +212,21 @@ class ObjectDumper:
                 ["job_id"] +
                 [trace_attributes[new_key] for new_key in trace_attributes.keys()] +
                 ["split"] +  # the split column helps to distinguish train,eval,valid and test entries
-                ["valid_metric_value"] +
+                ["valid_metric_value"] +  # treated separately as it is located in trace but the name is in config
                 [config_attributes[new_key] for new_key in config_attributes.keys()] +
                 [key for key in keymap.keys()]
             )
+        # store configs for job_id's s.t. they need to be loaded only once
+        configs = {}
         for entry in entries:
-            if not entry:
+            if not entry.get("epoch") <= float(epoch):
                 continue
-            if not (
-                     (
-                        (entry.get("job") == "train" and entry.get("job_id") in job_ids) or
-                        # test and eval entries from "kge test", "kge eval"
-                        (entry.get("job") == "eval" and entry.get("resumed_from_job_id") in job_ids) or
-                        # eval entries from a training job
-                        (entry.get("job") == "eval" and entry.get("parent_job_id") in job_ids)
-                     ) and (entry.get("epoch") <= float(epoch))
-            ):
-                continue
-            if not args.train and entry.get("job") == "train":
-                continue
-            # load the config for the job associated with the current entry
-            config = cls.get_config_for_job_id(entry.get("job_id"), folder_path)
+            current_job_id = entry.get("job_id")
+            if current_job_id in configs.keys():
+                config = configs[current_job_id]
+            else:
+                config = cls.get_config_for_job_id(entry.get("job_id"), folder_path)
+                configs[current_job_id] = config
             new_attributes = OrderedDict()
             for new_key in keymap.keys():
                 try:
@@ -327,9 +257,12 @@ class ObjectDumper:
                     entry.update(new_attributes)
                 sys.stdout.write(yaml.dump(entry).replace("\n",", "))
                 sys.stdout.write("\n")
+        end = time.time()
+        if args.timeit:
+            sys.stdout.write("Grep + processing took {} \n".format(middle - start))
+            sys.stdout.write("Writing took {}".format(end - middle))
 
     @classmethod
-    # TODO is there a utility method already
     def get_checkpoint_from_path(cls, path):
         if "checkpoint_best.pt" in os.listdir(path):
             return path + "/" + "checkpoint_best.pt"
@@ -342,12 +275,13 @@ class ObjectDumper:
                 exit()
 
     @classmethod
-    # TODO maybe outfactor into config.py
+    # loading the file raw and not using config.load turned out to be faster and should be sufficient here
     def get_config_for_job_id(cls, job_id, folder_path):
         config = Config(load_default=False)
         config_path = folder_path + "/config/" + job_id.split("-")[0] + ".yaml"
         if os.path.isfile(config_path):
-            config.load(config_path, create=True)
+            with open(config_path, "r") as file:
+                config.options = yaml.load(file, Loader=yaml.SafeLoader)
         else:
             raise Exception("Could not find config file for job_id")
         return config

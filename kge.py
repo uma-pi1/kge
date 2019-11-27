@@ -108,60 +108,68 @@ def create_parser(config, additional_args=[]):
         p.add_argument(
             "--checkpoint",
             type=str,
-            help="which checkpoint to use: 'default', 'last', 'best', a number, or a file name",
+            help="Which checkpoint to use: 'default', 'last', 'best', a number, or a file name",
             default="default",
         )
-
+    # dump can have associated sub-commands which can have different args
     parser_dump = subparsers.add_parser(
         "dump",
-        help="Dump objects to stdout.",
+        help="Dump objects to stdout",
+    )
+    subparsers_dump = parser_dump.add_subparsers(title="dump_command", dest="dump_command")
+    subparsers_dump.required = True
+    parser_dump_trace = subparsers_dump.add_parser(
+        "trace",
+        help="Process and dump trace to stdout and/or csv. The trace will be processed backwards starting with a " +
+             "specified job_id."
     )
 
-    parser_dump.add_argument("what", help="which type of object to dump, i. e. 'trace'.")
-    parser_dump.add_argument("source", help="a path to either a checkpoint or a job folder")
-    parser_dump.add_argument(
-        "--job_id",
-        default=False,
-        help=
-        "specifies the training job id in the trace " +
-        "from where to start processing backward"
-    )
-    parser_dump.add_argument(
-        "--max_epoch",
-        default=False,
-        help=
-        "specifies the epoch in the trace" +
-        "from where to start processing backwards"
-    )
-    parser_dump.add_argument(
+    parser_dump_trace.add_argument("source", help="A path to either a checkpoint or a job folder.")
+
+    parser_dump_trace.add_argument(
         "--checkpoint",
         default=False,
         action="store_const",
         const=True,
         help=
-        "if source is a path to a job folder and --checkpoint is set " +
-        "the best (if present) or last checkpoint will be used to determine the job id"
+        "If source is a path to a job folder and --checkpoint is set " +
+        "the best (if present) or last checkpoint will be used to determine the job_id"
     )
 
-    parser_dump.add_argument(
+    parser_dump_trace.add_argument(
+        "--job_id",
+        default=False,
+        help=
+        "Specifies the training job id in the trace " +
+        " from where to start processing backward"
+    )
+
+    parser_dump_trace.add_argument(
+        "--max_epoch",
+        default=False,
+        help=
+        "Specifies the epoch in the trace" +
+        "from where to start processing backwards"
+    )
+
+    parser_dump_trace.add_argument(
         "--truncate",
         default=False,
         action="store_const",
         const=True,
         help=
-        "if a checkpoint is used (by giving providing one explicitly as source or by using --checkpoint) " +
-        "to determine the job_id, --truncate will define the epoch as specified by the checkpoint"
+        "If a checkpoint is used (by providing one explicitly as source or by using --checkpoint)," +
+        " --truncate will define the max_epoch to process as specified by the checkpoint"
     )
 
-
-    for argument in ["--train", "--valid", "--test", "--batch", "--csv"]:
-        parser_dump.add_argument(
+    for argument in ["--train", "--valid", "--test", "--csv", "--batch", "--example", "--timeit"]:
+        parser_dump_trace.add_argument(
             argument,
             action="store_const",
             const=True,
             default=False,
         )
-    parser_dump.add_argument("--keysfile", default=False)
+    parser_dump_trace.add_argument("--keysfile", default=False)
 
     return parser
 
@@ -193,9 +201,10 @@ if __name__ == "__main__":
     )
 
     if args.command == "dump":
-        from kge.job.trace import ObjectDumper
-        ObjectDumper.dump(args)
-        exit()
+        if args.dump_command == "trace":
+            from kge.job.trace import ObjectDumper
+            ObjectDumper.dump_trace(args)
+            exit()
 
     # start command
     if args.command == "start":
