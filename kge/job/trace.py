@@ -121,10 +121,10 @@ class ObjectDumper:
 
         if not job_id:
             out = subprocess.Popen(
-                    ['grep "epoch: " ' + trace + ' | grep " job: train"'],
-                    shell=True,
-                    stdout=subprocess.PIPE
-                ).communicate()[0]
+                ['grep "epoch: " ' + trace + ' | grep " job: train"'],
+                shell=True,
+                stdout=subprocess.PIPE
+            ).communicate()[0]
             job_id = yaml.load(
                 out.decode("utf-8").split("\n")[-2], Loader=yaml.SafeLoader
             ).get("job_id")
@@ -143,14 +143,14 @@ class ObjectDumper:
             scope_command = " | grep 'scope: epoch'"
         while(found_previous):
             for arg, command in zip(
-                    [args.valid, args.test],
-                    ["grep -e 'resumed_from_job_id: {}' -e 'parent_job_id: {}' "
-                     .format(current_job_id, current_job_id) + trace +
-                     " | grep 'job: eval' | grep 'epoch: ' | grep -e 'data: valid' -e 'data: train'"
-                     + scope_command,
-                     "grep  'resumed_from_job_id: {}' ".format(current_job_id) + trace
-                     +" | grep 'epoch: ' | grep 'job: eval'  | grep 'data: test'"
-                     + scope_command]
+                [args.valid, args.test],
+                ["grep -e 'resumed_from_job_id: {}' -e 'parent_job_id: {}' "
+                 .format(current_job_id, current_job_id) + trace +
+                 " | grep 'job: eval' | grep 'epoch: ' | grep -e 'data: valid' -e 'data: train'"
+                 + scope_command,
+                 "grep  'resumed_from_job_id: {}' ".format(current_job_id) + trace
+                 + " | grep 'epoch: ' | grep 'job: eval'  | grep 'data: test'"
+                 + scope_command]
             ):
                 if arg:
                     out = subprocess.Popen(
@@ -228,19 +228,25 @@ class ObjectDumper:
                 config = cls.get_config_for_job_id(entry.get("job_id"), folder_path)
                 configs[current_job_id] = config
             new_attributes = OrderedDict()
+            if config.get_default("model") == "reciprocal_relations_model":
+                model = config.get_default("reciprocal_relations_model.base_model.type")
+                # the string that substitutes $base_model in keymap
+                subs_model = "reciprocal_relations_model.base_model"
+                reciprocal = "Yes"
+            else:
+                model = config.get_default("model")
+                subs_model = model
+                reciprocal = "No"
             for new_key in keymap.keys():
+                lookup = keymap[new_key]
+                if "$base_model" in lookup:
+                    lookup = lookup.replace("$base_model", subs_model)
                 try:
-                    new_attributes[new_key] = config.get(keymap[new_key])
+                    new_attributes[new_key] = config.get_default(lookup)
                 except:
                     # creates empty field if key is not existing
-                    new_attributes[new_key] = entry.get(keymap[new_key])
+                    new_attributes[new_key] = entry.get(lookup)
             if args.csv:
-                if config.get("model") == "reciprocal_relations_model":
-                    model = config.get("reciprocal_relations_model.base_model.type")
-                    reciprocal = "Yes"
-                else:
-                    model = config.get("model")
-                    reciprocal = "No"
                 split = [""]
                 if entry.get("job") == "train":
                     split = ["train"]
@@ -256,16 +262,20 @@ class ObjectDumper:
                     for new_key in trace_attributes.keys()
                 ]
                 row_config = [
-                    config.get(config_attributes[new_key])
+                    config.get_default(config_attributes[new_key])
                     for new_key in config_attributes.keys()
                 ]
                 csv_writer.writerow(
                     [entry.get("job_id").split("-")[0]] + row_trace + split +
-                    [entry.get(config.get("valid.metric"))] + row_config +
+                    [entry.get(config.get_default("valid.metric"))] + row_config +
                     [model] + [reciprocal] +
                     [new_attributes[new_key] for new_key in new_attributes.keys()]
                 )
             else:
+                entry.update(
+                    {"reciprocal": reciprocal,
+                     "model": model}
+                )
                 if keymap:
                     entry.update(new_attributes)
                 sys.stdout.write(yaml.dump(entry).replace("\n",", "))
@@ -296,14 +306,11 @@ class ObjectDumper:
                 exit()
 
     @classmethod
-    # loading the file raw and not using config.load turned
-    # out to be faster and should be sufficient here
     def get_config_for_job_id(cls, job_id, folder_path):
-        config = Config(load_default=False)
+        config = Config(load_default=True)
         config_path = folder_path + "/config/" + job_id.split("-")[0] + ".yaml"
         if os.path.isfile(config_path):
-            with open(config_path, "r") as file:
-                config.options = yaml.load(file, Loader=yaml.SafeLoader)
+            config.load(config_path, create=True)
         else:
             raise Exception("Could not find config file for job_id")
         return config
