@@ -86,8 +86,8 @@ class ObjectDumper:
             folder_path = args.source
             if not args.checkpoint and args.truncate:
                 raise ValueError(
-                    "You can only use --truncate when a checkpoint is specified. Consider using " +
-                    "--checkpoint or provide a checkpoint file as the --source argument"
+                    "You can only use --truncate when a checkpoint is specified."  
+                    "Consider  using --checkpoint or provide a checkpoint file as source"
                 )
         trace = folder_path + "/" + "trace.yaml"
         if not os.path.isfile(trace):
@@ -98,7 +98,8 @@ class ObjectDumper:
         if args.keysfile:
             with open(args.keysfile, "r") as keyfile:
                 for line in keyfile:
-                    keymap[line.rstrip("\n").split("=")[0].strip()] = line.rstrip("\n").split("=")[1].strip()
+                    keymap[line.rstrip("\n").split("=")[0].strip()] \
+                    = line.rstrip("\n").split("=")[1].strip()
         job_id = None
         epoch = args.max_epoch
         # use job_id and epoch from checkpoint
@@ -118,14 +119,15 @@ class ObjectDumper:
         if not epoch:
             epoch = float("inf")
 
-        # if no job_id is specified yet, determine job_id from the last training entry in the trace
         if not job_id:
             out = subprocess.Popen(
                     ['grep "epoch: " ' + trace + ' | grep " job: train"'],
                     shell=True,
                     stdout=subprocess.PIPE
                 ).communicate()[0]
-            job_id = yaml.load(out.decode("utf-8").split("\n")[-2], Loader=yaml.SafeLoader).get("job_id")
+            job_id = yaml.load(
+                out.decode("utf-8").split("\n")[-2], Loader=yaml.SafeLoader
+            ).get("job_id")
         entries = []
         current_job_id = job_id
         job_ids = [current_job_id]
@@ -142,13 +144,13 @@ class ObjectDumper:
         while(found_previous):
             for arg, command in zip(
                     [args.valid, args.test],
-                    [
-                        "grep -e 'resumed_from_job_id: {}' -e 'parent_job_id: {}' "
-                        .format(current_job_id, current_job_id) + trace +
-                        " | grep 'job: eval' | grep 'epoch: ' | grep -e 'data: valid' -e 'data: train'" + scope_command,
-                        "grep  'resumed_from_job_id: {}' ".format(current_job_id) + trace +
-                        " | grep 'epoch: ' | grep 'job: eval'  | grep 'data: test'" + scope_command
-                    ]
+                    ["grep -e 'resumed_from_job_id: {}' -e 'parent_job_id: {}' "
+                     .format(current_job_id, current_job_id) + trace +
+                     " | grep 'job: eval' | grep 'epoch: ' | grep -e 'data: valid' -e 'data: train'"
+                     + scope_command,
+                     "grep  'resumed_from_job_id: {}' ".format(current_job_id) + trace
+                     +" | grep 'epoch: ' | grep 'job: eval'  | grep 'data: test'"
+                     + scope_command]
             ):
                 if arg:
                     out = subprocess.Popen(
@@ -158,19 +160,22 @@ class ObjectDumper:
                     ).communicate()[0]
                     if len(out):
                         current_entries = [
-                            yaml.load(entry, Loader=yaml.SafeLoader) for entry in out.decode("utf-8").split("\n")[0:-1]
+                            yaml.load(entry, Loader=yaml.SafeLoader)
+                            for entry in out.decode("utf-8").split("\n")[0:-1]
                         ]
                         current_entries.extend(entries)
                         entries = current_entries
             # always load train entries to determine the job sequence of 'relevant' jobs
             train_out = subprocess.Popen(
-                ['grep  " job_id: {}" '.format(current_job_id) + trace + ' | grep "epoch: " | grep "job: train"'],
+                ['grep  " job_id: {}" '.format(current_job_id) + trace +
+                 ' | grep "epoch: " | grep "job: train"' + scope_command],
                 shell=True,
                 stdout=subprocess.PIPE
             ).communicate()[0]
             if len(train_out):
                 current_entries = [
-                    yaml.load(entry, Loader=yaml.SafeLoader) for entry in train_out.decode("utf-8").split("\n")[0:-1]
+                    yaml.load(entry, Loader=yaml.SafeLoader)
+                    for entry in train_out.decode("utf-8").split("\n")[0:-1]
                 ]
             resumed_id = current_entries[0].get("resumed_from_job_id")
             if args.train:
@@ -189,31 +194,26 @@ class ObjectDumper:
             # format: Dict[new_name] = original_name
             # change the keys to rename the attribute keys that appear in the csv
             trace_attributes = OrderedDict(
-                {
-                    "epoch": "epoch",
-                    "job": "job",
-                    "avg_loss": "avg_loss",
-                    "data": "data",
-                }
+                {"epoch": "epoch",
+                 "job": "job",
+                 "avg_loss": "avg_loss",
+                 "data": "data"}
             )
             # default attributes from config
             # format: Dict[new_name] = original_name
             # change the keys to rename the attribute keys that appear in the csv
             config_attributes = OrderedDict(
-                {
-                    # first comes valid_metric_value which is added separately below
-                    "valid.metric": "valid.metric",
-                    "train.optimizer_args.lr": "train.optimizer_args.lr",
-                    "dataset.name": "dataset.name",
-                    "model": "model",
-                }
+                {"valid.metric": "valid.metric",
+                 "train.optimizer_args.lr": "train.optimizer_args.lr",
+                 "dataset.name": "dataset.name"}
             )
             csv_writer.writerow(
                 ["job_id"] +
                 [trace_attributes[new_key] for new_key in trace_attributes.keys()] +
-                ["split"] +  # the split column helps to distinguish train,eval,valid and test entries
-                ["valid_metric_value"] +  # treated separately as it is located in trace but the name is in config
+                ["split"] + # split column distinguishes train,eval,valid and test entries
+                ["valid_metric_value"] +  # name in config value in trace
                 [config_attributes[new_key] for new_key in config_attributes.keys()] +
+                ["model"] + ["reciprocal"] +
                 [key for key in keymap.keys()]
             )
         # store configs for job_id's s.t. they need to be loaded only once
@@ -232,9 +232,15 @@ class ObjectDumper:
                 try:
                     new_attributes[new_key] = config.get(keymap[new_key])
                 except:
-                    # if key is not in entry or config, an empty field is added to have consistency between datasets
+                    # creates empty field if key is not existing
                     new_attributes[new_key] = entry.get(keymap[new_key])
             if args.csv:
+                if config.get("model") == "reciprocal_relations_model":
+                    model = config.get("reciprocal_relations_model.base_model.type")
+                    reciprocal = "Yes"
+                else:
+                    model = config.get("model")
+                    reciprocal = "No"
                 split = [""]
                 if entry.get("job") == "train":
                     split = ["train"]
@@ -245,11 +251,18 @@ class ObjectDumper:
                         split = ["eval"]
                 elif entry.get("job") == "eval" and entry.get("parent_job_id"):
                     split = ["valid"]
-                row_trace = [entry.get(trace_attributes[new_key]) for new_key in trace_attributes.keys()]
-                row_config = [config.get(config_attributes[new_key]) for new_key in config_attributes.keys()]
+                row_trace = [
+                    entry.get(trace_attributes[new_key])
+                    for new_key in trace_attributes.keys()
+                ]
+                row_config = [
+                    config.get(config_attributes[new_key])
+                    for new_key in config_attributes.keys()
+                ]
                 csv_writer.writerow(
                     [entry.get("job_id").split("-")[0]] + row_trace + split +
                     [entry.get(config.get("valid.metric"))] + row_config +
+                    [model] + [reciprocal] +
                     [new_attributes[new_key] for new_key in new_attributes.keys()]
                 )
             else:
@@ -267,7 +280,15 @@ class ObjectDumper:
         if "checkpoint_best.pt" in os.listdir(path):
             return path + "/" + "checkpoint_best.pt"
         else:
-            checkpoints = sorted(list(filter(lambda file: "checkpoint" in file, os.listdir(path))))
+            checkpoints =  \
+                sorted(
+                    list(
+                        filter(
+                            lambda file: "checkpoint" in file, os.listdir(path)
+                        )
+                    )
+                )
+
             if len(checkpoints) > 0:
                 return path + "/" + checkpoints[-1]
             else:
@@ -275,7 +296,8 @@ class ObjectDumper:
                 exit()
 
     @classmethod
-    # loading the file raw and not using config.load turned out to be faster and should be sufficient here
+    # loading the file raw and not using config.load turned
+    # out to be faster and should be sufficient here
     def get_config_for_job_id(cls, job_id, folder_path):
         config = Config(load_default=False)
         config_path = folder_path + "/config/" + job_id.split("-")[0] + ".yaml"

@@ -108,7 +108,8 @@ def create_parser(config, additional_args=[]):
         p.add_argument(
             "--checkpoint",
             type=str,
-            help="Which checkpoint to use: 'default', 'last', 'best', a number, or a file name",
+            help=("Which checkpoint to use: 'default', 'last', 'best', a number "
+                  "or a file name"),
             default="default",
         )
     # dump can have associated sub-commands which can have different args
@@ -116,40 +117,43 @@ def create_parser(config, additional_args=[]):
         "dump",
         help="Dump objects to stdout",
     )
-    subparsers_dump = parser_dump.add_subparsers(title="dump_command", dest="dump_command")
+    subparsers_dump = parser_dump.add_subparsers(
+        title="dump_command",
+        dest="dump_command"
+    )
     subparsers_dump.required = True
     parser_dump_trace = subparsers_dump.add_parser(
         "trace",
-        help="Process and dump trace to stdout and/or csv. The trace will be processed backwards starting with a " +
-             "specified job_id."
+        help=("Process and dump trace to stdout and/or csv. The trace will be processed "
+              "backwards, starting with a specified job_id.")
     )
 
-    parser_dump_trace.add_argument("source", help="A path to either a checkpoint or a job folder.")
+    parser_dump_trace.add_argument(
+        "source",
+        help="A path to either a checkpoint or a job folder."
+    )
 
     parser_dump_trace.add_argument(
         "--checkpoint",
         default=False,
         action="store_const",
         const=True,
-        help=
-        "If source is a path to a job folder and --checkpoint is set " +
-        "the best (if present) or last checkpoint will be used to determine the job_id"
+        help=("If source is a path to a job folder and --checkpoint is set the best " 
+              "(if present) or last checkpoint will be used to determine the job_id")
     )
 
     parser_dump_trace.add_argument(
         "--job_id",
         default=False,
-        help=
-        "Specifies the training job id in the trace " +
-        " from where to start processing backward"
+        help=("Specifies the training job id in the trace " 
+              "from where to start processing backward")
     )
 
     parser_dump_trace.add_argument(
         "--max_epoch",
         default=False,
-        help=
-        "Specifies the epoch in the trace" +
-        "from where to start processing backwards"
+        help=("Specifies the epoch in the trace"
+              "from where to start processing backwards")
     )
 
     parser_dump_trace.add_argument(
@@ -157,12 +161,14 @@ def create_parser(config, additional_args=[]):
         default=False,
         action="store_const",
         const=True,
-        help=
-        "If a checkpoint is used (by providing one explicitly as source or by using --checkpoint)," +
-        " --truncate will define the max_epoch to process as specified by the checkpoint"
+        help=("If a checkpoint is used (by providing one explicitly as source or by "
+              "using --checkpoint), --truncate will define the max_epoch to process as"
+              "specified by the checkpoint")
     )
 
-    for argument in ["--train", "--valid", "--test", "--csv", "--batch", "--example", "--timeit"]:
+    for argument in [
+        "--train", "--valid", "--test", "--csv", "--batch", "--example", "--timeit"
+    ]:
         parser_dump_trace.add_argument(
             argument,
             action="store_const",
