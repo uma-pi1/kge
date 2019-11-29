@@ -190,30 +190,27 @@ class ObjectDumper:
         middle = time.time()
         if args.csv:
             csv_writer = csv.writer(sys.stdout)
-            # default attributes from the trace; some have to be treated independently
-            # format: Dict[new_name] = original_name
-            # change the keys to rename the attribute keys that appear in the csv
-            trace_attributes = OrderedDict(
-                {"epoch": "epoch",
-                 "job": "job",
-                 "avg_loss": "avg_loss",
-                 "data": "data"}
-            )
-            # default attributes from config
-            # format: Dict[new_name] = original_name
-            # change the keys to rename the attribute keys that appear in the csv
-            config_attributes = OrderedDict(
-                {"valid.metric": "valid.metric",
-                 "train.optimizer_args.lr": "train.optimizer_args.lr",
-                 "dataset.name": "dataset.name"}
+
+            # dict[new_name] = (lookup_name, where)
+            # if where== "config"/"trace" it will be looked up automatically
+            # if where=="sep" it must be added in in the write loop separately
+            default_attributes = OrderedDict(
+                [("job_id", ("job_id", "sep")),
+                 ("dataset", ("dataset.name", "config")),
+                 ("model", ("model", "sep")),
+                 ("reciprocal", ("reciprocal", "sep")),
+                 ("job", ("job", "sep")),
+                 ("job_type", ("type", "trace")),
+                 ("split", ("split", "sep")),
+                 ("epoch", ("epoch", "trace")),
+                 ("avg_loss", ("avg_loss", "trace")),
+                 ("avg_penalty", ("avg_penalty", "trace")),
+                 ("avg_cost", ("avg_cost", "trace")),
+                 ("metric_name", ("valid.metric", "config")),
+                 ("metric", ("metric", "sep"))]
             )
             csv_writer.writerow(
-                ["job_id"] +
-                [trace_attributes[new_key] for new_key in trace_attributes.keys()] +
-                ["split"] + # split column distinguishes train,eval,valid and test entries
-                ["valid_metric_value"] +  # name in config value in trace
-                [config_attributes[new_key] for new_key in config_attributes.keys()] +
-                ["model"] + ["reciprocal"] +
+                list(default_attributes.keys()) +
                 [key for key in keymap.keys()]
             )
         # store configs for job_id's s.t. they need to be loaded only once
@@ -232,43 +229,55 @@ class ObjectDumper:
                 model = config.get_default("reciprocal_relations_model.base_model.type")
                 # the string that substitutes $base_model in keymap
                 subs_model = "reciprocal_relations_model.base_model"
-                reciprocal = "Yes"
+                reciprocal = 1
             else:
                 model = config.get_default("model")
                 subs_model = model
-                reciprocal = "No"
+                reciprocal = 0
             for new_key in keymap.keys():
                 lookup = keymap[new_key]
                 if "$base_model" in lookup:
                     lookup = lookup.replace("$base_model", subs_model)
                 try:
-                    new_attributes[new_key] = config.get_default(lookup)
+                    val = config.get_default(lookup)
                 except:
                     # creates empty field if key is not existing
-                    new_attributes[new_key] = entry.get(lookup)
+                    val = entry.get(lookup)
+                if type(val) == bool and val:
+                    val = 1
+                elif type(val) == bool and not val:
+                    val = 0
+                new_attributes[new_key] = val
             if args.csv:
-                split = [""]
+                # find the actual values for the default attributes
+                actual_default = default_attributes.copy()
+                for new_key in default_attributes.keys():
+                    lookup, where = default_attributes[new_key]
+                    if where == "config":
+                        actual_default[new_key] = config.get(lookup)
+                    elif where == "trace":
+                        actual_default[new_key] = entry.get(lookup)
+                # keys with separate treatment
+                # "split" in {train,test,valid} for the datatype
+                # "job" in {train,eval,valid,search}
                 if entry.get("job") == "train":
-                    split = ["train"]
-                elif entry.get("job") == "eval" and entry.get("resumed_from_job_id"):
-                    if entry.get("data") == "test":
-                        split = ["test"]
-                    elif entry.get("data") == "valid":
-                        split = ["eval"]
-                elif entry.get("job") == "eval" and entry.get("parent_job_id"):
-                    split = ["valid"]
-                row_trace = [
-                    entry.get(trace_attributes[new_key])
-                    for new_key in trace_attributes.keys()
-                ]
-                row_config = [
-                    config.get_default(config_attributes[new_key])
-                    for new_key in config_attributes.keys()
-                ]
+                    actual_default["split"] = "train"
+                    actual_default["job"] = "train"
+                if entry.get("job") == "eval":
+                    actual_default["split"] = entry.get("data")  # test or valid
+                    if entry.get("resumed_from_job_id"):
+                        actual_default["job"] = "eval"  # from "kge eval"
+                    else:
+                        actual_default["job"] = "valid"  # child of training job
+                actual_default["job_id"] = entry.get("job_id").split("-")[0]
+                actual_default["model"] = model
+                actual_default["reciprocal"] = reciprocal
+                # lookup name is in config value is in trace
+                actual_default["metric"] = entry.get(
+                    config.get_default("valid.metric")
+                )
                 csv_writer.writerow(
-                    [entry.get("job_id").split("-")[0]] + row_trace + split +
-                    [entry.get(config.get_default("valid.metric"))] + row_config +
-                    [model] + [reciprocal] +
+                    [actual_default[new_key] for new_key in actual_default.keys()]+
                     [new_attributes[new_key] for new_key in new_attributes.keys()]
                 )
             else:
@@ -278,7 +287,7 @@ class ObjectDumper:
                 )
                 if keymap:
                     entry.update(new_attributes)
-                sys.stdout.write(yaml.dump(entry).replace("\n",", "))
+                sys.stdout.write(re.sub("[{}']", "", str(entry)))
                 sys.stdout.write("\n")
         end = time.time()
         if args.timeit:
