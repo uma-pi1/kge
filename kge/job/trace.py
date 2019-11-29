@@ -76,9 +76,9 @@ class ObjectDumper:
             args.test = True
 
         checkpoint = None
-        if ".pt" in args.source.split("/")[-1]:
+        if ".pt" in os.path.split(args.source)[-1]:
             checkpoint = args.source
-            folder_path = "/".join(args.source.split("/")[:-1])
+            folder_path = os.path.split(args.source)[0]
         else:
             # determine job_id and epoch from last/best checkpoint automatically
             if args.checkpoint:
@@ -89,7 +89,7 @@ class ObjectDumper:
                     "You can only use --truncate when a checkpoint is specified."  
                     "Consider  using --checkpoint or provide a checkpoint file as source"
                 )
-        trace = folder_path + "/" + "trace.yaml"
+        trace = os.path.join(folder_path, "trace.yaml")
         if not os.path.isfile(trace):
             sys.stdout.write("Nothing dumped. No trace found at {}".format(trace))
             exit()
@@ -288,7 +288,7 @@ class ObjectDumper:
     @classmethod
     def get_checkpoint_from_path(cls, path):
         if "checkpoint_best.pt" in os.listdir(path):
-            return path + "/" + "checkpoint_best.pt"
+            return os.path.join(path, "checkpoint_best.pt")
         else:
             checkpoints =  \
                 sorted(
@@ -300,7 +300,7 @@ class ObjectDumper:
                 )
 
             if len(checkpoints) > 0:
-                return path + "/" + checkpoints[-1]
+                return os.path.join(path, checkpoints[-1])
             else:
                 print("Nothing was dumped. Did not find a checkpoint in {}".format(path))
                 exit()
@@ -308,7 +308,11 @@ class ObjectDumper:
     @classmethod
     def get_config_for_job_id(cls, job_id, folder_path):
         config = Config(load_default=True)
-        config_path = folder_path + "/config/" + job_id.split("-")[0] + ".yaml"
+        config_path = os.path.join(
+            folder_path,
+            "config",
+            job_id.split("-")[0] + ".yaml"
+        )
         if os.path.isfile(config_path):
             config.load(config_path, create=True)
         else:
