@@ -65,12 +65,12 @@ class Trace:
                 return entry.get("hits_at_k")[k - 1]
         raise ValueError("metric " + metric_name + " not found")
 
-class ObjectDumper:
 
+class ObjectDumper:
     @classmethod
     def dump_trace(cls, args):
         start = time.time()
-        if not(args.train or args.valid or args.test):
+        if not (args.train or args.valid or args.test):
             args.train = True
             args.valid = True
             args.test = True
@@ -86,7 +86,7 @@ class ObjectDumper:
             folder_path = args.source
             if not args.checkpoint and args.truncate:
                 raise ValueError(
-                    "You can only use --truncate when a checkpoint is specified."  
+                    "You can only use --truncate when a checkpoint is specified."
                     "Consider  using --checkpoint or provide a checkpoint file as source"
                 )
         trace = os.path.join(folder_path, "trace.yaml")
@@ -98,10 +98,11 @@ class ObjectDumper:
         if args.keysfile:
             with open(args.keysfile, "r") as keyfile:
                 for line in keyfile:
-                    keymap[line.rstrip("\n").split("=")[0].strip()] \
-                    = line.rstrip("\n").split("=")[1].strip()
+                    keymap[line.rstrip("\n").split("=")[0].strip()] = (
+                        line.rstrip("\n").split("=")[1].strip()
+                    )
         job_id = None
-        epoch = args.max_epoch
+        epoch = int(args.max_epoch)
         # use job_id and epoch from checkpoint
         if checkpoint and args.truncate:
             checkpoint = torch.load(f=checkpoint, map_location="cpu")
@@ -114,8 +115,6 @@ class ObjectDumper:
         # override job_id and epoch with user arguments if given
         if args.job_id:
             job_id = args.job_id
-        if args.max_epoch:
-            epoch = args.max_epoch
         if not epoch:
             epoch = float("inf")
 
@@ -123,40 +122,44 @@ class ObjectDumper:
             out = subprocess.Popen(
                 ['grep "epoch: " ' + trace + ' | grep " job: train"'],
                 shell=True,
-                stdout=subprocess.PIPE
+                stdout=subprocess.PIPE,
             ).communicate()[0]
             job_id = yaml.load(
                 out.decode("utf-8").split("\n")[-2], Loader=yaml.SafeLoader
             ).get("job_id")
         entries = []
         current_job_id = job_id
-        job_ids = [current_job_id]
+        job_ids = {current_job_id: epoch}
         found_previous = True
         scope_command = ""
+        # the scope attribute is always needed to filter out meta entries
         if args.example and args.batch:
-            pass
+            scope_command = " | grep -e 'scope: epoch' -e 'scope: example' -e 'scope: batch'"
         elif args.example:
             scope_command = " | grep -e 'scope: epoch' -e 'scope: example'"
         elif args.batch:
             scope_command = " | grep -e 'scope: epoch' -e 'scope: batch'"
         else:
             scope_command = " | grep 'scope: epoch'"
-        while(found_previous):
+        while found_previous:
             for arg, command in zip(
                 [args.valid, args.test],
-                ["grep -e 'resumed_from_job_id: {}' -e 'parent_job_id: {}' "
-                 .format(current_job_id, current_job_id) + trace +
-                 " | grep 'job: eval' | grep 'epoch: ' | grep -e 'data: valid' -e 'data: train'"
-                 + scope_command,
-                 "grep  'resumed_from_job_id: {}' ".format(current_job_id) + trace
-                 + " | grep 'epoch: ' | grep 'job: eval'  | grep 'data: test'"
-                 + scope_command]
+                [
+                    "grep -e 'resumed_from_job_id: {}' -e 'parent_job_id: {}' ".format(
+                        current_job_id, current_job_id
+                    )
+                    + trace
+                    + " | grep 'job: eval' | grep 'epoch: ' | grep -e 'data: valid' -e 'data: train'"
+                    + scope_command,
+                    "grep  'resumed_from_job_id: {}' ".format(current_job_id)
+                    + trace
+                    + " | grep 'epoch: ' | grep 'job: eval'  | grep 'data: test'"
+                    + scope_command,
+                ],
             ):
                 if arg:
                     out = subprocess.Popen(
-                        command,
-                        shell=True,
-                        stdout=subprocess.PIPE
+                        command, shell=True, stdout=subprocess.PIPE
                     ).communicate()[0]
                     if len(out):
                         current_entries = [
@@ -167,10 +170,14 @@ class ObjectDumper:
                         entries = current_entries
             # always load train entries to determine the job sequence of 'relevant' jobs
             train_out = subprocess.Popen(
-                ['grep  " job_id: {}" '.format(current_job_id) + trace +
-                 ' | grep "epoch: " | grep "job: train"' + scope_command],
+                [
+                    'grep  " job_id: {}" '.format(current_job_id)
+                    + trace
+                    + ' | grep "epoch: " | grep "job: train"'
+                    + scope_command
+                ],
                 shell=True,
-                stdout=subprocess.PIPE
+                stdout=subprocess.PIPE,
             ).communicate()[0]
             if len(train_out):
                 current_entries = [
@@ -182,7 +189,9 @@ class ObjectDumper:
                 current_entries.extend(entries)
                 entries = current_entries
             if resumed_id:
-                job_ids.append(resumed_id)
+                # used for filter out larger epochs of a previous job
+                # from the previous job epochs only up until the current epoch is needed
+                job_ids[resumed_id] = current_entries[0].get("epoch")-1
                 found_previous = True
                 current_job_id = resumed_id
             else:
@@ -195,29 +204,36 @@ class ObjectDumper:
             # if where== "config"/"trace" it will be looked up automatically
             # if where=="sep" it must be added in in the write loop separately
             default_attributes = OrderedDict(
-                [("job_id", ("job_id", "sep")),
-                 ("dataset", ("dataset.name", "config")),
-                 ("model", ("model", "sep")),
-                 ("reciprocal", ("reciprocal", "sep")),
-                 ("job", ("job", "sep")),
-                 ("job_type", ("type", "trace")),
-                 ("split", ("split", "sep")),
-                 ("epoch", ("epoch", "trace")),
-                 ("avg_loss", ("avg_loss", "trace")),
-                 ("avg_penalty", ("avg_penalty", "trace")),
-                 ("avg_cost", ("avg_cost", "trace")),
-                 ("metric_name", ("valid.metric", "config")),
-                 ("metric", ("metric", "sep"))]
+                [
+                    ("job_id", ("job_id", "sep")),
+                    ("dataset", ("dataset.name", "config")),
+                    ("model", ("model", "sep")),
+                    ("reciprocal", ("reciprocal", "sep")),
+                    ("job", ("job", "sep")),
+                    ("job_type", ("type", "trace")),
+                    ("split", ("split", "sep")),
+                    ("epoch", ("epoch", "trace")),
+                    ("avg_loss", ("avg_loss", "trace")),
+                    ("avg_penalty", ("avg_penalty", "trace")),
+                    ("avg_cost", ("avg_cost", "trace")),
+                    ("metric_name", ("valid.metric", "config")),
+                    ("metric", ("metric", "sep")),
+                ]
             )
             csv_writer.writerow(
-                list(default_attributes.keys()) +
-                [key for key in keymap.keys()]
+                list(default_attributes.keys()) + [key for key in keymap.keys()]
             )
         # store configs for job_id's s.t. they need to be loaded only once
         configs = {}
         for entry in entries:
             if not entry.get("epoch") <= float(epoch):
                 continue
+            # filter out not needed entries from a previous job when
+            # a job was resumed from the middle
+            if entry.get("job") == "train":
+                job_id = entry.get("job_id")
+                if entry.get("epoch") > job_ids[job_id]:
+                    continue
             current_job_id = entry.get("job_id")
             if current_job_id in configs.keys():
                 config = configs[current_job_id]
@@ -227,7 +243,7 @@ class ObjectDumper:
             new_attributes = OrderedDict()
             if config.get_default("model") == "reciprocal_relations_model":
                 model = config.get_default("reciprocal_relations_model.base_model.type")
-                # the string that substitutes $base_model in keymap
+                # the string that substitutes $base_model in keymap if it exists
                 subs_model = "reciprocal_relations_model.base_model"
                 reciprocal = 1
             else:
@@ -273,18 +289,13 @@ class ObjectDumper:
                 actual_default["model"] = model
                 actual_default["reciprocal"] = reciprocal
                 # lookup name is in config value is in trace
-                actual_default["metric"] = entry.get(
-                    config.get_default("valid.metric")
-                )
+                actual_default["metric"] = entry.get(config.get_default("valid.metric"))
                 csv_writer.writerow(
-                    [actual_default[new_key] for new_key in actual_default.keys()]+
-                    [new_attributes[new_key] for new_key in new_attributes.keys()]
+                    [actual_default[new_key] for new_key in actual_default.keys()]
+                    + [new_attributes[new_key] for new_key in new_attributes.keys()]
                 )
             else:
-                entry.update(
-                    {"reciprocal": reciprocal,
-                     "model": model}
-                )
+                entry.update({"reciprocal": reciprocal, "model": model})
                 if keymap:
                     entry.update(new_attributes)
                 sys.stdout.write(re.sub("[{}']", "", str(entry)))
@@ -299,28 +310,23 @@ class ObjectDumper:
         if "checkpoint_best.pt" in os.listdir(path):
             return os.path.join(path, "checkpoint_best.pt")
         else:
-            checkpoints =  \
-                sorted(
-                    list(
-                        filter(
-                            lambda file: "checkpoint" in file, os.listdir(path)
-                        )
-                    )
-                )
+            checkpoints = sorted(
+                list(filter(lambda file: "checkpoint" in file, os.listdir(path)))
+            )
 
             if len(checkpoints) > 0:
                 return os.path.join(path, checkpoints[-1])
             else:
-                print("Nothing was dumped. Did not find a checkpoint in {}".format(path))
+                print(
+                    "Nothing was dumped. Did not find a checkpoint in {}".format(path)
+                )
                 exit()
 
     @classmethod
     def get_config_for_job_id(cls, job_id, folder_path):
         config = Config(load_default=True)
         config_path = os.path.join(
-            folder_path,
-            "config",
-            job_id.split("-")[0] + ".yaml"
+            folder_path, "config", job_id.split("-")[0] + ".yaml"
         )
         if os.path.isfile(config_path):
             config.load(config_path, create=True)
