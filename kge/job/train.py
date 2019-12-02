@@ -115,7 +115,10 @@ class TrainingJob(Job):
         while True:
             # checking for model improvement according to metric_name
             # and do early stopping and keep the best checkpoint
-            if len(self.valid_trace) > 0:
+            if (
+                len(self.valid_trace) > 0
+                and self.valid_trace[-1]["epoch"] == self.epoch
+            ):
                 best_index = max(
                     range(len(self.valid_trace)),
                     key=lambda index: self.valid_trace[index][metric_name],
