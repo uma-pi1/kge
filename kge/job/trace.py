@@ -1,6 +1,17 @@
 import yaml
 import pandas as pd
 import re
+import os
+import torch
+import sys
+import csv
+from collections import OrderedDict
+import subprocess
+import time
+
+
+from kge.util.misc import kge_base_dir
+from kge.config import Config
 
 
 class Trace:
@@ -53,3 +64,272 @@ class Trace:
             else:
                 return entry.get("hits_at_k")[k - 1]
         raise ValueError("metric " + metric_name + " not found")
+
+
+class ObjectDumper:
+    @classmethod
+    def dump_trace(cls, args):
+        start = time.time()
+        if not (args.train or args.valid or args.test):
+            args.train = True
+            args.valid = True
+            args.test = True
+
+        checkpoint = None
+        if ".pt" in os.path.split(args.source)[-1]:
+            checkpoint = args.source
+            folder_path = os.path.split(args.source)[0]
+        else:
+            # determine job_id and epoch from last/best checkpoint automatically
+            if args.checkpoint:
+                checkpoint = cls.get_checkpoint_from_path(args.source)
+            folder_path = args.source
+            if not args.checkpoint and args.truncate:
+                raise ValueError(
+                    "You can only use --truncate when a checkpoint is specified."
+                    "Consider  using --checkpoint or provide a checkpoint file as source"
+                )
+        trace = os.path.join(folder_path, "trace.yaml")
+        if not os.path.isfile(trace):
+            sys.stdout.write("Nothing dumped. No trace found at {}".format(trace))
+            exit()
+
+        keymap = OrderedDict()
+        if args.keysfile:
+            with open(args.keysfile, "r") as keyfile:
+                for line in keyfile:
+                    keymap[line.rstrip("\n").split("=")[0].strip()] = (
+                        line.rstrip("\n").split("=")[1].strip()
+                    )
+        job_id = None
+        epoch = int(args.max_epoch)
+        # use job_id and epoch from checkpoint
+        if checkpoint and args.truncate:
+            checkpoint = torch.load(f=checkpoint, map_location="cpu")
+            job_id = checkpoint["job_id"]
+            epoch = checkpoint["epoch"]
+        # only use job_id from checkpoint
+        elif checkpoint:
+            checkpoint = torch.load(f=checkpoint, map_location="cpu")
+            job_id = checkpoint["job_id"]
+        # override job_id and epoch with user arguments if given
+        if args.job_id:
+            job_id = args.job_id
+        if not epoch:
+            epoch = float("inf")
+
+        if not job_id:
+            out = subprocess.Popen(
+                ['grep "epoch: " ' + trace + ' | grep " job: train"'],
+                shell=True,
+                stdout=subprocess.PIPE,
+            ).communicate()[0]
+            job_id = yaml.load(
+                out.decode("utf-8").split("\n")[-2], Loader=yaml.SafeLoader
+            ).get("job_id")
+        entries = []
+        current_job_id = job_id
+        job_ids = {current_job_id: epoch}
+        found_previous = True
+        scope_command = ""
+        # the scope attribute is always needed to filter out meta entries
+        if args.example and args.batch:
+            scope_command = " | grep -e 'scope: epoch' -e 'scope: example' -e 'scope: batch'"
+        elif args.example:
+            scope_command = " | grep -e 'scope: epoch' -e 'scope: example'"
+        elif args.batch:
+            scope_command = " | grep -e 'scope: epoch' -e 'scope: batch'"
+        else:
+            scope_command = " | grep 'scope: epoch'"
+        while found_previous:
+            for arg, command in zip(
+                [args.valid, args.test],
+                [
+                    "grep -e 'resumed_from_job_id: {}' -e 'parent_job_id: {}' ".format(
+                        current_job_id, current_job_id
+                    )
+                    + trace
+                    + " | grep 'job: eval' | grep 'epoch: ' | grep -e 'data: valid' -e 'data: train'"
+                    + scope_command,
+                    "grep  'resumed_from_job_id: {}' ".format(current_job_id)
+                    + trace
+                    + " | grep 'epoch: ' | grep 'job: eval'  | grep 'data: test'"
+                    + scope_command,
+                ],
+            ):
+                if arg:
+                    out = subprocess.Popen(
+                        command, shell=True, stdout=subprocess.PIPE
+                    ).communicate()[0]
+                    if len(out):
+                        current_entries = [
+                            yaml.load(entry, Loader=yaml.SafeLoader)
+                            for entry in out.decode("utf-8").split("\n")[0:-1]
+                        ]
+                        current_entries.extend(entries)
+                        entries = current_entries
+            # always load train entries to determine the job sequence of 'relevant' jobs
+            train_out = subprocess.Popen(
+                [
+                    'grep  " job_id: {}" '.format(current_job_id)
+                    + trace
+                    + ' | grep "epoch: " | grep "job: train"'
+                    + scope_command
+                ],
+                shell=True,
+                stdout=subprocess.PIPE,
+            ).communicate()[0]
+            if len(train_out):
+                current_entries = [
+                    yaml.load(entry, Loader=yaml.SafeLoader)
+                    for entry in train_out.decode("utf-8").split("\n")[0:-1]
+                ]
+            resumed_id = current_entries[0].get("resumed_from_job_id")
+            if args.train:
+                current_entries.extend(entries)
+                entries = current_entries
+            if resumed_id:
+                # used for filter out larger epochs of a previous job
+                # from the previous job epochs only up until the current epoch is needed
+                job_ids[resumed_id] = current_entries[0].get("epoch")-1
+                found_previous = True
+                current_job_id = resumed_id
+            else:
+                found_previous = False
+        middle = time.time()
+        if args.csv:
+            csv_writer = csv.writer(sys.stdout)
+
+            # dict[new_name] = (lookup_name, where)
+            # if where== "config"/"trace" it will be looked up automatically
+            # if where=="sep" it must be added in in the write loop separately
+            default_attributes = OrderedDict(
+                [
+                    ("job_id", ("job_id", "sep")),
+                    ("dataset", ("dataset.name", "config")),
+                    ("model", ("model", "sep")),
+                    ("reciprocal", ("reciprocal", "sep")),
+                    ("job", ("job", "sep")),
+                    ("job_type", ("type", "trace")),
+                    ("split", ("split", "sep")),
+                    ("epoch", ("epoch", "trace")),
+                    ("avg_loss", ("avg_loss", "trace")),
+                    ("avg_penalty", ("avg_penalty", "trace")),
+                    ("avg_cost", ("avg_cost", "trace")),
+                    ("metric_name", ("valid.metric", "config")),
+                    ("metric", ("metric", "sep")),
+                ]
+            )
+            csv_writer.writerow(
+                list(default_attributes.keys()) + [key for key in keymap.keys()]
+            )
+        # store configs for job_id's s.t. they need to be loaded only once
+        configs = {}
+        for entry in entries:
+            if not entry.get("epoch") <= float(epoch):
+                continue
+            # filter out not needed entries from a previous job when
+            # a job was resumed from the middle
+            if entry.get("job") == "train":
+                job_id = entry.get("job_id")
+                if entry.get("epoch") > job_ids[job_id]:
+                    continue
+            current_job_id = entry.get("job_id")
+            if current_job_id in configs.keys():
+                config = configs[current_job_id]
+            else:
+                config = cls.get_config_for_job_id(entry.get("job_id"), folder_path)
+                configs[current_job_id] = config
+            new_attributes = OrderedDict()
+            if config.get_default("model") == "reciprocal_relations_model":
+                model = config.get_default("reciprocal_relations_model.base_model.type")
+                # the string that substitutes $base_model in keymap if it exists
+                subs_model = "reciprocal_relations_model.base_model"
+                reciprocal = 1
+            else:
+                model = config.get_default("model")
+                subs_model = model
+                reciprocal = 0
+            for new_key in keymap.keys():
+                lookup = keymap[new_key]
+                if "$base_model" in lookup:
+                    lookup = lookup.replace("$base_model", subs_model)
+                try:
+                    val = config.get_default(lookup)
+                except:
+                    # creates empty field if key is not existing
+                    val = entry.get(lookup)
+                if type(val) == bool and val:
+                    val = 1
+                elif type(val) == bool and not val:
+                    val = 0
+                new_attributes[new_key] = val
+            if args.csv:
+                # find the actual values for the default attributes
+                actual_default = default_attributes.copy()
+                for new_key in default_attributes.keys():
+                    lookup, where = default_attributes[new_key]
+                    if where == "config":
+                        actual_default[new_key] = config.get(lookup)
+                    elif where == "trace":
+                        actual_default[new_key] = entry.get(lookup)
+                # keys with separate treatment
+                # "split" in {train,test,valid} for the datatype
+                # "job" in {train,eval,valid,search}
+                if entry.get("job") == "train":
+                    actual_default["split"] = "train"
+                    actual_default["job"] = "train"
+                if entry.get("job") == "eval":
+                    actual_default["split"] = entry.get("data")  # test or valid
+                    if entry.get("resumed_from_job_id"):
+                        actual_default["job"] = "eval"  # from "kge eval"
+                    else:
+                        actual_default["job"] = "valid"  # child of training job
+                actual_default["job_id"] = entry.get("job_id").split("-")[0]
+                actual_default["model"] = model
+                actual_default["reciprocal"] = reciprocal
+                # lookup name is in config value is in trace
+                actual_default["metric"] = entry.get(config.get_default("valid.metric"))
+                csv_writer.writerow(
+                    [actual_default[new_key] for new_key in actual_default.keys()]
+                    + [new_attributes[new_key] for new_key in new_attributes.keys()]
+                )
+            else:
+                entry.update({"reciprocal": reciprocal, "model": model})
+                if keymap:
+                    entry.update(new_attributes)
+                sys.stdout.write(re.sub("[{}']", "", str(entry)))
+                sys.stdout.write("\n")
+        end = time.time()
+        if args.timeit:
+            sys.stdout.write("Grep + processing took {} \n".format(middle - start))
+            sys.stdout.write("Writing took {}".format(end - middle))
+
+    @classmethod
+    def get_checkpoint_from_path(cls, path):
+        if "checkpoint_best.pt" in os.listdir(path):
+            return os.path.join(path, "checkpoint_best.pt")
+        else:
+            checkpoints = sorted(
+                list(filter(lambda file: "checkpoint" in file, os.listdir(path)))
+            )
+
+            if len(checkpoints) > 0:
+                return os.path.join(path, checkpoints[-1])
+            else:
+                print(
+                    "Nothing was dumped. Did not find a checkpoint in {}".format(path)
+                )
+                exit()
+
+    @classmethod
+    def get_config_for_job_id(cls, job_id, folder_path):
+        config = Config(load_default=True)
+        config_path = os.path.join(
+            folder_path, "config", job_id.split("-")[0] + ".yaml"
+        )
+        if os.path.isfile(config_path):
+            config.load(config_path, create=True)
+        else:
+            raise Exception("Could not find config file for job_id")
+        return config
