@@ -255,7 +255,10 @@ class ObjectDumper:
                 if "$base_model" in lookup:
                     lookup = lookup.replace("$base_model", subs_model)
                 try:
-                    val = config.get_default(lookup)
+                    if lookup == "$folder":
+                        val = os.path.abspath(folder_path)
+                    else:
+                        val = config.get_default(lookup)
                 except:
                     # creates empty field if key is not existing
                     val = entry.get(lookup)
