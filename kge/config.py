@@ -414,6 +414,20 @@ class Config:
         else:
             return None
 
+    @staticmethod
+    def get_best_or_last_checkpoint(path):
+        """Returns best (if present) or last checkpoint path for a given folder path."""
+        if "checkpoint_best.pt" in os.listdir(path):
+            return os.path.join(path, "checkpoint_best.pt")
+        else:
+            checkpoints = sorted(
+                list(filter(lambda file: "checkpoint" in file, os.listdir(path)))
+            )
+            if len(checkpoints) > 0:
+                return os.path.join(path, checkpoints[-1])
+            else:
+                raise Exception("Did not find a checkpoint in {}".format(path))
+
     # -- CONVENIENCE METHODS --------------------------------------------------
 
     def _check(self, key: str, value, allowed_values) -> Any:
