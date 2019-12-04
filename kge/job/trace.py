@@ -84,18 +84,18 @@ class Trace:
         command = "grep "
         if type(conjunctions[0]) == tuple:
             for disjunction in conjunctions[0]:
-                command += "-e '{}' ".format(disjunction)
+                command += "-e '{}' ".format(" " + disjunction)
             command += "{} ".format(tracefile)
         elif type(conjunctions[0]) == str:
-            command += "'{}' ".format(conjunctions[0])
+            command += "'{}' ".format(" " + conjunctions[0])
             command += "{} ".format(tracefile)
         for el in conjunctions[1:]:
             command += "| grep "
             if type(el) == tuple:
                 for disjunction in el:
-                    command += "-e '{}' ".format(disjunction)
+                    command += "-e '{}' ".format(" " + disjunction)
             elif type(el) == str:
-                command += "'{}' ".format(el)
+                command += "'{}' ".format(" " + el)
         output = subprocess.Popen(
             [command], shell=True, stdout=subprocess.PIPE
         ).communicate()[0]
@@ -185,7 +185,7 @@ class Trace:
                             "parent_job_id: {}".format(current_job_id),
                         ),
                         "job: eval",
-                        ("data: valid", "data:train"),
+                        ("data: valid", "data: train"),
                     ]
                     + [scopes],
                     [
@@ -220,7 +220,7 @@ class Trace:
                     entries = current_entries
             if resumed_id:
                 # used to filter out larger epochs of a previous job
-                # from the previous job epochs only up until the current epoch is needed
+                # from the previous job epochs only up until the current epoch are needed
                 # current entries must only contain training type entries
                 job_epochs[resumed_id] = current_entries[0].get("epoch") - 1
                 found_previous = True
