@@ -65,6 +65,54 @@ class Trace:
                 return entry.get("hits_at_k")[k - 1]
         raise ValueError("metric " + metric_name + " not found")
 
+    @staticmethod
+    def grep_entries(tracefile: str, conjunctions: list, raw=False):
+        """ For a given tracefile, returns entries matching patterns with 'grep'.
+
+        :param tracefile: string, path to tracefile
+
+        :param conjunctions: A mixed list of patterns or tuples to be parsed with grep.
+        Elements of the list donate conjunctions (AND) and elements within tuples in
+        the list denote disjunctions (OR). For example, conjunctions =
+         [("epoch: 10,", "epoch: 12,"), "job: train"] retrieves all entries
+        from epoch 10 OR 12 that are (AND) training jobs.
+
+        :returns: A list of dictionaries containing the matching entries.
+        If raw=True returns a list with raw strings of the entries (much faster).
+
+        """
+        command = "grep "
+        if type(conjunctions[0]) == tuple:
+            for disjunction in conjunctions[0]:
+                command += "-e '{}' ".format(disjunction)
+            command += "{} ".format(tracefile)
+        elif type(conjunctions[0]) == str:
+            command += "'{}' ".format(conjunctions[0])
+            command += "{} ".format(tracefile)
+        for el in conjunctions[1:]:
+            command += "| grep "
+            if type(el) == tuple:
+                for disjunction in el:
+                    command += "-e '{}' ".format(disjunction)
+            elif type(el) == str:
+                command += "'{}' ".format(el)
+        output = subprocess.Popen(
+            [command], shell=True, stdout=subprocess.PIPE
+        ).communicate()[0]
+        if len(output) and not raw:
+            # TODO: if efficiency of dump trace has to be improved:
+            # the grep command runs fast also for large trace files
+            # the bottleneck is yaml.load() when throughput is large
+            entries = [
+                yaml.load(entry, Loader=yaml.SafeLoader)
+                for entry in output.decode("utf-8").split("\n")[0:-1]
+            ]
+            return entries
+        elif len(output) and raw:
+            return output.decode("utf-8").split("\n")[0:-1]
+        else:
+            return []
+
 
 class ObjectDumper:
     @classmethod
@@ -112,86 +160,88 @@ class ObjectDumper:
         elif checkpoint:
             checkpoint = torch.load(f=checkpoint, map_location="cpu")
             job_id = checkpoint["job_id"]
-        # override job_id and epoch with user arguments if given
+        # override job_id and epoch with user arguments
         if args.job_id:
             job_id = args.job_id
         if not epoch:
             epoch = float("inf")
 
         if not job_id:
-            out = subprocess.Popen(
-                ['grep "epoch: " ' + trace + ' | grep " job: train"'],
-                shell=True,
-                stdout=subprocess.PIPE,
-            ).communicate()[0]
-            job_id = yaml.load(
-                out.decode("utf-8").split("\n")[-2], Loader=yaml.SafeLoader
-            ).get("job_id")
+            last_entry = Trace.grep_entries(
+                    tracefile=trace,
+                    conjunctions=["scope: epoch", "job: train"],
+                    raw=True,
+                )[-1]
+            job_id = yaml.load(last_entry, Loader=yaml.SafeLoader).get("job_id")
+        if not job_id:
+            raise Exception(
+                "Could not find a training entry in tracefile."
+                "Please check file or specify job_id"
+            )
         entries = []
         current_job_id = job_id
+        # key is a job and epoch is the max epoch needed for this job
         job_ids = {current_job_id: epoch}
         found_previous = True
-        scope_command = ""
-        # the scope attribute is always needed to filter out meta entries
+        scopes = ""
+        # scopes is always needed to filter out meta entries
         if args.example and args.batch:
-            scope_command = " | grep -e 'scope: epoch' -e 'scope: example' -e 'scope: batch'"
+            scopes = ["scope: epoch", "scope: example", "scope: batch"]
         elif args.example:
-            scope_command = " | grep -e 'scope: epoch' -e 'scope: example'"
+            scopes = ["scope: epoch", "scope: example"]
         elif args.batch:
-            scope_command = " | grep -e 'scope: epoch' -e 'scope: batch'"
+            scopes = ["scope: epoch", "scope: batch"]
         else:
-            scope_command = " | grep 'scope: epoch'"
+            scopes = ["scope: epoch"]
         while found_previous:
-            for arg, command in zip(
+            # in conj list elements are combined with AND tuple elements with OR
+            for arg, conj in zip(
                 [args.valid, args.test],
                 [
-                    "grep -e 'resumed_from_job_id: {}' -e 'parent_job_id: {}' ".format(
-                        current_job_id, current_job_id
-                    )
-                    + trace
-                    + " | grep 'job: eval' | grep 'epoch: ' | grep -e 'data: valid' -e 'data: train'"
-                    + scope_command,
-                    "grep  'resumed_from_job_id: {}' ".format(current_job_id)
-                    + trace
-                    + " | grep 'epoch: ' | grep 'job: eval'  | grep 'data: test'"
-                    + scope_command,
+                    [
+                        (
+                            "resumed_from_job_id: {}".format(current_job_id),
+                            "parent_job_id: {}".format(current_job_id),
+                        ),
+                        "job: eval",
+                        ("data: valid", "data:train"),
+                    ]
+                    + scopes,
+                    [
+                        (
+                            "resumed_from_job_id: {}".format(current_job_id),
+                            "parent_job_id: {}".format(current_job_id),
+                        ),
+                        "job: eval",
+                        "data: test",
+                    ]
+                    + scopes,
                 ],
             ):
                 if arg:
-                    out = subprocess.Popen(
-                        command, shell=True, stdout=subprocess.PIPE
-                    ).communicate()[0]
-                    if len(out):
-                        current_entries = [
-                            yaml.load(entry, Loader=yaml.SafeLoader)
-                            for entry in out.decode("utf-8").split("\n")[0:-1]
-                        ]
+                    current_entries = Trace.grep_entries(
+                        tracefile=trace, conjunctions=conj
+                    )
+                    if len(current_entries):
                         current_entries.extend(entries)
                         entries = current_entries
             # always load train entries to determine the job sequence of 'relevant' jobs
-            train_out = subprocess.Popen(
-                [
-                    'grep  " job_id: {}" '.format(current_job_id)
-                    + trace
-                    + ' | grep "epoch: " | grep "job: train"'
-                    + scope_command
-                ],
-                shell=True,
-                stdout=subprocess.PIPE,
-            ).communicate()[0]
-            if len(train_out):
-                current_entries = [
-                    yaml.load(entry, Loader=yaml.SafeLoader)
-                    for entry in train_out.decode("utf-8").split("\n")[0:-1]
-                ]
-            resumed_id = current_entries[0].get("resumed_from_job_id")
-            if args.train:
-                current_entries.extend(entries)
-                entries = current_entries
+            current_entries = Trace.grep_entries(
+                tracefile=trace,
+                conjunctions=["job_id: {}".format(current_job_id), "job: train"]
+                + scopes,
+            )
+            resumed_id = ""
+            if len(current_entries):
+                resumed_id = current_entries[0].get("resumed_from_job_id")
+                if args.train:
+                    current_entries.extend(entries)
+                    entries = current_entries
             if resumed_id:
-                # used for filter out larger epochs of a previous job
+                # used to filter out larger epochs of a previous job
                 # from the previous job epochs only up until the current epoch is needed
-                job_ids[resumed_id] = current_entries[0].get("epoch")-1
+                # current entries must only contain training type entries
+                job_ids[resumed_id] = current_entries[0].get("epoch") - 1
                 found_previous = True
                 current_job_id = resumed_id
             else:
@@ -201,7 +251,7 @@ class ObjectDumper:
             csv_writer = csv.writer(sys.stdout)
 
             # dict[new_name] = (lookup_name, where)
-            # if where== "config"/"trace" it will be looked up automatically
+            # if where=="config"/"trace" it will be looked up automatically
             # if where=="sep" it must be added in in the write loop separately
             default_attributes = OrderedDict(
                 [
