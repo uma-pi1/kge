@@ -69,13 +69,13 @@ class Trace:
     def grep_entries(tracefile: str, conjunctions: list, raw=False):
         """ For a given tracefile, returns entries matching patterns with 'grep'.
 
-        :param tracefile: string, path to tracefile
-
-        :param conjunctions: A mixed list of patterns or tuples to be parsed with grep.
-        Elements of the list donate conjunctions (AND) and elements within tuples in
-        the list denote disjunctions (OR). For example, conjunctions =
-         [("epoch: 10,", "epoch: 12,"), "job: train"] retrieves all entries
-        from epoch 10 OR 12 that are (AND) training jobs.
+        :param tracefile: String, path to tracefile
+        :param conjunctions: A list of strings(patterns) or tuples with strings to be
+        used with grep. Elements of the list denote conjunctions (AND) and
+        elements within tuples in the list denote disjunctions (OR). For example,
+        conjunctions = [("epoch: 10,", "epoch: 12,"), "job: train"] retrieves all entries
+        which are from epoch 10 OR 12 AND belong to training jobs. Arbitrary nested
+        combinations of AND and OR are possible.
 
         :returns: A list of dictionaries containing the matching entries.
         If raw=True returns a list with raw strings of the entries (much faster).
@@ -113,6 +113,122 @@ class Trace:
         else:
             return []
 
+    @staticmethod
+    def grep_training_trace_entries(
+        tracefile: str,
+        train: bool,
+        test: bool,
+        valid: bool,
+        example=False,
+        batch=False,
+        job_id=None,
+        epoch_of_last=None,
+    ):
+        """ Extracts trace entry types from a training job trace.
+
+        For a given job_id the sequence of training job's leading to the job with job_id
+        is retrieved. All entry types determined by the options will be included and
+        returned as a list of dictionaries. For train entries, all epochs of all job's
+        are included. These can be filtered with job_epochs.
+
+        :param tracefile: String
+        :param train/test/valid: Boolean whether to include entries of the type
+        :param batch/example: Boolean whether to include entries of the scope
+        :param job_id: The job_id to determine the end of the training sequence.
+        If none, the job_id of the last training entry in the trace is used.
+        :param epoch_of_last: The max epoch number the job with job_id is trained.
+        Note: all epochs of all training jobs in the sequence are retrieved and can be
+        filtered with job_epochs.
+
+        :returns: entries, job_epochs
+        entries: list of dictionaries with the respective entries
+        job_epochs: a dictionary where the key's are the job id's in the trainig job
+        sequence and the values are max epochs numbers the jobs have been trained in
+        the sequence.
+
+        """
+        if not job_id:
+            last_entry = Trace.grep_entries(
+                tracefile=tracefile,
+                conjunctions=["scope: epoch", "job: train"],
+                raw=True,
+            )[-1]
+            job_id = yaml.load(last_entry, Loader=yaml.SafeLoader).get("job_id")
+        if not job_id:
+            raise Exception(
+                "Could not find a training entry in tracefile."
+                "Please check file or specify job_id"
+            )
+        entries = []
+        current_job_id = job_id
+        # key is a job and epoch is the max epoch needed for this job
+        job_epochs = {current_job_id: epoch_of_last}
+        found_previous = True
+        scopes = ""
+        # scopes is always needed to filter out meta entries
+        if example and batch:
+            scopes = "scope: epoch", "scope: example", "scope: batch"
+        elif example:
+            scopes = "scope: epoch", "scope: example"
+        elif batch:
+            scopes = "scope: epoch", "scope: batch"
+        else:
+            scopes = "scope: epoch"
+        while found_previous:
+            # in conj list elements are combined with AND tuple elements with OR
+            for arg, conj in zip(
+                [valid, test],
+                [
+                    [
+                        (
+                            "resumed_from_job_id: {}".format(current_job_id),
+                            "parent_job_id: {}".format(current_job_id),
+                        ),
+                        "job: eval",
+                        ("data: valid", "data:train"),
+                    ]
+                    + [scopes],
+                    [
+                        (
+                            "resumed_from_job_id: {}".format(current_job_id),
+                            "parent_job_id: {}".format(current_job_id),
+                        ),
+                        "job: eval",
+                        "data: test",
+                    ]
+                    + [scopes],
+                ],
+            ):
+                if arg:
+                    current_entries = Trace.grep_entries(
+                        tracefile=tracefile, conjunctions=conj
+                    )
+                    if len(current_entries):
+                        current_entries.extend(entries)
+                        entries = current_entries
+            # always load train entries to determine the job sequence of 'relevant' jobs
+            current_entries = Trace.grep_entries(
+                tracefile=tracefile,
+                conjunctions=["job_id: {}".format(current_job_id), "job: train"]
+                + [scopes],
+            )
+            resumed_id = ""
+            if len(current_entries):
+                resumed_id = current_entries[0].get("resumed_from_job_id")
+                if train:
+                    current_entries.extend(entries)
+                    entries = current_entries
+            if resumed_id:
+                # used to filter out larger epochs of a previous job
+                # from the previous job epochs only up until the current epoch is needed
+                # current entries must only contain training type entries
+                job_epochs[resumed_id] = current_entries[0].get("epoch") - 1
+                found_previous = True
+                current_job_id = resumed_id
+            else:
+                found_previous = False
+        return entries, job_epochs
+
 
 class ObjectDumper:
     @classmethod
@@ -135,7 +251,7 @@ class ObjectDumper:
             if not args.checkpoint and args.truncate:
                 raise ValueError(
                     "You can only use --truncate when a checkpoint is specified."
-                    "Consider  using --checkpoint or provide a checkpoint file as source"
+                    "Consider using --checkpoint or provide a checkpoint file as source"
                 )
         trace = os.path.join(folder_path, "trace.yaml")
         if not os.path.isfile(trace):
@@ -166,90 +282,18 @@ class ObjectDumper:
         if not epoch:
             epoch = float("inf")
 
-        if not job_id:
-            last_entry = Trace.grep_entries(
-                    tracefile=trace,
-                    conjunctions=["scope: epoch", "job: train"],
-                    raw=True,
-                )[-1]
-            job_id = yaml.load(last_entry, Loader=yaml.SafeLoader).get("job_id")
-        if not job_id:
-            raise Exception(
-                "Could not find a training entry in tracefile."
-                "Please check file or specify job_id"
-            )
-        entries = []
-        current_job_id = job_id
-        # key is a job and epoch is the max epoch needed for this job
-        job_ids = {current_job_id: epoch}
-        found_previous = True
-        scopes = ""
-        # scopes is always needed to filter out meta entries
-        if args.example and args.batch:
-            scopes = ["scope: epoch", "scope: example", "scope: batch"]
-        elif args.example:
-            scopes = ["scope: epoch", "scope: example"]
-        elif args.batch:
-            scopes = ["scope: epoch", "scope: batch"]
-        else:
-            scopes = ["scope: epoch"]
-        while found_previous:
-            # in conj list elements are combined with AND tuple elements with OR
-            for arg, conj in zip(
-                [args.valid, args.test],
-                [
-                    [
-                        (
-                            "resumed_from_job_id: {}".format(current_job_id),
-                            "parent_job_id: {}".format(current_job_id),
-                        ),
-                        "job: eval",
-                        ("data: valid", "data:train"),
-                    ]
-                    + scopes,
-                    [
-                        (
-                            "resumed_from_job_id: {}".format(current_job_id),
-                            "parent_job_id: {}".format(current_job_id),
-                        ),
-                        "job: eval",
-                        "data: test",
-                    ]
-                    + scopes,
-                ],
-            ):
-                if arg:
-                    current_entries = Trace.grep_entries(
-                        tracefile=trace, conjunctions=conj
-                    )
-                    if len(current_entries):
-                        current_entries.extend(entries)
-                        entries = current_entries
-            # always load train entries to determine the job sequence of 'relevant' jobs
-            current_entries = Trace.grep_entries(
-                tracefile=trace,
-                conjunctions=["job_id: {}".format(current_job_id), "job: train"]
-                + scopes,
-            )
-            resumed_id = ""
-            if len(current_entries):
-                resumed_id = current_entries[0].get("resumed_from_job_id")
-                if args.train:
-                    current_entries.extend(entries)
-                    entries = current_entries
-            if resumed_id:
-                # used to filter out larger epochs of a previous job
-                # from the previous job epochs only up until the current epoch is needed
-                # current entries must only contain training type entries
-                job_ids[resumed_id] = current_entries[0].get("epoch") - 1
-                found_previous = True
-                current_job_id = resumed_id
-            else:
-                found_previous = False
+        entries, job_epochs = Trace.grep_training_trace_entries(
+            tracefile=trace,
+            train=args.train,
+            test=args.test,
+            valid=args.valid,
+            example=args.example,
+            job_id=job_id,
+            epoch_of_last=epoch
+        )
         middle = time.time()
         if args.csv:
             csv_writer = csv.writer(sys.stdout)
-
             # dict[new_name] = (lookup_name, where)
             # if where=="config"/"trace" it will be looked up automatically
             # if where=="sep" it must be added in in the write loop separately
@@ -282,7 +326,7 @@ class ObjectDumper:
             # a job was resumed from the middle
             if entry.get("job") == "train":
                 job_id = entry.get("job_id")
-                if entry.get("epoch") > job_ids[job_id]:
+                if entry.get("epoch") > job_epochs[job_id]:
                     continue
             current_job_id = entry.get("job_id")
             if current_job_id in configs.keys():
