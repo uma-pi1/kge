@@ -376,7 +376,7 @@ class TrainingJob(Job):
                     "avg_loss": batch_result.avg_loss,
                     "penalties": [p.item() for p in penalties_torch],
                     "penalty": penalty,
-                    "cost": cost_value.item(),
+                    "cost": cost_value,
                     "prepare_time": batch_result.prepare_time,
                     "forward_time": batch_forward_time,
                     "backward_time": batch_backward_time,
