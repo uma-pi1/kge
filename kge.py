@@ -8,7 +8,7 @@ from kge import Dataset
 from kge import Config
 from kge.job import Job
 from kge.util.misc import get_git_revision_short_hash, kge_base_dir, is_number
-from kge.util.dump import add_dump_parsers
+from kge.util.dump import add_dump_parsers, dump
 
 
 def argparse_bool_type(v):
@@ -142,12 +142,9 @@ if __name__ == "__main__":
     process_meta_command(
         args, "valid", {"command": "resume", "job.type": "eval", "eval.data": "valid"}
     )
-
+    # dump commands; exits script after completion
     if args.command == "dump":
-        if args.dump_command == "trace":
-            from kge.util.dump import dump_trace
-            dump_trace(args)
-            exit()
+        dump(args)
 
     # start command
     if args.command == "start":

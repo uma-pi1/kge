@@ -13,7 +13,6 @@ from kge import Config
 
 
 def add_dump_parsers(subparsers):
-
     # 'kge dump' can have associated sub-commands which can have different args
     parser_dump = subparsers.add_parser("dump", help="Dump objects to stdout",)
     subparsers_dump = parser_dump.add_subparsers(
@@ -91,11 +90,10 @@ def add_dump_parsers(subparsers):
         )
     parser_dump_trace.add_argument("--keysfile", default=False)
 
+
 def get_config_for_job_id(job_id, folder_path):
     config = Config(load_default=True)
-    config_path = os.path.join(
-        folder_path, "config", job_id.split("-")[0] + ".yaml"
-    )
+    config_path = os.path.join(folder_path, "config", job_id.split("-")[0] + ".yaml")
     if os.path.isfile(config_path):
         config.load(config_path, create=True)
     else:
@@ -268,7 +266,7 @@ def dump_trace(args):
             csv_writer.writerow(
                 [actual_default[new_key] for new_key in actual_default.keys()]
                 + [new_attributes[new_key] for new_key in new_attributes.keys()]
-                )
+            )
         else:
             entry.update({"reciprocal": reciprocal, "model": model})
             if keymap:
@@ -279,3 +277,10 @@ def dump_trace(args):
     if args.timeit:
         sys.stdout.write("Grep + processing took {} \n".format(middle - start))
         sys.stdout.write("Writing took {}".format(end - middle))
+
+
+def dump(args):
+    """Executes the 'kge dump' commands. """
+    if args.dump_command == "trace":
+        dump_trace(args)
+        exit()

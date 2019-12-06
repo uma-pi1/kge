@@ -415,13 +415,19 @@ class Config:
             return None
 
     @staticmethod
-    def get_best_or_last_checkpoint(path):
+    def get_best_or_last_checkpoint(path: str) -> str:
         """Returns best (if present) or last checkpoint path for a given folder path."""
         if "checkpoint_best.pt" in os.listdir(path):
             return os.path.join(path, "checkpoint_best.pt")
         else:
+            import re
             checkpoints = sorted(
-                list(filter(lambda file: "checkpoint" in file, os.listdir(path)))
+                list(
+                    filter(
+                        lambda filename: re.search("checkpoint_[0-9]{5}.pt", filename),
+                        os.listdir(path),
+                    )
+                )
             )
             if len(checkpoints) > 0:
                 return os.path.join(path, checkpoints[-1])
