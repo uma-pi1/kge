@@ -417,22 +417,15 @@ class Config:
     @staticmethod
     def get_best_or_last_checkpoint(path: str) -> str:
         """Returns best (if present) or last checkpoint path for a given folder path."""
-        if "checkpoint_best.pt" in os.listdir(path):
-            return os.path.join(path, "checkpoint_best.pt")
+        config = Config(folder=path, load_default=False)
+        checkpoint_file = config.checkpoint_file("best")
+        if os.path.isfile(checkpoint_file):
+            return checkpoint_file
+        cpt_epoch = config.last_checkpoint()
+        if cpt_epoch:
+            return config.checkpoint_file(cpt_epoch)
         else:
-            import re
-            checkpoints = sorted(
-                list(
-                    filter(
-                        lambda filename: re.search("checkpoint_[0-9]{5}.pt", filename),
-                        os.listdir(path),
-                    )
-                )
-            )
-            if len(checkpoints) > 0:
-                return os.path.join(path, checkpoints[-1])
-            else:
-                raise Exception("Did not find a checkpoint in {}".format(path))
+            raise Exception("Could not find checkpoint in {}".format(path))
 
     # -- CONVENIENCE METHODS --------------------------------------------------
 
