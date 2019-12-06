@@ -3,6 +3,7 @@ import os
 from collections import defaultdict, OrderedDict
 
 import torch
+import numpy as np
 
 from kge.util.misc import kge_base_dir
 
@@ -108,21 +109,16 @@ class Dataset:
     @staticmethod
     def _load_triples(filename):
         n = 0
-        dictionary = {}
+        triples = np.loadtxt(filename, delimiter="\t", usecols=range(0, 3), dtype=int)
+        triples = torch.from_numpy(triples)
+        num_lines = triples.shape[0]
+        meta = [[]] * num_lines
         with open(filename, "r") as file:
             reader = csv.reader(file, delimiter="\t")
             for row in reader:
-                s = int(row[0])
-                p = int(row[1])
-                o = int(row[2])
-                meta = row[3:]
-                dictionary[n] = (torch.IntTensor([s, p, o]), meta)
+                meta[n] = row[3:]
                 n += 1
-        triples = torch.empty(n, 3, dtype=torch.int32)
-        meta = [[]] * n
-        for index, value in dictionary.items():
-            triples[index, :] = value[0]
-            meta[index] = value[1]
+
         return triples, meta
 
     def index_KvsAll(self, split: str, sp_po: str):
