@@ -414,6 +414,19 @@ class Config:
         else:
             return None
 
+    @staticmethod
+    def get_best_or_last_checkpoint(path: str) -> str:
+        """Returns best (if present) or last checkpoint path for a given folder path."""
+        config = Config(folder=path, load_default=False)
+        checkpoint_file = config.checkpoint_file("best")
+        if os.path.isfile(checkpoint_file):
+            return checkpoint_file
+        cpt_epoch = config.last_checkpoint()
+        if cpt_epoch:
+            return config.checkpoint_file(cpt_epoch)
+        else:
+            raise Exception("Could not find checkpoint in {}".format(path))
+
     # -- CONVENIENCE METHODS --------------------------------------------------
 
     def _check(self, key: str, value, allowed_values) -> Any:
