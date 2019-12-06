@@ -6,6 +6,7 @@ import torch
 import csv
 import yaml
 import re
+import socket
 
 from kge.job import Trace
 from kge import Config
@@ -83,25 +84,22 @@ def add_dump_parsers(subparsers):
         "--batch",
         "--example",
         "--timeit",
+        "--no-header",
     ]:
         parser_dump_trace.add_argument(
             argument, action="store_const", const=True, default=False,
         )
     parser_dump_trace.add_argument("--keysfile", default=False)
 
-
 def get_config_for_job_id(job_id, folder_path):
-    config = Config(load_default=False)
-    config_path = os.path.join(folder_path, "config", job_id.split("-")[0] + ".yaml")
+    config = Config(load_default=True)
+    config_path = os.path.join(
+        folder_path, "config", job_id.split("-")[0] + ".yaml"
+    )
     if os.path.isfile(config_path):
-        # load raw to prevent writing to stdout
-        with open(config_path, "r") as file:
-            options = yaml.load(file, Loader=yaml.SafeLoader)
-        config.options = options
+        config.load(config_path, create=True)
     else:
-        raise Exception(
-            "Could not find config file for job_id in {}".format(config_path)
-        )
+        raise Exception("Could not find config file for {}".format(job_id))
     return config
 
 
@@ -113,14 +111,14 @@ def dump_trace(args):
         args.valid = True
         args.test = True
 
-    checkpoint = None
+    checkpoint_path = None
     if ".pt" in os.path.split(args.source)[-1]:
-        checkpoint = args.source
+        checkpoint_path = args.source
         folder_path = os.path.split(args.source)[0]
     else:
         # determine job_id and epoch from last/best checkpoint automatically
         if args.checkpoint:
-            checkpoint = Config.get_best_or_last_checkpoint(args.source)
+            checkpoint_path = Config.get_best_or_last_checkpoint(args.source)
         folder_path = args.source
         if not args.checkpoint and args.truncate:
             raise ValueError(
@@ -142,13 +140,13 @@ def dump_trace(args):
     job_id = None
     epoch = int(args.max_epoch)
     # use job_id and epoch from checkpoint
-    if checkpoint and args.truncate:
-        checkpoint = torch.load(f=checkpoint, map_location="cpu")
+    if checkpoint_path and args.truncate:
+        checkpoint = torch.load(f=checkpoint_path, map_location="cpu")
         job_id = checkpoint["job_id"]
         epoch = checkpoint["epoch"]
     # only use job_id from checkpoint
-    elif checkpoint:
-        checkpoint = torch.load(f=checkpoint, map_location="cpu")
+    elif checkpoint_path:
+        checkpoint = torch.load(f=checkpoint_path, map_location="cpu")
         job_id = checkpoint["job_id"]
     # override job_id and epoch with user arguments
     if args.job_id:
@@ -162,6 +160,7 @@ def dump_trace(args):
         test=args.test,
         valid=args.valid,
         example=args.example,
+        batch=args.batch,
         job_id=job_id,
         epoch_of_last=epoch,
     )
@@ -188,9 +187,10 @@ def dump_trace(args):
                 ("metric", ("metric", "sep")),
             ]
         )
-        csv_writer.writerow(
-            list(default_attributes.keys()) + [key for key in keymap.keys()]
-        )
+        if not args.no_header:
+            csv_writer.writerow(
+                list(default_attributes.keys()) + [key for key in keymap.keys()]
+            )
     # store configs for job_id's s.t. they need to be loaded only once
     configs = {}
     for entry in entries:
@@ -225,6 +225,10 @@ def dump_trace(args):
             try:
                 if lookup == "$folder":
                     val = os.path.abspath(folder_path)
+                elif lookup == "$checkpoint":
+                    val = os.path.abspath(checkpoint_path)
+                elif lookup == "$machine":
+                    val = socket.gethostname()
                 else:
                     val = config.get_default(lookup)
             except:
@@ -264,7 +268,7 @@ def dump_trace(args):
             csv_writer.writerow(
                 [actual_default[new_key] for new_key in actual_default.keys()]
                 + [new_attributes[new_key] for new_key in new_attributes.keys()]
-            )
+                )
         else:
             entry.update({"reciprocal": reciprocal, "model": model})
             if keymap:

@@ -67,15 +67,14 @@ class Trace:
 
     @staticmethod
     def grep_entries(tracefile: str, conjunctions: list, raw=False):
-        """ For a given tracefile, returns entries matching patterns with 'grep'.
+        """ For a given tracefile, returns entries that match patterns with 'grep'.
 
         :param tracefile: String, path to tracefile
         :param conjunctions: A list of strings(patterns) or tuples with strings to be
         used with grep. Elements of the list denote conjunctions (AND) and
         elements within tuples in the list denote disjunctions (OR). For example,
-        conjunctions = [("epoch: 10,", "epoch: 12,"), "job: train"] retrieves all entries
-        which are from epoch 10 OR 12 AND belong to training jobs. Arbitrary nested
-        combinations of AND and OR are possible.
+        conjunctions = [("epoch: 10,", "epoch: 12,"), "job: train"] retrieves all
+        entries which are from epoch 10 OR 12 AND belong to training jobs.
 
         :returns: A list of dictionaries containing the matching entries.
         If raw=True returns a list with raw strings of the entries (much faster).
@@ -84,18 +83,18 @@ class Trace:
         command = "grep "
         if type(conjunctions[0]) == tuple:
             for disjunction in conjunctions[0]:
-                command += "-e '{}' ".format(" " + disjunction)
+                command += "-e '{}' ".format(disjunction)
             command += "{} ".format(tracefile)
         elif type(conjunctions[0]) == str:
-            command += "'{}' ".format(" " + conjunctions[0])
+            command += "'{}' ".format(conjunctions[0])
             command += "{} ".format(tracefile)
         for el in conjunctions[1:]:
             command += "| grep "
             if type(el) == tuple:
                 for disjunction in el:
-                    command += "-e '{}' ".format(" " + disjunction)
+                    command += "-e '{}' ".format(disjunction)
             elif type(el) == str:
-                command += "'{}' ".format(" " + el)
+                command += "'{}' ".format(el)
         output = subprocess.Popen(
             [command], shell=True, stdout=subprocess.PIPE
         ).communicate()[0]
@@ -126,10 +125,11 @@ class Trace:
     ):
         """ Extracts trace entry types from a training job trace.
 
-        For a given job_id the sequence of training job's leading to the job with job_id
-        is retrieved. All entry types determined by the options will be included and
-        returned as a list of dictionaries. For train entries, all epochs of all job's
-        are included. These can be filtered with job_epochs.
+        For a given job_id, the sequence of training job's leading to the job with
+        job_id is retrieved. All entry types specified by the options that are
+        associated with these jobs will be included and returned as a list of
+        dictionaries. For train entries, all epochs of all job's are included. These can
+        be filtered with job_epochs.
 
         :param tracefile: String
         :param train/test/valid: Boolean whether to include entries of the type
@@ -142,8 +142,8 @@ class Trace:
 
         :returns: entries, job_epochs
         entries: list of dictionaries with the respective entries
-        job_epochs: a dictionary where the key's are the job id's in the trainig job
-        sequence and the values are max epochs numbers the jobs have been trained in
+        job_epochs: a dictionary where the key's are the job id's in the training job
+        sequence and the values are the max epochs numbers the jobs have been trained in
         the sequence.
 
         """
@@ -181,20 +181,20 @@ class Trace:
                 [
                     [
                         (
-                            "resumed_from_job_id: {}".format(current_job_id),
-                            "parent_job_id: {}".format(current_job_id),
+                            " resumed_from_job_id: {}".format(current_job_id),
+                            " parent_job_id: {}".format(current_job_id),
                         ),
-                        "job: eval",
-                        ("data: valid", "data: train"),
+                        " job: eval",
+                        (" data: valid", " data: train"),
                     ]
                     + [scopes],
                     [
                         (
-                            "resumed_from_job_id: {}".format(current_job_id),
-                            "parent_job_id: {}".format(current_job_id),
+                            " resumed_from_job_id: {}".format(current_job_id),
+                            " parent_job_id: {}".format(current_job_id),
                         ),
-                        "job: eval",
-                        "data: test",
+                        " job: eval",
+                        " data: test",
                     ]
                     + [scopes],
                 ],
@@ -209,7 +209,7 @@ class Trace:
             # always load train entries to determine the job sequence of 'relevant' jobs
             current_entries = Trace.grep_entries(
                 tracefile=tracefile,
-                conjunctions=["job_id: {}".format(current_job_id), "job: train"]
+                conjunctions=[" job_id: {}".format(current_job_id), " job: train"]
                 + [scopes],
             )
             resumed_id = ""
