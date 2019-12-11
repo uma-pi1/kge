@@ -5,11 +5,12 @@ from collections import defaultdict, OrderedDict
 import torch
 import numpy as np
 
+from kge import Config, Configurable
 from kge.util.misc import kge_base_dir
 
 
 # TODO add support to pickle dataset (and indexes) and reload from there
-class Dataset:
+class Dataset(Configurable):
     def __init__(
         self,
         config,
@@ -24,7 +25,7 @@ class Dataset:
         test,
         test_meta,
     ):
-        self.config = config
+        super().__init__(config, "dataset")
         self.num_entities = num_entities
         self.entities = entities  # array: entity index -> metadata array of strings
         self.num_relations = num_relations
@@ -44,11 +45,14 @@ class Dataset:
         self.indexes = {}  # map: name of index -> index (used mainly by training jobs)
 
     @staticmethod
-    def load(config):
+    def load(config: Config):
         name = config.get("dataset.name")
-        config.log("Loading dataset " + name + "...")
-        base_dir = os.path.join(kge_base_dir(), "data/" + name)
+        base_dir = os.path.join(kge_base_dir(), "data", name)
+        if os.path.isfile(os.path.join(base_dir, "dataset.yaml")):
+            config.log("Loading configuration of dataset " + name + "...")
+            config.load(os.path.join(base_dir, "dataset.yaml"))
 
+        config.log("Loading dataset " + name + "...")
         num_entities, entities = Dataset._load_map(
             os.path.join(base_dir, config.get("dataset.entity_map"))
         )

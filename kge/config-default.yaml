@@ -19,6 +19,8 @@ random_seed:
 
 dataset:
   # Specify a dataset here. There must be a folder of that name under "data/".
+  # If this folder contains a dataset.yaml file, it overrides the defaults
+  # specified below.
   name: 'toy'
 
   # Names of the training, validation, and test data files. Each file has the
@@ -39,6 +41,8 @@ dataset:
   entity_map: entity_map.del
   relation_map: relation_map.del
 
+  # other dataset specific keys
+  +++: +++
 
 ## MODEL #######################################################################
 

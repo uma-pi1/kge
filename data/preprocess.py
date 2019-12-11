@@ -1,65 +1,103 @@
+#!/usr/bin/env python
+"""Preprocess a KGE dataset into a the format expected by libkge.
+
+Call as `preprocess.py --folder <name>`. The original dataset should be stored in
+subfolder `name` and have files "train.txt", "valid.txt", and "test.txt". Each file
+contains one SPO triple per line, separated by tabs.
+
+During preprocessing, each distinct entity name and each distinct distinct relation name
+is assigned an index (dense). The index-to-object mapping is stored in files
+"entity_map.del" and "relation_map.del", resp. The triples (as indexes) are stored in
+files "train.del", "valid.del", and "test.del". Metadata information is stored in a file
+"dataset.yaml".
+
+"""
+
 import argparse
+import yaml
+import os.path
+from collections import OrderedDict
 
 
-def index(symbols, file):
-    with open(file, "w") as f:
-        for i, k in symbols.items():
-            f.write(str(k) + "\t" + str(i) + "\n")
+def store_map(symbol_map, filename):
+    with open(filename, "w") as f:
+        for symbol, index in symbol_map.items():
+            f.write(f"{index}\t{symbol}\n")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--folder", type=str)
+    parser.add_argument("folder", type=str)
     parser.add_argument("--order_sop", action="store_true")
     args = parser.parse_args()
 
-    print("Preprocessing " + args.folder)
+    print(f"Preprocessing {args.folder}...")
     raw_split_files = {"train": "train.txt", "valid": "valid.txt", "test": "test.txt"}
     split_files = {"train": "train.del", "valid": "valid.del", "test": "test.del"}
+    split_sizes = {}
 
-    sub = 0
-    rel = 1
-    obj = 2
     if args.order_sop:
-        obj = 1
-        rel = 2
+        S, P, O = 0, 2, 1
+    else:
+        S, P, O = 0, 1, 2
 
-    # read data and collect entity and relation names
+    # read data and collect entities and relations
     raw = {}
     entities = {}
     relations = {}
     ent_id = 0
     rel_id = 0
-    for k, file in raw_split_files.items():
-        with open(args.folder + "/" + file, "r") as f:
-            raw[k] = list(map(lambda s: s.strip().split("\t"), f.readlines()))
-            for t in raw[k]:
-                if t[sub] not in entities:
-                    entities[t[sub]] = ent_id
+    for split, filename in raw_split_files.items():
+        with open(args.folder + "/" + filename, "r") as f:
+            raw[split] = list(map(lambda s: s.strip().split("\t"), f.readlines()))
+            for t in raw[split]:
+                if t[S] not in entities:
+                    entities[t[S]] = ent_id
                     ent_id += 1
-                if t[rel] not in relations:
-                    relations[t[rel]] = rel_id
+                if t[P] not in relations:
+                    relations[t[P]] = rel_id
                     rel_id += 1
-                if t[obj] not in entities:
-                    entities[t[obj]] = ent_id
+                if t[O] not in entities:
+                    entities[t[O]] = ent_id
                     ent_id += 1
-            print(str(len(raw[k])) + " triples in " + file)
+            print(
+                f"Found {len(raw[split])} triples in {split} split "
+                f"(file: {filename})."
+            )
+            split_sizes[split + "_size"] = len(raw[split])
 
-    print(str(len(relations)) + " distinct relations")
-    print(str(len(entities)) + " distinct entities")
-    print("Writing indexes...")
-    index(relations, args.folder + "/relation_map.del")
-    index(entities, args.folder + "/entity_map.del")
+    print(f"{len(relations)} distinct relations")
+    print(f"{len(entities)} distinct entities")
+    print("Writing relation and entity map...")
+    store_map(relations, os.path.join(args.folder, "relation_map.del"))
+    store_map(entities, os.path.join(args.folder, "entity_map.del"))
+    print("Done.")
 
-    # write out
+    # write config
+    print("Writing dataset.yaml...")
+    dataset_config = dict(
+        name=args.folder,
+        entity_map="entity_map.del",
+        relation_map="relation_map.del",
+        num_entities=len(entities),
+        num_relations=len(relations),
+        **split_files,
+        **split_sizes,
+    )
+    print(yaml.dump(dict(dataset=dataset_config)))
+    with open(os.path.join(args.folder, "dataset.yaml"), "w+") as filename:
+        filename.write(yaml.dump(dict(dataset=dataset_config)))
+
+    # write out triples using indexes
     print("Writing triples...")
-    for k, file in split_files.items():
-        with open(args.folder + "/" + file, "w") as f:
-            for t in raw[k]:
-                f.write(str(entities[t[sub]]))
-                f.write("\t")
-                f.write(str(relations[t[rel]]))
-                f.write("\t")
-                f.write(str(entities[t[obj]]))
-                f.write("\n")
-    print("Done")
+    for split, filename in split_files.items():
+        with open(os.path.join(args.folder, filename), "w") as f:
+            for t in raw[split]:
+                f.write(
+                    str(entities[t[S]])
+                    + "\t"
+                    + str(relations[t[P]])
+                    + "\t"
+                    + str(entities[t[O]])
+                    + "\n"
+                )

@@ -13,7 +13,7 @@ if [ ! -d "$BASEDIR/toy" ]; then
     cd $BASEDIR
     curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/toy.tar.gz
     tar xvf toy.tar.gz
-    python preprocess.py --folder toy
+    python preprocess.py toy
 else
     echo toy already present
 fi
@@ -39,7 +39,7 @@ if [ ! -d "$BASEDIR/fb15k" ]; then
           ;;
   esac
   cd ..
-  python preprocess.py --folder fb15k
+  python preprocess.py fb15k
 else
     echo fb15k already present
 fi
@@ -50,7 +50,7 @@ if [ ! -d "$BASEDIR/fb15k-237" ]; then
   cd $BASEDIR
   curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/fb15k-237.tar.gz
   tar xvf fb15k-237.tar.gz
-  python preprocess.py --folder fb15k-237
+  python preprocess.py fb15k-237
 else
     echo fb15k-237 already present
 fi
@@ -75,7 +75,7 @@ if [ ! -d "$BASEDIR/wn18" ]; then
           ;;
   esac
   cd ..
-  python preprocess.py --folder wn18
+  python preprocess.py wn18
 else
     echo wn18 already present
 fi
@@ -86,7 +86,7 @@ if [ ! -d "$BASEDIR/wnrr" ]; then
   cd $BASEDIR
   curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/wnrr.tar.gz
   tar xvf wnrr.tar.gz
-  python preprocess.py --folder wnrr
+  python preprocess.py wnrr
 else
     echo wnrr already present
 fi
@@ -98,7 +98,7 @@ if [ ! -d "$BASEDIR/dbpedia50" ]; then
   cd $BASEDIR
   curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/dbpedia50.tar.gz
   tar xvf dbpedia50.tar.gz
-  python preprocess.py --folder dbpedia50
+  python preprocess.py dbpedia50
 else
     echo dbpedia50 already present
 fi
@@ -109,7 +109,7 @@ if [ ! -d "$BASEDIR/dbpedia500" ]; then
   cd $BASEDIR
   curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/dbpedia500.tar.gz
   tar xvf dbpedia500.tar.gz
-  python preprocess.py --folder dbpedia500 --order_sop
+  python preprocess.py dbpedia500 --order_sop
 else
     echo dbpedia500 already present
 fi
@@ -134,7 +134,7 @@ if [ ! -d "$BASEDIR/db100k" ]; then
           ;;
   esac
   cd ..
-  python preprocess.py --folder db100k
+  python preprocess.py db100k
 else
     echo db100k already present
 fi
@@ -145,7 +145,7 @@ if [ ! -d "$BASEDIR/yago3-10" ]; then
   cd $BASEDIR
   curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/yago3-10.tar.gz
   tar xvf yago3-10.tar.gz
-  python preprocess.py --folder yago3-10
+  python preprocess.py yago3-10
 else
     echo yago3-10 already present
 fi
