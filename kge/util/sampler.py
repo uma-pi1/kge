@@ -1,26 +1,27 @@
+from kge import Configurable
 import torch
 
 SLOTS = [0, 1, 2]
 S, P, O = SLOTS
 
 
-class KgeNegativeSampler:
+class KgeNegativeSampler(Configurable):
     """ Negative sampler """
 
     def __init__(self, config, configuration_key, dataset):
+        super().__init__(config, configuration_key)
 
         self.num_negatives = dict()
-
         self._filter_true = dict()
         self.voc_size = dict()
 
         for slot, num_negatives_key, filter_true_key, voc_size in [
-            (S, ".num_negatives_s", ".filter_true_s", dataset.num_entities),
-            (P, ".num_negatives_p", ".filter_true_p", dataset.num_relations),
-            (O, ".num_negatives_o", ".filter_true_o", dataset.num_entities),
+            (S, "num_negatives_s", "filter_true_s", dataset.num_entities),
+            (P, "num_negatives_p", "filter_true_p", dataset.num_relations),
+            (O, "num_negatives_o", "filter_true_o", dataset.num_entities),
         ]:
-            self.num_negatives[slot] = config.get(configuration_key + num_negatives_key)
-            self._filter_true[slot] = config.get(configuration_key + filter_true_key)
+            self.num_negatives[slot] = self.get_option(num_negatives_key)
+            self._filter_true[slot] = self.get_option(filter_true_key)
             self.voc_size[slot] = voc_size
 
         for slot, copy_from in [(S, O), (P, None), (O, S)]:

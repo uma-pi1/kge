@@ -1,12 +1,10 @@
 from typing import List
 
 from torch import nn as nn
-import kge
 import os
 from path import Path
 import inspect
 import subprocess
-
 
 def is_number(s, number_type):
     """ Returns True is string is a number. """
@@ -70,6 +68,7 @@ def which(program):
 
 
 def kge_base_dir():
+    import kge
     return os.path.abspath(filename_in_module(kge, ".."))
 
 

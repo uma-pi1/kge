@@ -10,7 +10,6 @@ from enum import Enum
 import yaml
 from typing import Any, Dict, List, Optional, Union
 
-from kge.util.misc import filename_in_module, is_number
 
 
 class Config:
@@ -24,6 +23,8 @@ class Config:
         """Initialize with the default configuration"""
         if load_default:
             import kge
+            from kge.util.misc import filename_in_module
+
 
             with open(filename_in_module(kge, "config-default.yaml"), "r") as file:
                 self.options: Dict[str, Any] = yaml.load(file, Loader=yaml.SafeLoader)
@@ -140,6 +141,8 @@ class Config:
         into the configuration.
 
         """
+        from kge.util.misc import is_number
+
         splits = key.split(".")
         data = self.options
 
@@ -216,6 +219,7 @@ class Config:
 
         """
         import kge.model, kge.model.experimental
+        from kge.util.misc import filename_in_module
 
         # load the module_name
         module_config = Config(load_default=False)
@@ -395,6 +399,7 @@ class Config:
 
     def checkpoint_file(self, cpt_id: Union[str, int]) -> str:
         "Return path of checkpoint file for given checkpoint id"
+        from kge.util.misc import is_number
         if is_number(cpt_id, int):
             return os.path.join(self.folder, "checkpoint_{:05d}.pt".format(int(cpt_id)))
         else:
