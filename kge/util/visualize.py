@@ -23,28 +23,26 @@ from subprocess import check_output
 
 
 class VisualizationHandler:
-    """ Base class for broadcasting and post-processing that contains base functionalities for interacting with data
-    produced by the kge framework.
+    """ Base class for broadcasting and post-processing that contains base
+     functionalities for interacting with data produced by the kge framework.
 
-    Subclasses implement create(), _visualize_train_item() _visualize_eval_item(), post_process_trace() (and optionally
-    _process_search_trace_entry()) . They have to be registered in create_handler() and run_server()
+    Subclasses implement create(), _visualize_train_item() _visualize_eval_item(),
+    post_process_trace() (and optionally _process_search_trace_entry()). They have to
+    be registered in create_handler() and run_server()
 
     writer: A writer object that writes data to a plotting framework
     session_type: "post" or "broadcast"
-    session_config: the options of the current visualization session; does not change in a session. In a broadcast
-                    session the session_config = job config of the job that is run by the kge framework
+    session_config: the options of the current visualization session; does not change
+    in a session. In a broadcast session the session_config = job config of the job that
+    is run by the kge framework
     session_data: can be used to cache arbitrary data
-    path: current path of the job folder which is currently visualized; changes during a post processing session
+    path: current path of the job folder which is currently visualized;
+    changes during a post processing session
 
      """
 
     def __init__(
-            self,
-            writer,
-            session_type,
-            session_config,
-            path=None,
-            session_data={}
+        self, writer, session_type, session_config, path=None, session_data={}
     ):
         self.writer = writer
         self.session_type = session_type
@@ -53,8 +51,7 @@ class VisualizationHandler:
         self.include_eval = session_config.get("visualize.include_eval")
         self.exclude_train = session_config.get("visualize.exclude_train")
         self.exclude_eval = session_config.get("visualize.exclude_eval")
-        # session data can be used to cache any kind of data that is needed during a visualization session
-        # during broadcasting this can be best valid.metric during post processing this can be metadata for envs etc.
+        # session data can be used to cache any kind of data needed in a session
         self.session_data = session_data
         self.path = path
 
@@ -62,9 +59,13 @@ class VisualizationHandler:
     def create_handler(cls, session_type, session_config, path=None, session_data={}):
         module = session_config.get("visualize.module")
         if module == "visdom":
-            return VisdomHandler.create(session_type, session_config, path, session_data)
+            return VisdomHandler.create(
+                session_type, session_config, path, session_data
+            )
         elif module == "tensorboard":
-            return TensorboardHandler.create(session_type, session_config, path, session_data)
+            return TensorboardHandler.create(
+                session_type, session_config, path, session_data
+            )
 
     def _visualize_train_item(self, key, value, epoch, tracetype, jobtype):
         raise NotImplementedError
@@ -85,17 +86,18 @@ class VisualizationHandler:
         """ Loads a trace file and processes it.
 
         :param tracefile:
-        :param tracetype: "search", "train", "eval" the type of the trace, this is independent of jobtype because the
-        overall jobtype can be e. g. search which also has train type trace files.
+        :param tracetype: "search", "train", "eval" the type of the trace,
+        this is independent of jobtype because the overall jobtype can be e. g. search
+        which also has train type trace files.
         :param jobtype "search", "train", "eval"
         """
         # group traces into dics with {key: list[values]}
-        # grouped_entries contains for every distinct trace entry type (train,eval, metadata..)
-        # a dic where the keys are the original keys and the values are lists of the original values
+        # a dic where the keys are the original keys and the values are lists
+        # of the original values
         grouped_entries = []
         with open(tracefile, "r") as file:
             raw = file.readline()
-            while (raw):
+            while raw:
                 trace_entry = yaml.safe_load(raw)
                 group_entry = defaultdict(list)
                 # add the very first entry
@@ -105,8 +107,9 @@ class VisualizationHandler:
                 else:
                     matched = False
                     for entry in grouped_entries:
-                        # checking if two entries are of the same type appears in two steps:
-                        # 1. do they have the same key signature; 2: is the job type and scope the same
+                        # checking if two entries are of the same type appears in two
+                        # steps: 1. do they have the same key signature;
+                        # 2: is the job type and scope the same
                         if entry.keys() == trace_entry.keys():
                             e_scope = entry.get("scope")
                             e_job = entry.get("job")
@@ -125,14 +128,18 @@ class VisualizationHandler:
                         [group_entry[k].append(v) for k, v in trace_entry.items()]
                         grouped_entries.append(group_entry)
                 raw = file.readline()
-        [self._process_trace_entry(entry, tracetype, jobtype) for entry in grouped_entries]
+        [
+            self._process_trace_entry(entry, tracetype, jobtype)
+            for entry in grouped_entries
+        ]
 
     def _process_trace_entry(self, trace_entry, tracetype, jobtype):
         """ Process some trace entry which can be grouped or not.
 
-       Note that there are different settings which can occur: E. g. a searchjob can have training traces which also have
-       eval entries. This has to be tracked because then depending on "broadcast" or "post" behavior differs in the
-       various settings.
+       Note that there are different settings which can occur: E. g. a searchjob can
+       have training traces which also have eval entries. This has to be tracked
+       because then, depending on "broadcast" or "post", behavior differs in the various
+       settings.
 
         """
         entry_keys = list(trace_entry.keys())
@@ -164,33 +171,44 @@ class VisualizationHandler:
                 self._process_search_trace_entry(trace_entry)
                 return
             # filter keys and send keys to submethods to deal with the visualizations
-            matched_keys = self.filter_entry_keys(include_patterns, exclude_patterns, entry_keys)
-            list(map(
-                lambda matched: visualize(matched, trace_entry[matched], epoch, tracetype, jobtype),
-                matched_keys
-            ))
+            matched_keys = self.filter_entry_keys(
+                include_patterns, exclude_patterns, entry_keys
+            )
+            list(
+                map(
+                    lambda matched: visualize(
+                        matched, trace_entry[matched], epoch, tracetype, jobtype
+                    ),
+                    matched_keys,
+                )
+            )
 
     def filter_entry_keys(self, include_patterns, exclude_patterns, keys):
         """ Returns matched keys.
 
-        Takes a list of include_patterns, exlude_patterns and keys. Returns a list of keys
-        that have some regex match with any of the include_patterns but no match with any of the exclude patterns.
+        Takes a list of include_patterns, exlude_patterns and keys. Returns a list of
+        keys that have some regex match with any of the include_patterns but no match
+        with any of the exclude patterns.
 
         """
         return [
             matched_key
             for exclude_pattern in exclude_patterns
             for include_pattern in include_patterns
-            for matched_key in list(filter(lambda match_key: re.search(include_pattern, match_key), keys))
-            if matched_key not in list(filter(lambda match_key: re.search(exclude_pattern, match_key), keys))
+            for matched_key in list(
+                filter(lambda match_key: re.search(include_pattern, match_key), keys)
+            )
+            if matched_key
+            not in list(
+                filter(lambda match_key: re.search(exclude_pattern, match_key), keys)
+            )
         ]
 
     @classmethod
     def register_broadcast(cls, session_config):
-        """ Bundles the different information that are needed to perform broadcasting and registers hooks.
-
-        The user parameter inputs are collected and depending on the jobtype, broadcasting functionality is
-        registered as hooks.
+        """ Bundles the different information that are needed to perform broadcasting
+        and registers hooks. The user parameter inputs are collected and depending on
+        the jobtype, broadcasting functionality is registered as hooks.
 
         """
         # called once on job creation
@@ -205,24 +223,29 @@ class VisualizationHandler:
                     tracetype = "train"
                     jobtype = "train"
                     session_data = {}
-               # some search job
+                # some search job
                 if isinstance(job.parent_job, SearchJob):
                     tracetype = "train"
                     jobtype = "search"
-                    session_data = {"valid_metric_name":job.config.get("valid.metric")}
+                    session_data = {"valid_metric_name": job.config.get("valid.metric")}
 
                 handler = VisualizationHandler.create_handler(
                     session_type="broadcast",
                     session_config=session_config,
-                    path=jobpath, # in broadcast path is the path of the executed job
+                    path=jobpath,  # in broadcast path is the path of the executed job
                     session_data=session_data,
                 )
+                # in a broadcast session session_config = job_config
                 handler._visualize_config(
-                    env=handler.get_env_from_path(tracetype,jobtype),
-                    job_config=handler.session_config #in a broadcast session it holds session_config = job_config
+                    env=handler.get_env_from_path(tracetype, jobtype),
+                    job_config=handler.session_config,
                 )
+
                 def visualize_data(job, trace_entry):
-                    handler._process_trace_entry(trace_entry, tracetype=tracetype, jobtype=jobtype)
+                    handler._process_trace_entry(
+                        trace_entry, tracetype=tracetype, jobtype=jobtype
+                    )
+
                 job.post_epoch_hooks.append(visualize_data)
                 job.valid_job.post_valid_hooks.append(visualize_data)
 
@@ -236,7 +259,7 @@ class VisualizationHandler:
 
         """
         job_config = None
-        if path ==None:
+        if path == None:
             job_config = self.path + "/" + "config.yaml"
         else:
             job_config = path + "/" + "config.yaml"
@@ -250,28 +273,29 @@ class VisualizationHandler:
 
     @classmethod
     def post_process_jobs(cls, session_config):
-        """ Scans all the executed jobs in local/experiments and allows submodules to deal with them as they please. """
+        """ Scans all the executed jobs in specified path. """
 
-        path = kge_base_dir() + "/" + session_config.get("visualize.post.search_dir") + "/"
+        path = (
+            kge_base_dir() + "/" + session_config.get("visualize.post.search_dir") + "/"
+        )
 
         handler = VisualizationHandler.create_handler(
-            session_type="post",
-            session_config=session_config
+            session_type="post", session_config=session_config
         )
 
         folders_patterns = session_config.get("visualize.post.folders")
         folders = None
-        # obtain all folders in the specified path that regex match with folders specified by the user
+        # obtain all folders in the specified path that regex match with folders
         if len(folders_patterns):
             folders = [
                 matched_folder
                 for pattern in folders_patterns
-                    for matched_folder in list(
-                        filter(
-                            lambda match_folder: re.search(pattern, match_folder),
-                            os.listdir(path)
-                        )
+                for matched_folder in list(
+                    filter(
+                        lambda match_folder: re.search(pattern, match_folder),
+                        os.listdir(path),
                     )
+                )
             ]
         if not folders:
             folders = os.listdir(path)
@@ -288,20 +312,26 @@ class VisualizationHandler:
                     handler.path = path + parent_job
                     handler.post_process_trace(parent_trace, "train", "train")
                 elif job_config["job"]["type"] == "search":
-                    # collect the training sub job folders by searching through the parent directory
+                    # collect the training sub job folders by searching through the
+                    # parent directory
                     subjobs = [
-                                path + parent_job + "/" + child_folder for child_folder in list(
-                                    filter(
-                                        lambda file:
-                                            os.path.isdir(path + parent_job + "/" + file)
-                                            and file != "config"
-                                            and "trace.yaml" in os.listdir(path + parent_job + "/" + file),
-                                        os.listdir(path + parent_job)
-                                    )
+                        path + parent_job + "/" + child_folder
+                        for child_folder in list(
+                            filter(
+                                lambda file: os.path.isdir(
+                                    path + parent_job + "/" + file
                                 )
+                                and file != "config"
+                                and "trace.yaml"
+                                in os.listdir(path + parent_job + "/" + file),
+                                os.listdir(path + parent_job),
+                            )
+                        )
                     ]
                     handler.path = path + parent_job
-                    handler.post_process_trace(parent_trace, "search", "search", subjobs)
+                    handler.post_process_trace(
+                        parent_trace, "search", "search", subjobs
+                    )
         input("Post processing finished.")
 
     @classmethod
@@ -321,19 +351,21 @@ class VisualizationHandler:
             ["pkill {}".format(command)],
             shell=True,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.STDOUT
+            stderr=subprocess.STDOUT,
         )
 
         # change port if used by some other process
         tries = 0
         while len(
-                subprocess.Popen(
-                    ["lsof -i:{}".format(port)],
-                    shell=True,
-                    stderr=None,
-                    stdout=subprocess.PIPE
-                ).communicate()[0].decode("utf8")
-               ):
+            subprocess.Popen(
+                ["lsof -i:{}".format(port)],
+                shell=True,
+                stderr=None,
+                stdout=subprocess.PIPE,
+            )
+            .communicate()[0]
+            .decode("utf8")
+        ):
             port = port + 10
             session_config.set("visualize.port", port)
             print("Port already in use, increased port by 10.")
@@ -349,62 +381,54 @@ class VisualizationHandler:
                 for folder in os.listdir(logdir):
                     shutil.rmtree(logdir + "/" + folder)
             full_command = [
-                command + " --logdir={} --port={} --host={}".format(logdir, port, hostname)
+                command
+                + " --logdir={} --port={} --host={}".format(logdir, port, hostname)
             ]
         elif session_config.get("visualize.module") == "visdom":
             envpath = kge_base_dir() + "/local/visualize/visdomenvs"
             if not os.path.isdir(envpath):
                 os.mkdir(envpath)
             full_command = [
-                command + " -env_path={} --hostname={} -port={}".format(envpath, hostname, port)
+                command
+                + " -env_path={} --hostname={} -port={}".format(envpath, hostname, port)
             ]
 
         # run server
         process = subprocess.Popen(
-            full_command,
-            shell=True,
-            stdout=stdout,
-            stderr=stderr
+            full_command, shell=True, stdout=stdout, stderr=stderr
         )
         time.sleep(session_config.get("visualize.secs_sleep"))
         print(
-            "{} running on http://{}:{}".format(session_config.get("visualize.module"), hostname, port)
+            "{} running on http://{}:{}".format(
+                session_config.get("visualize.module"), hostname, port
+            )
         )
         # kill server when everyone's done
         server_pid = process.pid
+
         def kill_server():
             if server_pid:
                 os.kill(server_pid, signal.SIGTERM)
+
         atexit.register(kill_server)
 
 
 class VisdomHandler(VisualizationHandler):
     def __init__(
-            self,
-            writer,
-            session_type,
-            session_config,
-            path=None,
-            session_data={}):
+        self, writer, session_type, session_config, path=None, session_data={}
+    ):
 
-        super().__init__(
-            writer,
-            session_type,
-            session_config,
-            path,
-            session_data)
+        super().__init__(writer, session_type, session_config, path, session_data)
 
     @classmethod
     def create(cls, session_type, session_config, path=None, session_data=None):
         import visdom
-        vis = visdom.Visdom(server=session_config.get("visualize.hostname"), port=session_config.get("visualize.port"))
-        return VisdomHandler(
-            vis,
-            session_type,
-            session_config,
-            path,
-            session_data
+
+        vis = visdom.Visdom(
+            server=session_config.get("visualize.hostname"),
+            port=session_config.get("visualize.port"),
         )
+        return VisdomHandler(vis, session_type, session_config, path, session_data)
 
     def _visualize_train_item(self, key, value, epoch, tracetype, jobtype):
         env = self.get_env_from_path(tracetype, jobtype)
@@ -434,28 +458,33 @@ class VisdomHandler(VisualizationHandler):
                     name=env.split("_")[-1],
                     title="all_" + key,
                     legend=[env.split("_")[-1]],
-                    win="all_" + key
+                    win="all_" + key,
                 )
 
     def _process_search_trace_entry(self, trace_entry):
-        # this function only works for grouped trace entries, which is fine as it is only used in post processing
+        # this function only works for grouped trace entries, which is fine as it is
+        # only used in post processing
         if "train" in trace_entry["scope"]:
             # bar plot for valid.metric
             valid_metric_name = self.session_data["valid_metric_name"]
             x = trace_entry[valid_metric_name]
             names = trace_entry["folder"]
-            env = self.extract_summary_envname(envname=self.get_env_from_path("search","search"),jobtype="search")
-            # small visdom bug, it cannot take a list with one element only a scalar or list with multiple elements
-            # instead of skipping this plot you could use the generic plotly dic, but it is only a cornercase
-            # anyway because a search job with only one trial does not make sense in the first place
+            env = self.extract_summary_envname(
+                envname=self.get_env_from_path("search", "search"), jobtype="search"
+            )
+            # small visdom bug, it cannot take a list with one element only a scalar or
+            # list with multiple elements instead of skipping this plot you could use
+            # the generic plotly dic, but it is only a cornercase anyway because a
+            # search job with only one trial does not make sense in the first place
             if len(x) > 1:
                 self.writer.env = env
                 self.writer.bar(
                     X=x,
                     env=env,
-                    opts={"legend":names, "title": valid_metric_name + "_best"}
+                    opts={"legend": names, "title": valid_metric_name + "_best"},
                 )
-                # TODO with this bar the legend does not work but hoovering over data will not directly crowd the window
+                # TODO with this bar the legend does not work but hoovering over data
+                #  will not directly crowd the window
                 #  with all ..
                 # bars = [{
                 #     "type": "bar",
@@ -465,7 +494,8 @@ class VisdomHandler(VisualizationHandler):
                 # ]
                 # fig = {
                 #     "data": bars,
-                #     "layout": {"title": {"text": "best_" + valid_metric_name}, "legend": {"x": names}},
+                #     "layout": {"title": {"text": "best_" + valid_metric_name},
+                #     "legend": {"x": names}},
                 # }
                 # self.writer._send(fig)
 
@@ -478,8 +508,12 @@ class VisdomHandler(VisualizationHandler):
                     return
                 self.writer.scatter(
                     X=np.array([x, trace_entry[valid_metric_name]]).T,
-                    opts={"title": "Best valid vs " + param.split(".")[-1], "xlabel": param, "ylabel": valid_metric_name},
-                    env=env
+                    opts={
+                        "title": "Best valid vs " + param.split(".")[-1],
+                        "xlabel": param,
+                        "ylabel": valid_metric_name,
+                    },
+                    env=env,
                 )
             for param in params:
                 x = trace_entry[param]
@@ -503,13 +537,20 @@ class VisdomHandler(VisualizationHandler):
                 # TODO: which one to take the table or bar
                 # same bug as above
                 # if len(x)>1:
-                self.writer.bar(
-                    X=x,
-                    env=env,
-                    opts={"legend":names, "title": param}
-                )
+                self.writer.bar(X=x, env=env, opts={"legend": names, "title": param})
 
-    def _visualize_item(self, key, value, x, env, name=None , win=None, update="append", title=None, **kwargs):
+    def _visualize_item(
+        self,
+        key,
+        value,
+        x,
+        env,
+        name=None,
+        win=None,
+        update="append",
+        title=None,
+        **kwargs
+    ):
         if win == None:
             win = self.extract_window_name(env, key)
         if name == None:
@@ -547,16 +588,24 @@ class VisdomHandler(VisualizationHandler):
                 win=win,
                 opts=self._get_opts(title=title),
                 name=name,
-                update=update
+                update=update,
             )
 
     def _visualize_config(self, env, job_config=None):
         if job_config == None:
             job_config = self._get_job_config()
-        self.writer.text(yaml.dump(job_config).replace("\n", "<br>").replace("  ", "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"), env=env)
+        self.writer.text(
+            yaml.dump(job_config)
+            .replace("\n", "<br>")
+            .replace("  ", "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"),
+            env=env,
+        )
 
     def _track_progress(self, key, value, env):
-        """ Updates the overall progress plot of a key over multiple train jobs in a search job."""
+        """ Updates the overall progress plot of a key over multiple train jobs
+        in a search job.
+
+        """
 
         # Value is updated whenever a higher value than the current value is found.
         # This is used for valid.metric but can potentially also be used for other keys.
@@ -566,57 +615,79 @@ class VisdomHandler(VisualizationHandler):
         check = False
         best = self.session_data.get("best_{}".format(key))
         if best and value > best:
-           self.session_data ["best_{}".format(key)] = value
-           check = True
+            self.session_data["best_{}".format(key)] = value
+            check = True
         elif not best:
-           self.session_data["best_{}".format(key)] = value
-           check = True
+            self.session_data["best_{}".format(key)] = value
+            check = True
         if not self.writer.win_exists(win, env):
-            self._visualize_item(title, value, 1, env=env,win=win)
-        elif check == True and (self.writer.win_exists(win,env)):
+            self._visualize_item(title, value, 1, env=env, win=win)
+        elif check == True and (self.writer.win_exists(win, env)):
             data = self.writer.get_window_data(win, env)
             js = json.loads(data)
             best_val = js["content"]["data"][0]["y"][-1]
             step_num = js["content"]["data"][0]["x"][-1]
             if value > best_val:
-                self._visualize_item(title, value, step_num+1, env=env, win=win)
+                self._visualize_item(title, value, step_num + 1, env=env, win=win)
 
     def post_process_trace(self, tracefile, tracetype, jobtype, subjobs=None, **kwargs):
-        """ Creates an empty environment with a properties button 'sync' which loads the data in the environment. """
+        """ Creates an empty environment with a properties button 'sync'. """
 
         properties = [
-            {'type': 'button', 'name': 'Click to sync env', 'value': 'Synchronize'}
+            {"type": "button", "name": "Click to sync env", "value": "Synchronize"}
         ]
         # this returns just the string id of the window
-        #TODO maybe add a callback to delete the property window after sync has been pressed (no overlapoing windows?)
+        # TODO maybe add a callback to delete the property window after sync has been
+        #  pressed (no overlapoing windows?)
         path = copy.deepcopy(self.path)
         properties_window = None
         if jobtype == "train":
             # create window with sync
-            properties_window = self.writer.properties(properties, env=self.get_env_from_path("train", "train"))
+            properties_window = self.writer.properties(
+                properties, env=self.get_env_from_path("train", "train")
+            )
             self._visualize_config(env=self.get_env_from_path("train", "train"))
+
             def properties_callback(event):
-                if event['event_type'] == 'PropertyUpdate':
+                if event["event_type"] == "PropertyUpdate":
                     env = event["eid"]
-                    # reset the path because when this function is called it might have changed
+                    # reset the path because when this function is called
+                    # it might have changed
                     self.path = path
                     self.process_trace(tracefile, tracetype, jobtype)
+
             self.writer.register_event_handler(properties_callback, properties_window)
-        elif jobtype =="search":
-            env = self.extract_summary_envname(self.get_env_from_path("search", "search"), "search")
+        elif jobtype == "search":
+            env = self.extract_summary_envname(
+                self.get_env_from_path("search", "search"), "search"
+            )
             properties_window = self.writer.properties(properties, env=env)
             self._visualize_config(env)
+
             def properties_callback(event):
-                if event['event_type'] == 'PropertyUpdate':
+                if event["event_type"] == "PropertyUpdate":
                     self.path = path
-                    self.session_data = {"valid_metric_name": self._get_job_config().get("valid")["metric"]}
+                    self.session_data = {
+                        "valid_metric_name": self._get_job_config().get("valid")[
+                            "metric"
+                        ]
+                    }
                     self.process_trace(tracefile, "search", "search")
                     # process training jobs of the search job
                     for subjob in sorted(subjobs):
                         self.path = subjob
-                        self._visualize_config(self.get_env_from_path("train", "search"))
-                        self.session_data = {"valid_metric_name": self._get_job_config().get("valid")["metric"]}
-                        self.process_trace(subjob + "/" + "trace.yaml", "train", "search")
+                        self._visualize_config(
+                            self.get_env_from_path("train", "search")
+                        )
+                        self.session_data = {
+                            "valid_metric_name": self._get_job_config().get("valid")[
+                                "metric"
+                            ]
+                        }
+                        self.process_trace(
+                            subjob + "/" + "trace.yaml", "train", "search"
+                        )
+
             self.writer.register_event_handler(properties_callback, properties_window)
 
     def extract_summary_envname(self, envname, jobtype="train"):
@@ -642,13 +713,14 @@ class VisdomHandler(VisualizationHandler):
             return parts[-1]
 
     def extract_window_name(self, env, key):
-        # initially this was "key + "_" + env" but then windows overlapped somehow in the 'compare envs' functionality
-        # seems fine to have same window names over multiple environments
+        # initially this was "key + "_" + env" but then windows overlapped somehow in
+        # the 'compare envs' functionality seems fine to have same window names over
+        # multiple environments
         return key
 
     def _get_opts(self, title, **kwargs):
         opts = {
-            #"ylabel"
+            # "ylabel"
             "title": title,
             # "width": 280,
             # "height": 260,
@@ -659,51 +731,43 @@ class VisdomHandler(VisualizationHandler):
             "layoutopts": {
                 "plotly": {
                     "xaxis": {
-                    #"range": [0, 200],
-                    "autorange": True,
-                    # "showline":True,
-                    # "showgrid":True
-                        },
+                        # "range": [0, 200],
+                        "autorange": True,
+                        # "showline":True,
+                        # "showgrid":True
+                    },
                     "yaxis": {
-                    # "showline": True,
-                    # "showgrid": True
-                    }
+                        # "showline": True,
+                        # "showgrid": True
+                    },
                 }
-            }
+            },
         }
-        for key,value in kwargs.items():
+        for key, value in kwargs.items():
             opts[key] = value
         return opts
 
 
 class TensorboardHandler(VisualizationHandler):
     def __init__(
-            self,
-            writer,
-            session_type,
-            session_config,
-            path=None,
-            session_data={},
+        self, writer, session_type, session_config, path=None, session_data={},
     ):
-        super().__init__(
-            writer,
-            session_type,
-            session_config,
-            path,
-            session_data
-        )
+        super().__init__(writer, session_type, session_config, path, session_data)
         self.writer_path = kge_base_dir() + "/local/visualize/tensorboard/"
 
     @classmethod
     def create(cls, session_type, session_config, path=None, session_data={}):
         from torch.utils import tensorboard
-        writer = tensorboard.SummaryWriter(kge_base_dir() + "/local/visualize/tensorboard_remove/")
+
+        writer = tensorboard.SummaryWriter(
+            kge_base_dir() + "/local/visualize/tensorboard_remove/"
+        )
         return TensorboardHandler(
             writer,
             session_type=session_type,
             session_config=session_config,
             path=path,
-            session_data=session_data
+            session_data=session_data,
         )
 
     def _add_embeddings(self, path):
@@ -712,7 +776,7 @@ class TensorboardHandler(VisualizationHandler):
             job_config = Config(path)
             job_config.options = self._get_job_config()
             dataset = Dataset.load(job_config)
-            model = KgeModel.load_from_checkpoint(checkpoint,dataset)
+            model = KgeModel.load_from_checkpoint(checkpoint, dataset)
             meta_ent = model.dataset.entities
             meta_rel = model.dataset.relations
             if isinstance(model, ReciprocalRelationsModel):
@@ -722,12 +786,12 @@ class TensorboardHandler(VisualizationHandler):
             self.writer.add_embedding(
                 mat=model.get_s_embedder().embed_all(),
                 metadata=meta_ent,
-                tag="Entity embeddings"
+                tag="Entity embeddings",
             )
             self.writer.add_embedding(
                 mat=model.get_p_embedder().embed_all(),
                 metadata=meta_rel,
-                tag="Relation embeddings"
+                tag="Relation embeddings",
             )
             del model
 
@@ -735,11 +799,17 @@ class TensorboardHandler(VisualizationHandler):
         if "checkpoint_best.pt" in os.listdir(path):
             return path + "/" + "checkpoint_best.pt"
         else:
-            checkpoints = sorted(list(filter(lambda file: "checkpoint" in file, os.listdir(path))))
+            checkpoints = sorted(
+                list(filter(lambda file: "checkpoint" in file, os.listdir(path)))
+            )
             if len(checkpoints) > 0:
                 return path + "/" + checkpoints[-1]
             else:
-                print("Skipping {} for embeddings as no checkpoint could be found.".format(path))
+                print(
+                    "Skipping {} for embeddings as no checkpoint could be found.".format(
+                        path
+                    )
+                )
 
     def post_process_trace(self, tracefile, tracetype, jobtype, subjobs=None, **kwargs):
         self.writer.close()
@@ -753,7 +823,12 @@ class TensorboardHandler(VisualizationHandler):
             self.writer.close()
         elif jobtype == "search":
             for subjob_path in subjobs:
-                event_path = self.writer_path + subjob_path.split("/")[-2] + "/" + subjob_path.split("/")[-1]
+                event_path = (
+                    self.writer_path
+                    + subjob_path.split("/")[-2]
+                    + "/"
+                    + subjob_path.split("/")[-1]
+                )
                 self.writer.log_dir = event_path
                 self._visualize_config(path=subjob_path)
                 self.process_trace(subjob_path + "/" + "trace.yaml", "train", "search")
@@ -771,9 +846,9 @@ class TensorboardHandler(VisualizationHandler):
     def _visualize_train_item(self, key, value, epoch, tracetype, jobtype):
         key = key + " (train)"
         # skip datatypes that cannot be handled
-        if type(value[0]) == list or type(value[0]) == str or value[0]==None:
+        if type(value[0]) == list or type(value[0]) == str or value[0] == None:
             return
-        if len(value)>1:
+        if len(value) > 1:
             idx = 0
             # apparantly, tensorboard cannot handle vectors
             for val in value:
@@ -783,9 +858,9 @@ class TensorboardHandler(VisualizationHandler):
     def _visualize_eval_item(self, key, value, epoch, tracetype, jobtype):
         key = key + " (eval)"
         # skip datatypes that cannot be handled
-        if type(value[0]) == list or type(value[0]) == str or value[0]==None:
+        if type(value[0]) == list or type(value[0]) == str or value[0] == None:
             return
-        if len(value)>1:
+        if len(value) > 1:
             idx = 0
             # apparantly, tensorboard cannot handle vectors
             for val in value:
@@ -815,10 +890,6 @@ def initialize_visualization(session_config, command):
         VisualizationHandler.run_server(session_config)
 
     if command == "visualize":
-        VisualizationHandler.post_process_jobs(
-            session_config=session_config
-        )
+        VisualizationHandler.post_process_jobs(session_config=session_config)
     else:
-        VisualizationHandler.register_broadcast(
-            session_config=session_config
-        )
+        VisualizationHandler.register_broadcast(session_config=session_config)
