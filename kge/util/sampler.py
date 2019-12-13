@@ -1,5 +1,6 @@
 from kge import Configurable
 import torch
+import numpy as np
 
 SLOTS = [0, 1, 2]
 S, P, O = SLOTS
@@ -39,7 +40,8 @@ class KgeNegativeSampler(Configurable):
         sampling_type = config.get(configuration_key + ".sampling_type")
         if sampling_type == "uniform":
             return UniformSampler(config, configuration_key, dataset)
-            # TODO add frequency-based/biased sampling
+        elif sampling_type == "frequency_based":
+            return FrequencyBasedSampler(config, configuration_key, dataset)
         else:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError(configuration_key + ".sampling_type")
@@ -59,6 +61,31 @@ class UniformSampler(KgeNegativeSampler):
         if num_samples is None:
             num_samples = self.num_negatives[slot]
         result = torch.randint(self.voc_size[slot], (spo.size(0), num_samples))
+        if self._filter_true[slot]:
+            result = self._filter(result)
+        return result
+
+
+class FrequencyBasedSampler(KgeNegativeSampler):
+    def __init__(self, config, configuration_key, dataset):
+        super().__init__(config, configuration_key, dataset)
+        self.distributions = []
+        for slot in SLOTS:
+            # NOTE: we have to add a probability of 0 for the non occurring entities / relations here
+            # entities could for example only occur as subject but not as object
+            vocab = np.arange(self.voc_size[slot])
+            unique, counts = np.unique(dataset.train[:, slot], return_counts=True)
+            missing = vocab[~np.isin(vocab, unique)]
+            unique = np.concatenate([unique, missing])
+            probabilities = np.concatenate([counts, np.zeros(len(missing))])/np.sum(counts)
+            sort_index = np.argsort(unique)
+            self.distributions.append(probabilities[sort_index])
+
+    def sample(self, spo, slot, num_samples=None):
+        if num_samples is None:
+            num_samples = self.num_negatives[slot]
+        result = np.random.choice(self.voc_size[slot], spo.size(0)*num_samples, p=self.distributions[slot])
+        result = torch.from_numpy(result).view([spo.size(0), num_samples])
         if self._filter_true[slot]:
             result = self._filter(result)
         return result
