@@ -1,5 +1,6 @@
 from kge import Configurable
 import torch
+from torch.distributions import Categorical
 import numpy as np
 
 SLOTS = [0, 1, 2]
@@ -69,23 +70,16 @@ class UniformSampler(KgeNegativeSampler):
 class FrequencyBasedSampler(KgeNegativeSampler):
     def __init__(self, config, configuration_key, dataset):
         super().__init__(config, configuration_key, dataset)
-        self.distributions = []
+        self.samplers = []
         for slot in SLOTS:
-            # NOTE: we have to add a probability of 0 for the non occurring entities / relations here
-            # entities could for example only occur as subject but not as object
-            vocab = np.arange(self.voc_size[slot])
             unique, counts = np.unique(dataset.train[:, slot], return_counts=True)
-            missing = vocab[~np.isin(vocab, unique)]
-            unique = np.concatenate([unique, missing])
-            probabilities = np.concatenate([counts, np.zeros(len(missing))])/np.sum(counts)
-            sort_index = np.argsort(unique)
-            self.distributions.append(probabilities[sort_index])
+            sampler = Categorical(torch.from_numpy(unique/np.sum(counts)))
+            self.samplers.append(sampler)
 
     def sample(self, spo, slot, num_samples=None):
         if num_samples is None:
             num_samples = self.num_negatives[slot]
-        result = np.random.choice(self.voc_size[slot], spo.size(0)*num_samples, p=self.distributions[slot])
-        result = torch.from_numpy(result).view([spo.size(0), num_samples])
+        result = self.samplers[slot].sample(torch.Size([spo.size(0), num_samples]))
         if self._filter_true[slot]:
             result = self._filter(result)
         return result
