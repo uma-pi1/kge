@@ -45,7 +45,10 @@ class Config:
         """
         result = self.options
         for name in key.split("."):
-            result = result[name]
+            try:
+                result = result[name]
+            except KeyError:
+                raise KeyError(f"Error accessing {name} for key {key}")
 
         if remove_plusplusplus and isinstance(result, collections.Mapping):
 
@@ -608,6 +611,9 @@ def _process_deprecated_options(options: Dict[str, Any]):
     rename_key("negative_sampling.filter_true_s", "negative_sampling.filter_positives_s")
     rename_key("negative_sampling.filter_true_p", "negative_sampling.filter_positives_p")
     rename_key("negative_sampling.filter_true_o", "negative_sampling.filter_positives_o")
+    rename_key("negative_sampling.num_negatives_s", "negative_sampling.num_samples_s")
+    rename_key("negative_sampling.num_negatives_p", "negative_sampling.num_samples_p")
+    rename_key("negative_sampling.num_negatives_o", "negative_sampling.num_samples_o")
 
     # 30.10.2019
     rename_value("train.loss", "ce", "kl")

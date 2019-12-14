@@ -19,7 +19,7 @@ class KgeSampler(Configurable):
         self.vocabulary_size = torch.zeros(3, dtype=torch.int)
         for slot in SLOTS:
             slot_str = SLOT_STR[slot]
-            self.num_samples[slot] = self.get_option(f"num_negatives_{slot_str}")
+            self.num_samples[slot] = self.get_option(f"num_samples_{slot_str}")
             self.filter_positives[slot] = self.get_option(
                 f"filter_positives_{slot_str}"
             )
