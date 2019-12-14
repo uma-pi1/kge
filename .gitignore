@@ -12,3 +12,6 @@ local/*
 /trace.yaml
 kge.egg-info
 docs/_build
+*.log
+*.prof
+/libkge.egg-info/

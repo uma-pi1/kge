@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from kge import Config, Dataset
 from kge.model.kge_model import RelationalScorer, KgeModel
-from kge.util.misc import get_activation_function
+from kge.misc import get_activation_function
 from collections import OrderedDict
 
 

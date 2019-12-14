@@ -1,73 +1,85 @@
-from kge import Configurable
+from kge import Config, Configurable, Dataset
 import torch
 from torch.distributions import Categorical
 import numpy as np
+from typing import Optional
 
 SLOTS = [0, 1, 2]
+SLOT_STR = ["s", "p", "o"]
 S, P, O = SLOTS
 
 
-class KgeNegativeSampler(Configurable):
+class KgeSampler(Configurable):
     """ Negative sampler """
 
-    def __init__(self, config, configuration_key, dataset):
+    def __init__(self, config: Config, configuration_key: str, dataset: Dataset):
         super().__init__(config, configuration_key)
 
-        self.num_negatives = dict()
-        self._filter_true = dict()
-        self.voc_size = dict()
+        # load config
+        self.num_samples = torch.zeros(3, dtype=torch.int)
+        self.filter_positives = torch.zeros(3, dtype=torch.bool)
+        self.vocabulary_size = torch.zeros(3, dtype=torch.int)
+        for slot in SLOTS:
+            slot_str = SLOT_STR[slot]
+            self.num_samples[slot] = self.get_option(f"num_samples_{slot_str}")
+            self.filter_positives[slot] = self.get_option(
+                f"filter_positives_{slot_str}"
+            )
+            self.vocabulary_size[slot] = (
+                dataset.num_relations if slot == P else dataset.num_entities
+            )
 
-        for slot, num_negatives_key, filter_true_key, voc_size in [
-            (S, "num_negatives_s", "filter_true_s", dataset.num_entities),
-            (P, "num_negatives_p", "filter_true_p", dataset.num_relations),
-            (O, "num_negatives_o", "filter_true_o", dataset.num_entities),
-        ]:
-            self.num_negatives[slot] = self.get_option(num_negatives_key)
-            self._filter_true[slot] = self.get_option(filter_true_key)
-            self.voc_size[slot] = voc_size
-
+        # auto config
         for slot, copy_from in [(S, O), (P, None), (O, S)]:
-            if self.num_negatives[slot] < 0:
-                if copy_from is not None and self.num_negatives[copy_from] > 0:
-                    self.num_negatives[slot] = self.num_negatives[copy_from]
+            if self.num_samples[slot] < 0:
+                if copy_from is not None and self.num_samples[copy_from] > 0:
+                    self.num_samples[slot] = self.num_samples[copy_from]
                 else:
-                    self.num_negatives[slot] = 0
-
-        self.num_negatives_total = sum(self.num_negatives.values())
+                    self.num_samples[slot] = 0
 
     @staticmethod
-    def create(config, configuration_key, dataset=None):
-        """ Factory method for sampler creation """
+    def create(config: Config, configuration_key: str, dataset: Dataset):
+        """ Factory method for sampler creation."""
         sampling_type = config.get(configuration_key + ".sampling_type")
         if sampling_type == "uniform":
-            return UniformSampler(config, configuration_key, dataset)
+            return KgeUniformSampler(config, configuration_key, dataset)
         elif sampling_type == "frequency":
-            return FrequencySampler(config, configuration_key, dataset)
+            return KgeFrequencySampler(config, configuration_key, dataset)
         else:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError(configuration_key + ".sampling_type")
 
-    def sample(self, spo, slot, num_samples=None):
+    def sample(self, spo: torch.Tensor, slot: int, num_samples: Optional[int] = None):
+        """Obtain a set of negative samples for a specified slot.
+
+        `spo` is a batch_size x 3 tensor of positive triples. `slot` is either 0
+        (subject), 1 (predicate), or 2 (object). If `num_samples` is `None`, it is set
+        to the default value for the slot configured in this sampler.
+
+        Returns a batch_size x num_samples tensor with indexes of the sampled negative
+        entities (`slot`=0 or `slot`=2) or relations (`slot`=1).
+
+        """
         raise NotImplementedError()
 
     def _filter(self, result):
         raise NotImplementedError()
 
 
-class UniformSampler(KgeNegativeSampler):
-    def __init__(self, config, configuration_key, dataset):
+class KgeUniformSampler(KgeSampler):
+    def __init__(self, config: Config, configuration_key: str, dataset: Dataset):
         super().__init__(config, configuration_key, dataset)
 
-    def sample(self, spo, slot, num_samples=None):
+    def sample(self, spo: torch.Tensor, slot: int, num_samples: Optional[int] = None):
         if num_samples is None:
-            num_samples = self.num_negatives[slot]
-        result = torch.randint(self.voc_size[slot], (spo.size(0), num_samples))
-        if self._filter_true[slot]:
+            num_samples = self.num_samples[slot]
+        result = torch.randint(self.vocabulary_size[slot], (spo.size(0), num_samples))
+        if self.filter_positives[slot]:
             result = self._filter(result)
         return result
 
 
-class FrequencySampler(KgeNegativeSampler):
+class KgeFrequencySampler(KgeSampler):
     def __init__(self, config, configuration_key, dataset):
         super().__init__(config, configuration_key, dataset)
         self.samplers = []
@@ -78,8 +90,8 @@ class FrequencySampler(KgeNegativeSampler):
 
     def sample(self, spo, slot, num_samples=None):
         if num_samples is None:
-            num_samples = self.num_negatives[slot]
+            num_samples = self.num_samples[slot]
         result = self.samplers[slot].sample(torch.Size([spo.size(0), num_samples]))
-        if self._filter_true[slot]:
+        if self.filter_positives[slot]:
             result = self._filter(result)
         return result

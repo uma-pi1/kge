@@ -23,7 +23,7 @@ class Config:
         """Initialize with the default configuration"""
         if load_default:
             import kge
-            from kge.util.misc import filename_in_module
+            from kge.misc import filename_in_module
 
 
             with open(filename_in_module(kge, "config-default.yaml"), "r") as file:
@@ -45,7 +45,10 @@ class Config:
         """
         result = self.options
         for name in key.split("."):
-            result = result[name]
+            try:
+                result = result[name]
+            except KeyError:
+                raise KeyError(f"Error accessing {name} for key {key}")
 
         if remove_plusplusplus and isinstance(result, collections.Mapping):
 
@@ -141,7 +144,7 @@ class Config:
         into the configuration.
 
         """
-        from kge.util.misc import is_number
+        from kge.misc import is_number
 
         splits = key.split(".")
         data = self.options
@@ -219,7 +222,7 @@ class Config:
 
         """
         import kge.model, kge.model.experimental
-        from kge.util.misc import filename_in_module
+        from kge.misc import filename_in_module
 
         # load the module_name
         module_config = Config(load_default=False)
@@ -399,7 +402,7 @@ class Config:
 
     def checkpoint_file(self, cpt_id: Union[str, int]) -> str:
         "Return path of checkpoint file for given checkpoint id"
-        from kge.util.misc import is_number
+        from kge.misc import is_number
         if is_number(cpt_id, int):
             return os.path.join(self.folder, "checkpoint_{:05d}.pt".format(int(cpt_id)))
         else:
@@ -603,6 +606,14 @@ def _process_deprecated_options(options: Dict[str, Any]):
                 if rename_value(key, old_value, new_value):
                     renamed_keys.add(key)
         return renamed_keys
+
+    # 14.12.2019
+    rename_key("negative_sampling.filter_true_s", "negative_sampling.filter_positives_s")
+    rename_key("negative_sampling.filter_true_p", "negative_sampling.filter_positives_p")
+    rename_key("negative_sampling.filter_true_o", "negative_sampling.filter_positives_o")
+    rename_key("negative_sampling.num_negatives_s", "negative_sampling.num_samples_s")
+    rename_key("negative_sampling.num_negatives_p", "negative_sampling.num_samples_p")
+    rename_key("negative_sampling.num_negatives_o", "negative_sampling.num_samples_o")
 
     # 30.10.2019
     rename_value("train.loss", "ce", "kl")

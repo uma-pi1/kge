@@ -6,7 +6,7 @@ import torch
 import numpy as np
 
 from kge import Config, Configurable
-from kge.util.misc import kge_base_dir
+from kge.misc import kge_base_dir
 
 
 # TODO add support to pickle dataset (and indexes) and reload from there

@@ -4,7 +4,7 @@ from typing import List
 import torch
 from kge import Config, Dataset
 from kge.model.kge_model import KgeModel, RelationalScorer
-from kge.util.misc import round_to_points
+from kge.misc import round_to_points
 
 
 class SparseDiagonalRescalScorer(RelationalScorer):

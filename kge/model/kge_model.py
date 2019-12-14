@@ -7,7 +7,7 @@ import torch.nn
 import kge
 from kge import Config, Configurable, Dataset
 from kge.job import Job
-from kge.util.misc import filename_in_module
+from kge.misc import filename_in_module
 from typing import Any, Dict, List, Optional, Union
 
 SLOTS = [0, 1, 2]

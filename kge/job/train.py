@@ -11,7 +11,7 @@ from kge import Config, Dataset
 from kge.job import Job
 from kge.model import KgeModel
 
-from kge.util import KgeLoss, KgeOptimizer, KgeNegativeSampler, KgeLRScheduler
+from kge.util import KgeLoss, KgeOptimizer, KgeSampler, KgeLRScheduler
 from typing import Any, Callable, Dict, List, Optional
 import kge.job.util
 
@@ -532,12 +532,16 @@ class TrainingJobKvsAll(TrainingJob):
         # Afterwards, it holds:
         # index[keys[i]] = values[offsets[i]:offsets[i+1]]
 
-        self.train_sp_keys, self.train_sp_values, self.train_sp_offsets = Dataset.prepare_index(
-            train_sp
-        )
-        self.train_po_keys, self.train_po_values, self.train_po_offsets = Dataset.prepare_index(
-            train_po
-        )
+        (
+            self.train_sp_keys,
+            self.train_sp_values,
+            self.train_sp_offsets,
+        ) = Dataset.prepare_index(train_sp)
+        (
+            self.train_po_keys,
+            self.train_po_values,
+            self.train_po_offsets,
+        ) = Dataset.prepare_index(train_po)
 
         # create dataloader
         self.loader = torch.utils.data.DataLoader(
@@ -676,11 +680,11 @@ class TrainingJobKvsAll(TrainingJob):
 class TrainingJobNegativeSampling(TrainingJob):
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
-        self._sampler = KgeNegativeSampler.create(config, "negative_sampling", dataset)
+        self._sampler = KgeSampler.create(config, "negative_sampling", dataset)
         self.is_prepared = False
         self._implementation = self.config.get("negative_sampling.implementation")
         if self._implementation == "auto":
-            max_nr_of_negs = max(self._sampler.num_negatives.values())
+            max_nr_of_negs = max(self._sampler.num_samples.values())
             if max_nr_of_negs <= 30:
                 self._implementation = "spo"
             elif max_nr_of_negs > 30:
@@ -720,7 +724,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             """For a batch of size n, returns a tuple of:
 
             - triples (tensor of shape [n,3], ),
-            - negative_samples (list of tensors of shape [n,num_negatives]; 3 elements
+            - negative_samples (list of tensors of shape [n,num_samples]; 3 elements
               in order S,P,O)
             """
 
@@ -747,19 +751,17 @@ class TrainingJobNegativeSampling(TrainingJob):
         loss_value = 0.0
         forward_time = 0.0
         backward_time = 0.0
-        num_negatives = None
+        num_samples = 0
         labels = None
         for slot in [S, P, O]:
-            if self._sampler.num_negatives[slot] <= 0:
+            if self._sampler.num_samples[slot] <= 0:
                 continue
 
             # construct gold labels: first column corresponds to positives, rest to negatives
-            if self._sampler.num_negatives[slot] != num_negatives:
+            if self._sampler.num_samples[slot] != num_samples:
                 prepare_time -= time.time()
-                num_negatives = self._sampler.num_negatives[slot]
-                labels = torch.zeros(
-                    (batch_size, 1 + num_negatives), device=self.device
-                )
+                num_samples = self._sampler.num_samples[slot]
+                labels = torch.zeros((batch_size, 1 + num_samples), device=self.device)
                 labels[:, 0] = 1
                 prepare_time += time.time()
 
@@ -768,7 +770,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             if self._implementation == "spo":
                 # construct triples
                 prepare_time -= time.time()
-                triples_to_score = triples.repeat(1, 1 + num_negatives).view(-1, 3)
+                triples_to_score = triples.repeat(1, 1 + num_samples).view(-1, 3)
                 triples_to_score[:, slot] = torch.cat(
                     (
                         triples[:, [slot]],  # positives
@@ -803,7 +805,7 @@ class TrainingJobNegativeSampling(TrainingJob):
                 row_indexes = (
                     torch.arange(batch_size, device=self.device)
                     .unsqueeze(1)
-                    .repeat(1, 1 + num_negatives)
+                    .repeat(1, 1 + num_samples)
                     .view(-1)
                 )  # 000 111 222; each 1+num_negative times (here: 3)
                 column_indexes = torch.cat(
@@ -828,7 +830,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             # compute loss
             forward_time -= time.time()
             loss_value_torch = (
-                self.loss(scores, labels, num_negatives=num_negatives) / batch_size
+                self.loss(scores, labels, num_negatives=num_samples) / batch_size
             )
             loss_value += loss_value_torch.item()
             forward_time += time.time()
