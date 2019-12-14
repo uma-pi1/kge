@@ -7,7 +7,7 @@ import yaml
 from kge import Dataset
 from kge import Config
 from kge.job import Job
-from kge.util.misc import get_git_revision_short_hash, kge_base_dir, is_number
+from kge.misc import get_git_revision_short_hash, kge_base_dir, is_number
 from kge.util.dump import add_dump_parsers, dump
 
 

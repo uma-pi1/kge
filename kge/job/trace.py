@@ -10,7 +10,7 @@ import subprocess
 import time
 
 
-from kge.util.misc import kge_base_dir
+from kge.misc import kge_base_dir
 from kge.config import Config
 
 

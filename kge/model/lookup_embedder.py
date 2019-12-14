@@ -5,7 +5,7 @@ import torch.nn.functional
 from kge import Config, Dataset
 from kge.job import Job
 from kge.model import KgeEmbedder
-from kge.util.misc import round_to_points
+from kge.misc import round_to_points
 
 from typing import List
 

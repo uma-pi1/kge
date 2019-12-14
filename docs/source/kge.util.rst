@@ -12,10 +12,10 @@ kge.util.loss module
     :undoc-members:
     :show-inheritance:
 
-kge.util.misc module
+kge.misc module
 --------------------
 
-.. automodule:: kge.util.misc
+.. automodule:: kge.misc
     :members:
     :undoc-members:
     :show-inheritance:

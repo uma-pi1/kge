@@ -4,7 +4,7 @@ from kge import Config, Dataset
 from kge.model.kge_model import KgeModel
 from kge.model.rescal import RescalScorer, rescal_set_relation_embedder_dim
 from kge.model import ProjectionEmbedder
-from kge.util.misc import round_to_points
+from kge.misc import round_to_points
 
 
 class Tucker3RelationEmbedder(ProjectionEmbedder):
