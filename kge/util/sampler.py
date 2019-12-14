@@ -41,8 +41,8 @@ class KgeNegativeSampler(Configurable):
         sampling_type = config.get(configuration_key + ".sampling_type")
         if sampling_type == "uniform":
             return UniformSampler(config, configuration_key, dataset)
-        elif sampling_type == "frequency_based":
-            return FrequencyBasedSampler(config, configuration_key, dataset)
+        elif sampling_type == "frequency":
+            return FrequencySampler(config, configuration_key, dataset)
         else:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError(configuration_key + ".sampling_type")
@@ -67,7 +67,7 @@ class UniformSampler(KgeNegativeSampler):
         return result
 
 
-class FrequencyBasedSampler(KgeNegativeSampler):
+class FrequencySampler(KgeNegativeSampler):
     def __init__(self, config, configuration_key, dataset):
         super().__init__(config, configuration_key, dataset)
         self.samplers = []
