@@ -81,7 +81,7 @@ class KgeUniformSampler(KgeSampler):
 class KgeFrequencySampler(KgeSampler):
     def __init__(self, config, configuration_key, dataset):
         super().__init__(config, configuration_key, dataset)
-        self.distributions = []
+        self.samplers = []
         alpha = self.get_option("symmetric_prior")
         for slot in SLOTS:
             vocab = np.arange(self.vocabulary_size[slot].item())
@@ -92,15 +92,17 @@ class KgeFrequencySampler(KgeSampler):
             sort_index = np.argsort(np.concatenate([unique, zero_counts]))
             smoothed_counts = np.concatenate([counts, np.zeros(len(zero_counts))])[sort_index] + alpha
 
-            self.distributions.append(smoothed_counts/np.sum(smoothed_counts))
+            self.samplers.append(torch._multinomial_alias_setup(torch.Tensor(smoothed_counts/np.sum(smoothed_counts))))
 
     def sample(self, spo, slot, num_samples=None):
         if num_samples is None:
             num_samples = self.num_samples[slot]
 
-        # TODO: find/build sampling solution with alias method, that allows to store the sampler
-        result = torch.from_numpy(np.random.choice(self.vocabulary_size[slot].item(), [spo.size(0), num_samples],
-                                                   p=self.distributions[slot]))
+        if num_samples == 0:
+            result = torch.empty([spo.size(0), num_samples])
+        else:
+            result = torch._multinomial_alias_draw(self.samplers[slot][1], self.samplers[slot][0],
+                                                   spo.size(0)*num_samples).view(spo.size(0), num_samples)
         if self.filter_positives[slot]:
             result = self._filter(result)
         return result
