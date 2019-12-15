@@ -1,6 +1,5 @@
 from kge import Config, Configurable, Dataset
 import torch
-from torch.distributions import Categorical
 import numpy as np
 from typing import Optional
 
@@ -82,16 +81,26 @@ class KgeUniformSampler(KgeSampler):
 class KgeFrequencySampler(KgeSampler):
     def __init__(self, config, configuration_key, dataset):
         super().__init__(config, configuration_key, dataset)
-        self.samplers = []
+        self.distributions = []
+        alpha = self.get_option("symmetric_prior")
         for slot in SLOTS:
+            vocab = np.arange(self.vocabulary_size[slot].item())
             unique, counts = np.unique(dataset.train[:, slot], return_counts=True)
-            sampler = Categorical(torch.from_numpy(unique/np.sum(counts)))
-            self.samplers.append(sampler)
+
+            # smooth counts with the symmetric prior alpha
+            zero_counts = vocab[~np.isin(vocab, unique)]
+            sort_index = np.argsort(np.concatenate([unique, zero_counts]))
+            smoothed_counts = np.concatenate([counts, np.zeros(len(zero_counts))])[sort_index] + alpha
+
+            self.distributions.append(smoothed_counts/np.sum(smoothed_counts))
 
     def sample(self, spo, slot, num_samples=None):
         if num_samples is None:
             num_samples = self.num_samples[slot]
-        result = self.samplers[slot].sample(torch.Size([spo.size(0), num_samples]))
+
+        # TODO: find/build sampling solution with alias method, that allows to store the sampler
+        result = torch.from_numpy(np.random.choice(self.vocabulary_size[slot].item(), [spo.size(0), num_samples],
+                                                   p=self.distributions[slot]))
         if self.filter_positives[slot]:
             result = self._filter(result)
         return result
