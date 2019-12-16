@@ -1,6 +1,7 @@
 from kge import Config, Configurable, Dataset
 import torch
 from typing import Optional
+import numpy as np
 
 SLOTS = [0, 1, 2]
 SLOT_STR = ["s", "p", "o"]
@@ -26,6 +27,7 @@ class KgeSampler(Configurable):
             self.vocabulary_size[slot] = (
                 dataset.num_relations() if slot == P else dataset.num_entities()
             )
+        self.dataset = dataset
 
         # auto config
         for slot, copy_from in [(S, O), (P, None), (O, S)]:
@@ -59,7 +61,8 @@ class KgeSampler(Configurable):
         """
         raise NotImplementedError()
 
-    def _filter(self, result):
+    def _filter(self, result: torch.Tensor, slot: int, spo: torch.Tensor):
+        """ Filter and resample indices until only negatives have been created. """
         raise NotImplementedError()
 
 
@@ -72,5 +75,30 @@ class KgeUniformSampler(KgeSampler):
             num_samples = self.num_samples[slot]
         result = torch.randint(self.vocabulary_size[slot], (spo.size(0), num_samples))
         if self.filter_positives[slot]:
-            result = self._filter(result)
+            result = self._filter(result, slot, spo)
+        return result
+
+    def _filter(self, result: torch.Tensor, slot: int, spo: torch.Tensor):
+        if slot == P:
+            raise NotImplementedError()
+        spo_char = "spo"
+        pair = spo_char.replace(spo_char[slot], "")
+        sp_po_index = self.dataset.index_KvsAll("train", pair)
+        cols = [0, 1, 2]
+        cols.remove(slot)
+        pairs = spo[:, cols]
+        for i in range(spo.size(0)):
+            while True:
+                # indices of samples that have to be sampled again
+                resample_idx = np.where(
+                    np.isin(
+                        result[i],
+                        sp_po_index[tuple(pairs[i].tolist())]
+                    ) != 0
+                )[0]
+                if not len(resample_idx):
+                    break
+                result[i, resample_idx] = torch.randint(
+                    self.vocabulary_size[slot], (len(resample_idx),)
+                )
         return result
