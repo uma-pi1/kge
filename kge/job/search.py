@@ -152,6 +152,7 @@ def _run_train_job(sicnk, device=None):
                     )
                 actual_key = next(iter(actual_key.keys()))
                 value = train_job_config.get(actual_key)
+                trace_entry[key] = value
 
             trace_entry["folder"] = os.path.split(train_job_config.folder)[1]
             metric_value = Trace.get_metric(trace_entry, metric_name)
