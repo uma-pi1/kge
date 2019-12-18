@@ -30,7 +30,7 @@ class Config:
             self.options = {}
 
         self.folder = folder  # main folder (config file, checkpoints, ...)
-        self.log_folder = folder  # used for kge.log, trace.yaml
+        self.log_folder = None  # None means use self.folder; used for kge.log, trace.yaml
         self.log_prefix: str = None
 
     # -- ACCESS METHODS ----------------------------------------------------------------
@@ -493,10 +493,12 @@ class Config:
         return value
 
     def logfile(self) -> str:
-        return os.path.join(self.log_folder, "kge.log")
+        folder = self.log_folder if self.log_folder else self.folder
+        return os.path.join(folder, "kge.log")
 
     def tracefile(self) -> str:
-        return os.path.join(self.log_folder, "trace.yaml")
+        folder = self.log_folder if self.log_folder else self.folder
+        return os.path.join(folder, "trace.yaml")
 
 
 class Configurable:
