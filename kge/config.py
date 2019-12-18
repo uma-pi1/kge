@@ -11,7 +11,6 @@ import yaml
 from typing import Any, Dict, List, Optional, Union
 
 
-
 class Config:
     """Configuration options.
 
@@ -25,13 +24,13 @@ class Config:
             import kge
             from kge.misc import filename_in_module
 
-
             with open(filename_in_module(kge, "config-default.yaml"), "r") as file:
                 self.options: Dict[str, Any] = yaml.load(file, Loader=yaml.SafeLoader)
         else:
             self.options = {}
 
-        self.folder = folder
+        self.folder = folder  # main folder (config file, checkpoints, ...)
+        self.log_folder = folder  # used for kge.log, trace.yaml
         self.log_prefix: str = None
 
     # -- ACCESS METHODS ----------------------------------------------------------------
@@ -285,7 +284,17 @@ class Config:
         """
         with open(filename, "r") as file:
             new_options = yaml.load(file, Loader=yaml.SafeLoader)
+        self.load_options(
+            new_options,
+            create=create,
+            overwrite=overwrite,
+            allow_deprecated=allow_deprecated,
+        )
 
+    def load_options(
+        self, new_options, create=False, overwrite=Overwrite.Yes, allow_deprecated=True,
+    ):
+        "Like `load`, but loads from an options object obtained from `yaml.load`."
         # import model configurations
         if "model" in new_options:
             model = new_options.get("model")
@@ -403,6 +412,7 @@ class Config:
     def checkpoint_file(self, cpt_id: Union[str, int]) -> str:
         "Return path of checkpoint file for given checkpoint id"
         from kge.misc import is_number
+
         if is_number(cpt_id, int):
             return os.path.join(self.folder, "checkpoint_{:05d}.pt".format(int(cpt_id)))
         else:
@@ -483,10 +493,10 @@ class Config:
         return value
 
     def logfile(self) -> str:
-        return os.path.join(self.folder, "kge.log")
+        return os.path.join(self.log_folder, "kge.log")
 
     def tracefile(self) -> str:
-        return os.path.join(self.folder, "trace.yaml")
+        return os.path.join(self.log_folder, "trace.yaml")
 
 
 class Configurable:
@@ -608,9 +618,15 @@ def _process_deprecated_options(options: Dict[str, Any]):
         return renamed_keys
 
     # 14.12.2019
-    rename_key("negative_sampling.filter_true_s", "negative_sampling.filter_positives_s")
-    rename_key("negative_sampling.filter_true_p", "negative_sampling.filter_positives_p")
-    rename_key("negative_sampling.filter_true_o", "negative_sampling.filter_positives_o")
+    rename_key(
+        "negative_sampling.filter_true_s", "negative_sampling.filter_positives_s"
+    )
+    rename_key(
+        "negative_sampling.filter_true_p", "negative_sampling.filter_positives_p"
+    )
+    rename_key(
+        "negative_sampling.filter_true_o", "negative_sampling.filter_positives_o"
+    )
     rename_key("negative_sampling.num_negatives_s", "negative_sampling.num_samples_s")
     rename_key("negative_sampling.num_negatives_p", "negative_sampling.num_samples_p")
     rename_key("negative_sampling.num_negatives_o", "negative_sampling.num_samples_o")

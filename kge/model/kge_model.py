@@ -6,9 +6,14 @@ import torch.nn
 
 import kge
 from kge import Config, Configurable, Dataset
-from kge.job import Job
 from kge.misc import filename_in_module
 from typing import Any, Dict, List, Optional, Union
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from kge.job import Job
+
 
 SLOTS = [0, 1, 2]
 S, P, O = SLOTS
@@ -33,7 +38,7 @@ class KgeBase(torch.nn.Module, Configurable):
                 )
             )
 
-    def prepare_job(self, job: Job, **kwargs):
+    def prepare_job(self, job: "Job", **kwargs):
         r"""Prepares the given job to work with this model.
 
         If this model does not support the specified job type, this function may raise
@@ -366,23 +371,37 @@ class KgeModel(KgeBase):
         return model
 
     @staticmethod
-    def load_from_checkpoint(filename: str, dataset=None) -> "KgeModel":
+    def load_from_checkpoint(
+            filename: str, dataset=None, use_tmp_log_folder=True, device=None
+    ) -> "KgeModel":
         """Loads a model from a checkpoint file of a training job.
 
         If dataset is specified, associates this dataset with the model. Otherwise uses
         the dataset used to train the model.
 
+        If `use_tmp_log_folder` is set, the logs and traces are written to a temporary
+        file. Otherwise, the files `kge.log` and `trace.yaml` will be created (or
+        appended to) in the checkpoint's folder.
+
         """
 
         checkpoint = torch.load(filename, map_location="cpu")
-        config = checkpoint["config"]
+        original_config = checkpoint["config"]
+        config = Config()  # round trip to handle deprecated configs
+        config.load_options(original_config.options)
+        if device:
+            config.set("job.device", device)
+        if use_tmp_log_folder:
+            import tempfile
+            config.log_folder = tempfile.mkdtemp(prefix="kge-")
         if dataset is None:
             dataset = Dataset.load(config)
         model = KgeModel.create(config, dataset)
         model.load(checkpoint["model"])
+        model.eval()
         return model
 
-    def prepare_job(self, job: Job, **kwargs):
+    def prepare_job(self, job: "Job", **kwargs):
         super().prepare_job(job, **kwargs)
         self._entity_embedder.prepare_job(job, **kwargs)
         self._relation_embedder.prepare_job(job, **kwargs)
