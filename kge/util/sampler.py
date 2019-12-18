@@ -24,7 +24,7 @@ class KgeSampler(Configurable):
                 f"filter_positives_{slot_str}"
             )
             self.vocabulary_size[slot] = (
-                dataset.num_relations if slot == P else dataset.num_entities
+                dataset.num_relations() if slot == P else dataset.num_entities()
             )
 
         # auto config

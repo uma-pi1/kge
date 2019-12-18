@@ -493,22 +493,22 @@ class TrainingJobKvsAll(TrainingJob):
                     "should be at least 0.".format(self.label_smoothing)
                 )
         elif self.label_smoothing > 0 and self.label_smoothing <= (
-            1.0 / dataset.num_entities
+            1.0 / dataset.num_entities()
         ):
             if config.get("train.auto_correct"):
                 # just to be sure it's used correctly
                 config.log(
-                    "Setting label_smoothing to 1/dataset.num_entities = {}, "
+                    "Setting label_smoothing to 1/num_entities = {}, "
                     "was set to {}.".format(
-                        1.0 / dataset.num_entities, self.label_smoothing
+                        1.0 / dataset.num_entities(), self.label_smoothing
                     )
                 )
-                self.label_smoothing = 1.0 / dataset.num_entities
+                self.label_smoothing = 1.0 / dataset.num_entities()
             else:
                 raise Exception(
                     "Label_smoothing was set to {}, "
                     "should be at least {}.".format(
-                        self.label_smoothing, 1.0 / dataset.num_entities
+                        self.label_smoothing, 1.0 / dataset.num_entities()
                     )
                 )
 
@@ -637,7 +637,7 @@ class TrainingJobKvsAll(TrainingJob):
         sp_indexes = is_sp.nonzero().to(self.device).view(-1)
         po_indexes = (is_sp == 0).nonzero().to(self.device).view(-1)
         labels = kge.job.util.coord_to_sparse_tensor(
-            batch_size, self.dataset.num_entities, label_coords, self.device
+            batch_size, self.dataset.num_entities(), label_coords, self.device
         ).to_dense()
         if self.label_smoothing > 0.0:
             # as in ConvE: https://github.com/TimDettmers/ConvE

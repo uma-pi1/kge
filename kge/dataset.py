@@ -9,6 +9,7 @@ import numpy as np
 from kge import Config, Configurable
 from kge.misc import kge_base_dir
 
+from typing import List
 
 # TODO add support to pickle dataset (and indexes) and reload from there
 class Dataset(Configurable):
@@ -27,25 +28,26 @@ class Dataset(Configurable):
         test_meta,
     ):
         super().__init__(config, "dataset")
-        self.num_entities = num_entities
-        self.entities = entities  # array: entity index -> metadata array of strings
-        self.num_relations = num_relations
-        self.relations = relations  # array: relation index -> metadata array of strings
+        self._num_entities = num_entities
+        self._entities = entities  # array: entity index -> metadata array of strings
+        self._num_relations = num_relations
+        self._relations = (
+            relations
+        )  # array: relation index -> metadata array of strings
         self._splits = {}  # split-name to (n,3) int32 tensor
         self._splits["train"] = train  # (n,3) int32 tensor
-        self.train_meta = (
+        self._train_meta = (
             train_meta
         )  # array: triple row number -> metadata array of strings
         self._splits["valid"] = valid
-        self.valid_meta = (
+        self._valid_meta = (
             valid_meta
         )  # array: triple row number -> metadata array of strings
         self._splits["test"] = test
-        self.test_meta = (
+        self._test_meta = (
             test_meta
         )  # array: triple row number -> metadata array of strings
         self.indexes = {}  # map: name of index -> index (used mainly by training jobs)
-
 
     ## LOADING ##########################################################################
 
@@ -130,7 +132,6 @@ class Dataset(Configurable):
 
         return triples, meta
 
-
     ## ACCESS ###########################################################################
 
     def split(self, name: str) -> Tensor:
@@ -152,6 +153,17 @@ class Dataset(Configurable):
         "Return test split."
         return self.split("test")
 
+    def entities(self) -> List[List[str]]:
+        return self._entities
+
+    def relations(self) -> List[List[str]]:
+        return self._relations
+
+    def num_entities(self) -> int:
+        return self._num_entities
+
+    def num_relations(self) -> int:
+        return self._num_relations
 
     ## INDEXING #########################################################################
 
@@ -218,7 +230,7 @@ class Dataset(Configurable):
         relations_per_type = {}
         for k, v in relation_types.items():
             relations_per_type.setdefault(v, set()).add(k)
-        for k,v in relations_per_type.items():
+        for k, v in relations_per_type.items():
             self.config.log("{} relations of type {}".format(len(v), k), prefix="  ")
         self.indexes["relation_types"] = relation_types
         self.indexes["relations_per_type"] = relations_per_type
@@ -233,21 +245,24 @@ class Dataset(Configurable):
 
         :return: dictionary mapping from int -> {1-N, M-1, 1-1, M-N}
         """
-        relation_stats = torch.zeros((self.num_relations, 6))
+        relation_stats = torch.zeros((self.num_relations(), 6))
         for index, p in [
-            (self.index_KvsAll('train', 'sp'), 1),
-            (self.index_KvsAll('train', 'po'), 0),
+            (self.index_KvsAll("train", "sp"), 1),
+            (self.index_KvsAll("train", "po"), 0),
         ]:
             for prefix, labels in index.items():
-                relation_stats[prefix[p], 0+p*2] = labels.float().sum()
-                relation_stats[prefix[p], 1+p*2] = relation_stats[prefix[p], 1+p*2] + 1.
-        relation_stats[:,4] = (relation_stats[:,0]/relation_stats[:,1]) > 1.5
-        relation_stats[:,5] = (relation_stats[:,2]/relation_stats[:,3]) > 1.5
+                relation_stats[prefix[p], 0 + p * 2] = labels.float().sum()
+                relation_stats[prefix[p], 1 + p * 2] = (
+                    relation_stats[prefix[p], 1 + p * 2] + 1.0
+                )
+        relation_stats[:, 4] = (relation_stats[:, 0] / relation_stats[:, 1]) > 1.5
+        relation_stats[:, 5] = (relation_stats[:, 2] / relation_stats[:, 3]) > 1.5
         result = dict()
-        for i, relation in enumerate(self.relations):
-            result[i] = '{}-{}'.format(
-                '1' if relation_stats[i,4].item() == 0 else 'M',
-                '1' if relation_stats[i,5].item() == 0 else 'N', )
+        for i, relation in enumerate(self.relations()):
+            result[i] = "{}-{}".format(
+                "1" if relation_stats[i, 4].item() == 0 else "M",
+                "1" if relation_stats[i, 5].item() == 0 else "N",
+            )
         return result
 
     # TODO this is metadata; refine API
@@ -265,21 +280,53 @@ class Dataset(Configurable):
         """
         if "frequency_percentiles" in self.indexes:
             return
-        subject_stats = torch.zeros((self.num_entities, 1))
-        relation_stats = torch.zeros((self.num_relations, 1))
-        object_stats = torch.zeros((self.num_entities, 1))
-        for (s,p,o) in self.train():
+        subject_stats = torch.zeros((self.num_entities(), 1))
+        relation_stats = torch.zeros((self.num_relations(), 1))
+        object_stats = torch.zeros((self.num_entities(), 1))
+        for (s, p, o) in self.train():
             subject_stats[s] += 1
             relation_stats[p] += 1
             object_stats[o] += 1
         result = dict()
         for arg, stats, num in [
-            ('subject', [i for i,j in list(sorted(enumerate(subject_stats.tolist()), key=lambda x:x[1]))], self.num_entities),
-            ('relation', [i for i,j in list(sorted(enumerate(relation_stats.tolist()), key=lambda x:x[1]))], self.num_relations),
-            ('object', [i for i,j in list(sorted(enumerate(object_stats.tolist()), key=lambda x:x[1]))], self.num_entities),
+            (
+                "subject",
+                [
+                    i
+                    for i, j in list(
+                        sorted(enumerate(subject_stats.tolist()), key=lambda x: x[1])
+                    )
+                ],
+                self.num_entities(),
+            ),
+            (
+                "relation",
+                [
+                    i
+                    for i, j in list(
+                        sorted(enumerate(relation_stats.tolist()), key=lambda x: x[1])
+                    )
+                ],
+                self.num_relations(),
+            ),
+            (
+                "object",
+                [
+                    i
+                    for i, j in list(
+                        sorted(enumerate(object_stats.tolist()), key=lambda x: x[1])
+                    )
+                ],
+                self.num_entities(),
+            ),
         ]:
-            for percentile, (begin, end) in [('25%', (0., 0.25)), ('50%', (0.25, 0.5)), ('75%', (0.5, 0.75)), ('top', (0.75, 1.))]:
+            for percentile, (begin, end) in [
+                ("25%", (0.0, 0.25)),
+                ("50%", (0.25, 0.5)),
+                ("75%", (0.5, 0.75)),
+                ("top", (0.75, 1.0)),
+            ]:
                 if arg not in result:
                     result[arg] = dict()
-                result[arg][percentile] = set(stats[int(begin*num):int(end*num)])
+                result[arg][percentile] = set(stats[int(begin * num) : int(end * num)])
         self.indexes["frequency_percentiles"] = result

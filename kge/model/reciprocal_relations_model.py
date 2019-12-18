@@ -20,10 +20,10 @@ class ReciprocalRelationsModel(KgeModel):
         # Using a dataset with twice the number of relations to initialize base model
         alt_dataset = Dataset(
             dataset.config,
-            dataset.num_entities,
-            dataset.entities,
-            dataset.num_relations * 2,
-            dataset.relations,
+            dataset.num_entities(),
+            dataset.entities(),
+            dataset.num_relations() * 2,
+            dataset.relations(),
             dataset.train(),
             dataset.train_meta,
             dataset.valid(),
@@ -55,7 +55,7 @@ class ReciprocalRelationsModel(KgeModel):
         if direction == "o":
             return super().score_spo(s, p, o, "o")
         elif direction == "s":
-            return super().score_spo(o, p + self.dataset.num_relations, s, "o")
+            return super().score_spo(o, p + self.dataset.num_relations(), s, "o")
         else:
             raise Exception(
                 "The reciprocal relations model cannot compute "
@@ -67,7 +67,7 @@ class ReciprocalRelationsModel(KgeModel):
             s = self.get_s_embedder().embed_all()
         else:
             s = self.get_s_embedder().embed(s)
-        p = self.get_p_embedder().embed(p + self.dataset.num_relations)
+        p = self.get_p_embedder().embed(p + self.dataset.num_relations())
         o = self.get_o_embedder().embed(o)
         return self._scorer.score_emb(o, p, s, combine="sp*")
 
@@ -82,7 +82,7 @@ class ReciprocalRelationsModel(KgeModel):
         entity_subset: torch.Tensor = None,
     ) -> torch.Tensor:
         s = self.get_s_embedder().embed(s)
-        p_inv = self.get_p_embedder().embed(p + self.dataset.num_relations)
+        p_inv = self.get_p_embedder().embed(p + self.dataset.num_relations())
         p = self.get_p_embedder().embed(p)
         o = self.get_o_embedder().embed(o)
         if self.get_s_embedder() is self.get_o_embedder():

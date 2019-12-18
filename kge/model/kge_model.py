@@ -271,11 +271,11 @@ class KgeModel(KgeBase):
                 config,
                 dataset,
                 self.configuration_key + ".entity_embedder",
-                dataset.num_entities,
+                dataset.num_entities(),
             )
 
             #: Embedder used for relations
-            num_relations = dataset.num_relations
+            num_relations = dataset.num_relations()
             self._relation_embedder = KgeEmbedder.create(
                 config,
                 dataset,

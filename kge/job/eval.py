@@ -12,7 +12,9 @@ class EvaluationJob(Job):
         self.model = model
         self.batch_size = config.get("eval.batch_size")
         self.device = self.config.get("job.device")
-        max_k = min(self.dataset.num_entities, max(self.config.get("eval.hits_at_k_s")))
+        max_k = min(
+            self.dataset.num_entities(), max(self.config.get("eval.hits_at_k_s"))
+        )
         self.hits_at_k_s = list(
             filter(lambda x: x <= max_k, self.config.get("eval.hits_at_k_s"))
         )
@@ -100,7 +102,7 @@ def __initialize_hist(hists, key, job):
     """If there is no histogram with given `key` in `hists`, add an empty one."""
     if key not in hists:
         hists[key] = torch.zeros(
-            [job.dataset.num_entities],
+            [job.dataset.num_entities()],
             device=job.config.get("job.device"),
             dtype=torch.float,
         )
