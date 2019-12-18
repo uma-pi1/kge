@@ -404,7 +404,7 @@ class KgeModel(KgeBase):
 
             config.log_folder = tempfile.mkdtemp(prefix="kge-")
         if dataset is None:
-            dataset = Dataset.load(config)
+            dataset = Dataset.load(config, preload_data=False)
         model = KgeModel.create(config, dataset)
         model.load(checkpoint["model"])
         model.eval()

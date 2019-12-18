@@ -18,19 +18,8 @@ class ReciprocalRelationsModel(KgeModel):
 
         # Initialize base model
         # Using a dataset with twice the number of relations to initialize base model
-        alt_dataset = Dataset(
-            dataset.config,
-            dataset.num_entities(),
-            dataset.entities(),
-            dataset.num_relations() * 2,
-            dataset.relations(),
-            dataset.train(),
-            dataset.train_meta,
-            dataset.valid(),
-            dataset.valid_meta,
-            dataset.test(),
-            dataset.test_meta,
-        )
+        alt_dataset = dataset.shallow_copy()
+        alt_dataset._num_relations = dataset.num_relations() * 2
         base_model = KgeModel.create(
             config, alt_dataset, self.configuration_key + ".base_model"
         )

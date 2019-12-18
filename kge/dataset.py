@@ -9,97 +9,75 @@ import numpy as np
 from kge import Config, Configurable
 from kge.misc import kge_base_dir
 
-from typing import List
+from typing import Dict, List
 
 # TODO add support to pickle dataset (and indexes) and reload from there
 class Dataset(Configurable):
-    def __init__(
-        self,
-        config,
-        num_entities,
-        entities,
-        num_relations,
-        relations,
-        train,
-        train_meta,
-        valid,
-        valid_meta,
-        test,
-        test_meta,
-    ):
+    """Stores information about a dataset.
+
+    This includes the number of entities, number of relations, splits containing tripels
+    (e.g., to train, validate, test), indexes, and various metadata about these objects.
+    Most of these objects can be lazy-loaded on first use.
+
+    """
+
+    def __init__(self, config, folder=None):
+        """Constructor for internal use.
+
+        To load a dataset, use `Dataset.load()`."""
         super().__init__(config, "dataset")
-        self._num_entities = num_entities
-        self._entities = entities  # array: entity index -> metadata array of strings
-        self._num_relations = num_relations
-        self._relations = (
-            relations
-        )  # array: relation index -> metadata array of strings
-        self._splits = {}  # split-name to (n,3) int32 tensor
-        self._splits["train"] = train  # (n,3) int32 tensor
-        self._train_meta = (
-            train_meta
-        )  # array: triple row number -> metadata array of strings
-        self._splits["valid"] = valid
-        self._valid_meta = (
-            valid_meta
-        )  # array: triple row number -> metadata array of strings
-        self._splits["test"] = test
-        self._test_meta = (
-            test_meta
-        )  # array: triple row number -> metadata array of strings
+
+        #: directory in which dataset is stored
+        self.folder = folder
+
+        # read the number of entities and relations from the config, if present
+        try:
+            self._num_entities: Int = config.get("dataset.num_entities")
+        except KeyError:
+            self._num_entities: Int = None
+
+        try:
+            self._num_relations: Int = config.get("dataset.num_relations")
+        except KeyError:
+            self._num_relations: Int = None
+
+        #: # entity index -> metadata array of strings
+        self._entities: List[List[str]] = None
+
+        #: # relations index -> metadata array of strings
+        self._relations: List[List[str]] = None
+
+        #: split-name to (n,3) int32 tensor
+        self._splits: Dict[str, Tensor] = {}
+
+        #: split-name to array, which maps triple index -> metadata array of strings
+        self._splits_meta: Dict[str, List[List[str]]] = {}
+
         self.indexes = {}  # map: name of index -> index (used mainly by training jobs)
 
     ## LOADING ##########################################################################
 
     @staticmethod
-    def load(config: Config):
+    def load(config: Config, preload_data=True):
+        """Loads a dataset.
+
+        If preload_data is set, loads entity and relation maps as well as all splits.
+        Otherwise, this data is lazy loaded on first use.
+
+        """
         name = config.get("dataset.name")
-        base_dir = os.path.join(kge_base_dir(), "data", name)
-        if os.path.isfile(os.path.join(base_dir, "dataset.yaml")):
+        folder = os.path.join(kge_base_dir(), "data", name)
+        if os.path.isfile(os.path.join(folder, "dataset.yaml")):
             config.log("Loading configuration of dataset " + name + "...")
-            config.load(os.path.join(base_dir, "dataset.yaml"))
+            config.load(os.path.join(folder, "dataset.yaml"))
 
-        config.log("Loading dataset " + name + "...")
-        num_entities, entities = Dataset._load_map(
-            os.path.join(base_dir, config.get("dataset.entity_map"))
-        )
-        num_relations, relations = Dataset._load_map(
-            os.path.join(base_dir, config.get("dataset.relation_map"))
-        )
-
-        train, train_meta = Dataset._load_triples(
-            os.path.join(base_dir, config.get("dataset.train"))
-        )
-
-        valid, valid_meta = Dataset._load_triples(
-            os.path.join(base_dir, config.get("dataset.valid"))
-        )
-
-        test, test_meta = Dataset._load_triples(
-            os.path.join(base_dir, config.get("dataset.test"))
-        )
-
-        result = Dataset(
-            config,
-            num_entities,
-            entities,
-            num_relations,
-            relations,
-            train,
-            train_meta,
-            valid,
-            valid_meta,
-            test,
-            test_meta,
-        )
-
-        config.log(str(num_entities) + " entities", prefix="  ")
-        config.log(str(num_relations) + " relations", prefix="  ")
-        config.log(str(len(train)) + " training triples", prefix="  ")
-        config.log(str(len(valid)) + " validation triples", prefix="  ")
-        config.log(str(len(test)) + " test triples", prefix="  ")
-
-        return result
+        dataset = Dataset(config, folder)
+        if preload_data:
+            dataset.entities()
+            dataset.relations()
+            for split in ["train", "valid", "test"]:
+                dataset.split(split)
+        return dataset
 
     @staticmethod
     def _load_map(filename):
@@ -132,14 +110,39 @@ class Dataset(Configurable):
 
         return triples, meta
 
+    def shallow_copy(self):
+        """Returns a dataset that shares the underlying splits and indexes.
+
+        Changes to splits and indexes are also reflected on this and the copied dataset.
+        """
+        copy = Dataset(self.config, self.folder)
+        copy._num_entities = self.num_entities()
+        copy._num_relations = self.num_relations()
+        copy._entities = self._entities
+        copy._relations = self._relations
+        copy._splits = self._splits
+        copy._splits_meta = self._splits_meta
+        copy.indexes = self.indexes
+        return copy
+
     ## ACCESS ###########################################################################
 
-    def split(self, name: str) -> Tensor:
+    def split(self, split: str) -> Tensor:
         """Return the split of the specified name.
 
-        If the split is not yet loaded, load it. Returns an Nx3 IntTensor of spo-triples.
+        If the split is not yet loaded, load it. Returns an Nx3 IntTensor of
+        spo-triples.
+
         """
-        return self._splits[name]
+        if split not in self._splits:
+            triples, triples_meta = Dataset._load_triples(
+                os.path.join(self.folder, self.config.get(f"dataset.{split}"))
+            )
+            self._splits[split] = triples
+            self._splits_meta[split] = triples_meta
+            self.config.log(f"Loaded split {split} with {len(triples)} triples")
+
+        return self._splits[split]
 
     def train(self) -> Tensor:
         "Return training split."
@@ -154,15 +157,45 @@ class Dataset(Configurable):
         return self.split("test")
 
     def entities(self) -> List[List[str]]:
+        "Return an array that holds for each entity a list of metadata strings"
+        if not self._entities:
+            num_entities, entities = Dataset._load_map(
+                os.path.join(self.folder, self.config.get("dataset.entity_map"))
+            )
+            if self._num_entities and self._num_entities != num_entities:
+                raise ValueError(
+                    f"Expected {self._num_entities} entities, found {num_entities}"
+                )
+            self.config.log(f"Loaded map for {num_entities} entities")
+            self._entities = entities
+
         return self._entities
 
     def relations(self) -> List[List[str]]:
+        "Return an array that holds for each entity a list of metadata strings"
+        if not self._relations:
+            num_relations, relations = Dataset._load_map(
+                os.path.join(self.folder, self.config.get("dataset.relation_map"))
+            )
+            if self._num_relations and self._num_relations != num_relations:
+                raise ValueError(
+                    f"Expected {self._num_relations} relations, found {num_relations}"
+                )
+            self.config.log(f"Loaded map for {num_relations} relations")
+            self._relations = relations
+
         return self._relations
 
     def num_entities(self) -> int:
+        "Return the number of entities in this dataset."
+        if not self._num_entities:
+            self._num_entities = len(self.entities())
         return self._num_entities
 
     def num_relations(self) -> int:
+        "Return the number of relations in this dataset."
+        if not self._num_relations:
+            self._num_relations = len(self.relations())
         return self._num_relations
 
     ## INDEXING #########################################################################
