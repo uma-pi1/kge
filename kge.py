@@ -165,6 +165,8 @@ if __name__ == "__main__":
         print("Resuming from configuration {}...".format(args.config))
         config.load(args.config)
         config.folder = os.path.dirname(args.config)
+        if not config.folder:
+            config.folder = "."
         if not os.path.exists(config.folder):
             raise ValueError(
                 "{} is not a valid config file for resuming".format(args.config)
