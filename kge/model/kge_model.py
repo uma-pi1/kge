@@ -393,7 +393,11 @@ class KgeModel(KgeBase):
 
         """
 
-        checkpoint = torch.load(filename, map_location="cpu")
+        if device:
+            checkpoint = torch.load(filename, map_location=device)
+        else:
+            checkpoint = torch.load(filename, map_location="cpu")
+
         original_config = checkpoint["config"]
         config = Config()  # round trip to handle deprecated configs
         config.load_options(original_config.options)
