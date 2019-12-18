@@ -3,6 +3,7 @@ import os
 from collections import defaultdict, OrderedDict
 
 import torch
+from torch import Tensor
 import numpy as np
 
 from kge import Config, Configurable
@@ -30,19 +31,23 @@ class Dataset(Configurable):
         self.entities = entities  # array: entity index -> metadata array of strings
         self.num_relations = num_relations
         self.relations = relations  # array: relation index -> metadata array of strings
-        self.train = train  # (n,3) int32 tensor
+        self._splits = {}  # split-name to (n,3) int32 tensor
+        self._splits["train"] = train  # (n,3) int32 tensor
         self.train_meta = (
             train_meta
         )  # array: triple row number -> metadata array of strings
-        self.valid = valid  # (n,3) int32 tensor
+        self._splits["valid"] = valid
         self.valid_meta = (
             valid_meta
         )  # array: triple row number -> metadata array of strings
-        self.test = test  # (n,3) int32 tensor
+        self._splits["test"] = test
         self.test_meta = (
             test_meta
         )  # array: triple row number -> metadata array of strings
         self.indexes = {}  # map: name of index -> index (used mainly by training jobs)
+
+
+    ## LOADING ##########################################################################
 
     @staticmethod
     def load(config: Config):
@@ -125,6 +130,31 @@ class Dataset(Configurable):
 
         return triples, meta
 
+
+    ## ACCESS ###########################################################################
+
+    def split(self, name: str) -> Tensor:
+        """Return the split of the specified name.
+
+        If the split is not yet loaded, load it. Returns an Nx3 IntTensor of spo-triples.
+        """
+        return self._splits[name]
+
+    def train(self) -> Tensor:
+        "Return training split."
+        return self.split("train")
+
+    def valid(self) -> Tensor:
+        "Return validation split."
+        return self.split("valid")
+
+    def test(self) -> Tensor:
+        "Return test split."
+        return self.split("test")
+
+
+    ## INDEXING #########################################################################
+
     def index_KvsAll(self, split: str, sp_po: str):
         """Return an index for the triples in split (''train'', ''valid'', ''test'')
         from the specified constituents (''sp'' or ''po'') to the indexes of the
@@ -136,15 +166,7 @@ class Dataset(Configurable):
         this index is already present, does not recompute it.
 
         """
-        if split == "train":
-            triples = self.train
-        elif split == "valid":
-            triples = self.valid
-        elif split == "test":
-            triples = self.test
-        else:
-            raise ValueError()
-
+        triples = self.split(split)
         if sp_po == "sp":
             sp_po_cols = [0, 1]
             value_column = 2
@@ -246,7 +268,7 @@ class Dataset(Configurable):
         subject_stats = torch.zeros((self.num_entities, 1))
         relation_stats = torch.zeros((self.num_relations, 1))
         object_stats = torch.zeros((self.num_entities, 1))
-        for (s,p,o) in self.train:
+        for (s,p,o) in self.train():
             subject_stats[s] += 1
             relation_stats[p] += 1
             object_stats[o] += 1

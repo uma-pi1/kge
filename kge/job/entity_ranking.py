@@ -31,9 +31,9 @@ class EntityRankingJob(EvaluationJob):
         self.valid_po = self.dataset.index_KvsAll("valid", "po")
 
         if self.eval_data == "test":
-            self.triples = self.dataset.test
+            self.triples = self.dataset.test()
         else:
-            self.triples = self.dataset.valid
+            self.triples = self.dataset.valid()
         if self.eval_data == "test" or self.filter_valid_with_test:
             self.test_sp = self.dataset.index_KvsAll("test", "sp")
             self.test_po = self.dataset.index_KvsAll("test", "po")

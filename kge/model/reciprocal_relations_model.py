@@ -24,11 +24,11 @@ class ReciprocalRelationsModel(KgeModel):
             dataset.entities,
             dataset.num_relations * 2,
             dataset.relations,
-            dataset.train,
+            dataset.train(),
             dataset.train_meta,
-            dataset.valid,
+            dataset.valid(),
             dataset.valid_meta,
-            dataset.test,
+            dataset.test(),
             dataset.test_meta,
         )
         base_model = KgeModel.create(

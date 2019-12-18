@@ -706,15 +706,15 @@ class TrainingJobNegativeSampling(TrainingJob):
         if self.is_prepared:
             return
 
+        self.num_examples = self.dataset.train().size(0)
         self.loader = torch.utils.data.DataLoader(
-            range(self.dataset.train.size(0)),
+            range(self.num_examples),
             collate_fn=self._get_collate_fun(),
             shuffle=True,
             batch_size=self.batch_size,
             num_workers=self.config.get("train.num_workers"),
             pin_memory=self.config.get("train.pin_memory"),
         )
-        self.num_examples = self.dataset.train.size(0)
 
         self.is_prepared = True
 
@@ -728,7 +728,7 @@ class TrainingJobNegativeSampling(TrainingJob):
               in order S,P,O)
             """
 
-            triples = self.dataset.train[batch, :].long()
+            triples = self.dataset.train()[batch, :].long()
             # labels = torch.zeros((len(batch), self._sampler.num_negatives_total + 1))
             # labels[:, 0] = 1
             # labels = labels.view(-1)
@@ -865,15 +865,15 @@ class TrainingJob1vsAll(TrainingJob):
         if self.is_prepared:
             return
 
+        self.num_examples = self.dataset.train().size(0)
         self.loader = torch.utils.data.DataLoader(
-            range(self.dataset.train.size(0)),
-            collate_fn=lambda batch: {"triples": self.dataset.train[batch, :].long()},
+            range(self.num_examples),
+            collate_fn=lambda batch: {"triples": self.dataset.train()[batch, :].long()},
             shuffle=True,
             batch_size=self.batch_size,
             num_workers=self.config.get("train.num_workers"),
             pin_memory=self.config.get("train.pin_memory"),
         )
-        self.num_examples = self.dataset.train.size(0)
 
         self.is_prepared = True
 
