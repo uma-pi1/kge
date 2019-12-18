@@ -152,6 +152,14 @@ class RelationalScorer(KgeBase):
             p_embs = p_emb.repeat_interleave(n_s, 0)
             o_embs = o_emb.repeat_interleave(n_s, 0)
             out = self.score_emb_spo(s_embs, p_embs, o_embs)
+        elif combine == "s*o":
+            n = s_emb.size(0)
+            assert o_emb.size(0) == n
+            n_p = p_emb.size(0)
+            s_embs = s_emb.repeat_interleave(n_p, 0)
+            p_embs = p_emb.repeat((n,1))
+            o_embs = o_emb.repeat_interleave(n_p, 0)
+            out = self.score_emb_spo(s_embs, p_embs, o_embs)
         else:
             raise ValueError('cannot handle combine="{}".format(combine)')
 
@@ -372,7 +380,7 @@ class KgeModel(KgeBase):
 
     @staticmethod
     def load_from_checkpoint(
-            filename: str, dataset=None, use_tmp_log_folder=True, device=None
+        filename: str, dataset=None, use_tmp_log_folder=True, device=None
     ) -> "KgeModel":
         """Loads a model from a checkpoint file of a training job.
 
@@ -393,6 +401,7 @@ class KgeModel(KgeBase):
             config.set("job.device", device)
         if use_tmp_log_folder:
             import tempfile
+
             config.log_folder = tempfile.mkdtemp(prefix="kge-")
         if dataset is None:
             dataset = Dataset.load(config)
@@ -501,6 +510,28 @@ class KgeModel(KgeBase):
         p = self.get_p_embedder().embed(p)
 
         return self._scorer.score_emb(s, p, o, combine="*po")
+
+    def score_so(self, s: Tensor, o: Tensor, p: Tensor = None) -> Tensor:
+        r"""Compute scores for triples formed from a set of so-pairs and all (or a subset of the) relations.
+
+        `s` and `o` are vectors of common size :math:`n`, holding the indexes of the
+        subjects and objects to score.
+
+        Returns an :math:`n\times R` tensor, where :math:`R` is the total number of
+        known relations. The :math:`(i,j)`-entry holds the score for triple :math:`(s_i,
+        j, o_i)`.
+
+        If `p` is not None, it is a vector holding the indexes of the relations to score.
+
+        """
+        s = self.get_s_embedder().embed(s)
+        o = self.get_o_embedder().embed(o)
+        if p is None:
+            p = self.get_p_embedder().embed_all()
+        else:
+            p = self.get_p_embedder().embed(p)
+
+        return self._scorer.score_emb(s, p, o, combine="s*o")
 
     def score_sp_po(
         self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None

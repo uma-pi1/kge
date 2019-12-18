@@ -27,7 +27,7 @@ class FreexScorer(RelationalScorer):
         elif combine == "*po":
             out = (p_emb * o_all).mm(s_all.transpose(0, 1))
         else:
-            raise ValueError('cannot handle combine="{}".format(combine)')
+            return super().score_emb(s_emb, p_emb, o_emb, combine)
 
         return out.view(n, -1)
 

@@ -71,8 +71,16 @@ class ReciprocalRelationsModel(KgeModel):
         o = self.get_o_embedder().embed(o)
         return self._scorer.score_emb(o, p, s, combine="sp*")
 
-    def score_sp_po(self, s: torch.Tensor, p: torch.Tensor, o: torch.Tensor,
-                    entity_subset: torch.Tensor = None) -> torch.Tensor:
+    def score_so(self, s, o, p=None):
+        raise Exception("The reciprocal relations model cannot score relations.")
+
+    def score_sp_po(
+        self,
+        s: torch.Tensor,
+        p: torch.Tensor,
+        o: torch.Tensor,
+        entity_subset: torch.Tensor = None,
+    ) -> torch.Tensor:
         s = self.get_s_embedder().embed(s)
         p_inv = self.get_p_embedder().embed(p + self.dataset.num_relations)
         p = self.get_p_embedder().embed(p)

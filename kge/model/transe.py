@@ -30,7 +30,7 @@ class TransEScorer(RelationalScorer):
             # for i in range(n):
             #     out[i, :] = -F.pairwise_distance(po_emb[i, :], s_emb, p=self._norm)
         else:
-            raise ValueError('cannot handle combine="{}".format(combine)')
+            super().score_emb(s_emb, p_emb, o_emb, combine)
         return out.view(n, -1)
 
 
