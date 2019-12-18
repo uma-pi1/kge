@@ -3,6 +3,7 @@ import tempfile
 
 from torch import Tensor
 import torch.nn
+import os
 
 import kge
 from kge import Config, Configurable, Dataset
@@ -157,7 +158,7 @@ class RelationalScorer(KgeBase):
             assert o_emb.size(0) == n
             n_p = p_emb.size(0)
             s_embs = s_emb.repeat_interleave(n_p, 0)
-            p_embs = p_emb.repeat((n,1))
+            p_embs = p_emb.repeat((n, 1))
             o_embs = o_emb.repeat_interleave(n_p, 0)
             out = self.score_emb_spo(s_embs, p_embs, o_embs)
         else:
@@ -380,7 +381,7 @@ class KgeModel(KgeBase):
 
     @staticmethod
     def load_from_checkpoint(
-        filename: str, dataset=None, use_tmp_log_folder=True, device=None
+        filename: str, dataset=None, use_tmp_log_folder=True, device="cpu"
     ) -> "KgeModel":
         """Loads a model from a checkpoint file of a training job.
 
@@ -393,20 +394,20 @@ class KgeModel(KgeBase):
 
         """
 
-        if device:
-            checkpoint = torch.load(filename, map_location=device)
-        else:
-            checkpoint = torch.load(filename, map_location="cpu")
+        checkpoint = torch.load(filename, map_location=device)
 
         original_config = checkpoint["config"]
         config = Config()  # round trip to handle deprecated configs
         config.load_options(original_config.options)
-        if device:
-            config.set("job.device", device)
+        config.set("job.device", device)
         if use_tmp_log_folder:
             import tempfile
 
             config.log_folder = tempfile.mkdtemp(prefix="kge-")
+        else:
+            config.log_folder = os.path.dirname(filename)
+            if not config.log_folder:
+                config.log_folder = "."
         if dataset is None:
             dataset = Dataset.load(config, preload_data=False)
         model = KgeModel.create(config, dataset)
