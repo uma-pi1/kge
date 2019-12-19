@@ -176,6 +176,7 @@ def _add_dump_trace_parser(subparsers_dump):
             argument, action="store_const", const=True, default=False,
         )
     parser_dump_trace.add_argument("--keysfile", default=False)
+    parser_dump_trace.add_argument("--keys", nargs="*", type=str)
 
 
 def _dump_trace(args):
@@ -214,12 +215,19 @@ def _dump_trace(args):
         exit(1)
 
     keymap = OrderedDict()
+    additional_keys = []
     if args.keysfile:
         with open(args.keysfile, "r") as keyfile:
-            for line in keyfile:
-                keymap[line.rstrip("\n").split("=")[0].strip()] = (
-                    line.rstrip("\n").split("=")[1].strip()
-                )
+            additional_keys = keyfile.readlines()
+    if args.keys:
+        additional_keys += args.keys
+    for line in additional_keys:
+        line.rstrip("\n")
+        name_key = line.split("=")
+        if len(name_key)==1:
+            name_key += name_key
+        keymap[name_key[0]]=name_key[1]
+
     job_id = None
     epoch = int(args.max_epoch)
     # use job_id and epoch from checkpoint
