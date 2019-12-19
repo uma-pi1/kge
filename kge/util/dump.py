@@ -12,6 +12,8 @@ from kge.job import Trace
 from kge import Config
 
 
+## EXPORTED METHODS #####################################################################
+
 def add_dump_parsers(subparsers):
     # 'kge dump' can have associated sub-commands which can have different args
     parser_dump = subparsers.add_parser("dump", help="Dump objects to stdout",)
@@ -19,9 +21,78 @@ def add_dump_parsers(subparsers):
         title="dump_command", dest="dump_command"
     )
     subparsers_dump.required = True
+    _add_dump_trace_parser(subparsers_dump)
+    _add_dump_checkpoint_parser(subparsers_dump)
 
-    # 'kge dump trace' command and arguments
+def dump(args):
+    """Executes the 'kge dump' commands. """
+    if args.dump_command == "trace":
+        _dump_trace(args)
+    elif args.dump_command == "checkpoint":
+        _dump_checkpoint(args)
+    else:
+        raise ValueError()
 
+
+def get_config_for_job_id(job_id, folder_path):
+    config = Config(load_default=True)
+    config_path = os.path.join(folder_path, "config", job_id.split("-")[0] + ".yaml")
+    if os.path.isfile(config_path):
+        config.load(config_path, create=True)
+    else:
+        raise Exception("Could not find config file for {}".format(job_id))
+    return config
+
+
+### DUMP CHECKPOINT #####################################################################
+
+def _add_dump_checkpoint_parser(subparsers_dump):
+    parser_dump_checkpoint = subparsers_dump.add_parser(
+        "checkpoint", help=("Dump information stored in a checkpoint"),
+    )
+    parser_dump_checkpoint.add_argument(
+        "source",
+        help="A path to either a checkpoint or a job folder (then uses best or, if not present, last checkpoint).",
+    )
+    parser_dump_checkpoint.add_argument(
+        "--keys",
+        type=str,
+        nargs="*",
+        help="List of keys to include (separated by space)",
+    )
+
+
+def _dump_checkpoint(args):
+    """Executes the 'dump checkpoint' command."""
+
+    # Determine checkpoint to use
+    if os.path.isfile(args.source):
+        checkpoint_file = args.source
+    else:
+        checkpoint_file = Config.get_best_or_last_checkpoint(args.source)
+
+    # Load the checkpoint and strip some fieleds
+    checkpoint = torch.load(checkpoint_file)
+
+    # Dump it
+    print(f"# Dump of checkpoint: {checkpoint_file}")
+    excluded_keys = {"model", "optimizer_state_dict"}
+    if args.keys is not None:
+        excluded_keys = {key for key in excluded_keys if key not in args.keys}
+        excluded_keys = excluded_keys.union(
+            {key for key in checkpoint if key not in args.keys}
+        )
+    excluded_keys = {key for key in excluded_keys if key in checkpoint}
+    for key in excluded_keys:
+        del checkpoint[key]
+    if excluded_keys:
+        print(f"# Excluded keys: {excluded_keys}")
+    yaml.dump(checkpoint, sys.stdout)
+
+
+### DUMP TRACE ##########################################################################
+
+def _add_dump_trace_parser(subparsers_dump):
     parser_dump_trace = subparsers_dump.add_parser(
         "trace",
         help=(
@@ -91,18 +162,8 @@ def add_dump_parsers(subparsers):
     parser_dump_trace.add_argument("--keysfile", default=False)
 
 
-def get_config_for_job_id(job_id, folder_path):
-    config = Config(load_default=True)
-    config_path = os.path.join(folder_path, "config", job_id.split("-")[0] + ".yaml")
-    if os.path.isfile(config_path):
-        config.load(config_path, create=True)
-    else:
-        raise Exception("Could not find config file for {}".format(job_id))
-    return config
-
-
-def dump_trace(args):
-    """ Executes the 'kge dump trace' command."""
+def _dump_trace(args):
+    """ Executes the 'dump trace' command."""
     start = time.time()
     if not (args.train or args.valid or args.test):
         args.train = True
@@ -125,7 +186,7 @@ def dump_trace(args):
             )
     trace = os.path.join(folder_path, "trace.yaml")
     if not os.path.isfile(trace):
-        sys.stdout.write("Nothing dumped. No trace found at {}".format(trace))
+        sys.stderr.write("No trace found at {}\n".format(trace))
         exit()
 
     keymap = OrderedDict()
@@ -278,9 +339,3 @@ def dump_trace(args):
         sys.stdout.write("Grep + processing took {} \n".format(middle - start))
         sys.stdout.write("Writing took {}".format(end - middle))
 
-
-def dump(args):
-    """Executes the 'kge dump' commands. """
-    if args.dump_command == "trace":
-        dump_trace(args)
-        exit()

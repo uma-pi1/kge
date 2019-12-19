@@ -144,9 +144,10 @@ if __name__ == "__main__":
     process_meta_command(
         args, "valid", {"command": "resume", "job.type": "eval", "eval.data": "valid"}
     )
-    # dump commands; exits script after completion
+    # dump command
     if args.command == "dump":
         dump(args)
+        exit()
 
     # start command
     if args.command == "start":
