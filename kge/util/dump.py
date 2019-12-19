@@ -60,7 +60,10 @@ def _add_dump_checkpoint_parser(subparsers_dump):
     )
     parser_dump_checkpoint.add_argument(
         "source",
-        help="A path to either a checkpoint or a job folder (then uses best or, if not present, last checkpoint).",
+        help="A path to either a checkpoint or a job folder (then uses best or, "
+        "if not present, last checkpoint).",
+        nargs="?",
+        default=".",
     )
     parser_dump_checkpoint.add_argument(
         "--keys",
@@ -111,7 +114,10 @@ def _add_dump_trace_parser(subparsers_dump):
     )
 
     parser_dump_trace.add_argument(
-        "source", help="A path to either a checkpoint or a job folder."
+        "source",
+        help="A path to either a checkpoint or a job folder.",
+        nargs="?",
+        default=".",
     )
 
     parser_dump_trace.add_argument(
@@ -160,7 +166,7 @@ def _add_dump_trace_parser(subparsers_dump):
         "--valid",
         "--test",
         "--search",
-        "--csv",
+        "--yaml",
         "--batch",
         "--example",
         "--timeit",
@@ -250,15 +256,18 @@ def _dump_trace(args):
         epoch = None
         if entries:
             args.search = True
-            print("Warning: when dumping a search job, it is currently assumed that "
-                  "the config.yaml files in each subfolder have not been modified "
-                  "after running the corresponding training job.", file=sys.stderr)
+            print(
+                "Warning: when dumping a search job, it is currently assumed that "
+                "the config.yaml files in each subfolder have not been modified "
+                "after running the corresponding training job.",
+                file=sys.stderr,
+            )
     if not entries:
         print("No relevant trace entries found.", file=sys.stderr)
         exit(1)
 
     middle = time.time()
-    if args.csv:
+    if not args.yaml:
         csv_writer = csv.writer(sys.stdout)
         # dict[new_name] = (lookup_name, where)
         # if where=="config"/"trace" it will be looked up automatically
@@ -341,7 +350,7 @@ def _dump_trace(args):
             elif type(val) == bool and not val:
                 val = 0
             new_attributes[new_key] = val
-        if args.csv:
+        if not args.yaml:
             # find the actual values for the default attributes
             actual_default = default_attributes.copy()
             for new_key in default_attributes.keys():
