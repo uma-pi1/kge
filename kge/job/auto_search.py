@@ -41,6 +41,7 @@ class AutoSearchJob(SearchJob):
         self.config.log("Saving checkpoint to {}...".format(filename))
         torch.save(
             {
+                "type": "search",
                 "parameters": self.parameters,
                 "results": self.results,
                 "job_id": self.job_id,

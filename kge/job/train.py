@@ -229,6 +229,7 @@ class TrainingJob(Job):
         self.config.log("Saving checkpoint to {}...".format(filename))
         torch.save(
             {
+                "type": "train",
                 "config": self.config,
                 "epoch": self.epoch,
                 "valid_trace": self.valid_trace,
