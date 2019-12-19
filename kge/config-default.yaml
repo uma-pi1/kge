@@ -34,10 +34,10 @@ dataset:
   valid: valid.del
   test: test.del
 
-  # Names of entity and relation map files, which store auxiliary information
-  # about each entity/predicate. Fields are tab-separated:
+  # Names of entity and relation map files, which store the externally used name
+  # for each entity/relation. The two fields are tab-separated:
   # - 0: entity/predicate index (as in train/valid/test)
-  # - 1...: arbitrary metadata fields
+  # - 1...: external name
   entity_map: entity_map.del
   relation_map: relation_map.del
 
