@@ -14,6 +14,7 @@ from kge import Config
 
 ## EXPORTED METHODS #####################################################################
 
+
 def add_dump_parsers(subparsers):
     # 'kge dump' can have associated sub-commands which can have different args
     parser_dump = subparsers.add_parser("dump", help="Dump objects to stdout",)
@@ -23,6 +24,7 @@ def add_dump_parsers(subparsers):
     subparsers_dump.required = True
     _add_dump_trace_parser(subparsers_dump)
     _add_dump_checkpoint_parser(subparsers_dump)
+
 
 def dump(args):
     """Executes the 'kge dump' commands. """
@@ -36,7 +38,12 @@ def dump(args):
 
 def get_config_for_job_id(job_id, folder_path):
     config = Config(load_default=True)
-    config_path = os.path.join(folder_path, "config", job_id.split("-")[0] + ".yaml")
+    if job_id:
+        config_path = os.path.join(
+            folder_path, "config", job_id.split("-")[0] + ".yaml"
+        )
+    else:
+        config_path = os.path.join(folder_path, "config.yaml")
     if os.path.isfile(config_path):
         config.load(config_path, create=True)
     else:
@@ -45,6 +52,7 @@ def get_config_for_job_id(job_id, folder_path):
 
 
 ### DUMP CHECKPOINT #####################################################################
+
 
 def _add_dump_checkpoint_parser(subparsers_dump):
     parser_dump_checkpoint = subparsers_dump.add_parser(
@@ -91,6 +99,7 @@ def _dump_checkpoint(args):
 
 
 ### DUMP TRACE ##########################################################################
+
 
 def _add_dump_trace_parser(subparsers_dump):
     parser_dump_trace = subparsers_dump.add_parser(
@@ -150,6 +159,7 @@ def _add_dump_trace_parser(subparsers_dump):
         "--train",
         "--valid",
         "--test",
+        "--search",
         "--csv",
         "--batch",
         "--example",
@@ -165,7 +175,15 @@ def _add_dump_trace_parser(subparsers_dump):
 def _dump_trace(args):
     """ Executes the 'dump trace' command."""
     start = time.time()
-    if not (args.train or args.valid or args.test):
+    if (args.train or args.valid or args.test) and args.search:
+        print(
+            "--search and --train, --valid, --test are mutually exclusive",
+            file=sys.stderr,
+        )
+        exit(1)
+    entry_type_specified = True
+    if not (args.train or args.valid or args.test or args.search):
+        entry_type_specified = False
         args.train = True
         args.valid = True
         args.test = True
@@ -187,7 +205,7 @@ def _dump_trace(args):
     trace = os.path.join(folder_path, "trace.yaml")
     if not os.path.isfile(trace):
         sys.stderr.write("No trace found at {}\n".format(trace))
-        exit()
+        exit(1)
 
     keymap = OrderedDict()
     if args.keysfile:
@@ -213,16 +231,32 @@ def _dump_trace(args):
     if not epoch:
         epoch = float("inf")
 
-    entries, job_epochs = Trace.grep_training_trace_entries(
-        tracefile=trace,
-        train=args.train,
-        test=args.test,
-        valid=args.valid,
-        example=args.example,
-        batch=args.batch,
-        job_id=job_id,
-        epoch_of_last=epoch,
-    )
+    entries, job_epochs = [], {}
+    if not args.search:
+        entries, job_epochs = Trace.grep_training_trace_entries(
+            tracefile=trace,
+            train=args.train,
+            test=args.test,
+            valid=args.valid,
+            example=args.example,
+            batch=args.batch,
+            job_id=job_id,
+            epoch_of_last=epoch,
+        )
+    if not entries and (args.search or not entry_type_specified):
+        entries = Trace.grep_trace_entries(
+            trace, job="search", scope="train", job_id=job_id,
+        )
+        epoch = None
+        if entries:
+            args.search = True
+            print("Warning: when dumping a search job, it is currently assumed that "
+                  "the config.yaml files in each subfolder have not been modified "
+                  "after running the corresponding training job.", file=sys.stderr)
+    if not entries:
+        print("No relevant trace entries found.", file=sys.stderr)
+        exit(1)
+
     middle = time.time()
     if args.csv:
         csv_writer = csv.writer(sys.stdout)
@@ -253,7 +287,7 @@ def _dump_trace(args):
     # store configs for job_id's s.t. they need to be loaded only once
     configs = {}
     for entry in entries:
-        if not entry.get("epoch") <= float(epoch):
+        if epoch and not entry.get("epoch") <= float(epoch):
             continue
         # filter out not needed entries from a previous job when
         # a job was resumed from the middle
@@ -261,12 +295,21 @@ def _dump_trace(args):
             job_id = entry.get("job_id")
             if entry.get("epoch") > job_epochs[job_id]:
                 continue
-        current_job_id = entry.get("job_id")
-        if current_job_id in configs.keys():
-            config = configs[current_job_id]
+
+        # find relevant config file
+        config_key = entry.get("folder") if args.search else entry.get("job_id")
+        if config_key in configs.keys():
+            config = configs[config_key]
         else:
-            config = get_config_for_job_id(entry.get("job_id"), folder_path)
-            configs[current_job_id] = config
+            if args.search:
+                config = get_config_for_job_id(
+                    None, os.path.join(folder_path, entry.get("folder"))
+                )
+                entry["type"] = config.get("train.type")
+            else:
+                config = get_config_for_job_id(entry.get("job_id"), folder_path)
+            configs[config_key] = config
+
         new_attributes = OrderedDict()
         if config.get_default("model") == "reciprocal_relations_model":
             model = config.get_default("reciprocal_relations_model.base_model.type")
@@ -313,12 +356,15 @@ def _dump_trace(args):
             if entry.get("job") == "train":
                 actual_default["split"] = "train"
                 actual_default["job"] = "train"
-            if entry.get("job") == "eval":
+            elif entry.get("job") == "eval":
                 actual_default["split"] = entry.get("data")  # test or valid
                 if entry.get("resumed_from_job_id"):
                     actual_default["job"] = "eval"  # from "kge eval"
                 else:
                     actual_default["job"] = "valid"  # child of training job
+            else:
+                actual_default["job"] = entry.get("job")
+                actual_default["split"] = entry.get("data")
             actual_default["job_id"] = entry.get("job_id").split("-")[0]
             actual_default["model"] = model
             actual_default["reciprocal"] = reciprocal
@@ -338,4 +384,3 @@ def _dump_trace(args):
     if args.timeit:
         sys.stdout.write("Grep + processing took {} \n".format(middle - start))
         sys.stdout.write("Writing took {}".format(end - middle))
-
