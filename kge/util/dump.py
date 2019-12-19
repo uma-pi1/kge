@@ -256,12 +256,6 @@ def _dump_trace(args):
         epoch = None
         if entries:
             args.search = True
-            print(
-                "Warning: when dumping a search job, it is currently assumed that "
-                "the config.yaml files in each subfolder have not been modified "
-                "after running the corresponding training job.",
-                file=sys.stderr,
-            )
     if not entries:
         print("No relevant trace entries found.", file=sys.stderr)
         exit(1)
@@ -295,6 +289,7 @@ def _dump_trace(args):
             )
     # store configs for job_id's s.t. they need to be loaded only once
     configs = {}
+    warning_shown = False
     for entry in entries:
         if epoch and not entry.get("epoch") <= float(epoch):
             continue
@@ -306,13 +301,28 @@ def _dump_trace(args):
                 continue
 
         # find relevant config file
-        config_key = entry.get("folder") if args.search else entry.get("job_id")
+        child_job_id = entry.get("child_job_id") if "child_job_id" in entry else None
+        config_key = (
+            entry.get("folder") + "/" + str(child_job_id)
+            if args.search
+            else entry.get("job_id")
+        )
         if config_key in configs.keys():
             config = configs[config_key]
         else:
             if args.search:
+                if not child_job_id and not warning_shown:
+                    # This warning is from Dec 19, 2019. TODO remove
+                    print(
+                        "Warning: You are dumping the trace of an older search job. "
+                        "This is fine only if "
+                        "the config.yaml files in each subfolder have not been modified "
+                        "after running the corresponding training job.",
+                        file=sys.stderr,
+                    )
+                    warning_shown = True
                 config = get_config_for_job_id(
-                    None, os.path.join(folder_path, entry.get("folder"))
+                    child_job_id, os.path.join(folder_path, entry.get("folder"))
                 )
                 entry["type"] = config.get("train.type")
             else:

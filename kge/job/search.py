@@ -109,8 +109,6 @@ class SearchJob(Job):
         return state
 
 
-# TODO add job submission (to device_pool/cpus) etc. to SearchJob main class with a
-# simpler API
 def _run_train_job(sicnk, device=None):
     """Runs a training job and returns the trace entry of its best validation result.
 
@@ -191,6 +189,7 @@ def _run_train_job(sicnk, device=None):
                 best_metric = metric
 
         # record the best result of this job
+        best["child_job_id"] = best["job_id"]
         del (
             best["job"],
             best["job_id"],
