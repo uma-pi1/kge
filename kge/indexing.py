@@ -92,7 +92,7 @@ def _get_relation_types(dataset,):
     relation_stats[:, 4] = (relation_stats[:, 0] / relation_stats[:, 1]) > 1.5
     relation_stats[:, 5] = (relation_stats[:, 2] / relation_stats[:, 3]) > 1.5
     result = dict()
-    for i, relation in enumerate(dataset.relations()):
+    for i, relation in enumerate(dataset.relation_names()):
         result[i] = "{}-{}".format(
             "1" if relation_stats[i, 4].item() == 0 else "M",
             "1" if relation_stats[i, 5].item() == 0 else "N",

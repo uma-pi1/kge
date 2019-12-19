@@ -9,7 +9,7 @@ from kge import Config, Configurable
 from kge.indexing import create_default_index_functions
 from kge.misc import kge_base_dir
 
-from typing import Dict, List, Any, Callable
+from typing import Dict, List, Any, Callable, Union, Optional
 
 # TODO add support to pickle dataset (and indexes) and reload from there
 class Dataset(Configurable):
@@ -73,8 +73,8 @@ class Dataset(Configurable):
 
         dataset = Dataset(config, folder)
         if preload_data:
-            dataset.entities()
-            dataset.relations()
+            dataset.entity_names()
+            dataset.relation_names()
             for split in ["train", "valid", "test"]:
                 dataset.split(split)
         return dataset
@@ -174,8 +174,16 @@ class Dataset(Configurable):
         "Return test split."
         return self.split("test")
 
-    def entities(self) -> List[str]:
-        "Return an array that holds for each relation the externally used name"
+    def entity_names(
+        self, indexes: Optional[Union[int, Tensor]] = None
+    ) -> Union[str, List[str], np.ndarray]:
+        """Decode entity names.
+
+        If `indexes` is `None`, return all names. If `indexes` is an integer, return the
+        corresponding name. If `indexes` is a Tensor, return an ndarray of the same
+        shape holding the corresponding names.
+
+        """
         if "entities" not in self._meta:
             num_entities, entities = Dataset._load_map(
                 os.path.join(self.folder, self.config.get("dataset.entity_map"))
@@ -187,10 +195,18 @@ class Dataset(Configurable):
             self.config.log(f"Loaded map for {num_entities} entities")
             self._meta["entities"] = entities
 
-        return self._meta["entities"]
+        return _decode_names(self._meta["entities"], indexes)
 
-    def relations(self) -> List[str]:
-        "Return an array that holds for each entity the externally used name"
+    def relation_names(
+        self, indexes: Optional[Union[int, Tensor]] = None
+    ) -> Union[str, List[str], np.ndarray]:
+        """Decode relation names.
+
+        If `indexes` is `None`, return all names. If `indexes` is an integer, return the
+        corresponding name. If `indexes` is a Tensor, return an ndarray of the same
+        shape holding the corresponding names.
+
+        """
         if "relations" not in self._meta:
             num_relations, relations = Dataset._load_map(
                 os.path.join(self.folder, self.config.get("dataset.relation_map"))
@@ -202,16 +218,29 @@ class Dataset(Configurable):
             self.config.log(f"Loaded map for {num_relations} relations")
             self._meta["relations"] = relations
 
-        return self._meta["relations"]
+        return _decode_names(self._meta["relations"], indexes)
 
     def num_entities(self) -> int:
         "Return the number of entities in this dataset."
         if not self._num_entities:
-            self._num_entities = len(self.entities())
+            self._num_entities = len(self.entity_names())
         return self._num_entities
 
     def num_relations(self) -> int:
         "Return the number of relations in this dataset."
         if not self._num_relations:
-            self._num_relations = len(self.relations())
+            self._num_relations = len(self.relation_names())
         return self._num_relations
+
+
+def _decode_names(names, indexes):
+    "Return the names corresponding to specified indexes"
+    if indexes is None:
+        return names
+    elif isinstance(indexes, int):
+        return names[indexes]
+    else:
+        shape = indexes.shape
+        indexes = indexes.view(-1)
+        names = np.array(list(map(lambda i: names[i], indexes)), dtype=str)
+        return names.reshape(shape)
