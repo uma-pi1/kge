@@ -250,8 +250,9 @@ def _dump_trace(args):
             epoch_of_last=epoch,
         )
     if not entries and (args.search or not entry_type_specified):
-        entries = Trace.grep_trace_entries(
-            trace, job="search", scope="train", job_id=job_id,
+        entries = Trace.grep_entries(
+            tracefile=trace,
+            conjunctions=[f"scope: train"],
         )
         epoch = None
         if entries:
