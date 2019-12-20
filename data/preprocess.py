@@ -33,6 +33,7 @@ if __name__ == "__main__":
     print(f"Preprocessing {args.folder}...")
     raw_split_files = {"train": "train.txt", "valid": "valid.txt", "test": "test.txt"}
     split_files = {"train": "train.del", "valid": "valid.del", "test": "test.del"}
+    string_files = {"entity_strings": "entity_strings.del", "relation_strings": "relation_strings.del"}
     split_sizes = {}
 
     if args.order_sop:
@@ -86,6 +87,10 @@ if __name__ == "__main__":
         dataset_config[f"files.{split}.filename"] = split_files.get(split)
         dataset_config[f"files.{split}.type"] = "triples"
         dataset_config[f"files.{split}.size"] = split_sizes.get(split)
+    for string in string_files.keys():
+        if os.path.exists(os.path.join(args.folder, string_files[string])):
+            dataset_config[f"files.{string}.filename"] = string_files.get(string)
+            dataset_config[f"files.{string}.type"] = "idmap"
     print(yaml.dump(dict(dataset=dataset_config)))
     with open(os.path.join(args.folder, "dataset.yaml"), "w+") as filename:
         filename.write(yaml.dump(dict(dataset=dataset_config)))
