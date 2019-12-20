@@ -182,6 +182,14 @@ def index_frequency_percentiles(dataset, recompute=False):
     dataset._indexes["frequency_percentiles"] = result
 
 
+def _invert_ids(dataset, obj: str):
+    if not f"{obj}_id_to_index" in dataset._indexes:
+        ids = dataset.load_map(f"{obj}_ids")
+        inv = {v: k for k, v in enumerate(ids)}
+        dataset.config.log(f"Indexed {len(inv)} {obj} ids")
+        dataset._indexes[f"{obj}_id_to_index"] = inv
+
+
 def create_default_index_functions(dataset: "Dataset"):
     for split in ["train", "valid", "test"]:
         for what, other in [("sp", "o"), ("po", "s")]:
@@ -194,3 +202,10 @@ def create_default_index_functions(dataset: "Dataset"):
     dataset.index_functions["relation_types"] = index_relation_types
     dataset.index_functions["relations_per_type"] = index_relation_types
     dataset.index_functions["frequency_percentiles"] = index_frequency_percentiles
+
+    dataset.index_functions["entity_id_to_index"] = lambda dataset: _invert_ids(
+        dataset, "entity"
+    )
+    dataset.index_functions["relation_id_to_index"] = lambda dataset: _invert_ids(
+        dataset, "relation"
+    )
