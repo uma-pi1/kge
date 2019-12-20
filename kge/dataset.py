@@ -80,35 +80,30 @@ class Dataset(Configurable):
         return dataset
 
     @staticmethod
-    def _load_map(filename):
+    def _load_map(
+        filename: str, as_list: bool = False, delimiter: str = "\t"
+    ) -> Union[List, Dict]:
         n = 0
         dictionary = {}
         with open(filename, "r") as file:
-            reader = csv.reader(file, delimiter="\t")
-            for row in reader:
-                index = int(row[0])
-                name = "\t".join(row[1:])
-                dictionary[index] = name
-                n = max(n, index + 1)
-        array = [[]] * n
-        for index, name in dictionary.items():
-            array[index] = name
-        return n, array
+            for line in file:
+                key, value = line.split(delimiter, maxsplit=1)
+                if as_list:
+                    key = int(key)
+                    n = max(n, key + 1)
+                dictionary[key] = value
+        if as_list:
+            array = [None] * n
+            for index, value in dictionary.items():
+                array[index] = value
+            return array
+        else:
+            return dictionary
 
     @staticmethod
-    def _load_triples(filename):
-        n = 0
-        triples = np.loadtxt(filename, delimiter="\t", usecols=range(0, 3), dtype=int)
-        triples = torch.from_numpy(triples)
-        num_lines = triples.shape[0]
-        meta = [[]] * num_lines
-        with open(filename, "r") as file:
-            reader = csv.reader(file, delimiter="\t")
-            for row in reader:
-                meta[n] = row[3:]
-                n += 1
-
-        return triples, meta
+    def _load_triples(filename: str, delimiter="\t") -> Tensor:
+        triples = np.loadtxt(filename, usecols=range(0, 3), dtype=int)
+        return torch.from_numpy(triples)
 
     def shallow_copy(self):
         """Returns a dataset that shares the underlying splits and indexes.
@@ -135,11 +130,10 @@ class Dataset(Configurable):
 
         """
         if split not in self._splits:
-            triples, triples_meta = Dataset._load_triples(
+            triples = Dataset._load_triples(
                 os.path.join(self.folder, self.config.get(f"dataset.{split}"))
             )
             self._splits[split] = triples
-            self._meta[split] = triples_meta
             self.config.log(f"Loaded split {split} with {len(triples)} triples")
 
         return self._splits[split]
@@ -185,14 +179,15 @@ class Dataset(Configurable):
 
         """
         if "entities" not in self._meta:
-            num_entities, entities = Dataset._load_map(
-                os.path.join(self.folder, self.config.get("dataset.entity_map"))
+            entities = Dataset._load_map(
+                os.path.join(self.folder, self.config.get("dataset.entity_map")),
+                as_list=True,
             )
-            if self._num_entities and self._num_entities != num_entities:
+            if self._num_entities and self._num_entities != len(entities):
                 raise ValueError(
                     f"Expected {self._num_entities} entities, found {num_entities}"
                 )
-            self.config.log(f"Loaded map for {num_entities} entities")
+            self.config.log(f"Loaded map for {len(entities)} entities")
             self._meta["entities"] = entities
 
         return _decode_names(self._meta["entities"], indexes)
@@ -208,14 +203,15 @@ class Dataset(Configurable):
 
         """
         if "relations" not in self._meta:
-            num_relations, relations = Dataset._load_map(
-                os.path.join(self.folder, self.config.get("dataset.relation_map"))
+            relations = Dataset._load_map(
+                os.path.join(self.folder, self.config.get("dataset.relation_map")),
+                as_list=True,
             )
-            if self._num_relations and self._num_relations != num_relations:
+            if self._num_relations and self._num_relations != len(relations):
                 raise ValueError(
                     f"Expected {self._num_relations} relations, found {num_relations}"
                 )
-            self.config.log(f"Loaded map for {num_relations} relations")
+            self.config.log(f"Loaded map for {len(relations)} relations")
             self._meta["relations"] = relations
 
         return _decode_names(self._meta["relations"], indexes)

@@ -37,7 +37,7 @@ dataset:
   # Names of entity and relation map files, which store the externally used name
   # for each entity/relation. The two fields are tab-separated:
   # - 0: entity/predicate index (as in train/valid/test)
-  # - 1...: external name
+  # - 1: external name
   entity_map: entity_map.del
   relation_map: relation_map.del
 
