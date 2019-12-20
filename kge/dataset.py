@@ -33,16 +33,20 @@ class Dataset(Configurable):
         # read the number of entities and relations from the config, if present
         try:
             self._num_entities: Int = config.get("dataset.num_entities")
+            if self._num_entities < 0:
+                self._num_entities = None
         except KeyError:
             self._num_entities: Int = None
 
         try:
             self._num_relations: Int = config.get("dataset.num_relations")
+            if self._num_relations < 0:
+                self._num_relations = None
         except KeyError:
             self._num_relations: Int = None
 
         #: split-name to (n,3) int32 tensor
-        self._splits: Dict[str, Tensor] = {}
+        self._triples: Dict[str, Tensor] = {}
 
         #: meta data that is part if this dataset. Indexed by key.
         self._meta: Dict[str, Any] = {}
@@ -73,11 +77,31 @@ class Dataset(Configurable):
 
         dataset = Dataset(config, folder)
         if preload_data:
-            dataset.entity_names()
-            dataset.relation_names()
+            dataset.entity_ids()
+            dataset.relation_ids()
             for split in ["train", "valid", "test"]:
                 dataset.split(split)
         return dataset
+
+    @staticmethod
+    def _load_triples(filename: str, delimiter="\t") -> Tensor:
+        triples = np.loadtxt(filename, usecols=range(0, 3), dtype=int)
+        return torch.from_numpy(triples)
+
+    def load_triples(self, key: str) -> Tensor:
+        if key not in self._triples:
+            filename = self.config.get(f"dataset.files.{key}.filename")
+            filetype = self.config.get(f"dataset.files.{key}.type")
+            if filetype != "triples":
+                raise ValueError(
+                    "Unexpected file type: "
+                    f"dataset.files.{key}.type='{filetype}', expected 'triples'"
+                )
+            triples = Dataset._load_triples(os.path.join(self.folder, filename))
+            self.config.log(f"Loaded {len(triples)} {key} triples")
+            self._triples[key] = triples
+
+        return self._triples[key]
 
     @staticmethod
     def _load_map(
@@ -100,10 +124,27 @@ class Dataset(Configurable):
         else:
             return dictionary
 
-    @staticmethod
-    def _load_triples(filename: str, delimiter="\t") -> Tensor:
-        triples = np.loadtxt(filename, usecols=range(0, 3), dtype=int)
-        return torch.from_numpy(triples)
+    def load_map(
+        self, key: str, as_list: bool = False, maptype=None
+    ) -> Union[List, Dict]:
+        if key not in self._meta:
+            filename = self.config.get(f"dataset.files.{key}.filename")
+            filetype = self.config.get(f"dataset.files.{key}.type")
+            if (maptype and filetype != maptype) or (
+                not maptype and filetype not in ["map", "idmap"]
+            ):
+                if not maptype:
+                    maptype = "map' or 'idmap"
+                raise ValueError(
+                    "Unexpected file type: "
+                    f"dataset.files.{key}.type='{filetype}', expected {maptype}"
+                )
+            map_ = Dataset._load_map(
+                os.path.join(self.folder, filename), as_list=as_list
+            )
+            self._meta[key] = map_
+
+        return self._meta[key]
 
     def shallow_copy(self):
         """Returns a dataset that shares the underlying splits and indexes.
@@ -115,12 +156,25 @@ class Dataset(Configurable):
         copy._num_relations = self.num_relations()
         copy._entities = self._entities
         copy._relations = self._relations
-        copy._splits = self._splits
+        copy._triples = self._triples
         copy._meta = self._meta
         copy._indexes = self._indexes
         return copy
 
+
     ## ACCESS ###########################################################################
+
+    def num_entities(self) -> int:
+        "Return the number of entities in this dataset."
+        if not self._num_entities:
+            self._num_entities = len(self.entity_ids())
+        return self._num_entities
+
+    def num_relations(self) -> int:
+        "Return the number of relations in this dataset."
+        if not self._num_relations:
+            self._num_relations = len(self.relation_ids())
+        return self._num_relations
 
     def split(self, split: str) -> Tensor:
         """Return the split of the specified name.
@@ -129,14 +183,37 @@ class Dataset(Configurable):
         spo-triples.
 
         """
-        if split not in self._splits:
-            triples = Dataset._load_triples(
-                os.path.join(self.folder, self.config.get(f"dataset.{split}"))
-            )
-            self._splits[split] = triples
-            self.config.log(f"Loaded split {split} with {len(triples)} triples")
+        return self.load_triples(split)
 
-        return self._splits[split]
+    def train(self) -> Tensor:
+        "Return training split."
+        return self.split("train")
+
+    def valid(self) -> Tensor:
+        "Return validation split."
+        return self.split("valid")
+
+    def test(self) -> Tensor:
+        "Return test split."
+        return self.split("test")
+
+    def entity_ids(
+        self, indexes: Optional[Union[int, Tensor]] = None
+    ) -> Union[str, List[str], np.ndarray]:
+        """Decode entity ids.
+
+        Shortcut for `self.map_indexes(indexes, "entity_ids")`.
+        """
+        return self.map_indexes(indexes, "entity_ids")
+
+    def relation_ids(
+        self, indexes: Optional[Union[int, Tensor]] = None
+    ) -> Union[str, List[str], np.ndarray]:
+        """Decode relation ids.
+
+        Shortcut for `self.map_indexes(indexes, "relation_ids")`.
+        """
+        return self.map_indexes(indexes, "relation_ids")
 
     def meta(self, key: str) -> Any:
         """Return metadata stored under the specified key."""
@@ -156,87 +233,31 @@ class Dataset(Configurable):
             self.index_functions[key](self)
         return self._indexes[key]
 
-    def train(self) -> Tensor:
-        "Return training split."
-        return self.split("train")
+    @staticmethod
+    def _map_indexes(indexes, values):
+        "Return the names corresponding to specified indexes"
+        if indexes is None:
+            return values
+        elif isinstance(indexes, int):
+            return values[indexes]
+        else:
+            shape = indexes.shape
+            indexes = indexes.view(-1)
+            names = np.array(list(map(lambda i: values[i], indexes)), dtype=str)
+            return names.reshape(shape)
 
-    def valid(self) -> Tensor:
-        "Return validation split."
-        return self.split("valid")
+    def map_indexes(
+        self, indexes: Optional[Union[int, Tensor]], key: str
+    ) -> Union[Any, List[Any], np.ndarray]:
+        """Maps indexes to values using the specified key.
 
-    def test(self) -> Tensor:
-        "Return test split."
-        return self.split("test")
+        `key` refers to the key of a map file of the dataset, which associates a value
+        with each numerical index. The map file is loaded automatically.
 
-    def entity_names(
-        self, indexes: Optional[Union[int, Tensor]] = None
-    ) -> Union[str, List[str], np.ndarray]:
-        """Decode entity names.
-
-        If `indexes` is `None`, return all names. If `indexes` is an integer, return the
-        corresponding name. If `indexes` is a Tensor, return an ndarray of the same
-        shape holding the corresponding names.
-
-        """
-        if "entities" not in self._meta:
-            entities = Dataset._load_map(
-                os.path.join(self.folder, self.config.get("dataset.entity_map")),
-                as_list=True,
-            )
-            if self._num_entities and self._num_entities != len(entities):
-                raise ValueError(
-                    f"Expected {self._num_entities} entities, found {num_entities}"
-                )
-            self.config.log(f"Loaded map for {len(entities)} entities")
-            self._meta["entities"] = entities
-
-        return _decode_names(self._meta["entities"], indexes)
-
-    def relation_names(
-        self, indexes: Optional[Union[int, Tensor]] = None
-    ) -> Union[str, List[str], np.ndarray]:
-        """Decode relation names.
-
-        If `indexes` is `None`, return all names. If `indexes` is an integer, return the
-        corresponding name. If `indexes` is a Tensor, return an ndarray of the same
-        shape holding the corresponding names.
+        If `indexes` is `None`, return all values. If `indexes` is an integer, return
+        the corresponding value. If `indexes` is a Tensor, return an ndarray of the same
+        shape holding the corresponding values.
 
         """
-        if "relations" not in self._meta:
-            relations = Dataset._load_map(
-                os.path.join(self.folder, self.config.get("dataset.relation_map")),
-                as_list=True,
-            )
-            if self._num_relations and self._num_relations != len(relations):
-                raise ValueError(
-                    f"Expected {self._num_relations} relations, found {num_relations}"
-                )
-            self.config.log(f"Loaded map for {len(relations)} relations")
-            self._meta["relations"] = relations
-
-        return _decode_names(self._meta["relations"], indexes)
-
-    def num_entities(self) -> int:
-        "Return the number of entities in this dataset."
-        if not self._num_entities:
-            self._num_entities = len(self.entity_names())
-        return self._num_entities
-
-    def num_relations(self) -> int:
-        "Return the number of relations in this dataset."
-        if not self._num_relations:
-            self._num_relations = len(self.relation_names())
-        return self._num_relations
-
-
-def _decode_names(names, indexes):
-    "Return the names corresponding to specified indexes"
-    if indexes is None:
-        return names
-    elif isinstance(indexes, int):
-        return names[indexes]
-    else:
-        shape = indexes.shape
-        indexes = indexes.view(-1)
-        names = np.array(list(map(lambda i: names[i], indexes)), dtype=str)
-        return names.reshape(shape)
+        map_ = self.load_map(key, as_list=True)
+        return Dataset._map_indexes(indexes, map_)

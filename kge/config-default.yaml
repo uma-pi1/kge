@@ -23,25 +23,67 @@ dataset:
   # specified below.
   name: 'toy'
 
-  # Names of the training, validation, and test data files. Each file has the
-  # following fields, all tab-separated:
-  # - 0: subject index
-  # - 1: relation index
-  # - 2: object index
-  # - 3-...: arbitrary metadata fields
-  # Indexes are assumed to be dense throughout.
-  train: train.del
-  valid: valid.del
-  test: test.del
+  # Number of entities. If set to -1, automatically determined from the
+  # entity_ids file (see below).
+  num_entities: -1
 
-  # Names of entity and relation map files, which store the externally used name
-  # for each entity/relation. The two fields are tab-separated:
-  # - 0: entity/predicate index (as in train/valid/test)
-  # - 1: external name
-  entity_map: entity_map.del
-  relation_map: relation_map.del
+  # Number of relations. If set to -1, automatically determined from the
+  # relation_ids file (see below).
+  num_relations: -1
 
-  # other dataset specific keys
+  # A list of files associated with this dataset, each associated with a key.
+  # Each entry must contain at least the filename and the type fields.
+  files:
+    # train, valid, and test are the keys used for the splits in training and
+    # evaluation.
+    #
+    # The files are of type "triples" and contain tab-separated fields:
+    # - 0: subject index
+    # - 1: # relation index
+    # - 2: object index
+    # - 3-...: arbitrary metadata fields
+    #
+    # Indexes are assumed to be dense throughout.
+    train:
+      filename: train.del
+      type: triples
+    valid:
+      filename: valid.del
+      type: triples
+    test:
+      filename: test.del
+      type: triples
+
+    # Entity and relation ids files, which store the externally used ids for
+    # each entity/relation. These files are optional for many models if
+    # 'dataset.num_entitites' and 'dataset.num_relations' is specified.
+    #
+    # The map format uses two fields that are tab-separated:
+    # - 0: internal entity/relation index (as in train/valid/test)
+    # - 1: external id (interpreted as string)
+    entity_ids:
+      filename: entity_ids.del
+      type: map
+    relation_ids:
+      filename: entity_ids.del
+      type: map
+
+    # Files that store human-readble string representations of each
+    # entity/relation. These files are optional.
+    #
+    # Type can be map (field 0 is internal index) or idmap (field 0 is external
+    # id).
+    entity_strings:
+      filename: entity_ids.del  # default to id file
+      type: map
+    relation_strings:
+      filename: relation_ids.del  # default to id file
+      type: map
+
+    # Additional files can be added as needed
+    +++: +++
+
+  # Additional dataset specific keys can be added as needed
   +++: +++
 
 ## MODEL #######################################################################
