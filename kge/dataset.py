@@ -198,6 +198,7 @@ class Dataset(Configurable):
                     f"Warning: map {key} contains {duplicates} duplicate keys, "
                     "all which have been ignored"
                 )
+            self.config.log(f"Loaded {len(map_)} keys from map {key}")
             self._meta[key] = map_
 
         return self._meta[key]
