@@ -1,23 +1,37 @@
-# KGE: A framework for Knowledge Graph Embeddings
+# libKGE: A library for Knowledge Graph Embeddings
 
-KGE is a framework for training, evaluating and searching for knowledge graph
-embedding (KGE) models. It is based on [PyTorch](https://pytorch.org/).
+libKGE is a library for training, evaluating and tuning [knowledge graph
+embeddings](https://ieeexplore.ieee.org/document/8047276) (KGE). It is
+based on [PyTorch](https://pytorch.org/) and designed to be easy to use
+and easy to extend. libKGE is highly flexible for training and tuning KGE
+models, as it supports various combinations of loss functions, optimizers,
+training types and many more hyperparameters. Hyperparameter optimization
+is also supported in different ways, e.g. grid search, pseudo-random search
+or Bayesian optimization. These are some of the state-of-the-art results
+obtained with libKGE (mean reciprocal rank):
 
-# Installation
+<center>
 
-Run the following locally:
+|          | FB15K-237 | WNRR |
+|----------|-----------|------|
+| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)   | 0.36      | 0.46 |
+| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)   | 0.31      | 0.42 |
+| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) | 0.35      | 0.45 |  
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)  | 0.35      | 0.47 |
+| [ConvE](https://arxiv.org/abs/1707.01476)    | 0.34      | 0.44 |
 
-`pip install -e .`
+</center>
+
+
 
 # Quick start
 
-The framework supports different kinds of jobs for training, evaluating and
-performing hyperparameter optimization on KGE models.
-The settings for a job can be specified via configuration files (YAML format).
-There are many settings, all of which have default values and can be found in
-[config-default.yaml](kge/config-default.yaml).
+libKGE supports training, evaluating and tuning KGE models. The settings for
+each task can be specified with a configuration file in YAML format.
+There are many available settings, all of which have default values and
+can be found in [config-default.yaml](kge/config-default.yaml).
 
-## Starting a training job
+## Training a model
 
 To train a model, define a configuration file, for example:
 
@@ -34,53 +48,62 @@ lookup_embedder.regularize_weight: 0.8e-7
 valid:
   every: 5
   metric: mean_reciprocal_rank_filtered
+
+# All non-specified settings take their default value from config-default.yaml
 ```
-To run the job, you may specify the device and output folder:
+To begin training, run one of the following:
 
-`python kge.py start config.yaml --folder kge_test --job.device cuda:0`
+```
+# The start command creates an output folder and begins training
+# This creates a copy of the config file in the output folder
+python kge.py start config.yaml
 
-All entries in the configuration file can be overwritten in the
-same way. For example, to change the optimizer:
+# The create command creates an output folder but does not begin training
+python kge.py create config.yaml
 
-`python kge.py start config.yaml --train.optimizer Adam`
+# To begin training on an existing folder, run the following in that folder:
+python kge.py resume .
 
-The output folder contains a complete config file with all entries
-used for the job, a trace file (YAML format) with details produced
-while running the job, a log file, and checkpoint files that
-contain the learned model at different training epochs. The best
-performing model is stored in a separate file.
+# You may specify the output folder and device
+python kge.py start config.yaml --folder kge_test --job.device cuda:0
 
-## Resuming a job
+# All entries in the config file can be overwritten in the command line, e.g.
+python kge.py start config.yaml --train.optimizer Adam
+```
 
-All jobs can be resumed if interrupted. By default, the latest
-checkpoint file is used to resume the job:
+## Recovering from an interruption
 
-`python kge.py resume kge_test/config.yaml`
+All tasks can be resumed if interrupted. Run the following in the
+corresponding output folder:
 
-You may change the device used for running the job when resuming:
+```
+python kge.py resume .
 
-`python kge.py resume kge_test/config.yaml --job.device cuda:1`
+# Change the device when resuming
+python kge.py resume kge_test/config.yaml --job.device cuda:1
 
-## Running an evaluation job
+```
 
-Training jobs run evaluation jobs at a frequency specified in the
-configuration file. To evaluate a previously trained model:
+## Evaluating a model
 
-`python kge.py eval kge_test/config.yaml`
+To evaluate trained model, run the following:
 
-By default, the checkpoint file of the best model is used for
-evaluation. To check the model's performance on test data:
+```
+# Evaluate a model on the validation split
+python kge.py valid kge_test/config.yaml
 
-`python kge.py test kge_test/config.yaml`
+# Evaluate a model on the test split
+python kge.py test kge_test/config.yaml
+```
 
-## Starting a search job
+## Tuning a model
 
-Search jobs are used for hyperparameter optimization. There are
-several types of search jobs, e.g. grid search or bayesian optimization.
-The search type and search space are specified in the configuration file.
-We use [Ax](https://ax.dev/) for SOBOL (pseudo-random) and bayesian jobs.
-For example, to run 10 SOBOL trials (arms) followed by 10 bayesian optimization
-trials, we may specify the following configuration file:
+libKGE supports various forms of hyperparameter optimization. e.g. grid
+search or Bayesian optimization. The search type and search space are
+specified in the configuration file. We use [Ax](https://ax.dev/) for
+SOBOL (pseudo-random) and Bayesian optimization. For example, the
+following config file defines a search of 10 SOBOL trials (arms)
+followed by 10 Bayesian optimization trials:
 
 ```yaml
 job.type: search
@@ -91,7 +114,7 @@ model: reciprocal_relations_model
 reciprocal_relations_model.base_model.type: conve
 ax_search:
   num_trials: 30
-  num_sobol_trials: 10
+  num_sobol_trials: 10  # remaining trials are Bayesian
   parameters:
     - name: train.batch_size
       type: choice   
@@ -103,18 +126,53 @@ ax_search:
       type: fixed
       value: 1vsAll
 ```
-To run this job, we may specify all available devices and the number of
-trials to run simultaneously (evenly distributed across available devices):
+Trials can be run in parallel across several devices (evenly distributed
+across available devices):
 
-`python kge.py start config.yaml --folder kge_test --search.device_pool cuda:0,cuda:1 --search.num_workers 4`
-
-Search jobs create training jobs for each generated trial. The output folder
-of a search job contains the output folder from the training job of each trial.
+```
+# Run 4 trials in parallel across two GPUs
+python kge.py resume . --search.device_pool cuda:0,cuda:1 --search.num_workers 4
+```
 
 ## Other commands
-To see available commands:
+To see all available commands:
 
-`python kge.py --help`
+```
+python kge.py --help
+```
+
+# Installation
+
+To install libKGE, clone this repository and install the requirements with pip:
+
+
+```
+git clone https://github.com/uma-pi1/kge.git
+pip install -e .
+```
+
+# Supported KGE models
+
+libKGE has implementations for the following KGE models:
+
+- [RESCAL](kge/model/rescal.py)
+- [Transe](kge/model/transe.py)
+- [DistMult](kge/model/distmult.py)
+- [ComplEx](kge/model/complex.py)
+- [Conve](kge/model/conve.py)
+
+The [examples](examples) folder contains some configuration files as examples
+of how to run these models.
+
+# Adding a new model
+
+To add a new model to libKGE, one needs to extend the
+[KgeModel](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L243)
+class. A model is made up of a
+[KgeEmbedder](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L170)
+to associate each subject, relation and object to an embedding, and a
+[KgeScorer](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L76)
+to score triples.
 
 # Guidelines
 - Do not add any datasets or experimental code to this repository
