@@ -1,5 +1,5 @@
 from kge.job import Job, TrainingJob, SearchJob
-from kge.util.misc import kge_base_dir
+from kge.misc import kge_base_dir
 from kge.model.kge_model import KgeModel
 from kge.model import ReciprocalRelationsModel
 from kge import Config
@@ -23,8 +23,7 @@ from subprocess import check_output
 
 
 class VisualizationHandler:
-    """ Base class for broadcasting and post-processing that contains base
-     functionalities for interacting with data produced by the kge framework.
+    """ Base class for broadcasting and post-processing.
 
     Subclasses implement create(), _visualize_train_item() _visualize_eval_item(),
     post_process_trace() (and optionally _process_search_trace_entry()). They have to
@@ -124,7 +123,7 @@ class VisualizationHandler:
                             matched = True
                             break
                     # create new entry type as entry does not exist
-                    if matched == False:
+                    if not matched:
                         [group_entry[k].append(v) for k, v in trace_entry.items()]
                         grouped_entries.append(group_entry)
                 raw = file.readline()
@@ -138,7 +137,7 @@ class VisualizationHandler:
 
        Note that there are different settings which can occur: E. g. a searchjob can
        have training traces which also have eval entries. This has to be tracked
-       because then, depending on "broadcast" or "post", behavior differs in the various
+       as depending on "broadcast" or "post", behavior differs in the various
        settings.
 
         """
@@ -186,7 +185,7 @@ class VisualizationHandler:
     def filter_entry_keys(self, include_patterns, exclude_patterns, keys):
         """ Returns matched keys.
 
-        Takes a list of include_patterns, exlude_patterns and keys. Returns a list of
+        Takes a list of include_patterns, exclude_patterns and keys. Returns a list of
         keys that have some regex match with any of the include_patterns but no match
         with any of the exclude patterns.
 
@@ -206,9 +205,10 @@ class VisualizationHandler:
 
     @classmethod
     def register_broadcast(cls, session_config):
-        """ Bundles the different information that are needed to perform broadcasting
-        and registers hooks. The user parameter inputs are collected and depending on
-        the jobtype, broadcasting functionality is registered as hooks.
+        """ Registers hooks for broadcasting.
+
+        Bundles the different information that are needed for broadcasting
+        (visualizing progress during training) and registers hooks.
 
         """
         # called once on job creation
