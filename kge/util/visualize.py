@@ -1,4 +1,4 @@
-from kge.job import Job, TrainingJob, SearchJob
+from kge.job import Job, TrainingJob, SearchJob, Trace
 from kge.misc import kge_base_dir
 from kge.model.kge_model import KgeModel
 from kge.model import ReciprocalRelationsModel
@@ -93,40 +93,57 @@ class VisualizationHandler:
         # group traces into dics with {key: list[values]}
         # a dic where the keys are the original keys and the values are lists
         # of the original values
+
+        if tracetype == "train":
+            entries, job_epochs = Trace.grep_training_trace_entries(
+                tracefile,
+                train=True,
+                test=False,
+                valid=True,
+                example=False,
+                batch=False,
+                job_id=None,
+                epoch_of_last=float("inf"),
+            )
+        else:
+            entries = Trace.grep_entries(
+                tracefile, conjunctions=[("scope: train", "scope: search")]
+            )
+
         grouped_entries = []
-        with open(tracefile, "r") as file:
-            raw = file.readline()
-            while raw:
-                trace_entry = yaml.safe_load(raw)
-                group_entry = defaultdict(list)
-                # add the very first entry
-                if not len(grouped_entries):
-                    [group_entry[k].append(v) for k, v in trace_entry.items()]
+        for entry in entries:
+            if entry.get("job") == "train":
+                job_id = entry.get("job_id")
+                if entry.get("epoch") > job_epochs[job_id]:
+                    continue
+            group_entry = defaultdict(list)
+            # add the very first entry
+            if not len(grouped_entries):
+                [group_entry[k].append(v) for k, v in entry.items()]
+                grouped_entries.append(group_entry)
+            else:
+                matched = False
+                for grouped_entry in grouped_entries:
+                    # checking if two entries are of the same type appears in two
+                    # steps: 1. do they have the same key signature;
+                    # 2: is the job type and scope the same
+                    if entry.keys() == grouped_entry.keys():
+                        e_scope = entry.get("scope")
+                        e_job = entry.get("job")
+                        g_scope = grouped_entry.get("scope")
+                        g_job = grouped_entry.get("job")
+                        # check if scope and job is the same
+                        if e_scope and e_job and g_scope and g_job:
+                            if not (e_scope == g_scope[0] and e_job == g_job[0]):
+                                break
+                        # append the data as the entry type exists already
+                        [grouped_entry[k].append(v) for k, v in entry.items()]
+                        matched = True
+                        break
+                # create new entry type as entry does not exist
+                if not matched:
+                    [group_entry[k].append(v) for k, v in entry.items()]
                     grouped_entries.append(group_entry)
-                else:
-                    matched = False
-                    for entry in grouped_entries:
-                        # checking if two entries are of the same type appears in two
-                        # steps: 1. do they have the same key signature;
-                        # 2: is the job type and scope the same
-                        if entry.keys() == trace_entry.keys():
-                            e_scope = entry.get("scope")
-                            e_job = entry.get("job")
-                            t_scope = trace_entry.get("scope")
-                            t_job = trace_entry.get("job")
-                            # check if scope and job is the same
-                            if e_scope and e_job and t_scope and t_job:
-                                if not (e_scope[0] == t_scope and e_job[0] == t_job):
-                                    break
-                            # append the data as the entry type exists already
-                            [entry[k].append(v) for k, v in trace_entry.items()]
-                            matched = True
-                            break
-                    # create new entry type as entry does not exist
-                    if not matched:
-                        [group_entry[k].append(v) for k, v in trace_entry.items()]
-                        grouped_entries.append(group_entry)
-                raw = file.readline()
         [
             self._process_trace_entry(entry, tracetype, jobtype)
             for entry in grouped_entries
