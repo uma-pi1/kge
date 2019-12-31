@@ -35,7 +35,7 @@ class VisualizationHandler:
     in a session. In a broadcast session the session_config = job config of the job that
     is run by the kge framework
     session_data: can be used to cache arbitrary data
-    path: current path of the job folder which is currently visualized;
+    path: path of the job folder which is currently visualized;
     changes during a post processing session
 
      """
@@ -93,7 +93,6 @@ class VisualizationHandler:
         # group traces into dics with {key: list[values]}
         # a dic where the keys are the original keys and the values are lists
         # of the original values
-
         if tracetype == "train":
             entries, job_epochs = Trace.grep_training_trace_entries(
                 tracefile,
@@ -170,9 +169,6 @@ class VisualizationHandler:
             else:
                 entry_type = trace_entry["job"]
                 scope = trace_entry["scope"]
-            # catch and ignore 'example' or 'batch' scopes for now
-            if scope == "example" or scope == "batch":
-                return
             include_patterns = []
             if entry_type == "train" and tracetype == "train":
                 include_patterns = self.include_train
@@ -277,10 +273,9 @@ class VisualizationHandler:
         """
         job_config = None
         if path == None:
-            job_config = self.path + "/" + "config.yaml"
+            job_config = os.path.join(self.path, "config.yaml")
         else:
-            job_config = path + "/" + "config.yaml"
-
+            job_config = os.path.join(path, "config.yaml")
         if os.path.isfile(job_config):
             with open(job_config, "r") as file:
                 job_config = yaml.load(file, Loader=yaml.SafeLoader)
@@ -292,8 +287,11 @@ class VisualizationHandler:
     def post_process_jobs(cls, session_config):
         """ Scans all the executed jobs in specified path. """
 
+        # TODO you might not want to use kge_base_dir here and simply have a path
         path = (
-            kge_base_dir() + "/" + session_config.get("visualize.post.search_dir") + "/"
+            os.path.join(
+                kge_base_dir(), session_config.get("visualize.post.search_dir")
+            )
         )
 
         handler = VisualizationHandler.create_handler(
@@ -318,36 +316,36 @@ class VisualizationHandler:
             folders = os.listdir(path)
 
         for parent_job in folders:
-            parent_trace = path + parent_job + "/trace.yaml"
-            first_entry = None
-            job_config = path + parent_job + "/config.yaml"
+            parent_trace = os.path.join(path, parent_job, "trace.yaml")
+            job_config = os.path.join(path, parent_job, "config.yaml")
             if os.path.isfile(parent_trace) and os.path.isfile(job_config):
                 with open(job_config, "r") as conf:
                     job_config = yaml.load(conf, Loader=yaml.SafeLoader)
                 # pure training job
                 if job_config["job"]["type"] == "train":
-                    handler.path = path + parent_job
+                    handler.path = os.path.join(path, parent_job)
                     handler.post_process_trace(parent_trace, "train", "train")
                 elif job_config["job"]["type"] == "search":
-                    # collect the training sub job folders by searching through the
+                    # collect the training child-job folders by searching through the
                     # parent directory
-                    subjobs = [
-                        path + parent_job + "/" + child_folder
+                    child_jobs = [
+                        os.path.join(path, parent_job, child_folder)
                         for child_folder in list(
                             filter(
-                                lambda file: os.path.isdir(
-                                    path + parent_job + "/" + file
+                                lambda file:
+                                os.path.isdir(
+                                    os.path.join(path, parent_job, file)
                                 )
                                 and file != "config"
                                 and "trace.yaml"
-                                in os.listdir(path + parent_job + "/" + file),
-                                os.listdir(path + parent_job),
+                                in os.listdir(os.path.join(path, parent_job, file)),
+                                os.listdir(os.path.join(path, parent_job))
                             )
                         )
                     ]
-                    handler.path = path + parent_job
+                    handler.path = os.path.join(path, parent_job)
                     handler.post_process_trace(
-                        parent_trace, "search", "search", subjobs
+                        parent_trace, "search", "search", child_jobs
                     )
         input("Post processing finished.")
 
@@ -393,16 +391,16 @@ class VisualizationHandler:
         # register framework specific server handling
         if session_config.get("visualize.module") == "tensorboard":
             # clean up log_dir from previous visualizations
-            logdir = kge_base_dir() + "/local/visualize/tensorboard"
+            logdir = os.path.join(kge_base_dir(), "local/visualize/tensorboard")
             if os.path.isdir(logdir):
                 for folder in os.listdir(logdir):
-                    shutil.rmtree(logdir + "/" + folder)
+                    shutil.rmtree(os.path.join(logdir, folder))
             full_command = [
                 command
                 + " --logdir={} --port={} --host={}".format(logdir, port, hostname)
             ]
         elif session_config.get("visualize.module") == "visdom":
-            envpath = kge_base_dir() + "/local/visualize/visdomenvs"
+            envpath = os.path.join(kge_base_dir(), "local/visualize/visdomenvs")
             if not os.path.isdir(envpath):
                 os.mkdir(envpath)
             full_command = [
@@ -770,14 +768,18 @@ class TensorboardHandler(VisualizationHandler):
         self, writer, session_type, session_config, path=None, session_data={},
     ):
         super().__init__(writer, session_type, session_config, path, session_data)
-        self.writer_path = kge_base_dir() + "/local/visualize/tensorboard/"
+        # tb needs a path to write the event files to
+        # (tb has no direct server communication)
+        self.writer_path = os.path.join(kge_base_dir(), "local/visualize/tensorboard")
 
     @classmethod
     def create(cls, session_type, session_config, path=None, session_data={}):
         from torch.utils import tensorboard
 
+        # the writer writes redundant event files on creation. Store them in a folder
+        # which can be removed
         writer = tensorboard.SummaryWriter(
-            kge_base_dir() + "/local/visualize/tensorboard_remove/"
+            os.path.join(kge_base_dir(), "local/visualize/tensorboard_remove")
         )
         return TensorboardHandler(
             writer,
@@ -788,7 +790,7 @@ class TensorboardHandler(VisualizationHandler):
         )
 
     def _add_embeddings(self, path):
-        checkpoint = self._get_checkpoint_path(path)
+        checkpoint = Config.get_best_or_last_checkpoint(path)
         if checkpoint:
             job_config = Config(path)
             job_config.options = self._get_job_config()
@@ -812,26 +814,12 @@ class TensorboardHandler(VisualizationHandler):
             )
             del model
 
-    def _get_checkpoint_path(self, path):
-        if "checkpoint_best.pt" in os.listdir(path):
-            return path + "/" + "checkpoint_best.pt"
-        else:
-            checkpoints = sorted(
-                list(filter(lambda file: "checkpoint" in file, os.listdir(path)))
-            )
-            if len(checkpoints) > 0:
-                return path + "/" + checkpoints[-1]
-            else:
-                print(
-                    "Skipping {} for embeddings as no checkpoint could be found.".format(
-                        path
-                    )
-                )
-
     def post_process_trace(self, tracefile, tracetype, jobtype, subjobs=None, **kwargs):
         self.writer.close()
         if jobtype == "train":
-            event_path = self.writer_path + self.path.split("/")[-1]
+            # write the event file to local/tensorboard/'jobfolder'
+            # to have 'runs' in tb named with folder names
+            event_path = os.path.join(self.writer_path, self.path.split("/")[-1])
             self.writer.log_dir = event_path
             self._visualize_config(path=self.path)
             self.process_trace(tracefile, tracetype, jobtype)
@@ -840,15 +828,16 @@ class TensorboardHandler(VisualizationHandler):
             self.writer.close()
         elif jobtype == "search":
             for subjob_path in subjobs:
-                event_path = (
-                    self.writer_path
-                    + subjob_path.split("/")[-2]
-                    + "/"
-                    + subjob_path.split("/")[-1]
+                event_path = os.path.join(
+                    self.writer_path,
+                    subjob_path.split("/")[-2],
+                    subjob_path.split("/")[-1]
                 )
                 self.writer.log_dir = event_path
                 self._visualize_config(path=subjob_path)
-                self.process_trace(subjob_path + "/" + "trace.yaml", "train", "search")
+                self.process_trace(
+                    os.path.join(subjob_path,"trace.yaml"), "train", "search"
+                )
                 if self.session_config.get("visualize.post.embeddings"):
                     self._add_embeddings(subjob_path)
                 self.writer.close()

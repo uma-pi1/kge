@@ -353,27 +353,30 @@ visualize:
   module: visdom
 
   # Metrics to be visualized in post/broadcast, accepts regex.
-  # Leave empty to select all metrics in the trace (can be slow, when windows overlap in visdom press the repack button or scroll).
-  # Currently, values that are not float or int types will be ignored.
+  # Leave empty to select all metrics in the trace (can be slow, when windows overlap
+  # in visdom press the repack button or scroll). # Currently, values that are not float
+  # or int types will be ignored.
   include_train: ["avg_loss", "avg_cost", "avg_penalty", "forward_time", "epoch_time"]
   include_eval: ["rank"]
 
   # Metrics to be excluded, accepts regex. leaving empty will exclude none.
   # Has priority over include_train/eval e. g. whatever is in these lists
-  # will not be visualized. Useful usecase: Leave include_train/eval empty and then filter out some metrics with
-  # exclude_train/eval.
+  # will not be visualized. Useful usecase: Leave include_train/eval empty and then
+  # filter out some metrics with exclude_train/eval.
   exclude_train: []
   exclude_eval: []
 
   # Option to start the server. This should always be true when starting a new session.
-  # If a session is already running you can run another session with start_server:False to append data to the current session.
-  # For instance, this can be used to compare a broadcast session with a post processing session.
+  # If a session is already running you can run another session with start_server:False
+  # to append data to the current session. For instance, this can be used to compare a
+  # broadcast session with a post processing session.
   start_server: True
 
   # Set True, only needed for debugging.
   surpress_server_output: True
 
-  # Host and port to run server on. If port is used by some other process, port = port + 10 will be tried.
+  # Host and port to run server on. If port is used by some other process,
+  # port = port + 10 will be tried.
   hostname: "localhost"
   port: 8097
 
@@ -393,7 +396,8 @@ visualize:
     search_dir: "local/experiments"
 
     # Job folders to be visualized, leave empty for all.
-    # Accepts regex, e. g. put in "complex" to visualize all jobs associated with complex in the folder name.
+    # Accepts regex, e. g. put in "complex" to visualize all jobs associated with
+    # complex in the folder name.
     # Suggested for visdom: leave empty; for tensorboard: select specific
     folders: []
 

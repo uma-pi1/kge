@@ -10,5 +10,5 @@ visualize:
   exclude_eval: []
   post:
     search_dir: "local/experiments"
-    folders: []
+    folders: ["20191128-155123-toy-conve-train"]
     embeddings: False
