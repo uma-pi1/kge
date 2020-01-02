@@ -17,3 +17,4 @@ lookup_embedder.dim: 100
 negative_sampling:
   num_negatives_s: 30
   num_negatives_o: -1
+  num_negatives_p: 30

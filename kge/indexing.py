@@ -2,47 +2,51 @@ import torch
 from collections import defaultdict, OrderedDict
 
 
-def _group_by_sp_po(sp_po_list, o_s_list) -> dict:
+def _group_by_sp_po_so(sp_po_so_list, o_s_list) -> dict:
     result = defaultdict(list)
-    for sp_po, o_s in zip(sp_po_list.tolist(), o_s_list.tolist()):
-        result[tuple(sp_po)].append(o_s)
-    for sp_po, o_s in result.items():
-        result[sp_po] = torch.IntTensor(sorted(o_s))
+    for sp_po_so, o_s in zip(sp_po_so_list.tolist(), o_s_list.tolist()):
+        result[tuple(sp_po_so)].append(o_s)
+    for sp_po_so, o_s in result.items():
+        result[sp_po_so] = torch.IntTensor(sorted(o_s))
     return OrderedDict(result)
 
 
-def index_KvsAll(dataset: "Dataset", split: str, sp_po: str):
+def index_KvsAll(dataset: "Dataset", split: str, sp_po_so: str):
     """Return an index for the triples in split (''train'', ''valid'', ''test'')
-    from the specified constituents (''sp'' or ''po'') to the indexes of the
-    remaining constituent (''o'' or ''s'', respectively.)
+    from the specified constituents (''sp'' or ''po'' or ''so'') to the indexes of the
+    remaining constituent (''o'' or ''s'' or ''p'' , respectively.)
 
     The index maps from `tuple' to `torch.LongTensor`.
 
-    The index is cached in the provided dataset under name `split_sp` or `split_po`. If
-    this index is already present, does not recompute it.
+    The index is cached in the provided dataset under name `split_sp` or `split_po` or
+    `split_so`. If this index is already present, does not recompute it.
 
     """
     triples = dataset.split(split)
     other = None
-    if sp_po == "sp":
-        sp_po_cols = [0, 1]
+    if sp_po_so == "sp":
+        sp_po_so_cols = [0, 1]
         value_column = 2
         other = "o"
-    elif sp_po == "po":
-        sp_po_cols = [1, 2]
+    elif sp_po_so == "po":
+        sp_po_so_cols = [1, 2]
         value_column = 0
         other = "s"
+    elif sp_po_so == "so":
+        sp_po_so_cols = [0, 2]
+        value_column = 1
+        other = "p"
     else:
         raise ValueError()
 
-    name = split + "_" + sp_po + "_to_" + other
+    name = split + "_" + sp_po_so + "_to_" + other
     if not dataset._indexes.get(name):
-        dataset._indexes[name] = _group_by_sp_po(
-            triples[:, sp_po_cols], triples[:, value_column]
+        dataset._indexes[name] = _group_by_sp_po_so(
+            triples[:, sp_po_so_cols], triples[:, value_column]
         )
         dataset.config.log(
             "{} distinct {} pairs in {}".format(
-                len(dataset._indexes[name]), sp_po, split
+                len(dataset._indexes[name]), sp_po_so, split
             ),
             prefix="  ",
         )
@@ -192,7 +196,7 @@ def _invert_ids(dataset, obj: str):
 
 def create_default_index_functions(dataset: "Dataset"):
     for split in ["train", "valid", "test"]:
-        for what, other in [("sp", "o"), ("po", "s")]:
+        for what, other in [("sp", "o"), ("po", "s"), ("so", "p")]:
             # self assignment needed to capture the loop var
             dataset.index_functions[
                 f"{split}_{what}_to_{other}"

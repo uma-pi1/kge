@@ -79,11 +79,9 @@ class KgeUniformSampler(KgeSampler):
         return result
 
     def _filter(self, result: torch.Tensor, slot: int, spo: torch.Tensor):
-        if slot == P:
-            raise NotImplementedError()
         spo_char = "spo"
         pair = spo_char.replace(spo_char[slot], "")
-        sp_po_index = self.dataset.index_KvsAll("train", pair)
+        sp_po_so_index = self.dataset.index(f"train_{pair}_to_{spo_char[slot]}")
         cols = [0, 1, 2]
         cols.remove(slot)
         pairs = spo[:, cols]
@@ -93,7 +91,7 @@ class KgeUniformSampler(KgeSampler):
                 resample_idx = np.where(
                     np.isin(
                         result[i],
-                        sp_po_index[tuple(pairs[i].tolist())]
+                        sp_po_so_index[tuple(pairs[i].tolist())]
                     ) != 0
                 )[0]
                 if not len(resample_idx):
