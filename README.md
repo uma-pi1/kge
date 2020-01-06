@@ -10,19 +10,25 @@ is also supported in different ways, e.g. grid search, pseudo-random search
 or Bayesian optimization. These are some of the state-of-the-art results
 obtained with libKGE (mean reciprocal rank):
 
-<center>
+## FB15K-237
 
-|          | FB15K-237 | WNRR |
-|----------|-----------|------|
-| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)   | 0.36      | 0.46 |
-| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)   | 0.31      | 0.42 |
-| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) | 0.35      | 0.45 |  
-| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)  | 0.35      | 0.47 |
-| [ConvE](https://arxiv.org/abs/1707.01476)    | 0.34      | 0.44 |
+|          | MRR       | Hits@10 |
+|----------|-----------|---------|
+| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)   | 0.356      | 0.542 |
+| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)   | 0.310      | 0.493 |
+| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) | 0.344      | 0.531 |  
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)  | 0.348      | 0.536 |
+| [ConvE](https://arxiv.org/abs/1707.01476)    | 0.338      | 0.520 |
 
-</center>
+## WNRR
 
-
+|          | MRR       | Hits@10 |
+|----------|-----------|---------|
+| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)   | 0.467      | 0.517 |
+| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)   | 0.228      | 0.519 |
+| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) | 0.454      | 0.535 |  
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)  | 0.479      | 0.552 |
+| [ConvE](https://arxiv.org/abs/1707.01476)    | 0.442      | 0.505 |
 
 # Quick start
 
