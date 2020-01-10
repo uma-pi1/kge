@@ -61,12 +61,12 @@ class KgeSampler(Configurable):
         """
         if num_samples is None:
             num_samples = self.num_samples[slot]
-        result = self._sample(self.vocabulary_size[slot], (spo.size(0), num_samples))
+        result = self._sample(spo, slot, num_samples)
         if self.filter_positives[slot]:
             result = self._filter(result, slot, spo)
         return result
 
-    def _sample(self, max_val: int, shape: tuple):
+    def _sample(self, spo: torch.Tensor, slot: int, num_samples: int):
         """ Sample examples. """
         raise NotImplementedError()
 
@@ -99,8 +99,8 @@ class KgeSampler(Configurable):
                 if not num_remaining:
                     break
                 new_samples = self._sample(
-                    self.vocabulary_size[slot], (num_remaining,)
-                )
+                    torch.empty(1), slot, num_remaining
+                ).flatten()
                 # indices of the true negatives
                 tn_idx = np.where(
                     np.isin(
@@ -121,6 +121,6 @@ class KgeUniformSampler(KgeSampler):
     def __init__(self, config: Config, configuration_key: str, dataset: Dataset):
         super().__init__(config, configuration_key, dataset)
 
-    def _sample(self, max_val: int, shape: tuple):
-        return torch.randint(max_val, shape)
+    def _sample(self, spo: torch.Tensor, slot: int, num_samples: int):
+        return torch.randint(self.vocabulary_size[slot], (spo.size(0), num_samples))
 
