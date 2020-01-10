@@ -49,7 +49,7 @@ class KgeSampler(Configurable):
             raise ValueError(configuration_key + ".sampling_type")
 
     def sample(self, spo: torch.Tensor, slot: int, num_samples: Optional[int] = None):
-        """Obtain a set of negative samples for a specified slot.
+        """ Obtain a set of negative samples for a specified slot.
 
         `spo` is a batch_size x 3 tensor of positive triples. `slot` is either 0
         (subject), 1 (predicate), or 2 (object). If `num_samples` is `None`, it is set
@@ -59,26 +59,19 @@ class KgeSampler(Configurable):
         entities (`slot`=0 or `slot`=2) or relations (`slot`=1).
 
         """
-        raise NotImplementedError()
-
-    def _filter(self, result: torch.Tensor, slot: int, spo: torch.Tensor):
-        """ Filter and resample indices until only negatives have been created. """
-        raise NotImplementedError()
-
-
-class KgeUniformSampler(KgeSampler):
-    def __init__(self, config: Config, configuration_key: str, dataset: Dataset):
-        super().__init__(config, configuration_key, dataset)
-
-    def sample(self, spo: torch.Tensor, slot: int, num_samples: Optional[int] = None):
         if num_samples is None:
             num_samples = self.num_samples[slot]
-        result = torch.randint(self.vocabulary_size[slot], (spo.size(0), num_samples))
+        result = self._sample(self.vocabulary_size[slot], (spo.size(0), num_samples))
         if self.filter_positives[slot]:
             result = self._filter(result, slot, spo)
         return result
 
+    def _sample(self, max_val: int, shape: tuple):
+        """ Sample examples. """
+        raise NotImplementedError()
+
     def _filter(self, result: torch.Tensor, slot: int, spo: torch.Tensor):
+        """ Filter and resample indices until only negatives have been created. """
         spo_char = "spo"
         pair = spo_char.replace(spo_char[slot], "")
         # holding the positive indices for the respective pair
@@ -105,7 +98,7 @@ class KgeUniformSampler(KgeSampler):
             while True:
                 if not num_remaining:
                     break
-                new_samples = torch.randint(
+                new_samples = self._sample(
                     self.vocabulary_size[slot], (num_remaining,)
                 )
                 # indices of the true negatives
@@ -122,3 +115,12 @@ class KgeUniformSampler(KgeSampler):
                 num_remaining = num_new - num_found
             result[i, resample_idx] = new
         return result
+
+
+class KgeUniformSampler(KgeSampler):
+    def __init__(self, config: Config, configuration_key: str, dataset: Dataset):
+        super().__init__(config, configuration_key, dataset)
+
+    def _sample(self, max_val: int, shape: tuple):
+        return torch.randint(max_val, shape)
+
