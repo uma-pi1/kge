@@ -324,3 +324,4 @@ class SparseDiagonalRescal(KgeModel):
             ),
             configuration_key=self.configuration_key,
         )
+        config.set(rel_emb_conf_key + ".dim", 0)
