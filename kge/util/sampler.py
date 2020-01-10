@@ -22,7 +22,7 @@ class KgeSampler(Configurable):
             slot_str = SLOT_STR[slot]
             self.num_samples[slot] = self.get_option(f"num_samples_{slot_str}")
             self.filter_positives[slot] = self.get_option(
-                f"filter_positives_{slot_str}"
+                f"filtering.{slot_str}"
             )
             self.vocabulary_size[slot] = (
                 dataset.num_relations() if slot == P else dataset.num_entities()

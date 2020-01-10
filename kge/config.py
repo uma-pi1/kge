@@ -673,4 +673,9 @@ def _process_deprecated_options(options: Dict[str, Any]):
         "eval.metric_per_argument_frequency_perc", "eval.metrics_per.argument_frequency"
     )
 
+    # 10.01.2020
+    rename_key("negative_sampling.filter_positives_s", "negative_sampling.filtering.s")
+    rename_key("negative_sampling.filter_positives_o", "negative_sampling.filtering.o")
+    rename_key("negative_sampling.filter_positives_p", "negative_sampling.filtering.p")
+
     return options
