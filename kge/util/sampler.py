@@ -86,17 +86,35 @@ class KgeUniformSampler(KgeSampler):
         cols.remove(slot)
         pairs = spo[:, cols]
         for i in range(spo.size(0)):
+            # indices of samples that have to be sampled again
+            resample_idx = np.where(
+                np.isin(
+                    result[i],
+                    sp_po_so_index[tuple(pairs[i].tolist())]
+                ) != 0
+            )[0]
+            # number of new samples needed
+            num_new = len(resample_idx)
+            new = torch.zeros(num_new, dtype=torch.long)
+            # number already found of the new samples needed
+            num_found = 0
+            num_remaining = num_new - num_found
             while True:
-                # indices of samples that have to be sampled again
-                resample_idx = np.where(
-                    np.isin(
-                        result[i],
-                        sp_po_so_index[tuple(pairs[i].tolist())]
-                    ) != 0
-                )[0]
-                if not len(resample_idx):
+                if not num_remaining:
                     break
-                result[i, resample_idx] = torch.randint(
-                    self.vocabulary_size[slot], (len(resample_idx),)
+                new_samples = torch.randint(
+                    self.vocabulary_size[slot], (num_remaining,)
                 )
+                idx = np.where(
+                    np.isin(
+                        new_samples,
+                        sp_po_so_index[tuple(pairs[i].tolist())]
+                    ) == 0
+                )[0]
+                # store the correct (true negatives) samples found
+                if len(idx):
+                    new[num_found: num_found + len(idx)] = new_samples[idx]
+                num_found += len(idx)
+                num_remaining = num_new - num_found
+            result[i, resample_idx] = new
         return result
