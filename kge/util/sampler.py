@@ -81,21 +81,24 @@ class KgeUniformSampler(KgeSampler):
     def _filter(self, result: torch.Tensor, slot: int, spo: torch.Tensor):
         spo_char = "spo"
         pair = spo_char.replace(spo_char[slot], "")
-        sp_po_so_index = self.dataset.index(f"train_{pair}_to_{spo_char[slot]}")
+        # holding the positive indices for the respective pair
+        index = self.dataset.index(f"train_{pair}_to_{spo_char[slot]}")
         cols = [0, 1, 2]
         cols.remove(slot)
         pairs = spo[:, cols]
         for i in range(spo.size(0)):
             # indices of samples that have to be sampled again
+            # Note: giving np.isin a set as second argument potentially is faster
+            # but conversion to a set induces costs that make things worse
             resample_idx = np.where(
                 np.isin(
                     result[i],
-                    sp_po_so_index[tuple(pairs[i].tolist())]
+                    index[tuple(pairs[i].tolist())]
                 ) != 0
             )[0]
             # number of new samples needed
             num_new = len(resample_idx)
-            new = torch.zeros(num_new, dtype=torch.long)
+            new = torch.empty(num_new, dtype=torch.long)
             # number already found of the new samples needed
             num_found = 0
             num_remaining = num_new - num_found
@@ -105,16 +108,17 @@ class KgeUniformSampler(KgeSampler):
                 new_samples = torch.randint(
                     self.vocabulary_size[slot], (num_remaining,)
                 )
-                idx = np.where(
+                # indices of the true negatives
+                tn_idx = np.where(
                     np.isin(
                         new_samples,
-                        sp_po_so_index[tuple(pairs[i].tolist())]
+                        index[tuple(pairs[i].tolist())]
                     ) == 0
                 )[0]
                 # store the correct (true negatives) samples found
-                if len(idx):
-                    new[num_found: num_found + len(idx)] = new_samples[idx]
-                num_found += len(idx)
+                if len(tn_idx):
+                    new[num_found: num_found + len(tn_idx)] = new_samples[tn_idx]
+                num_found += len(tn_idx)
                 num_remaining = num_new - num_found
             result[i, resample_idx] = new
         return result
