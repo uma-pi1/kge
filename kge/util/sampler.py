@@ -41,6 +41,8 @@ class KgeSampler(Configurable):
         sampling_type = config.get(configuration_key + ".sampling_type")
         if sampling_type == "uniform":
             return KgeUniformSampler(config, configuration_key, dataset)
+        elif sampling_type == "shared":
+            return KgeSharedUniformSampler(config, configuration_key, dataset)
             # TODO add frequency-based/biased sampling
         else:
             # perhaps TODO: try class with specified name -> extensibility
@@ -71,6 +73,19 @@ class KgeUniformSampler(KgeSampler):
         if num_samples is None:
             num_samples = self.num_samples[slot]
         result = torch.randint(self.vocabulary_size[slot], (spo.size(0), num_samples))
+        if self.filter_positives[slot]:
+            result = self._filter(result)
+        return result
+
+
+class KgeSharedUniformSampler(KgeSampler):
+    def __init__(self, config: Config, configuration_key: str, dataset: Dataset):
+        super().__init__(config, configuration_key, dataset)
+
+    def sample(self, spo: torch.Tensor, slot: int, num_samples: Optional[int] = None):
+        if num_samples is None:
+            num_samples = self.num_samples[slot]
+        result = torch.randint(self.vocabulary_size[slot], (1, num_samples)).repeat(spo.size(0), 1)
         if self.filter_positives[slot]:
             result = self._filter(result)
         return result
