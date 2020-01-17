@@ -31,6 +31,8 @@ class KgeSampler(Configurable):
         self.dataset = dataset
         self.shared = self.get_option("shared")
 
+        self.times = []
+
         # auto config
         for slot, copy_from in [(S, O), (P, None), (O, S)]:
             if self.num_samples[slot] < 0:
@@ -152,33 +154,26 @@ class KgeSampler(Configurable):
         pairs = (spo[:, cols]).numpy()
         batch_size = spo.size(0)
         voc_size = self.vocabulary_size[slot]
-        start = time.time()
         positives = Dict()
 
-        def assign(i):
+        for i in range(batch_size):
             positives[tuple(pairs[i].tolist())] = np.array(
-                index[tuple(pairs[i].tolist())])
+                index[tuple(pairs[i].tolist())]
+            )
 
-        list(map(assign,list(range(batch_size))))
-
-        middle = time.time()
-        print(f"loop took {middle-start}")
-        middle = time.time()
         result = np.array(result)
-        _filter_numba(
+        KgeSampler._filter_numba(
             positives,
             pairs,
             result,
             batch_size,
-            int(voc_size)
+            int(voc_size),
+            self.get_numba_sampler()
         )
-        end = time.time()
-        print(f"Numba took {end-middle}")
         return torch.tensor(result, dtype=torch.int64)
 
     @njit
-    def _filter_numba(positives, pairs, result, batch_size, voc_size):
-        last = 0
+    def _filter_numba(positives, pairs, result, batch_size, voc_size, sample_func):
         for i in range(batch_size):
             pos = positives[(pairs[i][0], pairs[i][1])]
             # inlining the idx_wherein function here results in an internal numba
@@ -193,7 +188,7 @@ class KgeSampler(Configurable):
             while True:
                 if not num_remaining:
                     break
-                new_samples = np.random.randint(0, voc_size, num_remaining)
+                new_samples = sample_func(voc_size, num_remaining)
                 idx = idx_where_in(new_samples, pos, False)
                 # store the correct (true negatives) samples found
                 if len(idx):
@@ -206,6 +201,10 @@ class KgeSampler(Configurable):
                 result[i, j] = new[ctr]
                 ctr += 1
 
+    def get_numba_sampler(self):
+        if isinstance(self, KgeUniformSampler):
+            return KgeUniformSampler._sample_numba
+
 
 class KgeUniformSampler(KgeSampler):
     def __init__(self, config: Config, configuration_key: str, dataset: Dataset):
@@ -215,8 +214,30 @@ class KgeUniformSampler(KgeSampler):
         return torch.randint(
             self.vocabulary_size[slot], (positive_triples.size(0), num_samples)
         )
+    @njit
+    def _sample_numba(voc_size, num_remaining):
+        return np.random.randint(0, voc_size, num_remaining)
 
     def _sample_shared(
-        self, positive_triples: torch.Tensor, slot: int, num_samples: int
+            self, positive_triples: torch.Tensor, slot: int, num_samples: int
     ):
         return self._sample(torch.empty(1), slot, num_samples).view(-1)
+
+
+@njit
+def idx_where_in(x, y, t_f=True):
+    """ Retrieves the indices of the elements in x which are also in y.
+
+    x and y are assumed to be 1 dimensional arrays.
+
+    :params: t_f: if False, returns the indices of the of the elements in x
+    which are not in y.
+
+    """
+    # np.isin is not supported in numba. This is faster than np.where(np.isin))
+    # "i in y" raises an error in numba when y is a np.array.
+    # casting y to a set instead a list was always slower in test scripts
+    # setting njit(parallel=True) slowed down the function
+    list_y = list(y)
+    return np.where(np.array([i in list_y for i in x]) == t_f)[0]
+

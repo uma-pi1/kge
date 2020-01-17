@@ -22,6 +22,7 @@ negative_sampling:
     s: True
     o: True
     p: True
+    implementation: python
 
 
 
