@@ -497,7 +497,7 @@ class KgeModel(KgeBase):
             if p_unique is None:
                 p_unique = torch.unique(p)
             p_unique_emb = self.get_p_embedder().embed(p_unique)
-            scores = torch.empty([s_emb.size(0), o_emb.size(0)])
+            scores = torch.empty([s_emb.size(0), o_emb.size(0)], device=self.config.get("job.device"))
             for i in range(p_unique.size(0)):
                 relation_index = p == p_unique[i]
                 scores_chunk = self._scorer.score_emb(s_emb[relation_index], p_unique_emb[i], o_emb,
@@ -534,7 +534,7 @@ class KgeModel(KgeBase):
             if p_unique is None:
                 p_unique = torch.unique(p)
             p_unique_emb = self.get_p_embedder().embed(p_unique)
-            scores = torch.empty([o_emb.size(0), s_emb.size(0)])
+            scores = torch.empty([o_emb.size(0), s_emb.size(0)], device=self.config.get("job.device"))
             for i in range(p_unique.size(0)):
                 relation_index = p == p_unique[i]
                 scores_chunk = self._scorer.score_emb(s_emb, p_unique_emb[i], o_emb[relation_index],
