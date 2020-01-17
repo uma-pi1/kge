@@ -198,3 +198,6 @@ to score triples.
   - `''` for strings
   - `-1` for non-negative integers
   - `.nan` for floats
+
+# Known issues
+- Filtering of positive samples when training with `train.type=negative_sampling` can be slow. We are currently working on a more efficient implementation.
