@@ -471,7 +471,7 @@ class KgeModel(KgeBase):
         o = self.get_o_embedder().embed(o)
         return self._scorer.score_emb(s, p, o, combine="spo")
 
-    def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
+    def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None, p_unique: Tensor = None) -> Tensor:
         r"""Compute scores for triples formed from a set of sp-pairs and all (or a subset of the) objects.
 
         `s` and `p` are vectors of common size :math:`n`, holding the indexes of the
@@ -483,17 +483,32 @@ class KgeModel(KgeBase):
 
         If `o` is not None, it is a vector holding the indexes of the objects to score.
 
+        If train.unique relations is true, every relation will only be embedded once
+            p_unique is only needed in this setting and will be created if not provided
+
         """
-        s = self.get_s_embedder().embed(s)
-        p = self.get_p_embedder().embed(p)
+        s_emb = self.get_s_embedder().embed(s)
         if o is None:
-            o = self.get_o_embedder().embed_all()
+            o_emb = self.get_o_embedder().embed_all()
         else:
-            o = self.get_o_embedder().embed(o)
+            o_emb = self.get_o_embedder().embed(o)
 
-        return self._scorer.score_emb(s, p, o, combine="sp*")
+        if self.config.get("train.unique_relations"):
+            if p_unique is None:
+                p_unique = torch.unique(p)
+            p_unique_emb = self.get_p_embedder().embed(p_unique)
+            scores = torch.empty([s_emb.size(0), o_emb.size(0)])
+            for i in range(p_unique.size(0)):
+                relation_index = p == p_unique[i]
+                scores_chunk = self._scorer.score_emb(s_emb[relation_index], p_unique_emb[i], o_emb,
+                                                      combine="sp*_unique")
+                scores[relation_index] = scores_chunk
+            return scores
+        else:
+            p_emb = self.get_p_embedder().embed(p)
+            return self._scorer.score_emb(s_emb, p_emb, o_emb, combine="sp*")
 
-    def score_po(self, p: Tensor, o: Tensor, s: Tensor = None) -> Tensor:
+    def score_po(self, p: Tensor, o: Tensor, s: Tensor = None, p_unique: Tensor = None) -> Tensor:
         r"""Compute scores for triples formed from a set of po-pairs and (or a subset of the) subjects.
 
         `p` and `o` are vectors of common size :math:`n`, holding the indexes of the
@@ -505,16 +520,30 @@ class KgeModel(KgeBase):
 
         If `s` is not None, it is a vector holding the indexes of the objects to score.
 
+        If train.unique relations is true, every relation will only be embedded once
+            p_unique is only needed in this setting and will be created if not provided
+
         """
-
         if s is None:
-            s = self.get_s_embedder().embed_all()
+            s_emb = self.get_s_embedder().embed_all()
         else:
-            s = self.get_s_embedder().embed(s)
-        o = self.get_o_embedder().embed(o)
-        p = self.get_p_embedder().embed(p)
+            s_emb = self.get_s_embedder().embed(s)
+        o_emb = self.get_o_embedder().embed(o)
 
-        return self._scorer.score_emb(s, p, o, combine="*po")
+        if self.config.get("train.unique_relations"):
+            if p_unique is None:
+                p_unique = torch.unique(p)
+            p_unique_emb = self.get_p_embedder().embed(p_unique)
+            scores = torch.empty([o_emb.size(0), s_emb.size(0)])
+            for i in range(p_unique.size(0)):
+                relation_index = p == p_unique[i]
+                scores_chunk = self._scorer.score_emb(s_emb, p_unique_emb[i], o_emb[relation_index],
+                                                      combine="*po_unique")
+                scores[relation_index] = scores_chunk
+            return scores
+        else:
+            p_emb = self.get_p_embedder().embed(p)
+            return self._scorer.score_emb(s_emb, p_emb, o_emb, combine="*po")
 
     def score_so(self, s: Tensor, o: Tensor, p: Tensor = None) -> Tensor:
         r"""Compute scores for triples formed from a set of so-pairs and all (or a subset of the) relations.

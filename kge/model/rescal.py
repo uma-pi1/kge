@@ -47,6 +47,21 @@ class RescalScorer(RelationalScorer):
                 .view(batch_size, entity_size)
                 .mm(s_emb.transpose(0, 1))
             )
+        elif combine == "sp*_unique":
+            batch_size = s_emb.size(0)
+            out = (
+                s_emb
+                .mm(p_emb.view(entity_size, entity_size))
+                .mm(o_emb.transpose(0, 1))
+            )
+        elif combine == "*po_unique":
+            batch_size = o_emb.size(0)
+            out = (
+                p_emb.view(entity_size, entity_size)
+                .mm(o_emb.transpose(0, 1))
+                .transpose(0, 1)
+                .mm(s_emb.transpose(0, 1))
+            )
         else:
             super().score_emb(s_emb, p_emb, o_emb, combine)
 
