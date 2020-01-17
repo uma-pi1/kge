@@ -189,9 +189,10 @@ negative_sampling:
   # Whether to resample corrupted triples that occur in the training data (and
   # are hence positives). Can be set separately for each slot.
   filtering:
-    s: False
-    p: False
-    o: False
+    s: False       # filter s samples until all are true negatives
+    p: False       # see above
+    o: False       # see above
+    implementation: numba # numba; python
 
   # Whether to share the s/p/o corruptions for all triples in the batch. This
   # can make training more efficient. Cannot be used with together with
