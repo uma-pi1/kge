@@ -85,7 +85,7 @@ class KgeSharedUniformSampler(KgeSampler):
     def sample(self, spo: torch.Tensor, slot: int, num_samples: Optional[int] = None):
         if num_samples is None:
             num_samples = self.num_samples[slot]
-        result = torch.randint(self.vocabulary_size[slot], (1, num_samples)).repeat(spo.size(0), 1)
+        result = torch.randint(self.vocabulary_size[slot], (1, num_samples)).expand(spo.size(0), num_samples)
         if self.filter_positives[slot]:
             result = self._filter(result)
         return result
