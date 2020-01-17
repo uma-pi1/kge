@@ -180,9 +180,6 @@ negative_sampling:
   num_samples_s: 3          # this is default value if others are -1, must not be -1
   num_samples_p: -1
   num_samples_o: -1
-  filter_positives_s: False        # default is not filtering
-  filter_positives_p: False
-  filter_positives_o: False
 
   # set to spo (for small negative samples), sp_po (for large negative samples),
   # or set to auto which sets spo or sp_po automatically if the
@@ -190,6 +187,11 @@ negative_sampling:
   # models which compute sp_po with an inner product, but not for all other
   # models (e.g., not for TransE in the current implementation).
   implementation: spo
+
+  filtering:
+    s: False       # filter s samples until all are true negatives
+    p: False       # see above
+    o: False       # see above
 
 
 ## VALIDATION ##################################################################
