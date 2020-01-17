@@ -137,8 +137,7 @@ def hist_per_head_and_tail(hists, s, p, o, s_ranks, o_ranks, job, **kwargs):
 
 
 def hist_per_relation_type(hists, s, p, o, s_ranks, o_ranks, job, **kwargs):
-    job.dataset.index_relation_types()
-    for rel_type, rels in job.dataset.indexes["relations_per_type"].items():
+    for rel_type, rels in job.dataset.index("relations_per_type").items():
         __initialize_hist(hists, rel_type, job)
         mask = [_p in rels for _p in p.tolist()]
         for r, m in zip(o_ranks, mask):
@@ -151,8 +150,7 @@ def hist_per_relation_type(hists, s, p, o, s_ranks, o_ranks, job, **kwargs):
 
 def hist_per_frequency_percentile(hists, s, p, o, s_ranks, o_ranks, job, **kwargs):
     # initialize
-    job.dataset.index_frequency_percentiles()
-    frequency_percs = job.dataset.indexes["frequency_percentiles"]
+    frequency_percs = job.dataset.index("frequency_percentiles")
     for arg, percs in frequency_percs.items():
         for perc, value in percs.items():
             __initialize_hist(hists, "{}_{}".format(arg, perc), job)

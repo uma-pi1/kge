@@ -522,8 +522,8 @@ class TrainingJobKvsAll(TrainingJob):
 
     def _prepare(self):
         # create sp and po label_coords (if not done before)
-        train_sp = self.dataset.index_KvsAll("train", "sp")
-        train_po = self.dataset.index_KvsAll("train", "po")
+        train_sp = self.dataset.index("train_sp_to_o")
+        train_po = self.dataset.index("train_po_to_s")
 
         # convert indexes to pytoch tensors: a nx2 keys tensor (rows = keys),
         # an offset vector (row = starting offset in values for corresponding
@@ -537,12 +537,12 @@ class TrainingJobKvsAll(TrainingJob):
             self.train_sp_keys,
             self.train_sp_values,
             self.train_sp_offsets,
-        ) = Dataset.prepare_index(train_sp)
+        ) = kge.indexing.prepare_index(train_sp)
         (
             self.train_po_keys,
             self.train_po_values,
             self.train_po_offsets,
-        ) = Dataset.prepare_index(train_po)
+        ) = kge.indexing.prepare_index(train_po)
 
         # create dataloader
         self.loader = torch.utils.data.DataLoader(

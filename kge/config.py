@@ -619,6 +619,18 @@ def _process_deprecated_options(options: Dict[str, Any]):
                     renamed_keys.add(key)
         return renamed_keys
 
+    # 20.12.2019
+    for split in [ "train", "valid", "test" ]:
+        old_key = f"dataset.{split}"
+        if old_key in options:
+            rename_key(old_key, f"dataset.files.{split}.filename")
+            options[f"dataset.files.{split}.type"] = "triples"
+    for obj in ["entity", "relation"]:
+        old_key = f"dataset.{obj}_map"
+        if old_key in options:
+            rename_key(old_key, f"dataset.files.{obj}_ids.filename")
+            options[f"dataset.files.{obj}_ids.type"] = "map"
+
     # 14.12.2019
     rename_key(
         "negative_sampling.filter_true_s", "negative_sampling.filter_positives_s"

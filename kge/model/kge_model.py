@@ -333,7 +333,7 @@ class KgeModel(KgeBase):
             )
 
     @staticmethod
-    def create_all(
+    def create_default(
         model: "KgeModel" = None,
         dataset: Dataset = None,
         options: Dict[str, Any] = {},

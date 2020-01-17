@@ -67,6 +67,7 @@ def _add_dump_checkpoint_parser(subparsers_dump):
     )
     parser_dump_checkpoint.add_argument(
         "--keys",
+        "-k",
         type=str,
         nargs="*",
         help="List of keys to include (separated by space)",
@@ -175,7 +176,12 @@ def _add_dump_trace_parser(subparsers_dump):
         parser_dump_trace.add_argument(
             argument, action="store_const", const=True, default=False,
         )
+    parser_dump_trace.add_argument(
+        "--no-default-keys", "-K", action="store_const", const=True, default=False,
+    )
+
     parser_dump_trace.add_argument("--keysfile", default=False)
+    parser_dump_trace.add_argument("--keys", "-k", nargs="*", type=str)
 
 
 def _dump_trace(args):
@@ -214,12 +220,19 @@ def _dump_trace(args):
         exit(1)
 
     keymap = OrderedDict()
+    additional_keys = []
     if args.keysfile:
         with open(args.keysfile, "r") as keyfile:
-            for line in keyfile:
-                keymap[line.rstrip("\n").split("=")[0].strip()] = (
-                    line.rstrip("\n").split("=")[1].strip()
-                )
+            additional_keys = keyfile.readlines()
+    if args.keys:
+        additional_keys += args.keys
+    for line in additional_keys:
+        line.rstrip("\n")
+        name_key = line.split("=")
+        if len(name_key) == 1:
+            name_key += name_key
+        keymap[name_key[0]] = name_key[1]
+
     job_id = None
     epoch = int(args.max_epoch)
     # use job_id and epoch from checkpoint
@@ -250,10 +263,7 @@ def _dump_trace(args):
             epoch_of_last=epoch,
         )
     if not entries and (args.search or not entry_type_specified):
-        entries = Trace.grep_entries(
-            tracefile=trace,
-            conjunctions=[f"scope: train"],
-        )
+        entries = Trace.grep_entries(tracefile=trace, conjunctions=[f"scope: train"],)
         epoch = None
         if entries:
             args.search = True
@@ -267,23 +277,27 @@ def _dump_trace(args):
         # dict[new_name] = (lookup_name, where)
         # if where=="config"/"trace" it will be looked up automatically
         # if where=="sep" it must be added in in the write loop separately
-        default_attributes = OrderedDict(
-            [
-                ("job_id", ("job_id", "sep")),
-                ("dataset", ("dataset.name", "config")),
-                ("model", ("model", "sep")),
-                ("reciprocal", ("reciprocal", "sep")),
-                ("job", ("job", "sep")),
-                ("job_type", ("type", "trace")),
-                ("split", ("split", "sep")),
-                ("epoch", ("epoch", "trace")),
-                ("avg_loss", ("avg_loss", "trace")),
-                ("avg_penalty", ("avg_penalty", "trace")),
-                ("avg_cost", ("avg_cost", "trace")),
-                ("metric_name", ("valid.metric", "config")),
-                ("metric", ("metric", "sep")),
-            ]
-        )
+        if args.no_default_keys:
+            default_attributes = OrderedDict()
+        else:
+            default_attributes = OrderedDict(
+                [
+                    ("job_id", ("job_id", "sep")),
+                    ("dataset", ("dataset.name", "config")),
+                    ("model", ("model", "sep")),
+                    ("reciprocal", ("reciprocal", "sep")),
+                    ("job", ("job", "sep")),
+                    ("job_type", ("type", "trace")),
+                    ("split", ("split", "sep")),
+                    ("epoch", ("epoch", "trace")),
+                    ("avg_loss", ("avg_loss", "trace")),
+                    ("avg_penalty", ("avg_penalty", "trace")),
+                    ("avg_cost", ("avg_cost", "trace")),
+                    ("metric_name", ("valid.metric", "config")),
+                    ("metric", ("metric", "sep")),
+                ]
+            )
+
         if not args.no_header:
             csv_writer.writerow(
                 list(default_attributes.keys()) + [key for key in keymap.keys()]
@@ -390,6 +404,9 @@ def _dump_trace(args):
             actual_default["reciprocal"] = reciprocal
             # lookup name is in config value is in trace
             actual_default["metric"] = entry.get(config.get_default("valid.metric"))
+            for key in list(actual_default.keys()):
+                if key not in default_attributes:
+                    del actual_default[key]
             csv_writer.writerow(
                 [actual_default[new_key] for new_key in actual_default.keys()]
                 + [new_attributes[new_key] for new_key in new_attributes.keys()]
