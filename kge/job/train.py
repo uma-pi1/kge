@@ -890,7 +890,7 @@ class TrainingJob1vsAll(TrainingJob):
         scores_sp = self.model.score_sp(triples[:, 0], triples[:, 1])
         loss_value_sp = self.loss(scores_sp, triples[:, 2]) / batch_size
         loss_value = loss_value_sp.item()
-        forward_time = +time.time()
+        forward_time += time.time()
         backward_time = -time.time()
         loss_value_sp.backward()
         backward_time += time.time()
