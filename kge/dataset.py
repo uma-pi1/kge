@@ -211,11 +211,10 @@ class Dataset(Configurable):
         copy = Dataset(self.config, self.folder)
         copy._num_entities = self.num_entities()
         copy._num_relations = self.num_relations()
-        copy._entities = self._entities
-        copy._relations = self._relations
         copy._triples = self._triples
         copy._meta = self._meta
         copy._indexes = self._indexes
+        copy.index_functions = self.index_functions
         return copy
 
     ## ACCESS ###########################################################################
