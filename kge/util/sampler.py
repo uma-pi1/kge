@@ -2,6 +2,8 @@ from kge import Config, Configurable, Dataset
 import torch
 from typing import Optional
 import numpy as np
+from numba import njit
+import time
 
 SLOTS = [0, 1, 2]
 SLOT_STR = ["s", "p", "o"]
@@ -63,6 +65,7 @@ class KgeSampler(Configurable):
         entities (`slot`=0 or `slot`=2) or relations (`slot`=1).
 
         """
+        start = time.time()
         if num_samples is None:
             num_samples = self.num_samples[slot]
         if self.shared:
@@ -77,6 +80,11 @@ class KgeSampler(Configurable):
                     "Filtering is not supported when shared negative sampling is enabled."
                 )
             negative_samples = self._filter(negative_samples, slot, positive_triples)
+            if self.get_option("filtering.implementation") == "python":
+                negative_samples = self._filter(negative_samples, slot, positive_triples)
+            elif self.get_option("filtering.implementation") == "numba":
+                negative_samples = self._filter_fast(negative_samples, slot, positive_triples)
+        print(f"sample took {time.time() -start}")
         return negative_samples
 
     def _sample(self, positive_triples: torch.Tensor, slot: int, num_samples: int):
@@ -106,7 +114,7 @@ class KgeSampler(Configurable):
         pairs = positive_triples[:, cols]
         for i in range(positive_triples.size(0)):
             # indices of samples that have to be sampled again
-            # Note: giving np.isin a set as second argument potentially is faster
+            # Note: giving np.isin() a set as second argument potentially is faster
             # but conversion to a set induces costs that make things worse
             resample_idx = np.where(
                 np.isin(negative_samples[i], index[tuple(pairs[i].tolist())]) != 0
@@ -132,6 +140,72 @@ class KgeSampler(Configurable):
                 num_remaining = num_new - num_found
             negative_samples[i, resample_idx] = new
         return negative_samples
+
+    def _filter_fast(self, result: torch.Tensor, slot: int, spo: torch.Tensor):
+        spo_char = "spo"
+        pair = spo_char.replace(spo_char[slot], "")
+        # holding the positive indices for the respective pair
+        index = self.dataset.index(f"train_{pair}_to_{spo_char[slot]}")
+        cols = [0, 1, 2]
+        cols.remove(slot)
+        pairs = spo[:, cols]
+        batch_size = spo.size(0)
+        offsets = np.empty(batch_size)
+        voc_size = self.vocabulary_size[slot]
+        start = time.time()
+        #positives = np.array(index[tuple(pairs[0].tolist())])
+        positives = (index[tuple(pairs[0].tolist())]).tolist()
+        offsets[0] = len(positives)
+        for i in range(1, batch_size, 1):
+            pos = index[tuple(pairs[i].tolist())]
+            positives.extend(pos.tolist())
+            #positives = np.append(positives, np.array(pos))
+            offsets[i] = len(pos)
+        middle = time.time()
+        print(f"len {len(positives)}")
+        print(f"loop took {middle-start}")
+        result = _filter_numba(
+            np.asarray(positives, dtype="int32"),
+            offsets,
+            np.asarray(result),
+            batch_size,
+            int(voc_size)
+        )
+        end = time.time()
+        print(f"Numba took {end-middle}")
+        return torch.tensor(result, dtype=torch.int64)
+
+    @njit
+    def _filter_numba(all_positives, offsets, result, batch_size, voc_size):
+        last = 0
+        for i in range(batch_size):
+            pos = all_positives[last: offsets[i]]
+            last = offsets[i]
+            # inlining the idx_wherein function here results in an internal numba
+            # error which asks to file a bug report
+            resample_idx = idx_where_in(result[i], pos, True)
+            # number of new samples needed
+            num_new = len(resample_idx)
+            new = np.zeros(num_new)
+            # number already found of the new samples needed
+            num_found = 0
+            num_remaining = num_new - num_found
+            while True:
+                if not num_remaining:
+                    break
+                new_samples = np.random.randint(0, voc_size, num_remaining)
+                idx = idx_where_in(new_samples, pos, False)
+                # store the correct (true negatives) samples found
+                if len(idx):
+                    new[num_found: num_found + len(idx)] = new_samples[idx]
+                num_found += len(idx)
+                num_remaining = num_new - num_found
+            ctr = 0
+            # numba does not support result[i, resample_idx] = new
+            for j in resample_idx:
+                result[i, j] = new[ctr]
+                ctr += 1
+        return result
 
 
 class KgeUniformSampler(KgeSampler):

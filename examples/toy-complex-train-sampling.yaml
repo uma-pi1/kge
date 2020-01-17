@@ -1,5 +1,5 @@
 job.type: train
-dataset.name: toy
+dataset.name: fb15k
 model: complex
 
 train:
@@ -22,3 +22,6 @@ negative_sampling:
     s: True
     o: True
     p: True
+
+
+
