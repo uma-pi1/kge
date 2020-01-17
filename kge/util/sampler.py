@@ -3,6 +3,7 @@ import torch
 from typing import Optional
 import numpy as np
 from numba import njit
+from numba.typed import List, Dict
 import time
 
 SLOTS = [0, 1, 2]
@@ -148,26 +149,26 @@ class KgeSampler(Configurable):
         index = self.dataset.index(f"train_{pair}_to_{spo_char[slot]}")
         cols = [0, 1, 2]
         cols.remove(slot)
-        pairs = spo[:, cols]
+        pairs = (spo[:, cols]).numpy()
         batch_size = spo.size(0)
-        offsets = np.empty(batch_size)
         voc_size = self.vocabulary_size[slot]
         start = time.time()
-        #positives = np.array(index[tuple(pairs[0].tolist())])
-        positives = (index[tuple(pairs[0].tolist())]).tolist()
-        offsets[0] = len(positives)
-        for i in range(1, batch_size, 1):
-            pos = index[tuple(pairs[i].tolist())]
-            positives.extend(pos.tolist())
-            #positives = np.append(positives, np.array(pos))
-            offsets[i] = len(pos)
+        positives = Dict()
+
+        def assign(i):
+            positives[tuple(pairs[i].tolist())] = np.array(
+                index[tuple(pairs[i].tolist())])
+
+        list(map(assign,list(range(batch_size))))
+
         middle = time.time()
-        print(f"len {len(positives)}")
         print(f"loop took {middle-start}")
-        result = _filter_numba(
-            np.asarray(positives, dtype="int32"),
-            offsets,
-            np.asarray(result),
+        middle = time.time()
+        result = np.array(result)
+        _filter_numba(
+            positives,
+            pairs,
+            result,
             batch_size,
             int(voc_size)
         )
@@ -176,17 +177,16 @@ class KgeSampler(Configurable):
         return torch.tensor(result, dtype=torch.int64)
 
     @njit
-    def _filter_numba(all_positives, offsets, result, batch_size, voc_size):
+    def _filter_numba(positives, pairs, result, batch_size, voc_size):
         last = 0
         for i in range(batch_size):
-            pos = all_positives[last: offsets[i]]
-            last = offsets[i]
+            pos = positives[(pairs[i][0], pairs[i][1])]
             # inlining the idx_wherein function here results in an internal numba
             # error which asks to file a bug report
             resample_idx = idx_where_in(result[i], pos, True)
             # number of new samples needed
             num_new = len(resample_idx)
-            new = np.zeros(num_new)
+            new = np.empty(num_new)
             # number already found of the new samples needed
             num_found = 0
             num_remaining = num_new - num_found
@@ -205,7 +205,6 @@ class KgeSampler(Configurable):
             for j in resample_idx:
                 result[i, j] = new[ctr]
                 ctr += 1
-        return result
 
 
 class KgeUniformSampler(KgeSampler):
