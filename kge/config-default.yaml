@@ -159,7 +159,7 @@ train:
   pin_memory: False
   auto_correct: False         # True: allows for trainer to adjust certain settings, False: throw exception
   visualize_graph: False      # create PDF of compute graph (of first batch of first epoch)
-  unique_relations: False     # embed each unique relation only once during scoring with score_sp or score_po
+  k_occurring_unique_relations: -1  # score relations occurring more than k times unique in score_sp and score_po
 
 
 # Options for KvsAll training (train.type=="KvsAll)

@@ -293,6 +293,7 @@ class KgeModel(KgeBase):
             )
         else:
             self._scorer = scorer
+        self.k_score_unique = self.config.get("train.k_occurring_unique_relations")
 
     # overridden to also set self.model
     def _init_configuration(self, config: Config, configuration_key: Optional[str]):
@@ -471,7 +472,7 @@ class KgeModel(KgeBase):
         o = self.get_o_embedder().embed(o)
         return self._scorer.score_emb(s, p, o, combine="spo")
 
-    def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None, p_unique: Tensor = None) -> Tensor:
+    def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
         r"""Compute scores for triples formed from a set of sp-pairs and all (or a subset of the) objects.
 
         `s` and `p` are vectors of common size :math:`n`, holding the indexes of the
@@ -483,8 +484,8 @@ class KgeModel(KgeBase):
 
         If `o` is not None, it is a vector holding the indexes of the objects to score.
 
-        If train.unique relations is true, every relation will only be embedded once
-            p_unique is only needed in this setting and will be created if not provided
+        If train.k_occurring_relations_unique relations is > -1, every unique relation
+        occurring more often than k will only be embedded once.
 
         """
         s_emb = self.get_s_embedder().embed(s)
@@ -493,22 +494,40 @@ class KgeModel(KgeBase):
         else:
             o_emb = self.get_o_embedder().embed(o)
 
-        if self.config.get("train.unique_relations"):
-            if p_unique is None:
-                p_unique = torch.unique(p)
-            p_unique_emb = self.get_p_embedder().embed(p_unique)
-            scores = torch.empty([s_emb.size(0), o_emb.size(0)], device=self.config.get("job.device"))
-            for i in range(p_unique.size(0)):
-                relation_index = p == p_unique[i]
-                scores_chunk = self._scorer.score_emb(s_emb[relation_index], p_unique_emb[i], o_emb,
+        if self.k_score_unique > -1:
+            p_unique, p_unique_counts = torch.unique(p, return_counts=True)
+            p_most_occurring_mask = p_unique_counts > self.k_score_unique
+            p_most_occurring = p_unique[p_most_occurring_mask]
+            p_unique_emb = self.get_p_embedder().embed(p_most_occurring)
+            scores = torch.empty([s_emb.size(0), o_emb.size(0)],
+                                 device=self.config.get("job.device"))
+            handled_relations_mask = torch.zeros([p.size(0)],
+                                                 device=self.config.get("job.device"),
+                                                 dtype=torch.bool)
+
+            # handle most occurring relations separately
+            for i in range(p_most_occurring.size(0)):
+                relation_mask = p == p_most_occurring[i]
+                scores_chunk = self._scorer.score_emb(s_emb[relation_mask],
+                                                      p_unique_emb[i], o_emb,
                                                       combine="sp*_unique")
-                scores[relation_index] = scores_chunk
+                scores[relation_mask] = scores_chunk
+                handled_relations_mask += relation_mask
+
+            # score least occurring relations
+            if torch.sum(~handled_relations_mask) == 0:
+                return scores
+            p_least_occurring_emb = self.get_p_embedder().embed(
+                p[~handled_relations_mask])
+            scores[~handled_relations_mask] = self._scorer.score_emb(
+                s_emb[~handled_relations_mask], p_least_occurring_emb, o_emb,
+                combine="sp*")
             return scores
         else:
             p_emb = self.get_p_embedder().embed(p)
             return self._scorer.score_emb(s_emb, p_emb, o_emb, combine="sp*")
 
-    def score_po(self, p: Tensor, o: Tensor, s: Tensor = None, p_unique: Tensor = None) -> Tensor:
+    def score_po(self, p: Tensor, o: Tensor, s: Tensor = None) -> Tensor:
         r"""Compute scores for triples formed from a set of po-pairs and (or a subset of the) subjects.
 
         `p` and `o` are vectors of common size :math:`n`, holding the indexes of the
@@ -520,8 +539,8 @@ class KgeModel(KgeBase):
 
         If `s` is not None, it is a vector holding the indexes of the objects to score.
 
-        If train.unique relations is true, every relation will only be embedded once
-            p_unique is only needed in this setting and will be created if not provided
+        If train.k_occurring_relations_unique relations is > -1, every unique relation
+        occurring more often than k will only be embedded and scored once.
 
         """
         if s is None:
@@ -530,16 +549,34 @@ class KgeModel(KgeBase):
             s_emb = self.get_s_embedder().embed(s)
         o_emb = self.get_o_embedder().embed(o)
 
-        if self.config.get("train.unique_relations"):
-            if p_unique is None:
-                p_unique = torch.unique(p)
-            p_unique_emb = self.get_p_embedder().embed(p_unique)
-            scores = torch.empty([o_emb.size(0), s_emb.size(0)], device=self.config.get("job.device"))
-            for i in range(p_unique.size(0)):
-                relation_index = p == p_unique[i]
-                scores_chunk = self._scorer.score_emb(s_emb, p_unique_emb[i], o_emb[relation_index],
+        if self.k_score_unique > -1:
+            p_unique, p_unique_counts = torch.unique(p, return_counts=True)
+            p_most_occurring_mask = p_unique_counts > self.k_score_unique
+            p_most_occurring = p_unique[p_most_occurring_mask]
+            p_unique_emb = self.get_p_embedder().embed(p_most_occurring)
+            scores = torch.empty([o_emb.size(0), s_emb.size(0)],
+                                 device=self.config.get("job.device"))
+            handled_relations_mask = torch.zeros([p.size(0)],
+                                                 device=self.config.get("job.device"),
+                                                 dtype=torch.bool)
+
+            # handle most occurring relations separately
+            for i in range(p_most_occurring.size(0)):
+                relation_mask = p == p_most_occurring[i]
+                scores_chunk = self._scorer.score_emb(s_emb, p_unique_emb[i],
+                                                      o_emb[relation_mask],
                                                       combine="*po_unique")
-                scores[relation_index] = scores_chunk
+                scores[relation_mask] = scores_chunk
+                handled_relations_mask += relation_mask
+
+            # score least occurring relations
+            if torch.sum(~handled_relations_mask) == 0:
+                return scores
+            p_least_occurring_emb = self.get_p_embedder().embed(
+                p[~handled_relations_mask])
+            scores[~handled_relations_mask] = self._scorer.score_emb(
+                s_emb, p_least_occurring_emb, o_emb[~handled_relations_mask],
+                combine="*po")
             return scores
         else:
             p_emb = self.get_p_embedder().embed(p)
