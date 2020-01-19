@@ -70,7 +70,10 @@ class KgeSampler(Configurable):
                                             positive_triples.size(0), num_samples)
         else:
             negative_samples = self._sample(positive_triples, slot, num_samples)
-        if self.filter_positives[slot] and not self.get_option("shared"):
+        if self.filter_positives[slot]:
+            if self.get_option("shared"):
+                raise ValueError(
+                    "Filtering is not supported with shared negative sampling.")
             negative_samples = self._filter(negative_samples, slot, positive_triples)
         return negative_samples
 
