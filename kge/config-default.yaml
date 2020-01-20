@@ -65,7 +65,7 @@ dataset:
       filename: entity_ids.del
       type: map
     relation_ids:
-      filename: entity_ids.del
+      filename: relation_ids.del
       type: map
 
     # Files that store human-readble string representations of each
