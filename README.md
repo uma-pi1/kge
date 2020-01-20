@@ -1,55 +1,91 @@
 # libKGE: A library for Knowledge Graph Embeddings
 
-libKGE is a library for training, evaluating and tuning [knowledge graph
+libKGE is a library for very efficient training, evaluating and tuning of [knowledge graph
 embeddings](https://ieeexplore.ieee.org/document/8047276) (KGE). It is
 based on [PyTorch](https://pytorch.org/) and designed to be easy to use
 and easy to extend. libKGE is highly flexible for training and tuning KGE
-models, as it supports various combinations of loss functions, optimizers,
-training types and many more hyperparameters. Hyperparameter optimization
-is also supported in different ways, e.g. grid search, pseudo-random search
-or Bayesian optimization. These are some of the state-of-the-art results
-obtained with libKGE (mean reciprocal rank):
-
-## FB15K-237
-
-|          | MRR       | Hits@10 |
-|----------|-----------|---------|
-| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)   | 0.356      | 0.542 |
-| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)   | 0.310      | 0.493 |
-| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) | 0.344      | 0.531 |  
-| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)  | 0.348      | 0.536 |
-| [ConvE](https://arxiv.org/abs/1707.01476)    | 0.338      | 0.520 |
-
-
-## WNRR
-
-|          | MRR       | Hits@10 |
-|----------|-----------|---------|
-| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)   | 0.467      | 0.517 |
-| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)   | 0.228      | 0.519 |
-| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) | 0.454      | 0.535 |  
-| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)  | 0.479      | 0.552 |
-| [ConvE](https://arxiv.org/abs/1707.01476)    | 0.442      | 0.505 |
-
-
+models, as it supports many combinations of loss functions, optimizers,
+training types and many more hyperparameters. 
 <!--//
-|          |      FB15k-237  |          | WNRR |  |
-|----------|-----------:|---------:|-----------:|---------:| 
-|          | *MRR*       | *Hits@10* |  *MRR*       | *Hits@10* |
-| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)   | 0.356      | 0.542 | 0.467      | 0.517 |
-| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)   | 0.310      | 0.493 | 0.228      | 0.519 |
-| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) | 0.344      | 0.531 | 0.454      | 0.535 |   
-| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)  | 0.348      | 0.536 | 0.479      | 0.552 |
-| [ConvE](https://arxiv.org/abs/1707.01476)    | 0.338      | 0.520 | 0.442      | 0.505 |
+Hyperparameter optimization is also supported in different ways, e.g. grid search, pseudo-random search or Bayesian optimization (currently supplied by [Ax](https://ax.dev/)). 
 //-->
+## Feature list
+
+ - Efficient implementations of classic and current KGE models: 
+    - [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) [(code)](kge/model/rescal.py)
+    - [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) [(code)](kge/model/transe.py)
+    - [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) [(code)](kge/model/distmult.py) 
+    - [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) [(code)](kge/model/complex.py)
+    - [ConvE](https://arxiv.org/abs/1707.01476) [(code)](kge/model/conve.py)
+ - Training:
+   - Loss: Binary Cross Entropy (BCE), Kullback-Leibler Divergence (KL), Margin Ranking (MR)
+   - Training types: Negative Sampling, 1vsAll, KvsAll
+   - Use all optimizers and learning rate schedulers offered by PyTorch
+   - Configurable early stopping
+   - Configurable checkpointing
+ - Hyper-parameter tuning:
+   - Types: Grid, Quasi-Random (by [Ax](https://ax.dev/)), Bayesian Optimzation (by [Ax](https://ax.dev/))
+   - Highly parallelizable on single machine
+ - Evaluation:
+   - Metrics: Mean Reciprocal Rank (MRR), HITS@k
+   - Filter metrics by: relation type, relation frequency, head or tail
+ - Extensive logging in machine readable format to facilitate analysis
+
+
+## Results
+
+These are some of the state-of-the-art results (w.r.t. MRR) obtained with libKGE:
+
+
+<table> 
+<tr><th>FB15k-237</th><th>WNRR</th></tr>
+<tr>
+<td>
+
+|          | MRR       | Hits@10 |
+|----------|-----------:|---------:|
+| RESCAL  | 0.356      | 0.542 |
+| TransE   | 0.310      | 0.493 |
+| DistMult | 0.344      | 0.531 |  
+| ComplEx | 0.348      | 0.536 |
+| ConvE | 0.338      | 0.520 |
+
+</td>
+<td>
+
+|          | MRR       | Hits@10 |
+|----------|-----------:|---------:|
+| RESCAL | 0.467      | 0.517 |
+| TransE  | 0.228      | 0.519 |
+| DistMult  | 0.454      | 0.535 |  
+| ComplEx | 0.479      | 0.552 |
+| ConvE | 0.442      | 0.505 |
+
+</td>
+</tr>
+</table>
 
 
 # Quick start
 
+```
+git clone https://github.com/uma-pi1/kge.git
+cd kge
+# install project in development mode
+pip install -e .
+# download and preprocess datasets
+cd data
+sh download_all.sh
+cd ..
+# train an example model on toy dataset
+python kge.py start examples/toy-complex-train.yaml
+```
+
+## Configuration
+
 libKGE supports training, evaluating and tuning KGE models. The settings for
 each task can be specified with a configuration file in YAML format.
-There are many available settings, all of which have default values and
-can be found in [config-default.yaml](kge/config-default.yaml).
+The default values and usage for available settings can be found in [config-default.yaml](kge/config-default.yaml).
 
 ## Training a model
 
