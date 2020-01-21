@@ -199,12 +199,6 @@ python kge.py resume . --search.device_pool cuda:0,cuda:1,cuda:1 --search.num_wo
 
 Logs are stored as yaml entries for various scopes (hyper-parameter search, training, validation). libKGE provides a convience method to export the logdata to csv.
 
-```sh
-# Dump trace info of a hyper-parameter search
-python kge.py dump trace local/experiments/XXXXXXXX-XXXXXX-toy-complex-ax
-```
-
-The command above yields [this CSV output](docs/examples/dump-example-search.csv)
 
 ```sh
 # Dump trace info for the first trial of a hyper-parameter search
@@ -212,6 +206,14 @@ python kge.py dump trace local/experiments/XXXXXXXX-XXXXXX-toy-complex-ax/00000
 ```
 
 The command above yields [this CSV output](docs/examples/dump-example-model.csv)
+
+
+```sh
+# Dump trace info of a hyper-parameter search
+python kge.py dump trace local/experiments/XXXXXXXX-XXXXXX-toy-complex-ax
+```
+
+The command above yields [this CSV output](docs/examples/dump-example-search.csv)
 
 
 
