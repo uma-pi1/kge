@@ -1,6 +1,6 @@
 # libKGE: A library for Knowledge Graph Embeddings
 
-libKGE is a library for very efficient training, evaluating and hyperparameter optimization of [knowledge graph
+libKGE is a library for very efficient training, evaluation and hyperparameter optimization of [knowledge graph
 embeddings](https://ieeexplore.ieee.org/document/8047276) (KGE). It is
 based on [PyTorch](https://pytorch.org/) and designed to be easy to use
 and easy to extend. 
@@ -13,7 +13,7 @@ Hyperparameter optimization is also supported in different ways, e.g. grid searc
 //-->
 ## Feature list
 
- - **KGE models**, efficient implementations of : RESCAL, TransE, DistMult, ComplEx, ConvE
+ - **KGE models**: RESCAL, TransE, DistMult, ComplEx, ConvE
  - **Extensive logging** in machine readable format to facilitate analysis
  - **Training**:
    - Loss: Binary Cross Entropy (BCE), Kullback-Leibler Divergence (KL), Margin Ranking (MR)
@@ -63,7 +63,7 @@ These are some of the state-of-the-art results (w.r.t. MRR) obtained with libKGE
 </table>
 
 
-The results above where obtained by a hyper-parameter search described in our [publication](https://openreview.net/forum?id=BkxSmlBFvr)
+The results above where obtained by a hyper-parameter search described in our [publication](https://openreview.net/forum?id=BkxSmlBFvr).
 
 
 # Quick start
