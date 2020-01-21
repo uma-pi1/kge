@@ -13,7 +13,7 @@ Hyperparameter optimization is also supported in different ways, e.g. grid searc
 //-->
 ## Feature list
 
- - **KGE models**: RESCAL, TransE, DistMult, ComplEx, ConvE
+ - **KGE models**: [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) ([code](kge/model/rescal.py)), [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) ([code](kge/model/transe.py)), [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) ([code](kge/model/distmult.py)), [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) ([code](kge/model/complex.py)), [ConvE](https://arxiv.org/abs/1707.01476)  ([code](kge/model/conve.py))
  - **Extensive logging** in machine readable format to facilitate analysis
  - **Training**:
    - Loss: Binary Cross Entropy (BCE), Kullback-Leibler Divergence (KL), Margin Ranking (MR)
@@ -66,7 +66,7 @@ These are some of the state-of-the-art results (w.r.t. MRR) obtained with libKGE
 The results above where obtained by a hyper-parameter search described in our [publication](https://openreview.net/forum?id=BkxSmlBFvr).
 
 
-# Quick start
+## Quick start
 
 ```sh
 # retrieve and install project in development mode
@@ -87,7 +87,7 @@ python kge.py start examples/toy-complex-train.yaml
 
 libKGE supports training, evaluation and hyper-parameter tuning of KGE models. The settings for each task can be specified with a configuration file in YAML format or on the command line. The default values and usage for available settings can be found in [config-default.yaml](kge/config-default.yaml). 
 
-### Training a model
+#### Training a model
 
 To train a model, define a configuration file, for example:
 
@@ -129,7 +129,7 @@ python kge.py start config.yaml --folder kge_test --job.device cuda:0
 python kge.py start config.yaml --train.optimizer Adam
 ```
 
-### Resume training 
+#### Resume training 
 
 All tasks can be resumed if interrupted. Run the following for the
 corresponding output folder:
@@ -142,7 +142,7 @@ python kge.py resume local/experiments/XXXXXXXX-XXXXXX-config --job.device cuda:
 
 ```
 
-### Evaluate a model
+#### Evaluate a model
 
 To evaluate trained model, run the following:
 
@@ -154,7 +154,7 @@ python kge.py valid kge_test/config.yaml
 python kge.py test kge_test/config.yaml
 ```
 
-### Hyper-parameter optimization
+#### Hyper-parameter optimization
 
 libKGE supports various forms of hyperparameter optimization. e.g. grid
 search or Bayesian optimization. The search type and search space are
@@ -195,7 +195,7 @@ python kge.py resume . --search.device_pool cuda:0,cuda:1,cuda:1 --search.num_wo
 
 ```
 
-### Export and analyse logs
+#### Export and analyse logs
 
 Logs are stored as yaml entries for various scopes (hyper-parameter search, training, validation). libKGE provides a convience method to export the logdata to csv.
 
@@ -217,14 +217,14 @@ The command above yields [this CSV output](docs/examples/dump-example-search.csv
 
 
 
-## Other commands
+#### Other commands
 To see all available commands:
 
 ```sh
 python kge.py --help
 ```
 
-# Installation
+## Installation
 
 To install libKGE, clone this repository and install the requirements with pip:
 
@@ -234,7 +234,7 @@ git clone https://github.com/uma-pi1/kge.git
 pip install -e .
 ```
 
-# Supported KGE models
+## Supported KGE models
 
 libKGE has implementations for the following KGE models:
 
@@ -244,10 +244,11 @@ libKGE has implementations for the following KGE models:
 - [ComplEx](kge/model/complex.py)
 - [Conve](kge/model/conve.py)
 
-The [examples](examples) folder contains some configuration files as examples
-of how to run these models.
+The [examples](examples) folder contains some configuration files as examples of how to run these models. 
 
-# Adding a new model
+We welcome contributions to expand the list of supported models! Please see [CONTRIBUTING](CONTRIBUTING.md) for details and feel free to initially open an issue.
+
+## Adding a new model
 
 To add a new model to libKGE, one needs to extend the
 [KgeModel](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L243)
@@ -257,11 +258,24 @@ to associate each subject, relation and object to an embedding, and a
 [KgeScorer](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L76)
 to score triples.
 
-# Known issues
+## Known issues
 - Filtering of positive samples when training with `train.type=negative_sampling` can be slow. We are currently working on a more efficient implementation.
 
+## Other KGE frameworks and KGE implementations
 
-# How to cite
+Other KGE frameworks:
+
+ - [Graphvite](https://graphvite.io/)
+ - [AmpliGraph](https://github.com/Accenture/AmpliGraph)
+ - [OpenKE](https://github.com/thunlp/OpenKE)
+ - [PyKEEN](https://github.com/SmartDataAnalytics/PyKEEN)
+
+KGE projects for publications that also implement a few models:
+ 
+ - [ConvE](https://github.com/TimDettmers/ConvE)
+ - [KBC](https://github.com/facebookresearch/kbc)
+
+## How to cite
 
 If you use our code or compare against our results please cite the following publication:
 
