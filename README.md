@@ -107,17 +107,19 @@ valid:
 
 # All non-specified settings take their default value from config-default.yaml
 ```
-To begin training, run one of the following:
+When libKGE is called with this config, it will be [expanded with all default arguments](docs/examples/expanded-config-example.yaml) from the [main default config]((kge/config-default.yaml)), as well the default configurations for models, for example the [model's embedder](kge/model/lookup_embedder.yaml). 
+
+Now, to begin training, run one of the following:
 
 ```sh
-# The start command creates an output folder local/experiments/XXXXXXXX-XXXXXX-config and begins training
+# The "start" command creates an output folder local/experiments/XXXXXXXX-XXXXXX-config and begins training
 # This creates an expanded version of the config file config.yaml in the output folder
 python kge.py start config.yaml
 
-# The create command creates an output folder but does not begin training
+# The "create" command creates an output folder but does not begin training
 python kge.py create config.yaml
 
-# To begin or resume training on an existing folder, run the following in that folder:
+# Run the "resume" command, to begin or resume training on an existing output folder:
 python kge.py resume local/experiments/XXXXXXXX-XXXXXX-config
 
 # You may specify the output folder and device
