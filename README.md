@@ -107,7 +107,7 @@ valid:
 
 # All non-specified settings take their default value from config-default.yaml
 ```
-When libKGE is called with this config, it will be [expanded with all default arguments](docs/examples/expanded-config-example.yaml) from the [main default config]((kge/config-default.yaml)), as well the default configurations for models, for example the [model's embedder](kge/model/lookup_embedder.yaml). 
+When libKGE is called with this config, it will be [expanded with all default arguments](docs/examples/expanded-config-example.yaml) from the [main default config](kge/config-default.yaml), as well the default configurations for models, for example the [model's embedder](kge/model/lookup_embedder.yaml). 
 
 Now, to begin training, run one of the following:
 
