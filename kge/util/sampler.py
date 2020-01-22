@@ -1,4 +1,5 @@
 from kge import Config, Configurable, Dataset
+from kge.indexing import index_where_in
 import torch
 from typing import Optional
 import numpy as np
@@ -145,6 +146,12 @@ class KgeSampler(Configurable):
         return negative_samples
 
     def _filter_fast(self, result: torch.Tensor, slot: int, spo: torch.Tensor):
+        """ Use numba for filtering.
+
+         A sampler has to implement a @njit _filter_numba function and registers it
+         in self.get_numba_sampler().
+
+         """
         spo_char = "spo"
         pair = spo_char.replace(spo_char[slot], "")
         # holding the positive indices for the respective pair
@@ -155,12 +162,10 @@ class KgeSampler(Configurable):
         batch_size = spo.size(0)
         voc_size = self.vocabulary_size[slot]
         positives = Dict()
-
         for i in range(batch_size):
             positives[tuple(pairs[i].tolist())] = np.array(
                 index[tuple(pairs[i].tolist())]
             )
-
         result = np.array(result)
         KgeSampler._filter_numba(
             positives,
@@ -168,7 +173,7 @@ class KgeSampler(Configurable):
             result,
             batch_size,
             int(voc_size),
-            self.get_numba_sampler()
+            self.get_numba_sampler(),
         )
         return torch.tensor(result, dtype=torch.int64)
 
@@ -178,7 +183,7 @@ class KgeSampler(Configurable):
             pos = positives[(pairs[i][0], pairs[i][1])]
             # inlining the idx_wherein function here results in an internal numba
             # error which asks to file a bug report
-            resample_idx = idx_where_in(result[i], pos, True)
+            resample_idx = index_where_in(result[i], pos, True)
             # number of new samples needed
             num_new = len(resample_idx)
             new = np.empty(num_new)
@@ -189,10 +194,10 @@ class KgeSampler(Configurable):
                 if not num_remaining:
                     break
                 new_samples = sample_func(voc_size, num_remaining)
-                idx = idx_where_in(new_samples, pos, False)
+                idx = index_where_in(new_samples, pos, False)
                 # store the correct (true negatives) samples found
                 if len(idx):
-                    new[num_found: num_found + len(idx)] = new_samples[idx]
+                    new[num_found : num_found + len(idx)] = new_samples[idx]
                 num_found += len(idx)
                 num_remaining = num_new - num_found
             ctr = 0
@@ -204,6 +209,10 @@ class KgeSampler(Configurable):
     def get_numba_sampler(self):
         if isinstance(self, KgeUniformSampler):
             return KgeUniformSampler._sample_numba
+        else:
+            raise NotImplementedError(
+                "No numba filtering implemented. Use filtering.implementation=python"
+            )
 
 
 class KgeUniformSampler(KgeSampler):
@@ -240,4 +249,3 @@ def idx_where_in(x, y, t_f=True):
     # setting njit(parallel=True) slowed down the function
     list_y = list(y)
     return np.where(np.array([i in list_y for i in x]) == t_f)[0]
-

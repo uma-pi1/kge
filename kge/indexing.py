@@ -1,5 +1,7 @@
 import torch
 from collections import defaultdict, OrderedDict
+from numba import njit
+import numpy as np
 
 
 def _group_by(keys, values) -> dict:
@@ -228,3 +230,27 @@ def create_default_index_functions(dataset: "Dataset"):
         dataset.index_functions[f"{obj}_id_to_index"] = IndexWrapper(
             _invert_ids, obj=obj
         )
+
+    dataset.index_functions["entity_id_to_index"] = lambda dataset: _invert_ids(
+        dataset, "entity"
+    )
+    dataset.index_functions["relation_id_to_index"] = lambda dataset: _invert_ids(
+        dataset, "relation"
+    )
+
+@njit
+def index_where_in(x, y, t_f=True):
+    """Retrieves the indices of the elements in x which are also in y.
+
+    x and y are assumed to be 1 dimensional arrays.
+
+    :params: t_f: if False, returns the indices of the of the elements in x
+    which are not in y.
+
+    """
+    # np.isin is not supported in numba. Also: "i in y" raises an error in numba
+    # when y is a np.array. Casting y to a set instead a list was surprisingly slower.
+    # Setting njit(parallel=True) slows down the function
+    list_y = list(y)
+    return np.where(np.array([i in list_y for i in x]) == t_f)[0]
+
