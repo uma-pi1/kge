@@ -17,7 +17,8 @@ setup(
         "ax-platform>=0.1.6",
         "sqlalchemy",
         "torchviz",
-        "dataclasses"
+        "dataclasses",
+        "numba"
     ],
     zip_safe=False,
 )
