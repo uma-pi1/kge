@@ -192,7 +192,7 @@ negative_sampling:
     s: False       # filter s samples until all are true negatives
     p: False       # see above
     o: False       # see above
-    implementation: numba # numba; python
+    implementation: fast # standard; fast
 
   # Whether to share the s/p/o corruptions for all triples in the batch. This
   # can make training more efficient. Cannot be used with together with

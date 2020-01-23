@@ -18,7 +18,7 @@ setup(
         "sqlalchemy",
         "torchviz",
         "dataclasses",
-        "numba"
+        "numba==0.47.0"
     ],
     zip_safe=False,
 )

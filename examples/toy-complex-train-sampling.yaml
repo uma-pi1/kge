@@ -1,7 +1,7 @@
 job.type: train
-dataset.name: fb15k
+dataset.name: toy
 model: complex
-
+train.num_workers: 4
 train:
   type: negative_sampling
   optimizer: Adagrad
@@ -22,7 +22,7 @@ negative_sampling:
     s: True
     o: True
     p: True
-    implementation: python
+    implementation: fast
 
 
 
