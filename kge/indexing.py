@@ -5,7 +5,7 @@ import numpy as np
 
 
 def _group_by(keys, values) -> dict:
-    """ Groups values by keys.
+    """Group values by keys.
 
     :param keys: list of keys
     :param values: list of values
@@ -240,7 +240,7 @@ def create_default_index_functions(dataset: "Dataset"):
 
 @njit
 def index_where_in(x, y, t_f=True):
-    """Retrieves the indices of the elements in x which are also in y.
+    """Retrieve the indices of the elements in x which are also in y.
 
     x and y are assumed to be 1 dimensional arrays.
 
