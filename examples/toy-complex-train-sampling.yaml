@@ -1,7 +1,7 @@
 job.type: train
 dataset.name: toy
 model: complex
-train.num_workers: 4
+
 train:
   type: negative_sampling
   optimizer: Adagrad
@@ -23,6 +23,3 @@ negative_sampling:
     o: True
     p: True
     implementation: fast
-
-
-

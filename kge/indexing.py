@@ -249,8 +249,7 @@ def index_where_in(x, y, t_f=True):
 
     """
     # np.isin is not supported in numba. Also: "i in y" raises an error in numba
-    # when y is a np.array. Casting y to a set instead a list was surprisingly slower.
     # Setting njit(parallel=True) slows down the function
-    list_y = list(y)
+    list_y = set(y)
     return np.where(np.array([i in list_y for i in x]) == t_f)[0]
 

@@ -1,11 +1,11 @@
 from kge import Config, Configurable, Dataset
 from kge.indexing import index_where_in
+
 import torch
 from typing import Optional
 import numpy as np
 from numba import njit
-from numba.typed import List, Dict
-import time
+from numba.typed import Dict
 
 SLOTS = [0, 1, 2]
 SLOT_STR = ["s", "p", "o"]
@@ -29,10 +29,16 @@ class KgeSampler(Configurable):
             self.vocabulary_size[slot] = (
                 dataset.num_relations() if slot == P else dataset.num_entities()
             )
-        self.check_option("filtering.implementation", ["standard", "fast"])
-        self.filter_fast = True
-        if self.get_option("filtering.implementation") == "standard":
-            self.filter_fast = False
+            # create indices for filtering here already if needed and not existing
+            # otherwise every worker would create every index again and again
+            if self.filter_positives[slot]:
+                pair = ["po", "so", "sp"][slot]
+                dataset.index(f"train_{pair}_to_{slot_str}")
+        if any(self.filter_positives):
+            self.check_option("filtering.implementation", ["standard", "fast"])
+            self.filter_fast = True
+            if self.get_option("filtering.implementation") == "standard":
+                self.filter_fast = False
         self.dataset = dataset
         self.shared = self.get_option("shared")
         # auto config
@@ -42,6 +48,7 @@ class KgeSampler(Configurable):
                     self.num_samples[slot] = self.num_samples[copy_from]
                 else:
                     self.num_samples[slot] = 0
+
 
     @staticmethod
     def create(config: Config, configuration_key: str, dataset: Dataset):
