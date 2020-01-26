@@ -163,10 +163,10 @@ class TrainingJob(Job):
             self.config.log("Finished epoch {}.".format(self.epoch))
 
             # update model metadata
-            self.model.meta["train_job_trace_entry"] = self.trace_entry
-            self.model.meta["train_epoch"] = self.epoch
-            self.model.meta["train_config"] = self.config
-            self.model.meta["train_trace_entry"] = trace_entry
+            self.model.module.meta["train_job_trace_entry"] = self.trace_entry
+            self.model.module.meta["train_epoch"] = self.epoch
+            self.model.module.meta["train_config"] = self.config
+            self.model.module.meta["train_trace_entry"] = trace_entry
 
             # validate
             if (
@@ -178,7 +178,7 @@ class TrainingJob(Job):
                 self.valid_trace.append(trace_entry)
                 for f in self.post_valid_hooks:
                     f(self, trace_entry)
-                self.model.meta["valid_trace_entry"] = trace_entry
+                self.model.module.meta["valid_trace_entry"] = trace_entry
 
                 # metric-based scheduler step
                 if self.metric_based_scheduler:
@@ -233,7 +233,7 @@ class TrainingJob(Job):
                 "config": self.config,
                 "epoch": self.epoch,
                 "valid_trace": self.valid_trace,
-                "model": self.model.save(),
+                "model": self.model.module.save(),
                 "optimizer_state_dict": self.optimizer.state_dict(),
                 "job_id": self.job_id,
             },
@@ -248,14 +248,14 @@ class TrainingJob(Job):
         checkpoint = torch.load(filename, map_location="cpu")
         if "model" in checkpoint:
             # new format
-            self.model.load(checkpoint["model"])
+            self.model.module.load(checkpoint["model"])
         else:
             # old format (deprecated, will eventually be removed)
-            self.model.load_state_dict(checkpoint["model_state_dict"])
+            self.model.module.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         self.epoch = checkpoint["epoch"]
         self.valid_trace = checkpoint["valid_trace"]
-        self.model.train()
+        self.model.module.train()
         return checkpoint.get("job_id")
 
     def resume(self, checkpoint_file: str = None) -> None:
@@ -283,7 +283,7 @@ class TrainingJob(Job):
         # prepare the job is not done already
         if not self.is_prepared:
             self._prepare()
-            self.model.prepare_job(self)  # let the model add some hooks
+            self.model.module.prepare_job(self)  # let the model add some hooks
             self.is_prepared = True
 
         # variables that record various statitics
@@ -310,7 +310,7 @@ class TrainingJob(Job):
 
             # determine penalty terms (forward pass)
             batch_forward_time = batch_result.forward_time - time.time()
-            penalties_torch = self.model.penalty(
+            penalties_torch = self.model.module.penalty(
                 epoch=self.epoch,
                 batch_index=batch_index,
                 num_batches=len(self.loader),
@@ -362,7 +362,8 @@ class TrainingJob(Job):
 
             # update parameters
             batch_optimizer_time = -time.time()
-            self.optimizer.step()
+            self.model(None, None, None, combine="optim", optimizer=self.optimizer)
+            #self.optimizer.step()
             batch_optimizer_time += time.time()
 
             # tracing/logging
@@ -649,9 +650,10 @@ class TrainingJobKvsAll(TrainingJob):
         loss_value = 0.0
         if len(sp_indexes) > 0:
             forward_time = -time.time()
-            scores_sp = self.model.score_sp(
-                sp_po_batch[sp_indexes, 0], sp_po_batch[sp_indexes, 1]
-            )
+            scores_sp = self.model(sp_po_batch[sp_indexes, 0], sp_po_batch[sp_indexes, 1], None, combine='sp*')
+            #scores_sp = self.model.score_sp(
+            #    sp_po_batch[sp_indexes, 0], sp_po_batch[sp_indexes, 1]
+            #)
             loss_value_sp = self.loss(scores_sp, labels[sp_indexes,]) / batch_size
             loss_value = +loss_value_sp.item()
             forward_time += time.time()
@@ -662,9 +664,10 @@ class TrainingJobKvsAll(TrainingJob):
         # forward/backward pass (po)
         if len(po_indexes) > 0:
             forward_time = -time.time()
-            scores_po = self.model.score_po(
-                sp_po_batch[po_indexes, 0], sp_po_batch[po_indexes, 1]
-            )
+            scores_po = self.model(None, sp_po_batch[po_indexes, 0], sp_po_batch[po_indexes, 1], combine='*po')
+            #scores_po = self.model.score_po(
+            #    sp_po_batch[po_indexes, 0], sp_po_batch[po_indexes, 1]
+            #)
             loss_value_po = self.loss(scores_po, labels[po_indexes,]) / batch_size
             loss_value = loss_value_po.item()
             forward_time += time.time()
@@ -783,20 +786,29 @@ class TrainingJobNegativeSampling(TrainingJob):
 
                 # and score them
                 forward_time -= time.time()
-                scores = self.model.score_spo(
+                scores = self.model(
                     triples_to_score[:, 0],
                     triples_to_score[:, 1],
                     triples_to_score[:, 2],
+                    comibine='spo',
                     direction="s" if slot == S else ("o" if slot == O else "p"),
                 ).view(batch_size, -1)
+                #scores = self.model.score_spo(
+                #    triples_to_score[:, 0],
+                #    triples_to_score[:, 1],
+                #    triples_to_score[:, 2],
+                #    direction="s" if slot == S else ("o" if slot == O else "p"),
+                #).view(batch_size, -1)
                 forward_time += time.time()
             elif self._implementation == "sp_po":
                 # compute all scores for slot
                 forward_time -= time.time()
                 if slot == S:
-                    all_scores = self.model.score_po(triples[:, P], triples[:, O])
+                    all_scores = self.model(None, triples[:, P], triples[:, O], combine='*po')
+                    #all_scores = self.model.score_po(triples[:, P], triples[:, O])
                 elif slot == O:
-                    all_scores = self.model.score_sp(triples[:, S], triples[:, P])
+                    all_scores = self.model(triples[:, S], triples[:, P], None, combine='sp*')
+                    #all_scores = self.model.score_sp(triples[:, S], triples[:, P])
                 else:
                     raise NotImplementedError
                 forward_time += time.time()
@@ -887,18 +899,29 @@ class TrainingJob1vsAll(TrainingJob):
 
         # forward/backward pass (sp)
         forward_time = -time.time()
-        scores_sp = self.model.score_sp(triples[:, 0], triples[:, 1])
-        loss_value_sp = self.loss(scores_sp, triples[:, 2]) / batch_size
-        loss_value = loss_value_sp.item()
+        scores_sp = self.model(triples[:, 0], triples[:, 1], None, combine='sp*')
+        #scores_sp = self.model.score_sp(triples[:, 0], triples[:, 1])
+        loss_value_sp = self.model(None, None, None, scores=scores_sp,
+                                   labels=triples[:, 2], combine="loss").sum()
+        loss_value_sp = loss_value_sp.sum()
+        #loss_value_sp = self.loss(scores_sp, triples[:, 2]) / batch_size
+        #loss_value = loss_value_sp.item()
         forward_time = +time.time()
         backward_time = -time.time()
+        #self.model(None, None, None, combine="back", loss=loss_value_sp)
         loss_value_sp.backward()
+        loss_value = (loss_value_sp / batch_size).item()
         backward_time += time.time()
 
         # forward/backward pass (po)
         forward_time -= time.time()
-        scores_po = self.model.score_po(triples[:, 1], triples[:, 2])
-        loss_value_po = self.loss(scores_po, triples[:, 0]) / batch_size
+        scores_po = self.model(None, triples[:, 1], triples[:, 2], combine='*po')
+        #scores_po = self.model.score_po(triples[:, 1], triples[:, 2])
+        loss_value_po = self.model(None, None, None, scores=scores_po,
+                                   labels=triples[:, 0], combine="loss"
+                                   ).sum() / batch_size
+        #loss_value_po = self.loss(scores_po, triples[:, 0]) / batch_size
+        #loss_value += loss_value_po.item()
         loss_value += loss_value_po.item()
         forward_time += time.time()
         backward_time -= time.time()

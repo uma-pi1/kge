@@ -8,6 +8,7 @@ import os
 import kge
 from kge import Config, Configurable, Dataset
 from kge.misc import filename_in_module
+from kge.util import KgeLoss
 from typing import Any, Dict, List, Optional, Union
 
 from typing import TYPE_CHECKING
@@ -293,6 +294,7 @@ class KgeModel(KgeBase):
             )
         else:
             self._scorer = scorer
+        self.loss = KgeLoss.create(config)
 
     # overridden to also set self.model
     def _init_configuration(self, config: Config, configuration_key: Optional[str]):
@@ -323,6 +325,12 @@ class KgeModel(KgeBase):
         try:
             model = getattr(module, class_name)(config, dataset, configuration_key)
             model.to(config.get("job.device"))
+            if torch.cuda.device_count() > 1:
+                print("Let's use", torch.cuda.device_count(), "GPUs!")
+                # model = torch.nn.DataParallel(model)
+            else:
+                print("only one device available")
+            model = torch.nn.DataParallel(model)
             return model
         except ImportError:
             # perhaps TODO: try class with specified name -> extensibility
@@ -451,6 +459,22 @@ class KgeModel(KgeBase):
 
     def get_scorer(self) -> RelationalScorer:
         return self._scorer
+
+    def forward(self, s: Tensor, p: Tensor, o: Tensor, combine: str,
+                entity_subset: torch.Tensor = None, direction=None,
+                scores=None, labels=None, optimizer=None):
+        if combine == 'spo':
+            return self.score_spo(s, p, o, direction)
+        elif combine == 'sp*':
+            return self.score_sp(s, p, o)
+        elif combine == '*po':
+            return self.score_po(p, o, s)
+        elif combine == 'sp_po':
+            return self.score_sp_po(s, p, o, entity_subset)
+        elif combine == 'loss':
+            return self.loss(scores, labels)
+        elif combine == 'optim':
+            return optimizer.step()
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         r"""Compute scores for a set of triples.

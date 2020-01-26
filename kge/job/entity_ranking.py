@@ -49,7 +49,7 @@ class EntityRankingJob(EvaluationJob):
         )
 
         # let the model add some hooks, if it wants to do so
-        self.model.prepare_job(self)
+        self.model.module.prepare_job(self)
         self.is_prepared = True
 
     def _collate(self, batch):
@@ -74,8 +74,8 @@ class EntityRankingJob(EvaluationJob):
     def run(self) -> dict:
         self._prepare()
 
-        was_training = self.model.training
-        self.model.eval()
+        was_training = self.model.module.training
+        self.model.module.eval()
         self.config.log(
             "Evaluating on " + self.eval_data + " data (epoch {})...".format(self.epoch)
         )
@@ -142,8 +142,10 @@ class EntityRankingJob(EvaluationJob):
 
             # compute true scores beforehand, since we can't get them from a chunked
             # score table
-            o_true_scores = self.model.score_spo(s, p, o, "o").view(-1)
-            s_true_scores = self.model.score_spo(s, p, o, "s").view(-1)
+            o_true_scores = self.model(s, p, o, combine='spo', direction="o").view(-1)
+            s_true_scores = self.model(s, p, o, combine='spo', direction="s").view(-1)
+            #o_true_scores = self.model.score_spo(s, p, o, "o").view(-1)
+            #s_true_scores = self.model.score_spo(s, p, o, "s").view(-1)
 
             # default dictionary storing rank and num_ties for each key in rankings
             # as list of len 2: [rank, num_ties]
@@ -167,9 +169,12 @@ class EntityRankingJob(EvaluationJob):
                 chunk_end = min(chunk_size * (chunk_number + 1), num_entities)
 
                 # compute scores of chunk
-                scores = self.model.score_sp_po(
-                    s, p, o, torch.arange(chunk_start, chunk_end).to(self.device)
+                scores = self.model(
+                    s, p, o, combine='sp_po', entity_subset=torch.arange(chunk_start, chunk_end).to(self.device)
                 )
+                #scores = self.model.score_sp_po(
+                #    s, p, o, torch.arange(chunk_start, chunk_end).to(self.device)
+                #)
                 scores_sp = scores[:, : chunk_end - chunk_start]
                 scores_po = scores[:, chunk_end - chunk_start :]
 
@@ -413,7 +418,7 @@ class EntityRankingJob(EvaluationJob):
 
         # reset model and return metrics
         if was_training:
-            self.model.train()
+            self.model.module.train()
         self.config.log("Finished evaluating on " + self.eval_data + " data.")
 
         for f in self.post_valid_hooks:
