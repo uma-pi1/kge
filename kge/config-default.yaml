@@ -189,9 +189,12 @@ negative_sampling:
   # Whether to resample corrupted triples that occur in the training data (and
   # are hence positives). Can be set separately for each slot.
   filtering:
-    s: False       # filter s samples until all are true negatives
-    p: False       # see above
-    o: False       # see above
+    s: False       # filter negative candidate triples created by sampling slot s
+    p: False       # as above
+    o: False       # as above
+
+    # Set to standard or fast. Standard is a generic method which can be slow. Set only
+    # to standard if fast is not implemented for a sampler.
     implementation: fast # standard; fast
 
   # Whether to share the s/p/o corruptions for all triples in the batch. This
