@@ -89,12 +89,7 @@ class KgeSampler(Configurable):
                 raise ValueError(
                     "Filtering is not supported when shared negative sampling is enabled."
                 )
-            negative_samples = self._filter(negative_samples, slot, positive_triples)
-            if self.get_option("filtering.implementation") == "python":
-                negative_samples = self._filter(negative_samples, slot, positive_triples)
-            elif self.get_option("filtering.implementation") == "numba":
-                negative_samples = self._filter_fast(negative_samples, slot, positive_triples)
-            if self.filter_fast:
+            elif self.filter_fast:
                 negative_samples = self._filter_and_resample_fast(
                     negative_samples, slot, positive_triples
                 )
@@ -138,7 +133,6 @@ class KgeSampler(Configurable):
             )[0]
             # number of new samples needed
             num_new = len(resample_idx)
-            new = torch.empty(num_new, dtype=torch.long)
             # number already found of the new samples needed
             num_found = 0
             num_remaining = num_new - num_found
@@ -150,12 +144,13 @@ class KgeSampler(Configurable):
                 tn_idx = np.where(
                     np.isin(new_samples, index[tuple(pairs[i].tolist())]) == 0
                 )[0]
-                # store the correct (true negatives) samples found
+                # write the true negatives found
                 if len(tn_idx):
-                    new[num_found : num_found + len(tn_idx)] = new_samples[tn_idx]
-                num_found += len(tn_idx)
-                num_remaining = num_new - num_found
-            negative_samples[i, resample_idx] = new
+                    negative_samples[
+                        i, resample_idx[num_found : num_found + len(tn_idx)]
+                    ] = new_samples[tn_idx]
+                    num_found += len(tn_idx)
+                    num_remaining = num_new - num_found
         return negative_samples
 
     def _filter_and_resample_fast(
@@ -196,7 +191,7 @@ class KgeUniformSampler(KgeSampler):
         # numba lists 2. Using a python list and convert it to an np.array and use
         # offsets 3. Growing a np.array with np.append 4. leaving the loop in python and
         # calling a numba function within the loop
-        positives = numba.typed.Dict
+        positives = numba.typed.Dict()
         for i in range(batch_size):
             positives[tuple(pairs[i].tolist())] = np.array(
                 index[tuple(pairs[i].tolist())]
@@ -213,69 +208,24 @@ class KgeUniformSampler(KgeSampler):
     ):
         for i in range(batch_size):
             pos = positives[(pairs[i][0], pairs[i][1])]
-            # inlining the idx_wherein function here results in an internal numba
+            # inlining the where_in function here results in an internal numba
             # error which asks to file a bug report
             resample_idx = where_in(negative_samples[i], pos, True)
             # number of new samples needed
             num_new = len(resample_idx)
-            new = np.empty(num_new)
             # number already found of the new samples needed
             num_found = 0
             num_remaining = num_new - num_found
             while num_remaining:
                 new_samples = np.random.randint(0, voc_size, num_remaining)
                 idx = where_in(new_samples, pos, False)
-                # store the correct (true negatives) samples found
+                # write the true negatives found
                 if len(idx):
-                    new[num_found : num_found + len(idx)] = new_samples[idx]
-                num_found += len(idx)
-                num_remaining = num_new - num_found
-            ctr = 0
-            # numba does not support result[i, resample_idx] = new
-            for j in resample_idx:
-                negative_samples[i, j] = new[ctr]
-                ctr += 1
-
-    def get_numba_sampler(self):
-        if isinstance(self, KgeUniformSampler):
-            return KgeUniformSampler._sample_numba
-        else:
-            raise NotImplementedError(
-                "No numba filtering implemented. Use filtering.implementation=python"
-            )
-
-
-class KgeUniformSampler(KgeSampler):
-    def __init__(self, config: Config, configuration_key: str, dataset: Dataset):
-        super().__init__(config, configuration_key, dataset)
-
-    def _sample(self, positive_triples: torch.Tensor, slot: int, num_samples: int):
-        return torch.randint(
-            self.vocabulary_size[slot], (positive_triples.size(0), num_samples)
-        )
-    @njit
-    def _sample_numba(voc_size, num_remaining):
-        return np.random.randint(0, voc_size, num_remaining)
-
-    def _sample_shared(
-            self, positive_triples: torch.Tensor, slot: int, num_samples: int
-    ):
-        return self._sample(torch.empty(1), slot, num_samples).view(-1)
-
-
-@njit
-def idx_where_in(x, y, t_f=True):
-    """ Retrieves the indices of the elements in x which are also in y.
-
-    x and y are assumed to be 1 dimensional arrays.
-
-    :params: t_f: if False, returns the indices of the of the elements in x
-    which are not in y.
-
-    """
-    # np.isin is not supported in numba. This is faster than np.where(np.isin))
-    # "i in y" raises an error in numba when y is a np.array.
-    # casting y to a set instead a list was always slower in test scripts
-    # setting njit(parallel=True) slowed down the function
-    list_y = list(y)
-    return np.where(np.array([i in list_y for i in x]) == t_f)[0]
+                    ctr = 0
+                    # numba does not support advanced indexing but the loop
+                    # is optimized so it's faster than numpy anyway
+                    for j in resample_idx[num_found: num_found + len(idx)]:
+                        negative_samples[i, j] = new_samples[ctr]
+                        ctr += 1
+                    num_found += len(idx)
+                    num_remaining = num_new - num_found
