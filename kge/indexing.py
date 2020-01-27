@@ -1,6 +1,6 @@
 import torch
 from collections import defaultdict, OrderedDict
-from numba import njit
+import numba
 import numpy as np
 
 
@@ -238,8 +238,9 @@ def create_default_index_functions(dataset: "Dataset"):
         dataset, "relation"
     )
 
-@njit
-def index_where_in(x, y, t_f=True):
+
+@numba.njit
+def where_in(x, y, t_f=True):
     """Retrieve the indices of the elements in x which are also in y.
 
     x and y are assumed to be 1 dimensional arrays.
