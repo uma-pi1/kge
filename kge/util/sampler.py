@@ -65,9 +65,7 @@ class KgeSampler(Configurable):
         if num_samples is None:
             num_samples = self.num_samples[slot]
         if self.get_option("shared"):
-            negative_samples = self._sample(torch.empty(1), slot,
-                                            num_samples).expand(
-                                            positive_triples.size(0), num_samples)
+            negative_samples = self._sample_shared(positive_triples, slot, num_samples)
         else:
             negative_samples = self._sample(positive_triples, slot, num_samples)
         if self.filter_positives[slot]:
@@ -79,6 +77,12 @@ class KgeSampler(Configurable):
 
     def _sample(self, positive_triples: torch.Tensor, slot: int, num_samples: int):
         """Sample negative examples. """
+        raise NotImplementedError()
+
+    def _sample_shared(
+        self, positive_triples: torch.Tensor, slot: int, num_samples: int
+    ):
+        """Sample negative examples with shared entities for corruption. """
         raise NotImplementedError()
 
     def _filter(
@@ -128,3 +132,10 @@ class KgeUniformSampler(KgeSampler):
         return torch.randint(
             self.vocabulary_size[slot], (positive_triples.size(0), num_samples)
         )
+
+    def _sample_shared(
+        self, positive_triples: torch.Tensor, slot: int, num_samples: int
+    ):
+        return torch.randint(
+            self.vocabulary_size[slot], (1, num_samples)
+        ).expand(positive_triples.size(0), num_samples)
