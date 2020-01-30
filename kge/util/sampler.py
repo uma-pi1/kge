@@ -119,17 +119,19 @@ class KgeSampler(Configurable):
         self, negative_samples: torch.Tensor, slot: int, positive_triples: torch.Tensor
     ):
         """Filter and resample indices until only negatives have been created. """
-        pair = ["po", "so", "sp"][slot]
+        pair_str = ["po", "so", "sp"][slot]
         # holding the positive indices for the respective pair
-        index = self.dataset.index(f"train_{pair}_to_{SLOT_STR[slot]}")
+        index = self.dataset.index(f"train_{pair_str}_to_{SLOT_STR[slot]}")
         cols = [[P, O], [S, O], [S, P]][slot]
         pairs = positive_triples[:, cols]
         for i in range(positive_triples.size(0)):
+            pair = pairs[i][0].item(), pairs[i][1].item()
+            false_negatives = index.get(pair)
             # indices of samples that have to be sampled again
             # Note: giving np.isin() a set as second argument potentially is faster
             # but conversion to a set induces costs that make things worse
             resample_idx = np.where(
-                np.isin(negative_samples[i], index[tuple(pairs[i].tolist())]) != 0
+                np.isin(negative_samples[i], false_negatives) != 0
             )[0]
             # number of new samples needed
             num_new = len(resample_idx)
@@ -139,10 +141,10 @@ class KgeSampler(Configurable):
             while num_remaining:
                 new_samples = self._sample(
                     positive_triples[i, None], slot, num_remaining
-                ).flatten()
+                ).view(-1)
                 # indices of the true negatives
                 tn_idx = np.where(
-                    np.isin(new_samples, index[tuple(pairs[i].tolist())]) == 0
+                    np.isin(new_samples, false_negatives) == 0
                 )[0]
                 # write the true negatives found
                 if len(tn_idx):
@@ -156,7 +158,7 @@ class KgeSampler(Configurable):
     def _filter_and_resample_fast(
         self, negative_samples: torch.Tensor, slot: int, positive_triples: torch.Tensor
     ):
-        """Filtering implementation for specific samplers.
+        """Filter and resample indices.
 
         Samplers can override this method when their sampling strategy allows for a
         more efficient filtering method than the generic standard method or when their
@@ -177,12 +179,17 @@ class KgeUniformSampler(KgeSampler):
             self.vocabulary_size[slot], (positive_triples.size(0), num_samples)
         )
 
+    def _sample_shared(
+        self, positive_triples: torch.Tensor, slot: int, num_samples: int
+    ):
+        return self._sample(torch.empty(1), slot, num_samples).view(-1)
+
     def _filter_and_resample_fast(
         self, negative_samples: torch.Tensor, slot: int, positive_triples: torch.Tensor
     ):
-        pair = ["po", "so", "sp"][slot]
+        pair_str = ["po", "so", "sp"][slot]
         # holding the positive indices for the respective pair
-        index = self.dataset.index(f"train_{pair}_to_{SLOT_STR[slot]}")
+        index = self.dataset.index(f"train_{pair_str}_to_{SLOT_STR[slot]}")
         cols = [[P, O], [S, O], [S, P]][slot]
         pairs = positive_triples[:, cols].numpy()
         batch_size = positive_triples.size(0)
@@ -193,24 +200,23 @@ class KgeUniformSampler(KgeSampler):
         # calling a numba function within the loop
         positives = numba.typed.Dict()
         for i in range(batch_size):
-            positives[tuple(pairs[i].tolist())] = np.array(
-                index[tuple(pairs[i].tolist())]
-            )
+            pair = (pairs[i][0], pairs[i][1])
+            positives[pair] = index.get(pair).numpy()
         negative_samples = negative_samples.numpy()
         KgeUniformSampler._filter_and_resample_numba(
-            positives, pairs, negative_samples, batch_size, int(voc_size),
+            negative_samples, pairs, positives, batch_size, int(voc_size),
         )
         return torch.tensor(negative_samples, dtype=torch.int64)
 
     @numba.njit
     def _filter_and_resample_numba(
-        positives, pairs, negative_samples, batch_size, voc_size
+        negative_samples, pairs, positives, batch_size, voc_size
     ):
         for i in range(batch_size):
-            pos = positives[(pairs[i][0], pairs[i][1])]
+            false_negatives = positives[(pairs[i][0], pairs[i][1])]
             # inlining the where_in function here results in an internal numba
             # error which asks to file a bug report
-            resample_idx = where_in(negative_samples[i], pos, True)
+            resample_idx = where_in(negative_samples[i], false_negatives, True)
             # number of new samples needed
             num_new = len(resample_idx)
             # number already found of the new samples needed
@@ -218,7 +224,7 @@ class KgeUniformSampler(KgeSampler):
             num_remaining = num_new - num_found
             while num_remaining:
                 new_samples = np.random.randint(0, voc_size, num_remaining)
-                idx = where_in(new_samples, pos, False)
+                idx = where_in(new_samples, false_negatives, False)
                 # write the true negatives found
                 if len(idx):
                     ctr = 0
