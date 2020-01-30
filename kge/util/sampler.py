@@ -20,7 +20,7 @@ class KgeSampler(Configurable):
         self.vocabulary_size = torch.zeros(3, dtype=torch.int)
         for slot in SLOTS:
             slot_str = SLOT_STR[slot]
-            self.num_samples[slot] = self.get_option(f"num_samples_{slot_str}")
+            self.num_samples[slot] = self.get_option(f"num_samples.{slot_str}")
             self.filter_positives[slot] = self.get_option(f"filtering.{slot_str}")
             self.vocabulary_size[slot] = (
                 dataset.num_relations() if slot == P else dataset.num_entities()
@@ -67,25 +67,32 @@ class KgeSampler(Configurable):
             num_samples = self.num_samples[slot]
         if self.shared:
             negative_samples = self._sample_shared(
-                positive_triples, slot, num_samples).expand(
-                positive_triples.size(0), num_samples)
+                positive_triples, slot, num_samples
+            ).expand(positive_triples.size(0), num_samples)
         else:
             negative_samples = self._sample(positive_triples, slot, num_samples)
         if self.filter_positives[slot]:
             if self.shared:
                 raise ValueError(
-                    "Filtering is not supported with shared negative sampling.")
+                    "Filtering is not supported when shared negative sampling is enabled."
+                )
             negative_samples = self._filter(negative_samples, slot, positive_triples)
         return negative_samples
 
     def _sample(self, positive_triples: torch.Tensor, slot: int, num_samples: int):
-        """Sample negative examples. """
-        raise NotImplementedError()
+        """Sample negative examples."""
+        raise NotImplementedError(
+            "The selected sampler does not support shared negative samples."
+        )
 
     def _sample_shared(
         self, positive_triples: torch.Tensor, slot: int, num_samples: int
     ):
-        """Sample negative examples with shared entities for corruption. """
+        """Sample negative examples with shared entities for corruption.
+
+        Returns a vector with with indexes of the sampled negative entities (`slot`=0 or
+        `slot`=2) or relations (`slot`=1).
+        """
         raise NotImplementedError()
 
     def _filter(
@@ -139,4 +146,4 @@ class KgeUniformSampler(KgeSampler):
     def _sample_shared(
         self, positive_triples: torch.Tensor, slot: int, num_samples: int
     ):
-        return self._sample(torch.empty(1), slot, num_samples)
+        return self._sample(torch.empty(1), slot, num_samples).view(-1)
