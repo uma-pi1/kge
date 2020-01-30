@@ -100,9 +100,10 @@ negative_sampling:
     p: false
     s: false
   implementation: spo
-  num_samples_o: -1
-  num_samples_p: -1
-  num_samples_s: 3
+  num_samples:
+    o: -1
+    p: 0
+    s: 3
   sampling_type: uniform
 random_seed:
   numpy: -1

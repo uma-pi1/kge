@@ -176,22 +176,35 @@ KvsAll:
 
 # Options for negative sampling training (train.type=="negative_sampling")
 negative_sampling:
+  # Type of sampler
   sampling_type: uniform
-  num_samples_s: 3          # this is default value if others are -1, must not be -1
-  num_samples_p: -1
-  num_samples_o: -1
 
-  # set to spo (for small negative samples), sp_po (for large negative samples),
-  # or set to auto which sets spo or sp_po automatically if the
-  # max(num_samples_s, num_samples_p, num_samples_o) > 30. Recommended for
-  # models which compute sp_po with an inner product, but not for all other
-  # models (e.g., not for TransE in the current implementation).
-  implementation: spo
+  # Number of times each slot of each positive triple is corrupted by the
+  # sampler to obtain negative triples.
+  num_samples:
+    s: 3
+    p: 0          # -1 means: same as s
+    o: -1         # -1 means: same as s
 
+  # Whether to resample corrupted triples that occur in the training data (and
+  # are hence positives). Can be set separately for each slot.
   filtering:
-    s: False       # filter s samples until all are true negatives
-    p: False       # see above
-    o: False       # see above
+    s: False
+    p: False
+    o: False
+
+  # Whether to share the s/p/o corruptions for all triples in the batch. This
+  # can make training more efficient. Cannot be used with together with
+  # filtering.
+  shared: False
+
+  # Implementation to use for the training job. Set to spo (for small negative
+  # samples), sp_po (for large negative samples), or set to auto which sets spo
+  # or sp_po automatically if the max(num_samples.s, num_samples.p,
+  # num_samples.o) > 30. Recommended for models which compute sp_po with an
+  # matrix product, but not for all other models (e.g., not for TransE in the
+  # current implementation).
+  implementation: spo
 
 
 ## VALIDATION ##################################################################
