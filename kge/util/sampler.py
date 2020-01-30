@@ -126,13 +126,9 @@ class KgeSampler(Configurable):
         pairs = positive_triples[:, cols]
         for i in range(positive_triples.size(0)):
             pair = pairs[i][0].item(), pairs[i][1].item()
-            false_negatives = index.get(pair)
+            false_negatives = index.get(pair).numpy()
             # indices of samples that have to be sampled again
-            # Note: giving np.isin() a set as second argument potentially is faster
-            # but conversion to a set induces costs that make things worse
-            resample_idx = np.where(
-                np.isin(negative_samples[i], false_negatives) != 0
-            )[0]
+            resample_idx = where_in(negative_samples[i].numpy(), false_negatives, True)
             # number of new samples needed
             num_new = len(resample_idx)
             # number already found of the new samples needed
@@ -143,9 +139,7 @@ class KgeSampler(Configurable):
                     positive_triples[i, None], slot, num_remaining
                 ).view(-1)
                 # indices of the true negatives
-                tn_idx = np.where(
-                    np.isin(new_samples, false_negatives) == 0
-                )[0]
+                tn_idx = where_in(new_samples.numpy(), false_negatives, False)
                 # write the true negatives found
                 if len(tn_idx):
                     negative_samples[
