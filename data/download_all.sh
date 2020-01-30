@@ -13,9 +13,13 @@ if [ ! -d "$BASEDIR/toy" ]; then
     cd $BASEDIR
     curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/toy.tar.gz
     tar xvf toy.tar.gz
-    python preprocess.py toy
 else
     echo toy already present
+fi
+if [ ! -f "$BASEDIR/toy/dataset.yaml" ]; then
+        python preprocess.py toy
+else
+    echo toy already prepared
 fi
 
 
@@ -39,9 +43,13 @@ if [ ! -d "$BASEDIR/fb15k" ]; then
           ;;
   esac
   cd ..
-  python preprocess.py fb15k
 else
     echo fb15k already present
+fi
+if [ ! -f "$BASEDIR/fb15k/dataset.yaml" ]; then
+    python preprocess.py fb15k
+else
+    echo fb15k already prepared
 fi
 
 # fb15k-237
@@ -50,9 +58,13 @@ if [ ! -d "$BASEDIR/fb15k-237" ]; then
   cd $BASEDIR
   curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/fb15k-237.tar.gz
   tar xvf fb15k-237.tar.gz
-  python preprocess.py fb15k-237
 else
     echo fb15k-237 already present
+fi
+if [ ! -f "$BASEDIR/fb15k-237/dataset.yaml" ]; then
+  python preprocess.py fb15k-237
+else
+    echo fb15k-237 already prepared
 fi
 
 # wn18
@@ -75,9 +87,13 @@ if [ ! -d "$BASEDIR/wn18" ]; then
           ;;
   esac
   cd ..
-  python preprocess.py wn18
 else
     echo wn18 already present
+fi
+if [ ! -f "$BASEDIR/wn18/dataset.yaml" ]; then
+  python preprocess.py wn18
+else
+    echo wn18 already prepared
 fi
 
 # wnrr
@@ -86,9 +102,13 @@ if [ ! -d "$BASEDIR/wnrr" ]; then
   cd $BASEDIR
   curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/wnrr.tar.gz
   tar xvf wnrr.tar.gz
-  python preprocess.py wnrr
 else
     echo wnrr already present
+fi
+if [ ! -f "$BASEDIR/wnrr/dataset.yaml" ]; then
+  python preprocess.py wnrr
+else
+    echo wnrr already prepared
 fi
 
 
@@ -98,9 +118,13 @@ if [ ! -d "$BASEDIR/dbpedia50" ]; then
   cd $BASEDIR
   curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/dbpedia50.tar.gz
   tar xvf dbpedia50.tar.gz
-  python preprocess.py dbpedia50
 else
     echo dbpedia50 already present
+fi
+if [ ! -f "$BASEDIR/dbpedia50/dataset.yaml" ]; then
+  python preprocess.py dbpedia50
+else
+    echo dbpedia50 already prepared
 fi
 
 # dbpedia500
@@ -109,9 +133,13 @@ if [ ! -d "$BASEDIR/dbpedia500" ]; then
   cd $BASEDIR
   curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/dbpedia500.tar.gz
   tar xvf dbpedia500.tar.gz
-  python preprocess.py dbpedia500 --order_sop
 else
     echo dbpedia500 already present
+fi
+if [ ! -f "$BASEDIR/dbpedia500/dataset.yaml" ]; then
+  python preprocess.py dbpedia500 --order_sop
+else
+    echo dbpedia500 already prepared
 fi
 
 # db100k
@@ -134,9 +162,13 @@ if [ ! -d "$BASEDIR/db100k" ]; then
           ;;
   esac
   cd ..
-  python preprocess.py db100k
 else
     echo db100k already present
+fi
+if [ ! -f "$BASEDIR/db100k/dataset.yaml" ]; then
+  python preprocess.py db100k
+else
+    echo db100k already prepared
 fi
 
 # yago3-10
@@ -145,7 +177,11 @@ if [ ! -d "$BASEDIR/yago3-10" ]; then
   cd $BASEDIR
   curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/yago3-10.tar.gz
   tar xvf yago3-10.tar.gz
-  python preprocess.py yago3-10
 else
     echo yago3-10 already present
+fi
+if [ ! -f "$BASEDIR/yago3-10/dataset.yaml" ]; then
+  python preprocess.py yago3-10
+else
+    echo yago3-10 already prepared
 fi

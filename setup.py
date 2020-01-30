@@ -4,7 +4,7 @@ setup(
     name="libkge",
     version="0.1",
     description="A knowledge graph embedding library",
-    url="https://github.com/rufex2001/kge",
+    url="https://github.com/uma-pi1/kge",
     author="Universität Mannheim",
     author_email="rgemulla@uni-mannheim.de",
     packages=["kge"],

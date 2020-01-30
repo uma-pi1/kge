@@ -619,6 +619,16 @@ def _process_deprecated_options(options: Dict[str, Any]):
                     renamed_keys.add(key)
         return renamed_keys
 
+    # 31.01.2020
+    rename_key("negative_sampling.num_samples_s", "negative_sampling.num_samples.s")
+    rename_key("negative_sampling.num_samples_p", "negative_sampling.num_samples.p")
+    rename_key("negative_sampling.num_samples_o", "negative_sampling.num_samples.o")
+
+    # 10.01.2020
+    rename_key("negative_sampling.filter_positives_s", "negative_sampling.filtering.s")
+    rename_key("negative_sampling.filter_positives_p", "negative_sampling.filtering.p")
+    rename_key("negative_sampling.filter_positives_o", "negative_sampling.filtering.o")
+
     # 20.12.2019
     for split in [ "train", "valid", "test" ]:
         old_key = f"dataset.{split}"
@@ -633,24 +643,19 @@ def _process_deprecated_options(options: Dict[str, Any]):
 
     # 14.12.2019
     rename_key(
-        "negative_sampling.filter_true_s", "negative_sampling.filter_positives_s"
+        "negative_sampling.filter_true_s", "negative_sampling.filtering.s"
     )
     rename_key(
-        "negative_sampling.filter_true_p", "negative_sampling.filter_positives_p"
+        "negative_sampling.filter_true_p", "negative_sampling.filtering.p"
     )
     rename_key(
-        "negative_sampling.filter_true_o", "negative_sampling.filter_positives_o"
+        "negative_sampling.filter_true_o", "negative_sampling.filtering.o"
     )
-
-    # 10.01.2020
-    rename_key("negative_sampling.filter_positives_s", "negative_sampling.filtering.s")
-    rename_key("negative_sampling.filter_positives_p", "negative_sampling.filtering.p")
-    rename_key("negative_sampling.filter_positives_o", "negative_sampling.filtering.o")
 
     # 14.12.2019
-    rename_key("negative_sampling.num_negatives_s", "negative_sampling.num_samples_s")
-    rename_key("negative_sampling.num_negatives_p", "negative_sampling.num_samples_p")
-    rename_key("negative_sampling.num_negatives_o", "negative_sampling.num_samples_o")
+    rename_key("negative_sampling.num_negatives_s", "negative_sampling.num_samples.s")
+    rename_key("negative_sampling.num_negatives_p", "negative_sampling.num_samples.p")
+    rename_key("negative_sampling.num_negatives_o", "negative_sampling.num_samples.o")
 
     # 30.10.2019
     rename_value("train.loss", "ce", "kl")
