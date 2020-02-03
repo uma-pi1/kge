@@ -52,8 +52,9 @@ class Dataset(Configurable):
         #: meta data that is part if this dataset. Indexed by key.
         self._meta: Dict[str, Any] = {}
 
-        #: functions that compute and add indexes as needed; arguments are dataset and
-        # key. : Indexed by key (same key as in self.index_indexes)
+        #: is callable with 'name' as argument and computes and returns the
+        #: index stored under the specified name. Index means any data structure
+        #: that is derived from the dataset, including statistics and indexes.
         self.index: Indexing = Indexing(self)
 
     ## LOADING ##########################################################################
