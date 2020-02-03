@@ -7,7 +7,7 @@ from torch import Tensor
 import numpy as np
 
 from kge import Config, Configurable
-from kge.indexing import create_default_index_functions
+from kge.indexing import Indexing
 from kge.misc import kge_base_dir
 
 from typing import Dict, List, Any, Callable, Union, Optional
@@ -16,7 +16,7 @@ from typing import Dict, List, Any, Callable, Union, Optional
 class Dataset(Configurable):
     """Stores information about a dataset.
 
-    This includes the number of entities, number of relations, splits containing tripels
+    This includes the number of entities, number of relations, splits containing triples
     (e.g., to train, validate, test), indexes, and various metadata about these objects.
     Most of these objects can be lazy-loaded on first use.
 
@@ -33,18 +33,18 @@ class Dataset(Configurable):
 
         # read the number of entities and relations from the config, if present
         try:
-            self._num_entities: Int = config.get("dataset.num_entities")
+            self._num_entities: int = config.get("dataset.num_entities")
             if self._num_entities < 0:
                 self._num_entities = None
         except KeyError:
-            self._num_entities: Int = None
+            self._num_entities: int = None
 
         try:
-            self._num_relations: Int = config.get("dataset.num_relations")
+            self._num_relations: int = config.get("dataset.num_relations")
             if self._num_relations < 0:
                 self._num_relations = None
         except KeyError:
-            self._num_relations: Int = None
+            self._num_relations: int = None
 
         #: split-name to (n,3) int32 tensor
         self._triples: Dict[str, Tensor] = {}
@@ -52,13 +52,9 @@ class Dataset(Configurable):
         #: meta data that is part if this dataset. Indexed by key.
         self._meta: Dict[str, Any] = {}
 
-        #: data derived automatically from the splits or meta data. Indexed by key.
-        self._indexes: Dict[str, Any] = {}
-
         #: functions that compute and add indexes as needed; arguments are dataset and
-        # key. : Indexed by key (same key as in self._indexes)
-        self.index_functions: Dict[str, Callable] = {}
-        create_default_index_functions(self)
+        # key. : Indexed by key (same key as in self.index_indexes)
+        self.index: Indexing = Indexing(self)
 
     ## LOADING ##########################################################################
 
@@ -81,7 +77,7 @@ class Dataset(Configurable):
             dataset.entity_ids()
             dataset.relation_ids()
             for split in ["train", "valid", "test"]:
-                dataset.split(split)
+                dataset.load_triples(split)
         return dataset
 
     @staticmethod
@@ -139,7 +135,7 @@ class Dataset(Configurable):
 
     def load_map(
         self,
-        key: str,
+        map_name: str,
         as_list: bool = False,
         maptype=None,
         ids_key=None,
@@ -160,18 +156,23 @@ class Dataset(Configurable):
         key.
 
         """
-        if key not in self._meta:
-            filename = self.config.get(f"dataset.files.{key}.filename")
-            filetype = self.config.get(f"dataset.files.{key}.type")
-            if (maptype and filetype != maptype) or (
-                not maptype and filetype not in ["map", "idmap"]
+        if map_name not in self._meta:
+
+            filename = self.config.get(f"dataset.files.{map_name}.filename")
+            filetype = self.config.get(f"dataset.files.{map_name}.type")
+
+            if (maptype is not None and filetype != maptype) or (
+                maptype is None and filetype not in ["map", "idmap"]
             ):
-                if not maptype:
-                    maptype = "map' or 'idmap"
+                if maptype is None:
+                    maptype = "'map' or 'idmap'"
                 raise ValueError(
                     "Unexpected file type: "
-                    f"dataset.files.{key}.type='{filetype}', expected {maptype}"
+                    f"dataset.files.{map_name}.type='{filetype}', expected {maptype}"
                 )
+
+            duplicates = 0
+
             if filetype == "idmap" and as_list and ids_key:
                 map_, duplicates = Dataset._load_map(
                     os.path.join(self.folder, filename),
@@ -183,10 +184,10 @@ class Dataset(Configurable):
                 nones = map_.count(None)
                 if nones > 0:
                     self.config.log(
-                        f"Warning: could not find {nones} ids in map {key}; "
+                        f"Warning: could not find {nones} ids in map {map_name}; "
                         "filling with None."
                     )
-            else:
+            elif filetype == "map":
                 map_, duplicates = Dataset._load_map(
                     os.path.join(self.folder, filename),
                     as_list=as_list,
@@ -195,13 +196,13 @@ class Dataset(Configurable):
 
             if duplicates > 0:
                 self.config.log(
-                    f"Warning: map {key} contains {duplicates} duplicate keys, "
+                    f"Warning: map {map_name} contains {duplicates} duplicate keys, "
                     "all which have been ignored"
                 )
-            self.config.log(f"Loaded {len(map_)} keys from map {key}")
-            self._meta[key] = map_
+            self.config.log(f"Loaded {len(map_)} keys from map {map_name}")
+            self._meta[map_name] = map_
 
-        return self._meta[key]
+        return self._meta[map_name]
 
     def shallow_copy(self):
         """Returns a dataset that shares the underlying splits and indexes.
@@ -213,8 +214,9 @@ class Dataset(Configurable):
         copy._num_relations = self.num_relations()
         copy._triples = self._triples
         copy._meta = self._meta
-        copy._indexes = self._indexes
-        copy.index_functions = self.index_functions
+        copy.index = self.index
+        # copy._indexes = self._indexes
+        # copy.index_functions = self.index_functions
         return copy
 
     ## ACCESS ###########################################################################
@@ -231,15 +233,6 @@ class Dataset(Configurable):
             self._num_relations = len(self.relation_ids())
         return self._num_relations
 
-    def split(self, split: str) -> Tensor:
-        """Return the split of the specified name.
-
-        If the split is not yet loaded, load it. Returns an Nx3 IntTensor of
-        spo-triples.
-
-        """
-        return self.load_triples(split)
-
     def train(self) -> Tensor:
         """Return training split.
 
@@ -247,7 +240,7 @@ class Dataset(Configurable):
         spo-triples.
 
         """
-        return self.split("train")
+        return self.load_triples("train")
 
     def valid(self) -> Tensor:
         """Return validation split.
@@ -256,7 +249,7 @@ class Dataset(Configurable):
         spo-triples.
 
         """
-        return self.split("valid")
+        return self.load_triples("valid")
 
     def test(self) -> Tensor:
         """Return test split.
@@ -265,7 +258,7 @@ class Dataset(Configurable):
         spo-triples.
 
         """
-        return self.split("test")
+        return self.load_triples("test")
 
     def entity_ids(
         self, indexes: Optional[Union[int, Tensor]] = None
@@ -318,26 +311,14 @@ class Dataset(Configurable):
         """Return metadata stored under the specified key."""
         return self._meta[key]
 
-    def index(self, key: str) -> Any:
-        """Return the index stored under the specified key.
-
-        Index means any data structure that is derived from the dataset, including
-        statistics and indexes.
-
-        If the index has not yet been computed, computes it by calling the function
-        specified in `self.index_functions`.
-
-        See `kge.indexing.create_default_index_functions()` for the indexes available by
-        default.
-
-        """
-        if key not in self._indexes:
-            self.index_functions[key](self)
-        return self._indexes[key]
-
     @staticmethod
     def _map_indexes(indexes, values):
-        "Return the names corresponding to specified indexes"
+        """Return the names corresponding to specified indexes. If `indexes` is
+        `None`, return all values. If `indexes` is an integer, return the
+        corresponding value. If `indexes` is a Tensor, return an ndarray of the
+        same shape holding the corresponding values.
+
+        """
         if indexes is None:
             return values
         elif isinstance(indexes, int):
@@ -349,40 +330,18 @@ class Dataset(Configurable):
             return names.reshape(shape)
 
     def map_indexes(
-        self, indexes: Optional[Union[int, Tensor]], key: str
+        self, indexes: Optional[Union[int, Tensor]], map_name: str
     ) -> Union[Any, List[Any], np.ndarray]:
         """Maps indexes to values using the specified map.
 
-        `key` refers to the key of a map file of the dataset, which associates a value
-        with each numerical index. The map file is loaded automatically.
+        `map_name` refers to the dataset config name for the config entry
+        dataset.files.{map_name}.filename of the file which stores index -> value
+        mappings. The file is loaded automatically.
 
-        If `indexes` is `None`, return all values. If `indexes` is an integer, return
-        the corresponding value. If `indexes` is a Tensor, return an ndarray of the same
-        shape holding the corresponding values.
+        If `indexes` is `None`, return all values. If `indexes` is an integer,
+        return the corresponding value. If `indexes` is a Tensor, return an
+        ndarray of the same shape holding the corresponding values.
 
         """
-        map_ = self.load_map(key, as_list=True)
+        map_ = self.load_map(map_name, as_list=True)
         return Dataset._map_indexes(indexes, map_)
-
-    ## PICKLING ##########################################################################
-
-    def __getstate__(self):
-        state = self.__dict__.copy()  # normally pickled
-
-        # TODO index functions cannot be pickled, so we simply set them to None. That's
-        # not a problem when the index functions are called before the dataset is
-        # pickled (because then we do not need them anymore) or when they are part of
-        # the default index functions (because then they are recreated when loading in
-        # __setstate__). Otherwise, once these index functions are used, an error will
-        # be thrown.
-        #
-        # Another option may be to create all indexes here before pickling.
-        index_functions = dict()
-        for s,f in self.index_functions.items():
-            index_functions[s] = None
-        state["index_functions"] = index_functions
-        return state
-
-    def __setstate__(self, newstate):
-        self.__dict__.update(newstate)
-        create_default_index_functions(self)
