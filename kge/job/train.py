@@ -65,27 +65,27 @@ class TrainingJob(Job):
 
         #: Hooks run after training for an epoch.
         #: Signature: job, trace_entry
-        self.post_epoch_hooks: List[Callable[[Job, Dict[str, Any]]]] = []
+        self.post_epoch_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
 
         #: Hooks run before starting a batch.
         #: Signature: job
-        self.pre_batch_hooks: List[Callable[[Job]]] = []
+        self.pre_batch_hooks: List[Callable[[Job], Any]] = []
 
         #: Hooks run before outputting the trace of a batch. Can modify trace entry.
         #: Signature: job, trace_entry
-        self.post_batch_trace_hooks: List[Callable[[Job, Dict[str, Any]]]] = []
+        self.post_batch_trace_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
 
         #: Hooks run before outputting the trace of an epoch. Can modify trace entry.
         #: Signature: job, trace_entry
-        self.post_epoch_trace_hooks: List[Callable[[Job, Dict[str, Any]]]] = []
+        self.post_epoch_trace_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
 
         #: Hooks run after a validation job.
         #: Signature: job, trace_entry
-        self.post_valid_hooks: List[Callable[[Job, Dict[str, Any]]]] = []
+        self.post_valid_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
 
         #: Hooks run after training
         #: Signature: job, trace_entry
-        self.post_train_hooks: List[Callable[[Job, Dict[str, Any]]]] = []
+        self.post_train_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
 
         if self.__class__ == TrainingJob:
             for f in Job.job_created_hooks:
