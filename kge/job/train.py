@@ -8,7 +8,6 @@ import torch
 import torch.utils.data
 
 from kge import Config, Dataset
-from kge.indexing import Indexing
 from kge.job import Job
 from kge.model import KgeModel
 
@@ -538,12 +537,12 @@ class TrainingJobKvsAll(TrainingJob):
             self.train_sp_keys,
             self.train_sp_values,
             self.train_sp_offsets,
-        ) = Indexing.prepare_index(train_sp)
+        ) = kge.indexing.prepare_index(train_sp)
         (
             self.train_po_keys,
             self.train_po_values,
             self.train_po_offsets,
-        ) = Indexing.prepare_index(train_po)
+        ) = kge.indexing.prepare_index(train_po)
 
         # create dataloader
         self.loader = torch.utils.data.DataLoader(
