@@ -1,4 +1,4 @@
-# libKGE: A library for Knowledge Graph Embeddings
+# LibKGE: A library for Knowledge Graph Embeddings
 
 libKGE is a library for very efficient training, evaluation and hyperparameter optimization of [knowledge graph
 embeddings](https://ieeexplore.ieee.org/document/8047276) (KGE). It is
