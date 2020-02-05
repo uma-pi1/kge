@@ -363,26 +363,3 @@ class Dataset(Configurable):
         """
         map_ = self.load_map(key, as_list=True)
         return Dataset._map_indexes(indexes, map_)
-
-    ## PICKLING ##########################################################################
-
-    def __getstate__(self):
-        state = self.__dict__.copy()  # normally pickled
-
-        # TODO index functions cannot be pickled, so we simply set them to None. That's
-        # not a problem when the index functions are called before the dataset is
-        # pickled (because then we do not need them anymore) or when they are part of
-        # the default index functions (because then they are recreated when loading in
-        # __setstate__). Otherwise, once these index functions are used, an error will
-        # be thrown.
-        #
-        # Another option may be to create all indexes here before pickling.
-        index_functions = dict()
-        for s,f in self.index_functions.items():
-            index_functions[s] = None
-        state["index_functions"] = index_functions
-        return state
-
-    def __setstate__(self, newstate):
-        self.__dict__.update(newstate)
-        create_default_index_functions(self)

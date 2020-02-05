@@ -194,6 +194,17 @@ def index_frequency_percentiles(dataset, recompute=False):
     dataset._indexes["frequency_percentiles"] = result
 
 
+class IndexWrapper:
+    """Wraps a call to an index function so that it can be pickled"""
+
+    def __init__(self, fun, **kwargs):
+        self.fun = fun
+        self.kwargs = kwargs
+
+    def __call__(self, dataset: "Dataset", **kwargs):
+        self.fun(dataset, **self.kwargs)
+
+
 def _invert_ids(dataset, obj: str):
     if not f"{obj}_id_to_index" in dataset._indexes:
         ids = dataset.load_map(f"{obj}_ids")
@@ -206,18 +217,14 @@ def create_default_index_functions(dataset: "Dataset"):
     for split in ["train", "valid", "test"]:
         for key, value in [("sp", "o"), ("po", "s"), ("so", "p")]:
             # self assignment needed to capture the loop var
-            dataset.index_functions[
-                f"{split}_{key}_to_{value}"
-            ] = lambda dataset, split=split, key=key: index_KvsAll(
-                dataset, split, key
+            dataset.index_functions[f"{split}_{key}_to_{value}"] = IndexWrapper(
+                index_KvsAll, split=split, key=key
             )
     dataset.index_functions["relation_types"] = index_relation_types
     dataset.index_functions["relations_per_type"] = index_relation_types
     dataset.index_functions["frequency_percentiles"] = index_frequency_percentiles
 
-    dataset.index_functions["entity_id_to_index"] = lambda dataset: _invert_ids(
-        dataset, "entity"
-    )
-    dataset.index_functions["relation_id_to_index"] = lambda dataset: _invert_ids(
-        dataset, "relation"
-    )
+    for obj in ["entity", "relation"]:
+        dataset.index_functions[f"{obj}_id_to_index"] = IndexWrapper(
+            _invert_ids, obj=obj
+        )
