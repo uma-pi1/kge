@@ -1,37 +1,35 @@
 # LibKGE: A library for Knowledge Graph Embeddings
 
-libKGE is a library for very efficient training, evaluation and hyperparameter optimization of [knowledge graph
-embeddings](https://ieeexplore.ieee.org/document/8047276) (KGE). It is
-based on [PyTorch](https://pytorch.org/) and designed to be easy to use
-and easy to extend. 
+LibKGE is a PyTorch-based library for efficient training, evaluation and
+hyperparameter optimization of [knowledge graph
+embeddings](https://ieeexplore.ieee.org/document/8047276) (KGE). It is highly
+configurable, easy to use, and extensible. A major goal of LibKGE is to
+facilitate reproducible research into KGE models; see our [ICLR paper](https://openreview.net/forum?id=BkxSmlBFvr).
 
-<!--//
-libKGE is highly flexible for training and tuning KGE
-models, as it supports many combinations of loss functions, optimizers,
-training types and many more hyperparameters. 
-Hyperparameter optimization is also supported in different ways, e.g. grid search, pseudo-random search or Bayesian optimization (currently supplied by [Ax](https://ax.dev/)). 
-//-->
-## Feature list
+## Features
 
  - **KGE models**: [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) ([code](kge/model/rescal.py)), [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) ([code](kge/model/transe.py)), [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) ([code](kge/model/distmult.py)), [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) ([code](kge/model/complex.py)), [ConvE](https://arxiv.org/abs/1707.01476)  ([code](kge/model/conve.py))
- - **Extensive logging** in machine readable format to facilitate analysis
- - **Training**:
-   - Loss: Binary Cross Entropy (BCE), Kullback-Leibler Divergence (KL), Margin Ranking (MR)
-   - Training types: Negative Sampling, 1vsAll, KvsAll
-   - Use all optimizers and learning rate schedulers offered by PyTorch
-   - Configurable early stopping
-   - Configurable checkpointing
- - **Hyper-parameter tuning**:
-   - Types: Grid, Quasi-Random (by [Ax](https://ax.dev/)), Bayesian Optimzation (by [Ax](https://ax.dev/))
-   - Highly parallelizable on single machine
- - **Evaluation**:
-   - Entity ranking metrics: Mean Reciprocal Rank (MRR), HITS@k
-   - Filter metrics by: relation type, relation frequency, head or tail
+ - **Training**
+   - Training types: negative sampling, 1vsAll, KvsAll
+   - Losses: binary cross entropy (BCE), Lullback-Leibler divergence (KL), margin ranking (MR)
+   - All optimizers and learning rate schedulers of PyTorch supported
+   - Early stopping
+   - Checkpointing
+   - Stop and resume at any time
+ - **Hyperparameter tuning**
+   - Grid search, manual search, quasi-random search (using [Ax](https://ax.dev/)), Bayesian
+     optimization (using [Ax](https://ax.dev/))
+   - Highly parallelizable (multiple CPUs/GPUs on single machine)
+   - Stop and resume at any time
+ - **Evaluation**
+   - Entity ranking metrics: Mean Reciprocal Rank (MRR), HITS@k with/without filtering
+   - Drill-down by: relation type, relation frequency, head or tail
+   - Extensive logging in machine readable formats to facilitate analysis
 
 
 ## Results
 
-These are some of the state-of-the-art results (w.r.t. MRR) obtained with libKGE:
+Some state-of-the-art results (w.r.t. filtered MRR) obtained with LibKGE:
 
 
 <table> 
@@ -62,8 +60,7 @@ These are some of the state-of-the-art results (w.r.t. MRR) obtained with libKGE
 </tr>
 </table>
 
-
-The results above where obtained by a hyper-parameter search described in our [publication](https://openreview.net/forum?id=BkxSmlBFvr).
+The results above where obtained using the hyperparameter search described in our [ICLR paper](https://openreview.net/forum?id=BkxSmlBFvr).
 
 
 ## Quick start
@@ -85,7 +82,7 @@ python kge.py start examples/toy-complex-train.yaml
 
 ## Configuration
 
-libKGE supports training, evaluation and hyper-parameter tuning of KGE models. The settings for each task can be specified with a configuration file in YAML format or on the command line. The default values and usage for available settings can be found in [config-default.yaml](kge/config-default.yaml). 
+LibKGE supports training, evaluation and hyperparameter tuning of KGE models. The settings for each task can be specified with a configuration file in YAML format or on the command line. The default values and usage for available settings can be found in [config-default.yaml](kge/config-default.yaml). 
 
 #### Training a model
 
@@ -107,7 +104,7 @@ valid:
 
 # All non-specified settings take their default value from config-default.yaml
 ```
-When libKGE is called with this config, it will be [expanded with all default arguments](docs/examples/expanded-config-example.yaml) from the [main default config](kge/config-default.yaml), as well the default configurations for models, for example the [model's embedder](kge/model/lookup_embedder.yaml). 
+When LibKGE is called with this config, it will be [expanded with all default arguments](docs/examples/expanded-config-example.yaml) from the [main default config](kge/config-default.yaml), as well the default configurations for models, for example the [model's embedder](kge/model/lookup_embedder.yaml). 
 
 Now, to begin training, run one of the following:
 
@@ -154,9 +151,9 @@ python kge.py valid kge_test/config.yaml
 python kge.py test kge_test/config.yaml
 ```
 
-#### Hyper-parameter optimization
+#### hyperparameter optimization
 
-libKGE supports various forms of hyperparameter optimization. e.g. grid
+LibKGE supports various forms of hyperparameter optimization. e.g. grid
 search or Bayesian optimization. The search type and search space are
 specified in the configuration file. We use [Ax](https://ax.dev/) for
 SOBOL (pseudo-random) and Bayesian optimization. For example, the
@@ -197,11 +194,11 @@ python kge.py resume . --search.device_pool cuda:0,cuda:1,cuda:1 --search.num_wo
 
 #### Export and analyse logs
 
-Logs are stored as yaml entries for various scopes (hyper-parameter search, training, validation). libKGE provides a convience method to export the logdata to csv.
+Logs are stored as yaml entries for various scopes (hyperparameter search, training, validation). LibKGE provides a convience method to export the logdata to csv.
 
 
 ```sh
-# Dump trace info for the first trial of a hyper-parameter search
+# Dump trace info for the first trial of a hyperparameter search
 python kge.py dump trace local/experiments/XXXXXXXX-XXXXXX-toy-complex-ax/00000
 ```
 
@@ -209,7 +206,7 @@ The command above yields [this CSV output](docs/examples/dump-example-model.csv)
 
 
 ```sh
-# Dump trace info of a hyper-parameter search
+# Dump trace info of a hyperparameter search
 python kge.py dump trace local/experiments/XXXXXXXX-XXXXXX-toy-complex-ax
 ```
 
@@ -226,7 +223,7 @@ python kge.py --help
 
 ## Installation
 
-To install libKGE, clone this repository and install the requirements with pip:
+To install LibKGE, clone this repository and install the requirements with pip:
 
 
 ```sh
@@ -236,7 +233,7 @@ pip install -e .
 
 ## Supported KGE models
 
-libKGE has implementations for the following KGE models:
+LibKGE has implementations for the following KGE models:
 
 - [RESCAL](kge/model/rescal.py)
 - [Transe](kge/model/transe.py)
@@ -250,7 +247,7 @@ We welcome contributions to expand the list of supported models! Please see [CON
 
 ## Adding a new model
 
-To add a new model to libKGE, one needs to extend the
+To add a new model to LibKGE, one needs to extend the
 [KgeModel](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L243)
 class. A model is made up of a
 [KgeEmbedder](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L170)
