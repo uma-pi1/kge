@@ -185,3 +185,19 @@ if [ ! -f "$BASEDIR/yago3-10/dataset.yaml" ]; then
 else
     echo yago3-10 already prepared
 fi
+
+# wikidata5m
+if [ ! -d "$BASEDIR/wikidata5m" ]; then
+  echo Downloading wikidata5m
+  cd $BASEDIR
+  curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/wikidata5m.tar.gz
+  tar xvf wikidata5m.tar.gz
+else
+    echo wikidata5m already present
+fi
+if [ ! -f "$BASEDIR/wikidata5m/dataset.yaml" ]; then
+  python preprocess.py wikidata5m
+else
+    echo wikidata5m already prepared
+fi
+
