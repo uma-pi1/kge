@@ -11,7 +11,7 @@ facilitate reproducible research into KGE models; see our [ICLR paper](https://o
  - **KGE models**: [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) ([code](kge/model/rescal.py)), [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) ([code](kge/model/transe.py)), [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) ([code](kge/model/distmult.py)), [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) ([code](kge/model/complex.py)), [ConvE](https://arxiv.org/abs/1707.01476)  ([code](kge/model/conve.py))
  - **Training**
    - Training types: negative sampling, 1vsAll, KvsAll
-   - Losses: binary cross entropy (BCE), Lullback-Leibler divergence (KL), margin ranking (MR)
+   - Losses: binary cross entropy (BCE), Kullback-Leibler divergence (KL), margin ranking (MR)
    - All optimizers and learning rate schedulers of PyTorch supported
    - Early stopping
    - Checkpointing
@@ -24,7 +24,8 @@ facilitate reproducible research into KGE models; see our [ICLR paper](https://o
  - **Evaluation**
    - Entity ranking metrics: Mean Reciprocal Rank (MRR), HITS@k with/without filtering
    - Drill-down by: relation type, relation frequency, head or tail
-   - Extensive logging in machine readable formats to facilitate analysis
+ - **Extensive logging**
+   - Logging for training, hyper-parameter tuning and evaluation machine readable formats to facilitate analysis
 
 
 ## Results
