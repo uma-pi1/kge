@@ -221,7 +221,7 @@ To see all available commands:
 python kge.py --help
 ```
 
-## Supported KGE models
+## Current Supported KGE models
 
 LibKGE has implementations for the following KGE models:
 
@@ -244,6 +244,40 @@ class. A model is made up of a
 to associate each subject, relation and object to an embedding, and a
 [KgeScorer](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L76)
 to score triples.
+
+## Using a pretrained model in an application
+
+Using a trained model trained with LibKGE is very easy. In the following example we load the best checkpoint and predict objects indexes, given a list of subject and relation indexes.  
+
+```python
+import torch
+import kge.model
+
+model : kge.model.KgeModel = kge.model.KgeModel.load_from_checkpoint('.../checkpoint_best.pt')
+
+subject_ids = torch.Tensor([0, 2,]).long()
+relation_ids = torch.Tensor([0, 1,]).long()
+
+scores = model.score_sp(
+  subject_ids, 
+  relation_ids
+)
+
+object_ids = torch.argmax(scores, dim=-1)
+
+print(object_ids)
+print(model.dataset.entity_ids(subject_ids))
+print(model.dataset.relation_ids(relation_ids))
+print(model.dataset.entity_ids(object_ids))
+
+# prints: 
+# tensor([8399, 8855])
+# ['Dominican Republic' 'Mighty Morphin Power Rangers']
+# ['has form of government' 'is tv show with actor']
+# ['Republic' 'Wendee Lee']
+```
+
+For other score functions (score_sp, score_po, score_so, score_spo) see [KgeModel](kge/model/kge_model.py#L455).
 
 ## Known issues
 - Filtering of positive samples when training with `train.type=negative_sampling` can be slow. We are currently working on a more efficient implementation.
