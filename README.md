@@ -4,7 +4,7 @@ LibKGE is a PyTorch-based library for efficient training, evaluation and
 hyperparameter optimization of [knowledge graph
 embeddings](https://ieeexplore.ieee.org/document/8047276) (KGE). It is highly
 configurable, easy to use, and extensible. A major goal of LibKGE is to
-facilitate reproducible research into KGE models; see our [ICLR paper](https://openreview.net/forum?id=BkxSmlBFvr).
+facilitate reproducible research into KGE models; see our [ICLR paper](https://openreview.net/forum?id=BkxSmlBFvr) and [corresponding repository](https://github.com/uma-pi1/kge-iclr20).
 
 ## Features
 
@@ -33,7 +33,7 @@ facilitate reproducible research into KGE models; see our [ICLR paper](https://o
 Some state-of-the-art results (w.r.t. filtered MRR) obtained with LibKGE:
 
 
-<table> 
+<table>
 <tr><th>FB15k-237</th><th>WNRR</th></tr>
 <tr>
 <td>
@@ -83,7 +83,7 @@ python kge.py start examples/toy-complex-train.yaml
 
 ## Configuration
 
-LibKGE supports training, evaluation and hyperparameter tuning of KGE models. The settings for each task can be specified with a configuration file in YAML format or on the command line. The default values and usage for available settings can be found in [config-default.yaml](kge/config-default.yaml). 
+LibKGE supports training, evaluation and hyperparameter tuning of KGE models. The settings for each task can be specified with a configuration file in YAML format or on the command line. The default values and usage for available settings can be found in [config-default.yaml](kge/config-default.yaml).
 
 #### Training a model
 
@@ -105,7 +105,7 @@ valid:
 
 # All non-specified settings take their default value from config-default.yaml
 ```
-When LibKGE is called with this config, it will be [expanded with all default arguments](docs/examples/expanded-config-example.yaml) from the [main default config](kge/config-default.yaml), as well the default configurations for models, for example the [model's embedder](kge/model/lookup_embedder.yaml). 
+When LibKGE is called with this config, it will be [expanded with all default arguments](docs/examples/expanded-config-example.yaml) from the [main default config](kge/config-default.yaml), as well the default configurations for models, for example the [model's embedder](kge/model/lookup_embedder.yaml).
 
 Now, to begin training, run one of the following:
 
@@ -127,7 +127,7 @@ python kge.py start config.yaml --folder kge_test --job.device cuda:0
 python kge.py start config.yaml --train.optimizer Adam
 ```
 
-#### Resume training 
+#### Resume training
 
 All tasks can be resumed if interrupted. Run the following for the
 corresponding output folder:
@@ -188,7 +188,7 @@ Trials can be run in parallel across several devices:
 # Run 4 trials in parallel evenly distributed across two GPUs
 python kge.py resume . --search.device_pool cuda:0,cuda:1 --search.num_workers 4
 
-# Run 3 trials in parallel, with per GPUs capacity 
+# Run 3 trials in parallel, with per GPUs capacity
 python kge.py resume . --search.device_pool cuda:0,cuda:1,cuda:1 --search.num_workers 3
 
 ```
@@ -242,7 +242,7 @@ LibKGE has implementations for the following KGE models:
 - [ComplEx](kge/model/complex.py)
 - [Conve](kge/model/conve.py)
 
-The [examples](examples) folder contains some configuration files as examples of how to run these models. 
+The [examples](examples) folder contains some configuration files as examples of how to run these models.
 
 We welcome contributions to expand the list of supported models! Please see [CONTRIBUTING](CONTRIBUTING.md) for details and feel free to initially open an issue.
 
@@ -269,7 +269,7 @@ Other KGE frameworks:
  - [PyKEEN](https://github.com/SmartDataAnalytics/PyKEEN)
 
 KGE projects for publications that also implement a few models:
- 
+
  - [ConvE](https://github.com/TimDettmers/ConvE)
  - [KBC](https://github.com/facebookresearch/kbc)
 
