@@ -4,7 +4,8 @@ LibKGE is a PyTorch-based library for efficient training, evaluation and
 hyperparameter optimization of [knowledge graph
 embeddings](https://ieeexplore.ieee.org/document/8047276) (KGE). It is highly
 configurable, easy to use, and extensible. A major goal of LibKGE is to
-facilitate reproducible research into KGE models; see our [ICLR paper](https://openreview.net/forum?id=BkxSmlBFvr) and [corresponding repository](https://github.com/uma-pi1/kge-iclr20).
+facilitate reproducible research into KGE models; see our
+[ICLR paper](https://github.com/uma-pi1/kge-iclr20).
 
 ## Features
 
@@ -32,7 +33,6 @@ facilitate reproducible research into KGE models; see our [ICLR paper](https://o
 
 Some state-of-the-art results (w.r.t. filtered MRR) obtained with LibKGE:
 
-
 <table>
 <tr><th>FB15k-237</th><th>WNRR</th></tr>
 <tr>
@@ -40,11 +40,11 @@ Some state-of-the-art results (w.r.t. filtered MRR) obtained with LibKGE:
 
 |          | MRR       | Hits@10 |
 |----------|-----------:|---------:|
-| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)  | 0.356      | 0.542 |
-| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)   | 0.310      | 0.493 |
-| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) | 0.344      | 0.531 |  
+| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)  | 0.357      | 0.541 |
+| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)   | 0.313      | 0.497 |
+| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) | 0.343      | 0.531 |  
 | [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.348      | 0.536 |
-| [ConvE](https://arxiv.org/abs/1707.01476) | 0.338      | 0.520 |
+| [ConvE](https://arxiv.org/abs/1707.01476) | 0.339      | 0.521 |
 
 </td>
 <td>
@@ -52,17 +52,16 @@ Some state-of-the-art results (w.r.t. filtered MRR) obtained with LibKGE:
 |          | MRR       | Hits@10 |
 |----------|-----------:|---------:|
 | [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) | 0.467      | 0.517 |
-| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)  | 0.228      | 0.519 |
-| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf)  | 0.454      | 0.535 |  
-| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.479      | 0.552 |
-| [ConvE](https://arxiv.org/abs/1707.01476) | 0.442      | 0.505 |
+| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)  | 0.228      | 0.520 |
+| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf)  | 0.452      | 0.531 |  
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.475      | 0.547 |
+| [ConvE](https://arxiv.org/abs/1707.01476) | 0.442      | 0.504 |
 
 </td>
 </tr>
 </table>
 
-The results above where obtained using the hyperparameter search described in our [ICLR paper](https://openreview.net/forum?id=BkxSmlBFvr).
-
+The results above were obtained using the hyperparameter search described in our [ICLR paper](https://openreview.net/forum?id=BkxSmlBFvr).
 
 ## Quick start
 
@@ -152,7 +151,7 @@ python kge.py valid kge_test/config.yaml
 python kge.py test kge_test/config.yaml
 ```
 
-#### hyperparameter optimization
+#### Hyperparameter optimization
 
 LibKGE supports various forms of hyperparameter optimization. e.g. grid
 search or Bayesian optimization. The search type and search space are
@@ -220,16 +219,6 @@ To see all available commands:
 
 ```sh
 python kge.py --help
-```
-
-## Installation
-
-To install LibKGE, clone this repository and install the requirements with pip:
-
-
-```sh
-git clone https://github.com/uma-pi1/kge.git
-pip install -e .
 ```
 
 ## Supported KGE models
