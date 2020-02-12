@@ -26,7 +26,7 @@ facilitate reproducible research into KGE models; see our
    - Entity ranking metrics: Mean Reciprocal Rank (MRR), HITS@k with/without filtering
    - Drill-down by: relation type, relation frequency, head or tail
  - **Extensive logging**
-   - Logging for training, hyper-parameter tuning and evaluation machine readable formats to facilitate analysis
+   - Logging for training, hyper-parameter tuning and evaluation in machine readable formats to facilitate analysis
 
 
 ## Results
