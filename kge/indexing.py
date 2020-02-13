@@ -231,13 +231,6 @@ def create_default_index_functions(dataset: "Dataset"):
             _invert_ids, obj=obj
         )
 
-    dataset.index_functions["entity_id_to_index"] = lambda dataset: _invert_ids(
-        dataset, "entity"
-    )
-    dataset.index_functions["relation_id_to_index"] = lambda dataset: _invert_ids(
-        dataset, "relation"
-    )
-
 
 @numba.njit
 def where_in(x, y, t_f=True):
@@ -253,4 +246,3 @@ def where_in(x, y, t_f=True):
     # Setting njit(parallel=True) slows down the function
     list_y = set(y)
     return np.where(np.array([i in list_y for i in x]) == t_f)[0]
-
