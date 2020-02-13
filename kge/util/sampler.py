@@ -125,8 +125,9 @@ class KgeSampler(Configurable):
         cols = [[P, O], [S, O], [S, P]][slot]
         pairs = positive_triples[:, cols]
         for i in range(positive_triples.size(0)):
-            pair = pairs[i][0].item(), pairs[i][1].item()
-            false_negatives = index.get(pair).numpy()
+            false_negatives = index.get(
+                (pairs[i][0].item(), pairs[i][1].item())
+            ).numpy()
             # indices of samples that have to be sampled again
             resample_idx = where_in(negative_samples[i].numpy(), false_negatives, True)
             # number of new samples needed
@@ -224,7 +225,7 @@ class KgeUniformSampler(KgeSampler):
                     ctr = 0
                     # numba does not support advanced indexing but the loop
                     # is optimized so it's faster than numpy anyway
-                    for j in resample_idx[num_found: num_found + len(idx)]:
+                    for j in resample_idx[num_found : num_found + len(idx)]:
                         negative_samples[i, j] = new_samples[ctr]
                         ctr += 1
                     num_found += len(idx)
