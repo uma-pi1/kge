@@ -22,6 +22,7 @@ class KgeSampler(Configurable):
         self.num_samples = torch.zeros(3, dtype=torch.int)
         self.filter_positives = torch.zeros(3, dtype=torch.bool)
         self.vocabulary_size = torch.zeros(3, dtype=torch.int)
+        self.shared = self.get_option("shared")
         for slot in SLOTS:
             slot_str = SLOT_STR[slot]
             self.num_samples[slot] = self.get_option(f"num_samples.{slot_str}")
@@ -35,12 +36,16 @@ class KgeSampler(Configurable):
                 pair = ["po", "so", "sp"][slot]
                 dataset.index(f"train_{pair}_to_{slot_str}")
         if any(self.filter_positives):
-            self.check_option("filtering.implementation", ["standard", "fast"])
-            self.filter_fast = True
-            if self.get_option("filtering.implementation") == "standard":
-                self.filter_fast = False
+            if self.shared:
+                raise ValueError(
+                    "Filtering is not supported when shared negative sampling is enabled."
+                )
+            self.check_option(
+                "filtering.implementation", ["standard", "fast", "fast_if_available"]
+            )
+
+            self.filter_implementation = self.get_option("filtering.implementation")
         self.dataset = dataset
-        self.shared = self.get_option("shared")
         # auto config
         for slot, copy_from in [(S, O), (P, None), (O, S)]:
             if self.num_samples[slot] < 0:
@@ -85,18 +90,25 @@ class KgeSampler(Configurable):
         else:
             negative_samples = self._sample(positive_triples, slot, num_samples)
         if self.filter_positives[slot]:
-            if self.shared:
-                raise ValueError(
-                    "Filtering is not supported when shared negative sampling is enabled."
-                )
-            elif self.filter_fast:
+            if self.filter_implementation == "fast":
                 negative_samples = self._filter_and_resample_fast(
                     negative_samples, slot, positive_triples
                 )
-            else:
+            elif self.filter_implementation == "standard":
                 negative_samples = self._filter_and_resample(
                     negative_samples, slot, positive_triples
                 )
+            else:
+                try:
+                    negative_samples = self._filter_and_resample_fast(
+                        negative_samples, slot, positive_triples
+                    )
+                    self.filter_implementation = "fast"
+                except NotImplementedError:
+                    negative_samples = self._filter_and_resample(
+                        negative_samples, slot, positive_triples
+                    )
+                    self.filter_implementation = "standard"
         return negative_samples
 
     def _sample(self, positive_triples: torch.Tensor, slot: int, num_samples: int):
@@ -125,9 +137,7 @@ class KgeSampler(Configurable):
         cols = [[P, O], [S, O], [S, P]][slot]
         pairs = positive_triples[:, cols]
         for i in range(positive_triples.size(0)):
-            positives = index.get(
-                (pairs[i][0].item(), pairs[i][1].item())
-            ).numpy()
+            positives = index.get((pairs[i][0].item(), pairs[i][1].item())).numpy()
             # indices of samples that have to be sampled again
             resample_idx = where_in(negative_samples[i].numpy(), positives)
             # number of new samples needed

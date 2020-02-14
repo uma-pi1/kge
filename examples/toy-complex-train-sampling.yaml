@@ -22,4 +22,4 @@ negative_sampling:
     s: True
     o: True
     p: True
-    implementation: fast
+    implementation: fast_if_available

@@ -193,9 +193,11 @@ negative_sampling:
     p: False       # as above
     o: False       # as above
 
-    # Set to standard or fast. Standard is a generic method which can be slow. Set only
-    # to standard if fast is not implemented for a sampler.
-    implementation: fast # standard; fast
+    # Implementation to use for filtering.
+    # standard: use slow generic implementation, available for all samplers
+    # fast: use specialized fast implementation, available for some samplers
+    # fast_if_available: use fast implementation if available, else standard
+    implementation: fast_if_available
 
   # Whether to share the s/p/o corruptions for all triples in the batch. This
   # can make training more efficient. Cannot be used with together with
