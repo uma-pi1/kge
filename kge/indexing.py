@@ -233,16 +233,16 @@ def create_default_index_functions(dataset: "Dataset"):
 
 
 @numba.njit
-def where_in(x, y, t_f=True):
+def where_in(x, y, not_in=False):
     """Retrieve the indices of the elements in x which are also in y.
 
     x and y are assumed to be 1 dimensional arrays.
 
-    :params: t_f: if False, returns the indices of the of the elements in x
+    :params: not_in: if True, returns the indices of the of the elements in x
     which are not in y.
 
     """
     # np.isin is not supported in numba. Also: "i in y" raises an error in numba
-    # Setting njit(parallel=True) slows down the function
+    # setting njit(parallel=True) slows down the function
     list_y = set(y)
-    return np.where(np.array([i in list_y for i in x]) == t_f)[0]
+    return np.where(np.array([i in list_y for i in x]) != not_in)[0]

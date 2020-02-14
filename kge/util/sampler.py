@@ -125,11 +125,11 @@ class KgeSampler(Configurable):
         cols = [[P, O], [S, O], [S, P]][slot]
         pairs = positive_triples[:, cols]
         for i in range(positive_triples.size(0)):
-            false_negatives = index.get(
+            positives = index.get(
                 (pairs[i][0].item(), pairs[i][1].item())
             ).numpy()
             # indices of samples that have to be sampled again
-            resample_idx = where_in(negative_samples[i].numpy(), false_negatives, True)
+            resample_idx = where_in(negative_samples[i].numpy(), positives)
             # number of new samples needed
             num_new = len(resample_idx)
             # number already found of the new samples needed
@@ -140,7 +140,7 @@ class KgeSampler(Configurable):
                     positive_triples[i, None], slot, num_remaining
                 ).view(-1)
                 # indices of the true negatives
-                tn_idx = where_in(new_samples.numpy(), false_negatives, False)
+                tn_idx = where_in(new_samples.numpy(), positives, not_in=True)
                 # write the true negatives found
                 if len(tn_idx):
                     negative_samples[
@@ -193,25 +193,25 @@ class KgeUniformSampler(KgeSampler):
         # numba lists 2. Using a python list and convert it to an np.array and use
         # offsets 3. Growing a np.array with np.append 4. leaving the loop in python and
         # calling a numba function within the loop
-        positives = numba.typed.Dict()
+        positives_index = numba.typed.Dict()
         for i in range(batch_size):
             pair = (pairs[i][0], pairs[i][1])
-            positives[pair] = index.get(pair).numpy()
+            positives_index[pair] = index.get(pair).numpy()
         negative_samples = negative_samples.numpy()
         KgeUniformSampler._filter_and_resample_numba(
-            negative_samples, pairs, positives, batch_size, int(voc_size),
+            negative_samples, pairs, positives_index, batch_size, int(voc_size),
         )
         return torch.tensor(negative_samples, dtype=torch.int64)
 
     @numba.njit
     def _filter_and_resample_numba(
-        negative_samples, pairs, positives, batch_size, voc_size
+        negative_samples, pairs, positives_index, batch_size, voc_size
     ):
         for i in range(batch_size):
-            false_negatives = positives[(pairs[i][0], pairs[i][1])]
+            positives = positives_index[(pairs[i][0], pairs[i][1])]
             # inlining the where_in function here results in an internal numba
             # error which asks to file a bug report
-            resample_idx = where_in(negative_samples[i], false_negatives, True)
+            resample_idx = where_in(negative_samples[i], positives)
             # number of new samples needed
             num_new = len(resample_idx)
             # number already found of the new samples needed
@@ -219,7 +219,7 @@ class KgeUniformSampler(KgeSampler):
             num_remaining = num_new - num_found
             while num_remaining:
                 new_samples = np.random.randint(0, voc_size, num_remaining)
-                idx = where_in(new_samples, false_negatives, False)
+                idx = where_in(new_samples, positives, not_in=True)
                 # write the true negatives found
                 if len(idx):
                     ctr = 0
