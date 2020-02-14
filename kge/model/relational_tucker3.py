@@ -7,15 +7,6 @@ from kge.model import ProjectionEmbedder
 from kge.misc import round_to_points
 
 
-class Tucker3RelationEmbedder(ProjectionEmbedder):
-    """A ProjectionEmbedder that expands relation embeddings to size entity_dim^2"""
-
-    def __init__(self, config, dataset, configuration_key, vocab_size):
-        # TODO dropout is not applied to core tensor, but only to mixing matrices
-        rescal_set_relation_embedder_dim(config, dataset, configuration_key)
-        super().__init__(config, dataset, configuration_key, vocab_size)
-
-
 class RelationalTucker3(KgeModel):
     r"""Implementation of the Relational Tucker3 KGE model."""
 
@@ -42,24 +33,3 @@ class RelationalTucker3(KgeModel):
 
     def prepare_job(self, job, **kwargs):
         super().prepare_job(job, **kwargs)
-
-        # append number of active parameters to trace
-        from kge.model import SparseTucker3RelationEmbedder
-
-        if isinstance(self.get_p_embedder(), SparseTucker3RelationEmbedder):
-
-            def update_num_parameters(job, trace):
-                # set by hook from superclass
-                npars = trace["num_parameters"]
-
-                # do not count mask as a parameter
-                mask = self.get_p_embedder().mask
-                npars -= mask.numel()
-                trace["num_parameters"] = npars
-
-                # do not count zeroed out connections
-                with torch.no_grad():
-                    npars -= (mask == 0).float().sum().item()
-                    trace["num_active_parameters"] = int(npars)
-
-            job.post_epoch_trace_hooks.append(update_num_parameters)

@@ -63,6 +63,7 @@ lookup_embedder:
 
   # Use a sparse tensor for the gradient. See
   # https://pytorch.org/docs/stable/nn.html#torch.nn.Embedding.
+  # Sparse tensors might require special settings, e.g. SparseAdam instead of Adam
   sparse: False
 
   # Will be deprecated.

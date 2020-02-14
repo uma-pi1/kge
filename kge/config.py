@@ -220,14 +220,14 @@ class Config:
         that fields and their types are correct.
 
         """
-        import kge.model, kge.model.experimental
+        import kge.model, kge.model.embedder
         from kge.misc import filename_in_module
 
         # load the module_name
         module_config = Config(load_default=False)
         module_config.load(
             filename_in_module(
-                [kge.model, kge.model.experimental], "{}.yaml".format(module_name)
+                [kge.model, kge.model.embedder, ], "{}.yaml".format(module_name)
             ),
             create=True,
         )
