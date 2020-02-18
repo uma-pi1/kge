@@ -280,7 +280,6 @@ print(model.dataset.entity_ids(object_ids))
 For other score functions (score_sp, score_po, score_so, score_spo) see [KgeModel](kge/model/kge_model.py#L455).
 
 ## Known issues
-- Filtering of positive samples when training with `train.type=negative_sampling` can be slow. We are currently working on a more efficient implementation.
 
 ## Other KGE frameworks and KGE implementations
 
