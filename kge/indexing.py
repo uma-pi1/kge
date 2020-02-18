@@ -1,9 +1,11 @@
 import torch
 from collections import defaultdict, OrderedDict
+import numba
+import numpy as np
 
 
 def _group_by(keys, values) -> dict:
-    """ Groups values by keys.
+    """Group values by keys.
 
     :param keys: list of keys
     :param values: list of values
@@ -228,3 +230,19 @@ def create_default_index_functions(dataset: "Dataset"):
         dataset.index_functions[f"{obj}_id_to_index"] = IndexWrapper(
             _invert_ids, obj=obj
         )
+
+
+@numba.njit
+def where_in(x, y, not_in=False):
+    """Retrieve the indices of the elements in x which are also in y.
+
+    x and y are assumed to be 1 dimensional arrays.
+
+    :params: not_in: if True, returns the indices of the of the elements in x
+    which are not in y.
+
+    """
+    # np.isin is not supported in numba. Also: "i in y" raises an error in numba
+    # setting njit(parallel=True) slows down the function
+    list_y = set(y)
+    return np.where(np.array([i in list_y for i in x]) != not_in)[0]
