@@ -76,8 +76,9 @@ cd data
 sh download_all.sh
 cd ..
 
-# train an example model on toy dataset
-python kge.py start examples/toy-complex-train.yaml
+# train an example model on toy dataset (you can omit '--job.device cpu' when you have a gpu) 
+python kge.py start examples/toy-complex-train.yaml --job.device cpu
+
 ```
 
 ## Configuration
