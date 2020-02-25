@@ -13,8 +13,9 @@ often more so than the model class itself. LibKGE aims to provide *clean
 implementations* of training, hyperparameter optimization, and evaluation
 strategies that can be used with any model. Every potential knob or heuristic
 implemented in the framework is exposed explicitly via *well-documented*
-configuration files. LibKGE also provides the most common KGE models and new
-ones can be easily added (contributions welcome!).
+configuration files (e.g., see [here](kge/config-default.yaml) and
+[here](kge/model/embedder/lookup_embedder.yaml)). LibKGE also provides the most
+common KGE models and new ones can be easily added (contributions welcome!).
 
 ## Features
 
@@ -37,42 +38,47 @@ ones can be easily added (contributions welcome!).
  - **Extensive logging**
    - Logging for training, hyper-parameter tuning and evaluation in machine
      readable formats to facilitate analysis
- - **KGE models**: [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) ([code](kge/model/rescal.py)), [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) ([code](kge/model/transe.py)), [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) ([code](kge/model/distmult.py)), [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) ([code](kge/model/complex.py)), [ConvE](https://arxiv.org/abs/1707.01476)  ([code](kge/model/conve.py))
+ - **KGE models**
+   - All models can be used with or without reciprocal relations
+   - [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) ([code](kge/model/rescal.py), [config](kge/model/rescal.yaml)) 
+   - [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) ([code](kge/model/transe.py), [config](kge/model/transe.yaml))
+   - [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) ([code](kge/model/distmult.py), [config](kge/model/distmult.yaml)) 
+   - [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) ([code](kge/model/complex.py), [config](kge/model/complex.yaml))
+   - [ConvE](https://arxiv.org/abs/1707.01476)  ([code](kge/model/conve.py), [config](kge/model/conve.yaml))
+ - **Embedders**
+   - Lookup embedder ([code](kge/model/embedder/lookup_embedder.py), [config](kge/model/embedder/lookup_embedder.yaml))
+   - Projection embedder ([code](kge/model/embedder/projection_embedder.py), [config](kge/model/embedder/projection_embedder.yaml))
 
 
 ## Results
 
-Some state-of-the-art results (w.r.t. filtered MRR) obtained with LibKGE:
+Some example results (w.r.t. filtered MRR) obtained with LibKGE. These results
+are obtained by running automatic hyperparameter search as described
+[here](https://github.com/uma-pi1/kge-iclr20). They are not necessarily the best
+results that can be achieved using LikKGE, but the results are comparable in
+that a common experimental setup (and equal amount of work) has been used for
+hyperparameter optimization for each model.
 
-<table>
-<tr><th>FB15k-237</th><th>WNRR</th></tr>
-<tr>
-<td>
+### FB15k-237
 
-|          | MRR       | Hits@10 |
-|----------|-----------:|---------:|
-| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)  | 0.357      | 0.541 |
-| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)   | 0.313      | 0.497 |
-| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) | 0.343      | 0.531 |  
-| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.348      | 0.536 |
-| [ConvE](https://arxiv.org/abs/1707.01476) | 0.339      | 0.521 |
+|                                                                                                       |   MRR | Hits@10 |
+|-------------------------------------------------------------------------------------------------------|------:|--------:|
+| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)                                           | 0.357 |   0.541 |
+| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) | 0.313 |   0.497 |
+| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf)  | 0.343 |   0.531 |
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)                                           | 0.348 |   0.536 |
+| [ConvE](https://arxiv.org/abs/1707.01476)                                                             | 0.339 |   0.521 |
 
-</td>
-<td>
+### WN18RR
 
-|          | MRR       | Hits@10 |
-|----------|-----------:|---------:|
-| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) | 0.467      | 0.517 |
-| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)  | 0.228      | 0.520 |
-| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf)  | 0.452      | 0.531 |  
-| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.475      | 0.547 |
-| [ConvE](https://arxiv.org/abs/1707.01476) | 0.442      | 0.504 |
+|                                                                                                       |   MRR | Hits@10 |
+|-------------------------------------------------------------------------------------------------------|------:|--------:|
+| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)                                           | 0.467 |   0.517 |
+| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) | 0.228 |   0.520 |
+| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf)  | 0.452 |   0.531 |
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)                                           | 0.475 |   0.547 |
+| [ConvE](https://arxiv.org/abs/1707.01476)                                                             | 0.442 |   0.504 |
 
-</td>
-</tr>
-</table>
-
-The results above were obtained using the hyperparameter search described in our [ICLR paper](https://openreview.net/forum?id=BkxSmlBFvr).
 
 ## Quick start
 
@@ -94,91 +100,95 @@ python kge.py start examples/toy-complex-train.yaml --job.device cpu
 
 ## Configuration
 
-LibKGE supports training, evaluation and hyperparameter tuning of KGE models. The settings for each task can be specified with a configuration file in YAML format or on the command line. The default values and usage for available settings can be found in [config-default.yaml](kge/config-default.yaml).
+LibKGE supports training, evaluation, and hyperparameter tuning of KGE models.
+The settings for each task can be specified with a configuration file in YAML
+format or on the command line. The default values and usage for available
+settings can be found in [config-default.yaml](kge/config-default.yaml) as well
+as the model- and embedder-specific configuration files (such as
+[lookup_embedder.yaml](kge/model/embedder/lookup_embedder.yaml)).
 
 #### Training a model
 
-To train a model, define a configuration file, for example:
+First create a configuration file such as:
 
 ```yaml
 job.type: train
 dataset.name: fb15k-237
-model: complex
+
 train:
   optimizer: Adagrad
   optimizer_args:
     lr: 0.2
-lookup_embedder.dim: 100
-lookup_embedder.regularize_weight: 0.8e-7
+
 valid:
   every: 5
   metric: mean_reciprocal_rank_filtered
 
-# All non-specified settings take their default value from config-default.yaml
+model: complex
+lookup_embedder:
+  dim: 100
+  regularize_weight: 0.8e-7
 ```
-When LibKGE is called with this config, it will be [expanded with all default arguments](docs/examples/expanded-config-example.yaml) from the [main default config](kge/config-default.yaml), as well the default configurations for models, for example the [model's embedder](kge/model/embedder/lookup_embedder.yaml).
 
-Now, to begin training, run one of the following:
+To begin training, run one of the following:
 
 ```sh
-# The "start" command creates an output folder local/experiments/XXXXXXXX-XXXXXX-config and begins training
-# This creates an expanded version of the config file config.yaml in the output folder
-python kge.py start config.yaml
+# Store the file as `config.yaml` in a new folder of your choice. Then initiate or resume 
+# the training job using:
+python kge.py resume <folder>
 
-# The "create" command creates an output folder but does not begin training
-python kge.py create config.yaml
+# Alternatively, store the configuration anywhere and use the start command
+# to create a new folder 
+#   <kge-home>/local/experiments/<date>-<config-file-name> 
+# with that config and start training there.
+python kge.py start <config-file>
 
-# Run the "resume" command, to begin or resume training on an existing output folder:
-python kge.py resume local/experiments/XXXXXXXX-XXXXXX-config
-
-# You may specify the output folder and device
-python kge.py start config.yaml --folder kge_test --job.device cuda:0
-
-# All entries in the config file can be overwritten in the command line, e.g.
-python kge.py start config.yaml --train.optimizer Adam
+# In both cases, configuration options can be modified on the command line, too: e.g.,
+python kge.py start <config-file> config.yaml --job.device cuda:0 --train.optimizer Adam
 ```
+
+Various checkpoints (including model parameters and configuration options) will
+be created during training. These checkpoints can be used to resume a model.
 
 #### Resume training
 
-All tasks can be resumed if interrupted. Run the following for the
-corresponding output folder:
+All of LibKGE's jobs can be interrupted and resumed (from a checkpoint). To resume a job, use:
 
 ```sh
-python kge.py resume local/experiments/XXXXXXXX-XXXXXX-config
+python kge.py resume <folder-or-checkpoint>
 
 # Change the device when resuming
-python kge.py resume local/experiments/XXXXXXXX-XXXXXX-config --job.device cuda:1
-
+python kge.py resume <folder-or-checkpoint> --job.device cuda:1
 ```
 
-#### Evaluate a model
+#### Evaluate a trained model
 
 To evaluate trained model, run the following:
 
 ```sh
 # Evaluate a model on the validation split
-python kge.py valid kge_test/config.yaml
+python kge.py valid <folder-or-checkpoint>
 
 # Evaluate a model on the test split
-python kge.py test kge_test/config.yaml
+python kge.py test <folder-or-checkpoint>
 ```
 
 #### Hyperparameter optimization
 
-LibKGE supports various forms of hyperparameter optimization. e.g. grid
-search or Bayesian optimization. The search type and search space are
-specified in the configuration file. We use [Ax](https://ax.dev/) for
-SOBOL (pseudo-random) and Bayesian optimization. For example, the
-following config file defines a search of 10 SOBOL trials (arms)
-followed by 10 Bayesian optimization trials:
+LibKGE supports various forms of hyperparameter optimization such as grid search
+or Bayesian optimization. The search type and search space are specified in the
+configuration file. For example, you may use [Ax](https://ax.dev/) for SOBOL
+(pseudo-random) and Bayesian optimization. 
+
+The following config file defines a search of 10 SOBOL trials (arms) followed by
+20 Bayesian optimization trials:
 
 ```yaml
 job.type: search
-search.type: ax
 dataset.name: wnrr
 valid.metric: mean_reciprocal_rank_filtered
-model: reciprocal_relations_model
-reciprocal_relations_model.base_model.type: conve
+
+search.type: ax
 ax_search:
   num_trials: 30
   num_sobol_trials: 10  # remaining trials are Bayesian
@@ -192,74 +202,80 @@ ax_search:
     - name: train.type
       type: fixed
       value: 1vsAll
+
+model: reciprocal_relations_model
+reciprocal_relations_model.base_model.type: conve
 ```
+
 Trials can be run in parallel across several devices:
 
 ```sh
 # Run 4 trials in parallel evenly distributed across two GPUs
-python kge.py resume . --search.device_pool cuda:0,cuda:1 --search.num_workers 4
+python kge.py resume <folder> --search.device_pool cuda:0,cuda:1 --search.num_workers 4
 
 # Run 3 trials in parallel, with per GPUs capacity
-python kge.py resume . --search.device_pool cuda:0,cuda:1,cuda:1 --search.num_workers 3
-
+python kge.py resume <folder> --search.device_pool cuda:0,cuda:1,cuda:1 --search.num_workers 3
 ```
 
 #### Export and analyse logs
 
-Logs are stored as yaml entries for various scopes (hyperparameter search, training, validation). LibKGE provides a convience method to export the logdata to csv.
-
+Extensive logs are stored as YAML entries for various scopes (hyperparameter
+search, training, validation). LibKGE provides a convience methods to export the
+log data to CSV.
 
 ```sh
-# Dump trace info for the first trial of a hyperparameter search
-python kge.py dump trace local/experiments/XXXXXXXX-XXXXXX-toy-complex-ax/00000
+python kge.py dump trace <folder>
 ```
 
-The command above yields [this CSV output](docs/examples/dump-example-model.csv)
+The command above yields CSV output such as [this output for a training
+job](docs/examples/dump-example-model.csv) or [this output for a search
+job](docs/examples/dump-example-search.csv). Additional configuration options
+can be added to the CSV files as needed.
 
-
-```sh
-# Dump trace info of a hyperparameter search
-python kge.py dump trace local/experiments/XXXXXXXX-XXXXXX-toy-complex-ax
-```
-
-The command above yields [this CSV output](docs/examples/dump-example-search.csv)
-
-
-
-#### Other commands
-To see all available commands:
+#### Help and other commands
 
 ```sh
+# help on all commands
 python kge.py --help
+
+# help on a specific command
+python kge.py dump --help
 ```
 
 ## Current Supported KGE models
 
-LibKGE has implementations for the following KGE models:
+LibKGE currently implements the following KGE models:
 
-- [RESCAL](kge/model/rescal.py)
-- [Transe](kge/model/transe.py)
-- [DistMult](kge/model/distmult.py)
-- [ComplEx](kge/model/complex.py)
-- [Conve](kge/model/conve.py)
+- [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) ([code](kge/model/rescal.py), [config](kge/model/rescal.yaml)) 
+- [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) ([code](kge/model/transe.py), [config](kge/model/transe.yaml))
+- [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) ([code](kge/model/distmult.py), [config](kge/model/distmult.yaml)) 
+- [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) ([code](kge/model/complex.py), [config](kge/model/complex.yaml))
+- [ConvE](https://arxiv.org/abs/1707.01476)  ([code](kge/model/conve.py), [config](kge/model/conve.yaml))
 
-The [examples](examples) folder contains some configuration files as examples of how to run these models.
+The [examples](examples) folder contains some configuration files as examples of how to train these models.
 
 We welcome contributions to expand the list of supported models! Please see [CONTRIBUTING](CONTRIBUTING.md) for details and feel free to initially open an issue.
 
 ## Adding a new model
 
-To add a new model to LibKGE, one needs to extend the
+To add a new model to LibKGE, extend the
 [KgeModel](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L243)
 class. A model is made up of a
 [KgeEmbedder](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L170)
 to associate each subject, relation and object to an embedding, and a
 [KgeScorer](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L76)
-to score triples.
+to score triples given their embeddings.
+
+The model implementation should be stored under
+`<kge-home>/kge/model/<model-name>.py`, its configuration options under
+`<kge-home>/kge/model/<model-name>.yaml`.
 
 ## Using a pretrained model in an application
 
-Using a trained model trained with LibKGE is straightforward. In the following example, we load a checkpoint and predict the most suitable object for a two subject-relations pairs: ('Dominican Republic', 'has form of government', ?) and ('Mighty Morphin Power Rangers', 'is tv show with actor', ?).
+Using a trained model trained with LibKGE is straightforward. In the following
+example, we load a checkpoint and predict the most suitable object for a two
+subject-relations pairs: ('Dominican Republic', 'has form of government', ?) and
+('Mighty Morphin Power Rangers', 'is tv show with actor', ?).
 
 ```python
 import torch
@@ -285,21 +301,19 @@ print(model.dataset.entity_ids(o))
 # ['Republic'                  'Wendee Lee']
 ```
 
-For other score functions (score_sp, score_po, score_so, score_spo) see [KgeModel](kge/model/kge_model.py#L455).
+For other scoring functions (score_sp, score_po, score_so, score_spo), see [KgeModel](kge/model/kge_model.py#L455).
 
 ## Known issues
 
 ## Other KGE frameworks and KGE implementations
 
 Other KGE frameworks:
-
  - [Graphvite](https://graphvite.io/)
  - [AmpliGraph](https://github.com/Accenture/AmpliGraph)
  - [OpenKE](https://github.com/thunlp/OpenKE)
  - [PyKEEN](https://github.com/SmartDataAnalytics/PyKEEN)
 
 KGE projects for publications that also implement a few models:
-
  - [ConvE](https://github.com/TimDettmers/ConvE)
  - [KBC](https://github.com/facebookresearch/kbc)
 
