@@ -3,7 +3,7 @@
 LibKGE is a PyTorch-based library for efficient training, evaluation, and
 hyperparameter optimization of [knowledge graph
 embeddings](https://ieeexplore.ieee.org/document/8047276) (KGE). It is highly
-configurable, easy to use, and extensible. Other KGE frameworks are [listed below](#other-frameworks).
+configurable, easy to use, and extensible. Other KGE frameworks are [listed below](#other-kge-frameworks).
 
 The key goal of LibKGE is to foster *reproducible research* into (as well as
 meaningful comparisons between) KGE models and training methods. As we argue in
@@ -307,7 +307,7 @@ The model implementation should be stored under
 
 ## Known issues
 
-## Other KGE frameworks and KGE implementations {: #other-frameworks }
+## Other KGE frameworks
 
 Other KGE frameworks:
  - [Graphvite](https://graphvite.io/)
