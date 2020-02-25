@@ -829,13 +829,16 @@ class TrainingJobNegativeSampling(TrainingJob):
                 forward_time -= time.time()
                 unique_triples, column_indexes = torch.unique(
                     torch.cat((triples[:, [slot]], negative_samples[slot]), 1).view(-1),
-                    return_inverse=True)
+                    return_inverse=True,
+                )
                 if slot == S:
-                    all_scores = self.model.score_po(triples[:, P], triples[:, O],
-                                                     unique_triples)
+                    all_scores = self.model.score_po(
+                        triples[:, P], triples[:, O], unique_triples
+                    )
                 elif slot == O:
-                    all_scores = self.model.score_sp(triples[:, S], triples[:, P],
-                                                     unique_triples)
+                    all_scores = self.model.score_sp(
+                        triples[:, S], triples[:, P], unique_triples
+                    )
                 else:
                     raise NotImplementedError
                 forward_time += time.time()
