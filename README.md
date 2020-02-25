@@ -259,7 +259,7 @@ to score triples.
 
 ## Using a pretrained model in an application
 
-Using a trained model trained with LibKGE is very easy. In the following example, we load a checkpoint and predict the most suitable object for a list of subjects and relations paris.
+Using a trained model trained with LibKGE is straightforward. In the following example, we load a checkpoint and predict the most suitable object for a two subject-relations pairs: ('Dominican Republic', 'has form of government', ?) and ('Mighty Morphin Power Rangers', 'is tv show with actor', ?).
 
 ```python
 import torch
@@ -267,17 +267,18 @@ import kge.model
 
 model = kge.model.KgeModel.load_from_checkpoint('checkpoint_best.pt')
 
-subject_ids = torch.Tensor([0, 2,]).long()
-relation_ids = torch.Tensor([0, 1,]).long()
-scores = model.score_sp(subject_ids, relation_ids)
-object_ids = torch.argmax(scores, dim=-1)
+s = torch.Tensor([0, 2,]).long()             # subject indexes
+p = torch.Tensor([0, 1,]).long()             # relation indexes
+scores = model.score_sp(s, p)                # scores of all objects for (s,p,?)
+o = torch.argmax(scores, dim=-1)             # index of highest-scoring objects
 
-print(object_ids)
-print(model.dataset.entity_ids(subject_ids))
-print(model.dataset.relation_ids(relation_ids))
-print(model.dataset.entity_ids(object_ids))
+print(o)
+print(model.dataset.entity_ids(s))           # convert indexes to canonical string ids
+print(model.dataset.relation_ids(r))
+print(model.dataset.entity_ids(o))
 
-# prints: 
+# Output: 
+#
 # tensor([8399, 8855])
 # ['Dominican Republic'        'Mighty Morphin Power Rangers']
 # ['has form of government'    'is tv show with actor']
