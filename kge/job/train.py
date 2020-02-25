@@ -685,8 +685,10 @@ class TrainingJobNegativeSampling(TrainingJob):
         self.is_prepared = False
         self._implementation = self.config.get("negative_sampling.implementation")
         if self._implementation == "auto":
-            max_nr_of_negs = max(self._sampler.num_samples.values())
-            if max_nr_of_negs <= 30:
+            max_nr_of_negs = max(self._sampler.num_samples)
+            if self._sampler.shared:
+                self._implementation = "sp_po"
+            elif max_nr_of_negs <= 30:
                 self._implementation = "spo"
             elif max_nr_of_negs > 30:
                 self._implementation = "sp_po"
@@ -790,7 +792,7 @@ class TrainingJobNegativeSampling(TrainingJob):
                     direction="s" if slot == S else ("o" if slot == O else "p"),
                 ).view(batch_size, -1)
                 forward_time += time.time()
-            elif self._implementation == "sp_po":
+            elif self._implementation == "sp_po_naive":
                 # compute all scores for slot
                 forward_time -= time.time()
                 if slot == S:
@@ -822,7 +824,7 @@ class TrainingJobNegativeSampling(TrainingJob):
                 forward_time -= time.time()
                 scores = all_scores[row_indexes, column_indexes].view(batch_size, -1)
                 forward_time += time.time()
-            elif self._implementation == "sp_po_unique":
+            elif self._implementation == "sp_po":
                 # compute all scores for slot
                 forward_time -= time.time()
                 unique_triples, column_indexes = torch.unique(
@@ -842,40 +844,6 @@ class TrainingJobNegativeSampling(TrainingJob):
                 prepare_time -= time.time()
                 row_indexes = (
                     torch.arange(batch_size, device=self.device)
-                    .unsqueeze(1)
-                    .repeat(1, 1 + num_samples)
-                    .view(-1)
-                )  # 000 111 222; each 1+num_negative times (here: 3)
-                prepare_time += time.time()
-
-                # now pick the scores we need
-                forward_time -= time.time()
-                scores = all_scores[row_indexes, column_indexes].view(batch_size, -1)
-                forward_time += time.time()
-            elif self._implementation == "sp_po_unique_all":
-                # compute all scores for slot
-                forward_time -= time.time()
-                unique_triples, column_indexes = torch.unique(
-                    torch.cat((triples[:, [slot]], negative_samples[slot]), 1).view(-1),
-                    return_inverse=True)
-                if slot == S:
-                    unique_po, row_index = torch.unique(triples[:, [P, O]], dim=0,
-                                                        return_inverse=True)
-                    all_scores = self.model.score_po(unique_po[:, 0], unique_po[:, 1],
-                                                     unique_triples)
-                elif slot == O:
-                    unique_sp, row_index = torch.unique(triples[:, [S, P]], dim=0,
-                                                        return_inverse=True)
-                    all_scores = self.model.score_sp(unique_sp[:, 0], unique_sp[:, 1],
-                                                     unique_triples)
-                else:
-                    raise NotImplementedError
-                forward_time += time.time()
-
-                # determine indexes of relevant scores in scoring matrix
-                prepare_time -= time.time()
-                row_indexes = (
-                    row_index
                     .unsqueeze(1)
                     .repeat(1, 1 + num_samples)
                     .view(-1)

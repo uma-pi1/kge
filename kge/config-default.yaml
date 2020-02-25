@@ -199,9 +199,9 @@ negative_sampling:
   shared: False
 
   # Implementation to use for the training job. Set to spo (for small negative
-  # samples), sp_po (for large negative samples), or set to auto which sets spo
+  # samples), sp_po (for large negative samples or shared sampling), or set to auto which sets spo
   # or sp_po automatically if the max(num_samples.s, num_samples.p,
-  # num_samples.o) > 30. Recommended for models which compute sp_po with an
+  # num_samples.o) > 30 or shared sampling is activated. Recommended for models which compute sp_po with an
   # matrix product, but not for all other models (e.g., not for TransE in the
   # current implementation).
   implementation: spo
