@@ -307,6 +307,11 @@ The model implementation should be stored under
 
 ## Known issues
 
+## Changelog
+
+See [here](CHANGELOG.md).
+
+
 ## Other KGE frameworks
 
 Other KGE frameworks:
