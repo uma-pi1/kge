@@ -13,7 +13,7 @@ often more so than the model class itself. LibKGE aims to provide clean
 implementations of training, hyperparameter optimization, and evaluation
 strategies that can be used with any model. Every potential knob or heuristic
 implemented in the framework is exposed explicitly via configuration files.
-LikKGE also provides the most common KGE models and new ones can be easily
+LibKGE also provides the most common KGE models and new ones can be easily
 added (contributions welcome!).
 
 ## Features
