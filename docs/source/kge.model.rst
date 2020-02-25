@@ -1,6 +1,13 @@
 kge.model package
 =================
 
+Subpackages
+-----------
+
+.. toctree::
+
+    kge.model.embedder
+
 Submodules
 ----------
 
@@ -11,6 +18,15 @@ kge.model.complex module
     :members:
     :undoc-members:
     :show-inheritance:
+
+kge.model.conve module
+----------------------
+
+.. automodule:: kge.model.conve
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 kge.model.distmult module
 -------------------------
@@ -28,14 +44,29 @@ kge.model.kge\_model module
     :undoc-members:
     :show-inheritance:
 
-kge.model.lookup\_embedder module
----------------------------------
+kge.model.reciprocal\_relations\_model module
+---------------------------------------------
 
-.. automodule:: kge.model.lookup_embedder
+.. automodule:: kge.model.reciprocal_relations_model
     :members:
     :undoc-members:
     :show-inheritance:
 
+kge.model.rescal module
+-----------------------
+
+.. automodule:: kge.model.rescal
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+kge.model.transe module
+-----------------------
+
+.. automodule:: kge.model.transe
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 Module contents
 ---------------
