@@ -1,32 +1,43 @@
 # LibKGE: A knowledge graph embedding library
 
-LibKGE is a PyTorch-based library for efficient training, evaluation and
+LibKGE is a PyTorch-based library for efficient training, evaluation, and
 hyperparameter optimization of [knowledge graph
 embeddings](https://ieeexplore.ieee.org/document/8047276) (KGE). It is highly
-configurable, easy to use, and extensible. A major goal of LibKGE is to
-facilitate reproducible research into KGE models; see our
-[ICLR paper](https://github.com/uma-pi1/kge-iclr20).
+configurable, easy to use, and extensible.
+
+The key goal of LibKGE is to foster reproducible research into (as well as
+meaningful comparisons between) KGE models and training methods. As we argue in
+our [ICLR 2020 paper](https://github.com/uma-pi1/kge-iclr20), the choice of
+training strategy and hyperparameters are very influential on model performance,
+often more so than the model class itself. LibKGE aims to provide clean
+implementations of training, hyperparameter optimization, and evaluation
+strategies that can be used with any model. Every potential knob or heuristic
+implemented in the framework is exposed explicitly via configuration files.
+LikKGE also provides the most common KGE models and new ones can be easily
+added (contributions welcome!).
 
 ## Features
 
- - **KGE models**: [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) ([code](kge/model/rescal.py)), [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) ([code](kge/model/transe.py)), [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) ([code](kge/model/distmult.py)), [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) ([code](kge/model/complex.py)), [ConvE](https://arxiv.org/abs/1707.01476)  ([code](kge/model/conve.py))
  - **Training**
    - Training types: negative sampling, 1vsAll, KvsAll
-   - Losses: binary cross entropy (BCE), Kullback-Leibler divergence (KL), margin ranking (MR)
+   - Losses: binary cross entropy (BCE), Kullback-Leibler divergence (KL),
+     margin ranking (MR)
    - All optimizers and learning rate schedulers of PyTorch supported
    - Early stopping
    - Checkpointing
    - Stop and resume at any time
  - **Hyperparameter tuning**
-   - Grid search, manual search, quasi-random search (using [Ax](https://ax.dev/)), Bayesian
-     optimization (using [Ax](https://ax.dev/))
+   - Grid search, manual search, quasi-random search (using
+     [Ax](https://ax.dev/)), Bayesian optimization (using [Ax](https://ax.dev/))
    - Highly parallelizable (multiple CPUs/GPUs on single machine)
    - Stop and resume at any time
  - **Evaluation**
    - Entity ranking metrics: Mean Reciprocal Rank (MRR), HITS@k with/without filtering
    - Drill-down by: relation type, relation frequency, head or tail
  - **Extensive logging**
-   - Logging for training, hyper-parameter tuning and evaluation in machine readable formats to facilitate analysis
+   - Logging for training, hyper-parameter tuning and evaluation in machine
+     readable formats to facilitate analysis
+ - **KGE models**: [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) ([code](kge/model/rescal.py)), [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) ([code](kge/model/transe.py)), [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) ([code](kge/model/distmult.py)), [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) ([code](kge/model/complex.py)), [ConvE](https://arxiv.org/abs/1707.01476)  ([code](kge/model/conve.py))
 
 
 ## Results
