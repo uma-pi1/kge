@@ -5,16 +5,16 @@ hyperparameter optimization of [knowledge graph
 embeddings](https://ieeexplore.ieee.org/document/8047276) (KGE). It is highly
 configurable, easy to use, and extensible.
 
-The key goal of LibKGE is to foster reproducible research into (as well as
+The key goal of LibKGE is to foster *reproducible research* into (as well as
 meaningful comparisons between) KGE models and training methods. As we argue in
 our [ICLR 2020 paper](https://github.com/uma-pi1/kge-iclr20), the choice of
 training strategy and hyperparameters are very influential on model performance,
-often more so than the model class itself. LibKGE aims to provide clean
-implementations of training, hyperparameter optimization, and evaluation
+often more so than the model class itself. LibKGE aims to provide *clean
+implementations* of training, hyperparameter optimization, and evaluation
 strategies that can be used with any model. Every potential knob or heuristic
-implemented in the framework is exposed explicitly via configuration files.
-LibKGE also provides the most common KGE models and new ones can be easily
-added (contributions welcome!).
+implemented in the framework is exposed explicitly via *well-documented*
+configuration files. LibKGE also provides the most common KGE models and new
+ones can be easily added (contributions welcome!).
 
 ## Features
 
