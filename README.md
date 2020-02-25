@@ -52,14 +52,14 @@ common KGE models and new ones can be easily added (contributions welcome!).
 
 ## Results
 
-Some example results (w.r.t. filtered MRR) obtained with LibKGE. These results
-are obtained by running automatic hyperparameter search as described
-[here](https://github.com/uma-pi1/kge-iclr20). They are not necessarily the best
-results that can be achieved using LikKGE, but the results are comparable in
-that a common experimental setup (and equal amount of work) has been used for
-hyperparameter optimization for each model.
+We list some example results (w.r.t. filtered MRR) obtained with LibKGE below.
+These results are obtained by running automatic hyperparameter search as
+described [here](https://github.com/uma-pi1/kge-iclr20). They are not
+necessarily the best results that can be achieved using LibKGE, but the results
+are comparable in that a common experimental setup (and equal amount of work)
+has been used for hyperparameter optimization for each model.
 
-### FB15k-237
+#### FB15k-237
 
 |                                                                                                       |   MRR | Hits@10 |
 |-------------------------------------------------------------------------------------------------------|------:|--------:|
@@ -69,7 +69,7 @@ hyperparameter optimization for each model.
 | [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)                                           | 0.348 |   0.536 |
 | [ConvE](https://arxiv.org/abs/1707.01476)                                                             | 0.339 |   0.521 |
 
-### WN18RR
+#### WN18RR
 
 |                                                                                                       |   MRR | Hits@10 |
 |-------------------------------------------------------------------------------------------------------|------:|--------:|
@@ -98,7 +98,7 @@ python kge.py start examples/toy-complex-train.yaml --job.device cpu
 
 ```
 
-## Configuration
+## Using LibKGE
 
 LibKGE supports training, evaluation, and hyperparameter tuning of KGE models.
 The settings for each task can be specified with a configuration file in YAML
@@ -107,7 +107,7 @@ settings can be found in [config-default.yaml](kge/config-default.yaml) as well
 as the model- and embedder-specific configuration files (such as
 [lookup_embedder.yaml](kge/model/embedder/lookup_embedder.yaml)).
 
-#### Training a model
+#### Train a model
 
 First create a configuration file such as:
 
@@ -217,7 +217,7 @@ python kge.py resume <folder> --search.device_pool cuda:0,cuda:1 --search.num_wo
 python kge.py resume <folder> --search.device_pool cuda:0,cuda:1,cuda:1 --search.num_workers 3
 ```
 
-#### Export and analyse logs
+#### Export and analyze logs
 
 Extensive logs are stored as YAML files (hyperparameter search, training,
 validation). LibKGE provides a convenience methods to export the log data to
@@ -242,7 +242,7 @@ python kge.py --help
 python kge.py dump --help
 ```
 
-## Using a pretrained model in an application
+#### Use a pretrained model in an application
 
 Using a trained model trained with LibKGE is straightforward. In the following
 example, we load a checkpoint and predict the most suitable object for a two
@@ -319,9 +319,11 @@ KGE projects for publications that also implement a few models:
  - [ConvE](https://github.com/TimDettmers/ConvE)
  - [KBC](https://github.com/facebookresearch/kbc)
 
+PRs to this list are welcome.
+
 ## How to cite
 
-If you use our code or compare against our results please cite the following publication:
+If you use LibKGE, please cite the following publication:
 
 ```
 @inproceedings{
