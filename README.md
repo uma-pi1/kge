@@ -3,7 +3,7 @@
 LibKGE is a PyTorch-based library for efficient training, evaluation, and
 hyperparameter optimization of [knowledge graph
 embeddings](https://ieeexplore.ieee.org/document/8047276) (KGE). It is highly
-configurable, easy to use, and extensible.
+configurable, easy to use, and extensible. Other KGE frameworks are [listed below](#other-frameworks).
 
 The key goal of LibKGE is to foster *reproducible research* into (as well as
 meaningful comparisons between) KGE models and training methods. As we argue in
@@ -148,7 +148,7 @@ python kge.py start <config-file> config.yaml --job.device cuda:0 --train.optimi
 ```
 
 Various checkpoints (including model parameters and configuration options) will
-be created during training. These checkpoints can be used to resume a model.
+be created during training. These checkpoints can be used to resume training (or any other job type such as hyperparameter search jobs).
 
 #### Resume training
 
@@ -219,9 +219,9 @@ python kge.py resume <folder> --search.device_pool cuda:0,cuda:1,cuda:1 --search
 
 #### Export and analyse logs
 
-Extensive logs are stored as YAML entries for various scopes (hyperparameter
-search, training, validation). LibKGE provides a convience methods to export the
-log data to CSV.
+Extensive logs are stored as YAML files (hyperparameter search, training,
+validation). LibKGE provides a convenience methods to export the log data to
+CSV.
 
 ```sh
 python kge.py dump trace <folder>
@@ -229,7 +229,7 @@ python kge.py dump trace <folder>
 
 The command above yields CSV output such as [this output for a training
 job](docs/examples/dump-example-model.csv) or [this output for a search
-job](docs/examples/dump-example-search.csv). Additional configuration options
+job](https://github.com/uma-pi1/kge-iclr20/blob/master/data_dumps/iclr2020-fb15k-237-all-trials.csv). Additional configuration options
 can be added to the CSV files as needed.
 
 #### Help and other commands
@@ -241,34 +241,6 @@ python kge.py --help
 # help on a specific command
 python kge.py dump --help
 ```
-
-## Current Supported KGE models
-
-LibKGE currently implements the following KGE models:
-
-- [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) ([code](kge/model/rescal.py), [config](kge/model/rescal.yaml)) 
-- [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) ([code](kge/model/transe.py), [config](kge/model/transe.yaml))
-- [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) ([code](kge/model/distmult.py), [config](kge/model/distmult.yaml)) 
-- [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) ([code](kge/model/complex.py), [config](kge/model/complex.yaml))
-- [ConvE](https://arxiv.org/abs/1707.01476)  ([code](kge/model/conve.py), [config](kge/model/conve.yaml))
-
-The [examples](examples) folder contains some configuration files as examples of how to train these models.
-
-We welcome contributions to expand the list of supported models! Please see [CONTRIBUTING](CONTRIBUTING.md) for details and feel free to initially open an issue.
-
-## Adding a new model
-
-To add a new model to LibKGE, extend the
-[KgeModel](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L243)
-class. A model is made up of a
-[KgeEmbedder](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L170)
-to associate each subject, relation and object to an embedding, and a
-[KgeScorer](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L76)
-to score triples given their embeddings.
-
-The model implementation should be stored under
-`<kge-home>/kge/model/<model-name>.py`, its configuration options under
-`<kge-home>/kge/model/<model-name>.yaml`.
 
 ## Using a pretrained model in an application
 
@@ -303,9 +275,39 @@ print(model.dataset.entity_ids(o))
 
 For other scoring functions (score_sp, score_po, score_so, score_spo), see [KgeModel](kge/model/kge_model.py#L455).
 
+
+## Currently supported KGE models
+
+LibKGE currently implements the following KGE models:
+
+- [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) ([code](kge/model/rescal.py), [config](kge/model/rescal.yaml)) 
+- [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) ([code](kge/model/transe.py), [config](kge/model/transe.yaml))
+- [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) ([code](kge/model/distmult.py), [config](kge/model/distmult.yaml)) 
+- [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) ([code](kge/model/complex.py), [config](kge/model/complex.yaml))
+- [ConvE](https://arxiv.org/abs/1707.01476)  ([code](kge/model/conve.py), [config](kge/model/conve.yaml))
+
+The [examples](examples) folder contains some configuration files as examples of how to train these models.
+
+We welcome contributions to expand the list of supported models! Please see [CONTRIBUTING](CONTRIBUTING.md) for details and feel free to initially open an issue.
+
+## Adding a new model
+
+To add a new model to LibKGE, extend the
+[KgeModel](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L243)
+class. A model is made up of a
+[KgeEmbedder](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L170)
+to associate each subject, relation and object to an embedding, and a
+[KgeScorer](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L76)
+to score triples given their embeddings.
+
+The model implementation should be stored under
+`<kge-home>/kge/model/<model-name>.py`, its configuration options under
+`<kge-home>/kge/model/<model-name>.yaml`.
+
+
 ## Known issues
 
-## Other KGE frameworks and KGE implementations
+## Other KGE frameworks and KGE implementations {: #other-frameworks }
 
 Other KGE frameworks:
  - [Graphvite](https://graphvite.io/)
