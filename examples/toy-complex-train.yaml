@@ -1,31 +1,23 @@
 job.type: train
 dataset.name: toy
-model: complex
+
 train:
   optimizer: Adagrad
   optimizer_args:
     lr: 0.2
-lookup_embedder.dim: 100
-lookup_embedder.regularize_weight: 0.8e-7
-train.lr_scheduler: ReduceLROnPlateau
-train.lr_scheduler_args: 
-  mode: max
-  patience: 4
+  lr_scheduler: ReduceLROnPlateau
+  lr_scheduler_args:
+    mode: max
+    patience: 4
 
 valid.filter_with_test: True
 
-lookup_embedder.initialize: normal_
-# example for using initialize args generically (might result in error if args do not matchj initializer)
-lookup_embedder.initialize_args:
-  # examples for specifying args for specific initializers (useful for ax search)
-  # will be passed to the initializer if key matches initialize option
-  normal_:
-    mean: 0.0
-    std: 0.1
-  uniform_:
-    #a: -0.5
-    b: 0.5
-  # xavier_normal_:
-  #   gain: 1.0
-  # xavier_uniform_:
-  #   gain: 1.0
+model: complex
+lookup_embedder:
+  dim: 100
+  regularize_weight: 0.8e-7
+  initialize: normal_
+  initialize_args:
+    normal_:
+      mean: 0.0
+      std: 0.1

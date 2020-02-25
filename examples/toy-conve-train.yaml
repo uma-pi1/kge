@@ -1,18 +1,9 @@
 job.type: train
 dataset.name: toy
+
 model: reciprocal_relations_model
 reciprocal_relations_model.base_model.type: conve # redundant since also default
-lookup_embedder.dim: 90
-conve.round_dim: True
-lookup_embedder.initialize: xavier_normal_
-conve.entity_embedder.dropout: 0.2
-conve.relation_embedder.dropout: 0.2
-valid:
-  early_stopping:
-    patience: 5
-  every: 5
-  filter_with_test: True
-  metric: mean_reciprocal_rank_filtered_with_test
+
 train:
   optimizer: Adam
   optimizer_args:
@@ -20,3 +11,20 @@ train:
     weight_decay: 0.4e-7
   batch_size: 256
   max_epochs: 200
+
+valid:
+  early_stopping:
+    patience: 5
+  every: 5
+  filter_with_test: True
+  metric: mean_reciprocal_rank_filtered_with_test
+
+lookup_embedder:
+  dim: 90
+  initialize: xavier_normal_
+
+conve:
+  round_dim: True
+  entity_embedder.dropout: 0.2
+  relation_embedder.dropout: 0.2
+
