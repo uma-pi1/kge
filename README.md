@@ -116,7 +116,7 @@ valid:
 
 # All non-specified settings take their default value from config-default.yaml
 ```
-When LibKGE is called with this config, it will be [expanded with all default arguments](docs/examples/expanded-config-example.yaml) from the [main default config](kge/config-default.yaml), as well the default configurations for models, for example the [model's embedder](kge/model/lookup_embedder.yaml).
+When LibKGE is called with this config, it will be [expanded with all default arguments](docs/examples/expanded-config-example.yaml) from the [main default config](kge/config-default.yaml), as well the default configurations for models, for example the [model's embedder](kge/model/embedder/lookup_embedder.yaml).
 
 Now, to begin training, run one of the following:
 
@@ -259,22 +259,17 @@ to score triples.
 
 ## Using a pretrained model in an application
 
-Using a trained model trained with LibKGE is very easy. In the following example we load the best checkpoint and predict objects indexes, given a list of subject and relation indexes.  
+Using a trained model trained with LibKGE is very easy. In the following example, we load a checkpoint and predict the most suitable object for a list of subjects and relations paris.
 
 ```python
 import torch
 import kge.model
 
-model : kge.model.KgeModel = kge.model.KgeModel.load_from_checkpoint('.../checkpoint_best.pt')
+model = kge.model.KgeModel.load_from_checkpoint('checkpoint_best.pt')
 
 subject_ids = torch.Tensor([0, 2,]).long()
 relation_ids = torch.Tensor([0, 1,]).long()
-
-scores = model.score_sp(
-  subject_ids, 
-  relation_ids
-)
-
+scores = model.score_sp(subject_ids, relation_ids)
 object_ids = torch.argmax(scores, dim=-1)
 
 print(object_ids)
@@ -284,9 +279,9 @@ print(model.dataset.entity_ids(object_ids))
 
 # prints: 
 # tensor([8399, 8855])
-# ['Dominican Republic' 'Mighty Morphin Power Rangers']
-# ['has form of government' 'is tv show with actor']
-# ['Republic' 'Wendee Lee']
+# ['Dominican Republic'        'Mighty Morphin Power Rangers']
+# ['has form of government'    'is tv show with actor']
+# ['Republic'                  'Wendee Lee']
 ```
 
 For other score functions (score_sp, score_po, score_so, score_spo) see [KgeModel](kge/model/kge_model.py#L455).
