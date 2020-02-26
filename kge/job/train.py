@@ -687,11 +687,11 @@ class TrainingJobNegativeSampling(TrainingJob):
         if self._implementation == "auto":
             max_nr_of_negs = max(self._sampler.num_samples)
             if self._sampler.shared:
-                self._implementation = "sp_po"
+                self._implementation = "batch"
             elif max_nr_of_negs <= 30:
-                self._implementation = "spo"
+                self._implementation = "triple"
             elif max_nr_of_negs > 30:
-                self._implementation = "sp_po"
+                self._implementation = "batch"
 
         config.log(
             "Initializing negative sampling training job with "
@@ -770,7 +770,7 @@ class TrainingJobNegativeSampling(TrainingJob):
 
             # compute corresponding scores
             scores = None
-            if self._implementation == "spo":
+            if self._implementation == "triple":
                 # construct triples
                 prepare_time -= time.time()
                 triples_to_score = triples.repeat(1, 1 + num_samples).view(-1, 3)
@@ -792,9 +792,9 @@ class TrainingJobNegativeSampling(TrainingJob):
                     direction="s" if slot == S else ("o" if slot == O else "p"),
                 ).view(batch_size, -1)
                 forward_time += time.time()
-            elif self._implementation == "sp_po_naive":
-                # Score against all entities in the set and filter out the relevant
-                # triples. Creates a score matrix of size [batch_size, num_entities].
+            elif self._implementation == "all":
+                # Score against all possible targets.
+                # Creates a score matrix of size [batch_size, num_entities].
                 # All scores relevant for positive and negative triples are contained in
                 # this score matrix.
                 # compute all scores for slot
@@ -830,11 +830,11 @@ class TrainingJobNegativeSampling(TrainingJob):
                 forward_time -= time.time()
                 scores = all_scores[row_indexes, column_indexes].view(batch_size, -1)
                 forward_time += time.time()
-            elif self._implementation == "sp_po":
-                # Score every triple in the batch against every unique entity occurring
-                # in the target slot. Creates a score matrix of size [batch_size,
-                # unique_entities_in_slot]. All scores relevant for positive and
-                # negative triples are contained in this score matrix.
+            elif self._implementation == "batch":
+                # Score against all targets contained in the batch.
+                # Creates a score matrix of size [batch_size, unique_entities_in_slot].
+                # All scores relevant for positive and negative triples are contained in
+                # this score matrix.
                 forward_time -= time.time()
                 unique_targets, column_indexes = torch.unique(
                     torch.cat((triples[:, [slot]], negative_samples[slot]), 1).view(-1),

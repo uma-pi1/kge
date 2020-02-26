@@ -205,21 +205,19 @@ negative_sampling:
   shared: False
 
   # Implementation to use for the training job.
-  # - spo: Scores every positive and negative triple in the batch.
-  # - sp_po_naive: Scores every triple against every entity/relation in the
-  #                dataset. Filters relevant scores out of the resulting
-  #                score matrix.
-  # - sp_po: Scores every triple against every unique entity/relation in the
-  #          target slot. Filters relevant scores out of the resulting score
-  #          matrix.
+  # - triple: Scores every positive and negative triple in the batch.
+  # - all: Scores against all possible targets and filters relevant scores
+  #        out of the resulting score matrix.
+  # - batch: Scores against all targets contained in batch and filters
+  #          relevant scores out of the resulting score matrix.
   # - auto: Chooses best implementation based on num_samples.
-  #         sp_po if shared sampling is activated or max(num_samples.s,
+  #         'batch' if shared sampling is activated or max(num_samples.s,
   #         num_samples.p, num_samples.o) > 30.
-  #         spo otherwise
-  #         Recommended for models which compute sp_po with a matrix product,
+  #         'triple' otherwise.
+  #         Recommended for models which compute 'batch' with a matrix product,
   #         but not for all other models (e.g., not for TransE in the
   #         current implementation).
-  implementation: spo
+  implementation: triple
 
 
 ## VALIDATION ##################################################################
