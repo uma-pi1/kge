@@ -793,10 +793,16 @@ class TrainingJobNegativeSampling(TrainingJob):
                 ).view(batch_size, -1)
                 forward_time += time.time()
             elif self._implementation == "sp_po_naive":
+                # Score against all entities in the set and filter out the relevant
+                # triples. Creates a score matrix of size [batch_size, num_entities].
+                # All scores relevant for positive and negative triples are contained in
+                # this score matrix.
                 # compute all scores for slot
                 forward_time -= time.time()
                 if slot == S:
                     all_scores = self.model.score_po(triples[:, P], triples[:, O])
+                elif slot == P:
+                    all_scores = self.model.score_so(triples[:, S], triples[:, O])
                 elif slot == O:
                     all_scores = self.model.score_sp(triples[:, S], triples[:, P])
                 else:
@@ -825,19 +831,27 @@ class TrainingJobNegativeSampling(TrainingJob):
                 scores = all_scores[row_indexes, column_indexes].view(batch_size, -1)
                 forward_time += time.time()
             elif self._implementation == "sp_po":
-                # compute all scores for slot
+                # Score every triple in the batch against every unique entity occurring
+                # in the target slot. Creates a score matrix of size [batch_size,
+                # unique_entities_in_slot]. All scores relevant for positive and
+                # negative triples are contained in this score matrix.
                 forward_time -= time.time()
-                unique_triples, column_indexes = torch.unique(
+                unique_targets, column_indexes = torch.unique(
                     torch.cat((triples[:, [slot]], negative_samples[slot]), 1).view(-1),
                     return_inverse=True,
                 )
+                # compute all scores for slot
                 if slot == S:
                     all_scores = self.model.score_po(
-                        triples[:, P], triples[:, O], unique_triples
+                        triples[:, P], triples[:, O], unique_targets
+                    )
+                elif slot == P:
+                    all_scores = self.model.score_so(
+                        triples[:, S], triples[:, O], unique_targets
                     )
                 elif slot == O:
                     all_scores = self.model.score_sp(
-                        triples[:, S], triples[:, P], unique_triples
+                        triples[:, S], triples[:, P], unique_targets
                     )
                 else:
                     raise NotImplementedError
