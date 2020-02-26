@@ -19,8 +19,8 @@ sys.path.insert(0, os.path.abspath('..'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'kge'
-copyright = '2019, Chair of Data Analytics, University of Mannheim, Germany'
+project = 'LibKGE'
+copyright = 'Chair of Data Analytics, University of Mannheim, Germany (2020)'
 author = 'Chair of Data Analytics, University of Mannheim, Germany'
 
 # The short X.Y version
@@ -134,7 +134,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'kge.tex', 'kge Documentation',
+    (master_doc, 'kge.tex', 'LibKGE documentation',
      'Chair of Data Analytics, University of Mannheim, Germany', 'manual'),
 ]
 
@@ -144,7 +144,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'kge', 'kge Documentation',
+    (master_doc, 'kge', 'LibKGE documentation',
      [author], 1)
 ]
 
@@ -155,8 +155,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'kge', 'kge Documentation',
-     author, 'kge', 'One line description of project.',
+    (master_doc, 'kge', 'LibKGE documentation',
+     author, 'Chair of Data Analytics, University of Mannheim, Germany', 'One line description of project.',
      'Miscellaneous'),
 ]
 

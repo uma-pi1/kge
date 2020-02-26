@@ -8,8 +8,8 @@ Thank you for considering to contribute to this project. We currently have the f
   3.8)](http://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings);
   see
   [example](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html)
-- Use (type
-  annotations)[https://mypy.readthedocs.io/en/latest/cheat_sheet_py3.html]
+- Use [type
+  annotations](https://mypy.readthedocs.io/en/latest/cheat_sheet_py3.html)
   whenever considered helpful
   - For tensors, use `torch.Tensor` only (for all tensors/shapes/devices); do
     not use any more specific annotations (e.g., `torch.LongTensor` refers to a

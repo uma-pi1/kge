@@ -15,10 +15,12 @@ train:
 lookup_embedder.dim: 100
 
 negative_sampling:
-  num_samples.s: 30
-  num_samples.o: -1
-  num_samples.p: 30
+  num_samples:
+    s: 30
+    p: 30
+    o: -1  # means: as s
   filtering:
     s: True
     o: True
     p: True
+    implementation: fast_if_available

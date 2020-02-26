@@ -189,9 +189,15 @@ negative_sampling:
   # Whether to resample corrupted triples that occur in the training data (and
   # are hence positives). Can be set separately for each slot.
   filtering:
-    s: False
-    p: False
-    o: False
+    s: False       # filter and resample for slot s
+    p: False       # as above
+    o: False       # as above
+
+    # Implementation to use for filtering.
+    # standard: use slow generic implementation, available for all samplers
+    # fast: use specialized fast implementation, available for some samplers
+    # fast_if_available: use fast implementation if available, else standard
+    implementation: fast_if_available
 
   # Whether to share the s/p/o corruptions for all triples in the batch. This
   # can make training more efficient. Cannot be used with together with
