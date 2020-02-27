@@ -50,34 +50,39 @@ common KGE models and new ones can be easily added (contributions welcome!).
    - Projection embedder ([code](kge/model/embedder/projection_embedder.py), [config](kge/model/embedder/projection_embedder.yaml))
 
 
-## Results
+## Results and pretrained models
 
-We list some example results (w.r.t. filtered MRR) obtained with LibKGE below.
-These results are obtained by running automatic hyperparameter search as
-described [here](https://github.com/uma-pi1/kge-iclr20). They are not
+We list some example results (w.r.t. filtered MRR and HITS@k) obtained with
+LibKGE below. These results are obtained by running automatic hyperparameter
+search as described [here](https://github.com/uma-pi1/kge-iclr20). They are not
 necessarily the best results that can be achieved using LibKGE, but the results
 are comparable in that a common experimental setup (and equal amount of work)
 has been used for hyperparameter optimization for each model.
 
+We also provide pretrained models for these results. Each pretrained model is
+given in the form of a LibKGE checkpoint, which contains the model as well as
+additional information (such as the configuration being used). See the
+documentation below on how to use checkpoints.
+
 #### FB15K-237
 
-|          | MRR       | Hits@10 | Hits@3 | Hits@1 | Pretrained model |
-|----------|-----------:|---------:|---------:|---------:|---------:|
-| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)  | 0.356 | 0.541 | 0.393 | 0.263 | [1vsAll-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/fb15k-237-checkpoint-rescal-1vsAll-kl-bo-best.pt) |
-| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)   | 0.313      | 0.497 | 0.347 | 0.221 | [NegSamp-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/fb15k-237-checkpoint-transe-negative_sampling-kl-bo-best.pt) |
-| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) | 0.343      | 0.531 | 0.378 | 0.250 | [NegSamp-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/fb15k-237-checkpoint-distmult-negative_sampling-kl-bo-best.pt)  |
-| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.348      | 0.536 | 0.384 | 0.253 | [NegSamp-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/fb15k-237-checkpoint-complex-negative_sampling-kl-bo-best.pt)  |
-| [ConvE](https://arxiv.org/abs/1707.01476) | 0.339      | 0.521 | 0.369 | 0.248 | [1vsAll-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/fb15k-237-checkpoint-conve-1vsAll-kl-bo-best.pt)  |
+|                                                                                                       |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                                                                                        Pretrained model |
+|-------------------------------------------------------------------------------------------------------|------:|-------:|-------:|--------:|------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)                                           | 0.356 |  0.263 |  0.393 |   0.541 |               [1vsAll-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/fb15k-237-checkpoint-rescal-1vsAll-kl-bo-best.pt) |
+| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) | 0.313 |  0.221 |  0.347 |   0.497 |   [NegSamp-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/fb15k-237-checkpoint-transe-negative_sampling-kl-bo-best.pt) |
+| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf)  | 0.343 |  0.250 |  0.378 |   0.531 | [NegSamp-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/fb15k-237-checkpoint-distmult-negative_sampling-kl-bo-best.pt) |
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)                                           | 0.348 |  0.253 |  0.384 |   0.536 |  [NegSamp-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/fb15k-237-checkpoint-complex-negative_sampling-kl-bo-best.pt) |
+| [ConvE](https://arxiv.org/abs/1707.01476)                                                             | 0.339 |  0.248 |  0.369 |   0.521 |                [1vsAll-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/fb15k-237-checkpoint-conve-1vsAll-kl-bo-best.pt) |
 
 #### WN18RR
 
-|          | MRR       | Hits@10 | Hits@3 | Hits@1 | Pretrained model |
-|----------|-----------:|---------:|---------:|---------:|---------:|
-| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) | 0.467 | 0.517 | 0.480 | 0.439 | [KvsAll-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/wnrr-checkpoint-rescal-KvsAll-kl-bo-best.pt) |
-| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)  | 0.228 | 0.520 | 0.368 | 0.053 | [NegSamp-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/wnrr-checkpoint-transe-negative_sampling-kl-bo-best.pt) |
-| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf)  | 0.452 | 0.530 | 0.466 | 0.413 | [KvsAll-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/wnrr-checkpoint-distmult-KvsAll-kl-bo-best.pt) |
-| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.475 | 0.547 | 0.490 | 0.438 | [1vsAll-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/wnrr-checkpoint-complex-1vsAll-kl-bo-best.pt) |
-| [ConvE](https://arxiv.org/abs/1707.01476) | 0.442 | 0.504 | 0.451 | 0.411 | [KvsAll-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/wnrr-checkpoint-conve-KvsAll-kl-bo-best.pt) |
+|                                                                                                       |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                                                                                 Pretrained model |
+|-------------------------------------------------------------------------------------------------------|------:|-------:|-------:|--------:|-----------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)                                           | 0.467 |  0.439 |  0.480 |   0.517 |             [KvsAll-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/wnrr-checkpoint-rescal-KvsAll-kl-bo-best.pt) |
+| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) | 0.228 |  0.053 |  0.368 |   0.520 | [NegSamp-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/wnrr-checkpoint-transe-negative_sampling-kl-bo-best.pt) |
+| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf)  | 0.452 |  0.413 |  0.466 |   0.530 |           [KvsAll-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/wnrr-checkpoint-distmult-KvsAll-kl-bo-best.pt) |
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)                                           | 0.475 |  0.438 |  0.490 |   0.547 |            [1vsAll-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/wnrr-checkpoint-complex-1vsAll-kl-bo-best.pt) |
+| [ConvE](https://arxiv.org/abs/1707.01476)                                                             | 0.442 |  0.411 |  0.451 |   0.504 |              [KvsAll-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/wnrr-checkpoint-conve-KvsAll-kl-bo-best.pt) |
 
 
 ## Quick start
@@ -260,8 +265,11 @@ subject-relations pairs: ('Dominican Republic', 'has form of government', ?) and
 ```python
 import torch
 import kge.model
-
-model = kge.model.KgeModel.load_from_checkpoint('checkpoint_best.pt')
+  
+# download link for this checkpoint given under results above
+model = kge.model.KgeModel.load_from_checkpoint(
+    'fb15k-237-checkpoint-rescal-1vsAll-kl-bo-best.pt'
+)
 
 s = torch.Tensor([0, 2,]).long()             # subject indexes
 p = torch.Tensor([0, 1,]).long()             # relation indexes
@@ -269,11 +277,11 @@ scores = model.score_sp(s, p)                # scores of all objects for (s,p,?)
 o = torch.argmax(scores, dim=-1)             # index of highest-scoring objects
 
 print(o)
-print(model.dataset.entity_ids(s))           # convert indexes to canonical string ids
-print(model.dataset.relation_ids(r))
-print(model.dataset.entity_ids(o))
+print(model.dataset.entity_strings(s))       # convert indexes to mentions
+print(model.dataset.relation_strings(p))
+print(model.dataset.entity_strings(o))
 
-# Output:
+# Output (slightly revised for readability):
 #
 # tensor([8399, 8855])
 # ['Dominican Republic'        'Mighty Morphin Power Rangers']
