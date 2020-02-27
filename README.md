@@ -242,7 +242,7 @@ python kge.py dump trace <folder>
 The command above yields CSV output such as [this output for a training
 job](docs/examples/dump-example-model.csv) or [this output for a search
 job](https://github.com/uma-pi1/kge-iclr20/blob/master/data_dumps/iclr2020-fb15k-237-all-trials.csv). Additional configuration options
-can be added to the CSV files as needed.
+can be added to the CSV files as needed (using a [keys file](https://github.com/uma-pi1/kge-iclr20/blob/master/scripts/iclr2020_keys.conf)).
 
 Information about a checkpoint (such as the configuration that was used,
 training loss, validation metrics, or explored hyperparameter configurations)
