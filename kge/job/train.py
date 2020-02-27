@@ -685,11 +685,13 @@ class TrainingJobNegativeSampling(TrainingJob):
         self.is_prepared = False
         self._implementation = self.config.get("negative_sampling.implementation")
         if self._implementation == "auto":
-            max_nr_of_negs = max(self._sampler.num_samples.values())
-            if max_nr_of_negs <= 30:
-                self._implementation = "spo"
+            max_nr_of_negs = max(self._sampler.num_samples)
+            if self._sampler.shared:
+                self._implementation = "batch"
+            elif max_nr_of_negs <= 30:
+                self._implementation = "triple"
             elif max_nr_of_negs > 30:
-                self._implementation = "sp_po"
+                self._implementation = "batch"
 
         config.log(
             "Initializing negative sampling training job with "
@@ -768,7 +770,7 @@ class TrainingJobNegativeSampling(TrainingJob):
 
             # compute corresponding scores
             scores = None
-            if self._implementation == "spo":
+            if self._implementation == "triple":
                 # construct triples
                 prepare_time -= time.time()
                 triples_to_score = triples.repeat(1, 1 + num_samples).view(-1, 3)
@@ -790,11 +792,17 @@ class TrainingJobNegativeSampling(TrainingJob):
                     direction="s" if slot == S else ("o" if slot == O else "p"),
                 ).view(batch_size, -1)
                 forward_time += time.time()
-            elif self._implementation == "sp_po":
+            elif self._implementation == "all":
+                # Score against all possible targets.
+                # Creates a score matrix of size [batch_size, num_entities].
+                # All scores relevant for positive and negative triples are contained in
+                # this score matrix.
                 # compute all scores for slot
                 forward_time -= time.time()
                 if slot == S:
                     all_scores = self.model.score_po(triples[:, P], triples[:, O])
+                elif slot == P:
+                    all_scores = self.model.score_so(triples[:, S], triples[:, O])
                 elif slot == O:
                     all_scores = self.model.score_sp(triples[:, S], triples[:, P])
                 else:
@@ -816,6 +824,47 @@ class TrainingJobNegativeSampling(TrainingJob):
                     ),
                     1,
                 ).view(-1)
+                prepare_time += time.time()
+
+                # now pick the scores we need
+                forward_time -= time.time()
+                scores = all_scores[row_indexes, column_indexes].view(batch_size, -1)
+                forward_time += time.time()
+            elif self._implementation == "batch":
+                # Score against all targets contained in the batch.
+                # Creates a score matrix of size [batch_size, unique_entities_in_slot].
+                # All scores relevant for positive and negative triples are contained in
+                # this score matrix.
+                forward_time -= time.time()
+                unique_targets, column_indexes = torch.unique(
+                    torch.cat((triples[:, [slot]], negative_samples[slot]), 1).view(-1),
+                    return_inverse=True,
+                )
+                # compute all scores for slot
+                if slot == S:
+                    all_scores = self.model.score_po(
+                        triples[:, P], triples[:, O], unique_targets
+                    )
+                elif slot == P:
+                    all_scores = self.model.score_so(
+                        triples[:, S], triples[:, O], unique_targets
+                    )
+                elif slot == O:
+                    all_scores = self.model.score_sp(
+                        triples[:, S], triples[:, P], unique_targets
+                    )
+                else:
+                    raise NotImplementedError
+                forward_time += time.time()
+
+                # determine indexes of relevant scores in scoring matrix
+                prepare_time -= time.time()
+                row_indexes = (
+                    torch.arange(batch_size, device=self.device)
+                    .unsqueeze(1)
+                    .repeat(1, 1 + num_samples)
+                    .view(-1)
+                )  # 000 111 222; each 1+num_negative times (here: 3)
                 prepare_time += time.time()
 
                 # now pick the scores we need

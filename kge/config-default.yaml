@@ -204,13 +204,20 @@ negative_sampling:
   # filtering.
   shared: False
 
-  # Implementation to use for the training job. Set to spo (for small negative
-  # samples), sp_po (for large negative samples), or set to auto which sets spo
-  # or sp_po automatically if the max(num_samples.s, num_samples.p,
-  # num_samples.o) > 30. Recommended for models which compute sp_po with an
-  # matrix product, but not for all other models (e.g., not for TransE in the
-  # current implementation).
-  implementation: spo
+  # Implementation to use for the negative sampling job. Possible values are:
+  # - triple: Scores every positive and negative triple in the batch
+  # - all   : Scores against all possible targets and filters relevant scores
+  #           out of the resulting score matrix
+  # - batch : Scores against all targets contained in batch and filters
+  #           relevant scores out of the resulting score matrix.
+  # - auto  : Chooses best implementation based on num_samples.
+  #           'batch' if shared sampling is activated or max(num_samples.s,
+  #           num_samples.p, num_samples.o) > 30. 'triple' otherwise.
+  #
+  # 'batch' or 'auto' is recommended (faster) for models which have 
+  # efficient implementations to score many targets at once. For all other
+  # models, use 'triple' (e.g., for TransE in the current implementation).
+  implementation: triple
 
 
 ## VALIDATION ##################################################################
