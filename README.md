@@ -61,23 +61,23 @@ has been used for hyperparameter optimization for each model.
 
 #### FB15k-237
 
-|          | MRR       | Hits@10 | Hits@3 | Hits@1 |
-|----------|-----------:|---------:|---------:|---------:|
-| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)  | 0.356      | 0.541 | 0.393 | 0.263 |
-| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)   | 0.313      | 0.497 | 0.347 | 0.221 |
-| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) | 0.343      | 0.531 | 0.378 | 0.250 |
-| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.348      | 0.536 | 0.384 | 0.253 |
-| [ConvE](https://arxiv.org/abs/1707.01476) | 0.339      | 0.521 | 0.369 | 0.248 |
+|          | MRR       | Hits@10 | Hits@3 | Hits@1 | Pretrained model |
+|----------|-----------:|---------:|---------:|---------:|---------:|
+| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)  | 0.356 | 0.541 | 0.393 | 0.263 | [1vsAll-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/fb15k-237-checkpoint-rescal-1vsAll-kl-bo-best.pt) |
+| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)   | 0.313      | 0.497 | 0.347 | 0.221 | [NegSamp-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/fb15k-237-checkpoint-transe-negative_sampling-kl-bo-best.pt) |
+| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) | 0.343      | 0.531 | 0.378 | 0.250 | [NegSamp-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/fb15k-237-checkpoint-distmult-negative_sampling-kl-bo-best.pt)  |
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.348      | 0.536 | 0.384 | 0.253 | [NegSamp-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/fb15k-237-checkpoint-complex-negative_sampling-kl-bo-best.pt)  |
+| [ConvE](https://arxiv.org/abs/1707.01476) | 0.339      | 0.521 | 0.369 | 0.248 | [1vsAll-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/fb15k-237-checkpoint-conve-1vsAll-kl-bo-best.pt)  |
 
 #### WN18RR
 
-|          | MRR       | Hits@10 | Hits@3 | Hits@1 |
-|----------|-----------:|---------:|---------:|---------:|
-| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) | 0.467      | 0.517 | 0.480 | 0.439 |
-| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)  | 0.228      | 0.520 | 0.368 | 0.053 |
-| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf)  | 0.452      | 0.530 | 0.466 | 0.413 |
-| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.475      | 0.547 | 0.490 | 0.438 |
-| [ConvE](https://arxiv.org/abs/1707.01476) | 0.442      | 0.504 | 0.451 | 0.411 |
+|          | MRR       | Hits@10 | Hits@3 | Hits@1 | Pretrained model |
+|----------|-----------:|---------:|---------:|---------:|---------:|
+| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) | 0.467 | 0.517 | 0.480 | 0.439 | [KvsAll-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/wnrr-checkpoint-rescal-KvsAll-kl-bo-best.pt) |
+| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)  | 0.228 | 0.520 | 0.368 | 0.053 | [NegSamp-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/wnrr-checkpoint-transe-negative_sampling-kl-bo-best.pt) |
+| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf)  | 0.452 | 0.530 | 0.466 | 0.413 | [KvsAll-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/wnrr-checkpoint-distmult-KvsAll-kl-bo-best.pt) |
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.475 | 0.547 | 0.490 | 0.438 | [1vsAll-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/wnrr-checkpoint-complex-1vsAll-kl-bo-best.pt) |
+| [ConvE](https://arxiv.org/abs/1707.01476) | 0.442 | 0.504 | 0.451 | 0.411 | [KvsAll-kl](https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_pretrained_best_models_iclr2020/wnrr-checkpoint-conve-KvsAll-kl-bo-best.pt) |
 
 
 ## Quick start
