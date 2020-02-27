@@ -59,6 +59,13 @@ necessarily the best results that can be achieved using LibKGE, but the results
 are comparable in that a common experimental setup (and equal amount of work)
 has been used for hyperparameter optimization for each model.
 
+Note that we report performance numbers on the entire test set, *including the
+triples that contain entities not seen during training*. This is not done
+consistently throughout existing KGE implementations: some frameworks remove
+unseen entities from the test set, which leads to a perceived increase in
+performance (e.g., roughly add +3pp to our WN18RR MRR numbers for this method of
+evaluation).
+
 We also provide pretrained models for these results. Each pretrained model is
 given in the form of a LibKGE checkpoint, which contains the model as well as
 additional information (such as the configuration being used). See the
