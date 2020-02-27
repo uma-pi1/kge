@@ -622,14 +622,8 @@ def _process_deprecated_options(options: Dict[str, Any]):
         return renamed_keys
 
     # 26.02.2020
-    rename_key(
-        "negative_sampling.implementation.spo",
-        "negative_sampling.implementation.triple",
-    )
-    rename_key(
-        "negative_sampling.implementation.sp_po",
-        "negative_sampling.implementation.batch",
-    )
+    rename_value("negative_sampling.implementation", "spo", "triple")
+    rename_value("negative_sampling.implementation", "sp_po", "batch")
 
     # 31.01.2020
     rename_key("negative_sampling.num_samples_s", "negative_sampling.num_samples.s")
