@@ -217,7 +217,7 @@ python kge.py resume <folder> --search.device_pool cuda:0,cuda:1 --search.num_wo
 python kge.py resume <folder> --search.device_pool cuda:0,cuda:1,cuda:1 --search.num_workers 3
 ```
 
-#### Export and analyze logs
+#### Export and analyze logs and checkpoints
 
 Extensive logs are stored as YAML files (hyperparameter search, training,
 validation). LibKGE provides a convenience methods to export the log data to
@@ -231,6 +231,14 @@ The command above yields CSV output such as [this output for a training
 job](docs/examples/dump-example-model.csv) or [this output for a search
 job](https://github.com/uma-pi1/kge-iclr20/blob/master/data_dumps/iclr2020-fb15k-237-all-trials.csv). Additional configuration options
 can be added to the CSV files as needed.
+
+Information about a checkpoint (such as the configuration that was used,
+training loss, validation metrics, or explored hyperparameter configurations)
+can also be exported from the command line (as YAML):
+
+```sh
+python kge.py dump checkpoint <checkpoint>
+```
 
 #### Help and other commands
 
