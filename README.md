@@ -40,9 +40,9 @@ common KGE models and new ones can be easily added (contributions welcome!).
      readable formats to facilitate analysis
  - **KGE models**
    - All models can be used with or without reciprocal relations
-   - [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) ([code](kge/model/rescal.py), [config](kge/model/rescal.yaml)) 
+   - [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) ([code](kge/model/rescal.py), [config](kge/model/rescal.yaml))
    - [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) ([code](kge/model/transe.py), [config](kge/model/transe.yaml))
-   - [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) ([code](kge/model/distmult.py), [config](kge/model/distmult.yaml)) 
+   - [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) ([code](kge/model/distmult.py), [config](kge/model/distmult.yaml))
    - [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) ([code](kge/model/complex.py), [config](kge/model/complex.yaml))
    - [ConvE](https://arxiv.org/abs/1707.01476)  ([code](kge/model/conve.py), [config](kge/model/conve.yaml))
  - **Embedders**
@@ -61,23 +61,23 @@ has been used for hyperparameter optimization for each model.
 
 #### FB15k-237
 
-|                                                                                                       |   MRR | Hits@10 |
-|-------------------------------------------------------------------------------------------------------|------:|--------:|
-| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)                                           | 0.357 |   0.541 |
-| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) | 0.313 |   0.497 |
-| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf)  | 0.343 |   0.531 |
-| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)                                           | 0.348 |   0.536 |
-| [ConvE](https://arxiv.org/abs/1707.01476)                                                             | 0.339 |   0.521 |
+|          | MRR       | Hits@10 | Hits@3 | Hits@1 |
+|----------|-----------:|---------:|---------:|---------:|
+| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)  | 0.356      | 0.541 | 0.393 | 0.263 |
+| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)   | 0.313      | 0.497 | 0.347 | 0.221 |
+| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) | 0.343      | 0.531 | 0.378 | 0.250 |
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.348      | 0.536 | 0.384 | 0.253 |
+| [ConvE](https://arxiv.org/abs/1707.01476) | 0.339      | 0.521 | 0.369 | 0.248 |
 
 #### WN18RR
 
-|                                                                                                       |   MRR | Hits@10 |
-|-------------------------------------------------------------------------------------------------------|------:|--------:|
-| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)                                           | 0.467 |   0.517 |
-| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) | 0.228 |   0.520 |
-| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf)  | 0.452 |   0.531 |
-| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)                                           | 0.475 |   0.547 |
-| [ConvE](https://arxiv.org/abs/1707.01476)                                                             | 0.442 |   0.504 |
+|          | MRR       | Hits@10 | Hits@3 | Hits@1 |
+|----------|-----------:|---------:|---------:|---------:|
+| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) | 0.467      | 0.517 | 0.480 | 0.439 |
+| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)  | 0.228      | 0.520 | 0.368 | 0.053 |
+| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf)  | 0.452      | 0.530 | 0.466 | 0.413 |
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.475      | 0.547 | 0.490 | 0.438 |
+| [ConvE](https://arxiv.org/abs/1707.01476) | 0.442      | 0.504 | 0.451 | 0.411 |
 
 
 ## Quick start
@@ -93,7 +93,7 @@ cd data
 sh download_all.sh
 cd ..
 
-# train an example model on toy dataset (you can omit '--job.device cpu' when you have a gpu) 
+# train an example model on toy dataset (you can omit '--job.device cpu' when you have a gpu)
 python kge.py start examples/toy-complex-train.yaml --job.device cpu
 
 ```
@@ -133,13 +133,13 @@ lookup_embedder:
 To begin training, run one of the following:
 
 ```sh
-# Store the file as `config.yaml` in a new folder of your choice. Then initiate or resume 
+# Store the file as `config.yaml` in a new folder of your choice. Then initiate or resume
 # the training job using:
 python kge.py resume <folder>
 
 # Alternatively, store the configuration anywhere and use the start command
-# to create a new folder 
-#   <kge-home>/local/experiments/<date>-<config-file-name> 
+# to create a new folder
+#   <kge-home>/local/experiments/<date>-<config-file-name>
 # with that config and start training there.
 python kge.py start <config-file>
 
@@ -178,7 +178,7 @@ python kge.py test <folder-or-checkpoint>
 LibKGE supports various forms of hyperparameter optimization such as grid search
 or Bayesian optimization. The search type and search space are specified in the
 configuration file. For example, you may use [Ax](https://ax.dev/) for SOBOL
-(pseudo-random) and Bayesian optimization. 
+(pseudo-random) and Bayesian optimization.
 
 The following config file defines a search of 10 SOBOL trials (arms) followed by
 20 Bayesian optimization trials:
@@ -273,7 +273,7 @@ print(model.dataset.entity_ids(s))           # convert indexes to canonical stri
 print(model.dataset.relation_ids(r))
 print(model.dataset.entity_ids(o))
 
-# Output: 
+# Output:
 #
 # tensor([8399, 8855])
 # ['Dominican Republic'        'Mighty Morphin Power Rangers']
@@ -288,9 +288,9 @@ For other scoring functions (score_sp, score_po, score_so, score_spo), see [KgeM
 
 LibKGE currently implements the following KGE models:
 
-- [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) ([code](kge/model/rescal.py), [config](kge/model/rescal.yaml)) 
+- [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) ([code](kge/model/rescal.py), [config](kge/model/rescal.yaml))
 - [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) ([code](kge/model/transe.py), [config](kge/model/transe.yaml))
-- [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) ([code](kge/model/distmult.py), [config](kge/model/distmult.yaml)) 
+- [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) ([code](kge/model/distmult.py), [config](kge/model/distmult.yaml))
 - [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) ([code](kge/model/complex.py), [config](kge/model/complex.yaml))
 - [ConvE](https://arxiv.org/abs/1707.01476)  ([code](kge/model/conve.py), [config](kge/model/conve.yaml))
 
