@@ -59,7 +59,7 @@ necessarily the best results that can be achieved using LibKGE, but the results
 are comparable in that a common experimental setup (and equal amount of work)
 has been used for hyperparameter optimization for each model.
 
-#### FB15k-237
+#### FB15K-237
 
 |          | MRR       | Hits@10 | Hits@3 | Hits@1 | Pretrained model |
 |----------|-----------:|---------:|---------:|---------:|---------:|
