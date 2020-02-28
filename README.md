@@ -3,7 +3,8 @@
 LibKGE is a PyTorch-based library for efficient training, evaluation, and
 hyperparameter optimization of [knowledge graph
 embeddings](https://ieeexplore.ieee.org/document/8047276) (KGE). It is highly
-configurable, easy to use, and extensible. Other KGE frameworks are [listed below](#other-kge-frameworks).
+configurable, easy to use, and extensible. Other KGE frameworks are [listed
+below](#other-kge-frameworks).
 
 The key goal of LibKGE is to foster *reproducible research* into (as well as
 meaningful comparisons between) KGE models and training methods. As we argue in
@@ -16,6 +17,10 @@ implemented in the framework is exposed explicitly via *well-documented*
 configuration files (e.g., see [here](kge/config-default.yaml) and
 [here](kge/model/embedder/lookup_embedder.yaml)). LibKGE also provides the most
 common KGE models and new ones can be easily added (contributions welcome!).
+
+For link prediction tasks, rule-based systems such as
+[AnyBURL](http://web.informatik.uni-mannheim.de/AnyBURL/) are a competitive
+alternative to KGE.
 
 ## Features
 
@@ -59,8 +64,8 @@ necessarily the best results that can be achieved using LibKGE, but the results
 are comparable in that a common experimental setup (and equal amount of work)
 has been used for hyperparameter optimization for each model.
 
-Note that we report performance numbers on the entire test set, *including the
-triples that contain entities not seen during training*. This is not done
+Note that we report performance numbers on the entire test set, **including the
+triples that contain entities not seen during training**. This is not done
 consistently throughout existing KGE implementations: some frameworks remove
 unseen entities from the test set, which leads to a perceived increase in
 performance (e.g., roughly add +3pp to our WN18RR MRR numbers for this method of
@@ -70,6 +75,7 @@ We also provide pretrained models for these results. Each pretrained model is
 given in the form of a LibKGE checkpoint, which contains the model as well as
 additional information (such as the configuration being used). See the
 documentation below on how to use checkpoints.
+
 
 #### FB15K-237
 
