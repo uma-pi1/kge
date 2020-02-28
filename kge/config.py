@@ -229,7 +229,7 @@ class Config:
         module_config = Config(load_default=False)
         module_config.load(
             filename_in_module(
-                [kge.model, kge.model.embedder,], "{}.yaml".format(module_name)
+                [kge.model, kge.model.embedder], "{}.yaml".format(module_name)
             ),
             create=True,
         )
@@ -294,7 +294,7 @@ class Config:
         )
 
     def load_options(
-        self, new_options, create=False, overwrite=Overwrite.Yes, allow_deprecated=True,
+        self, new_options, create=False, overwrite=Overwrite.Yes, allow_deprecated=True
     ):
         "Like `load`, but loads from an options object obtained from `yaml.load`."
         # import model configurations
@@ -572,7 +572,7 @@ def _process_deprecated_options(options: Dict[str, Any]):
     def rename_key(old_key, new_key):
         if old_key in options:
             print(
-                "Warning: key {} is deprecated; use {} instead".format(
+                "Warning: key {} is deprecated; use key {} instead".format(
                     old_key, new_key
                 ),
                 file=sys.stderr,
@@ -591,7 +591,7 @@ def _process_deprecated_options(options: Dict[str, Any]):
     def rename_value(key, old_value, new_value):
         if key in options and options.get(key) == old_value:
             print(
-                "Warning: {}={} is deprecated; use {} instead".format(
+                "Warning: value {}={} is deprecated; use value {} instead".format(
                     key, old_value, new_value
                 ),
                 file=sys.stderr,
