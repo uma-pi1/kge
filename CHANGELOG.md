@@ -1,9 +1,9 @@
 #### Mar 2, 2020
-- (2a6e174) Added RotatE
-- (7235e99) Added option to add a constant offset before computing BCE loss
+- [Added RotatE](2a6e174 )
+- [Added option to add a constant offset before computing BCE loss](7235e99)
 
 #### Feb 26, 2020
-- PR (#71) Faster and more memory-efficient training with negative sampling.
+- [Faster and more memory-efficient training with negative sampling](#71)
 
 
 #### Feb 25, 2020
