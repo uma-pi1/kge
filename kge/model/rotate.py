@@ -3,7 +3,7 @@ from kge import Config, Dataset
 from kge.model.kge_model import RelationalScorer, KgeModel
 from torch.nn import functional as F
 
-
+# EXPERIMENTAL. This is a first cut, implementation still needs work.
 class RotatEScorer(RelationalScorer):
     r"""Implementation of the RotatE KGE scorer."""
 
@@ -14,7 +14,7 @@ class RotatEScorer(RelationalScorer):
     def score_emb(self, s_emb, p_emb, o_emb, combine: str):
         n = p_emb.size(0)
 
-        # determine real and imaginary party
+        # determine real and imaginary part
         s_emb_re, s_emb_im = torch.chunk(s_emb, 2, dim=1)
         o_emb_re, o_emb_im = torch.chunk(s_emb, 2, dim=1)
 
@@ -32,12 +32,13 @@ class RotatEScorer(RelationalScorer):
             # compute the absolute values for each (complex) element of the difference
             # vector
             diff = torch.stack((diff_re, diff_im,), dim=0)  # dim0: real, imaginary
-            diff_abs = torch.norm(dim=0)  # sqrt(real^2+imaginary^2)
+            diff_abs = torch.norm(diff, dim=0)  # sqrt(real^2+imaginary^2)
 
             # now take the norm of the absolute values
-            out = torch.norm(diff_abs, dim=1, p=self.norm)
+            out = torch.norm(diff_abs, dim=1, p=self._norm)
+        # TODO combine = "sp*" and combine = "*po"
         else:
-            super().score_emb(s_emb, p_emb, o_emb, combine)
+            return super().score_emb(s_emb, p_emb, o_emb, combine)
         return out.view(n, -1)
 
 
