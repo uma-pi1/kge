@@ -287,7 +287,6 @@ def _dump_trace(args):
                     ("model", ("model", "sep")),
                     ("reciprocal", ("reciprocal", "sep")),
                     ("job", ("job", "sep")),
-                    ("subfolder", ("folder", "trace")),
                     ("job_type", ("type", "trace")),
                     ("split", ("split", "sep")),
                     ("epoch", ("epoch", "trace")),
@@ -298,6 +297,9 @@ def _dump_trace(args):
                     ("metric", ("metric", "sep")),
                 ]
             )
+            if args.search:
+                default_attributes["child_folder"] = ("folder", "trace")
+                default_attributes["child_job_id"] = ("child_job_id", "sep")
 
         if not args.no_header:
             csv_writer.writerow(
@@ -405,6 +407,8 @@ def _dump_trace(args):
             actual_default["reciprocal"] = reciprocal
             # lookup name is in config value is in trace
             actual_default["metric"] = entry.get(config.get_default("valid.metric"))
+            if args.search:
+                actual_default["child_job_id"] = entry.get("child_job_id").split("-")[0]
             for key in list(actual_default.keys()):
                 if key not in default_attributes:
                     del actual_default[key]
