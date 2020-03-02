@@ -1,0 +1,12 @@
+import: [lookup_embedder]
+
+rotate:
+  class_name: RotatE
+  entity_embedder:
+    type: lookup_embedder
+    +++: +++
+  relation_embedder:
+    type: lookup_embedder
+    +++: +++
+  l_norm: 1.
+

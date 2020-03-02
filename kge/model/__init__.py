@@ -12,6 +12,7 @@ from kge.model.distmult import DistMult
 from kge.model.relational_tucker3 import RelationalTucker3
 from kge.model.rescal import Rescal
 from kge.model.transe import TransE
+from kge.model.rotate import RotatE
 
 # meta models
 from kge.model.reciprocal_relations_model import ReciprocalRelationsModel
