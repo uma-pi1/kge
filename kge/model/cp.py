@@ -15,15 +15,16 @@ class CPScorer(RelationalScorer):
         n = p_emb.size(0)
 
         # use only first half for subjects and second half for objects
-        s_emb_l = s_emb[:, : (s_emb.shape[1] // 2)]
-        o_emb_r = o_emb[:, (o_emb.shape[1] // 2) :]
+        half_dim = s_emb.shape[1] // 2
+        s_emb_h = s_emb[:, :half_dim]
+        o_emb_t = o_emb[:, half_dim:]
 
         if combine == "spo":
-            out = (s_emb_l * p_emb * o_emb_r).sum(dim=1)
+            out = (s_emb_h * p_emb * o_emb_t).sum(dim=1)
         elif combine == "sp*":
-            out = (s_emb_l * p_emb).mm(o_emb_r.transpose(0, 1))
+            out = (s_emb_h * p_emb).mm(o_emb_t.transpose(0, 1))
         elif combine == "*po":
-            out = (o_emb_r * p_emb).mm(s_emb_l.transpose(0, 1))
+            out = (o_emb_t * p_emb).mm(s_emb_h.transpose(0, 1))
         else:
             return super().score_emb(s_emb, p_emb, o_emb, combine)
 

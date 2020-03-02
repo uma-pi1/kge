@@ -5,7 +5,7 @@ cp:
   entity_embedder:
     type: lookup_embedder
     # Note: dimensionality (key "dim") refers to the combined size of the
-    # subject and object embedding. Must be even.
+    # head and tail embedding. Must be even.
     +++: +++
   relation_embedder:
     type: lookup_embedder
