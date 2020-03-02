@@ -17,7 +17,7 @@ from kge import Config
 
 def add_dump_parsers(subparsers):
     # 'kge dump' can have associated sub-commands which can have different args
-    parser_dump = subparsers.add_parser("dump", help="Dump objects to stdout",)
+    parser_dump = subparsers.add_parser("dump", help="Dump objects to stdout")
     subparsers_dump = parser_dump.add_subparsers(
         title="dump_command", dest="dump_command"
     )
@@ -56,7 +56,7 @@ def get_config_for_job_id(job_id, folder_path):
 
 def _add_dump_checkpoint_parser(subparsers_dump):
     parser_dump_checkpoint = subparsers_dump.add_parser(
-        "checkpoint", help=("Dump information stored in a checkpoint"),
+        "checkpoint", help=("Dump information stored in a checkpoint")
     )
     parser_dump_checkpoint.add_argument(
         "source",
@@ -174,10 +174,10 @@ def _add_dump_trace_parser(subparsers_dump):
         "--no-header",
     ]:
         parser_dump_trace.add_argument(
-            argument, action="store_const", const=True, default=False,
+            argument, action="store_const", const=True, default=False
         )
     parser_dump_trace.add_argument(
-        "--no-default-keys", "-K", action="store_const", const=True, default=False,
+        "--no-default-keys", "-K", action="store_const", const=True, default=False
     )
 
     parser_dump_trace.add_argument("--keysfile", default=False)
@@ -263,7 +263,7 @@ def _dump_trace(args):
             epoch_of_last=epoch,
         )
     if not entries and (args.search or not entry_type_specified):
-        entries = Trace.grep_entries(tracefile=trace, conjunctions=[f"scope: train"],)
+        entries = Trace.grep_entries(tracefile=trace, conjunctions=[f"scope: train"])
         epoch = None
         if entries:
             args.search = True
@@ -287,6 +287,7 @@ def _dump_trace(args):
                     ("model", ("model", "sep")),
                     ("reciprocal", ("reciprocal", "sep")),
                     ("job", ("job", "sep")),
+                    ("subfolder", ("folder", "trace")),
                     ("job_type", ("type", "trace")),
                     ("split", ("split", "sep")),
                     ("epoch", ("epoch", "trace")),
