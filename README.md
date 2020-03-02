@@ -51,6 +51,7 @@ alternative to KGE.
    - [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) ([code](kge/model/complex.py), [config](kge/model/complex.yaml))
    - [ConvE](https://arxiv.org/abs/1707.01476)  ([code](kge/model/conve.py), [config](kge/model/conve.yaml))
    - [RotatE](https://arxiv.org/abs/1902.10197) ([code](kge/model/rotate.py), [config](kge/model/rotate.yaml))
+   - [CP](https://arxiv.org/abs/1806.07297) ([code](kge/model/cp.py), [config](kge/model/cp.yaml))
  - **Embedders**
    - Lookup embedder ([code](kge/model/embedder/lookup_embedder.py), [config](kge/model/embedder/lookup_embedder.yaml))
    - Projection embedder ([code](kge/model/embedder/projection_embedder.py), [config](kge/model/embedder/projection_embedder.yaml))
@@ -316,6 +317,7 @@ LibKGE currently implements the following KGE models:
 - [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) ([code](kge/model/complex.py), [config](kge/model/complex.yaml))
 - [ConvE](https://arxiv.org/abs/1707.01476)  ([code](kge/model/conve.py), [config](kge/model/conve.yaml))
 - [RotatE](https://arxiv.org/abs/1902.10197) ([code](kge/model/rotate.py), [config](kge/model/rotate.yaml))
+- [CP](https://arxiv.org/abs/1806.07297) ([code](kge/model/cp.py), [config](kge/model/cp.yaml))
 
 The [examples](examples) folder contains some configuration files as examples of how to train these models.
 
