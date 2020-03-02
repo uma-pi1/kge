@@ -15,13 +15,9 @@ class SimplEScorer(RelationalScorer):
         n = p_emb.size(0)
 
         # split left/right
-        half_dim = s_emb.shape[1] // 2
-        s_emb_h = s_emb[:, :half_dim]
-        p_emb_forward = p_emb[:, :half_dim]
-        o_emb_h = o_emb[:, :half_dim]
-        s_emb_t = s_emb[:, half_dim:]
-        p_emb_backward = p_emb[:, half_dim:]
-        o_emb_t = o_emb[:, half_dim:]
+        s_emb_h, s_emb_t = torch.chunk(s_emb, 2, dim=1)
+        p_emb_forward, p_emb_backward = torch.chunk(p_emb, 2, dim=1)
+        o_emb_h, o_emb_t = torch.chunk(o_emb, 2, dim=1)
 
         if combine == "spo":
             out1 = (s_emb_h * p_emb_forward * o_emb_t).sum(dim=1)
