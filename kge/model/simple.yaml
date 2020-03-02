@@ -1,0 +1,12 @@
+import: [lookup_embedder]
+
+simple:
+  class_name: SimplE
+  entity_embedder:
+    type: lookup_embedder
+    # Note: dimensionality (key "dim") refers to the combined size of the
+    # head and tail embedding. Must be even.
+    +++: +++
+  relation_embedder:
+    type: lookup_embedder
+    +++: +++

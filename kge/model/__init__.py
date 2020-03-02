@@ -14,6 +14,7 @@ from kge.model.rescal import Rescal
 from kge.model.transe import TransE
 from kge.model.rotate import RotatE
 from kge.model.cp import CP
+from kge.model.simple import SimplE
 
 # meta models
 from kge.model.reciprocal_relations_model import ReciprocalRelationsModel
