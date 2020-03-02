@@ -90,7 +90,7 @@ dataset:
 
 # Which KGE model to use. Examples include "rescal", "complex", "distmult",
 # "transe", or "conve". For available models, see the project homepage and/or
-# configuration files under kge/models and kge/models/experimental.
+# configuration files under kge/model.
 model: ''
 
 
@@ -110,11 +110,16 @@ train:
   # - bce: binary cross entropy after taking logits (all training types)
   # - kl: KL divergence between model and data distribution (all training types)
   # - margin_ranking (negative_sampling only)
-  loss: bce
+  loss: kl
 
-  ## Argument of loss function (if any)
-  ## - margin_ranking: the margin to use
-  loss_arg: 1.0
+  # Argument of loss function (if any). If .nan is specified, a default value is
+  # used (as stated in parenthesis below).
+  #
+  # - margin_ranking (1.0): margin to use
+  # - bce (0.0): offset to add to raw model scores before appyling the logistic
+  #              function. This is useful esp. when the model only outputs negative
+  #              scores (e.g., TransE, RotatE).
+  loss_arg: .nan
 
   # Maximum number of epochs used for training
   max_epochs: 20

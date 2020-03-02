@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn.functional as F
 
@@ -20,12 +21,19 @@ class KgeLoss:
         # perhaps TODO: try class with specified name -> extensibility
         config.check("train.loss", ["bce", "margin_ranking", "ce", "kl", "soft_margin"])
         if config.get("train.loss") == "bce":
-            return BCEWithLogitsKgeLoss(config)
+            offset = config.get("train.loss_arg")
+            if math.isnan(offset):
+                offset = 0.0
+                config.set("train.loss_arg", offset, log=True)
+            return BCEWithLogitsKgeLoss(config, offset=offset)
         elif config.get("train.loss") == "kl":
             return KLDivWithSoftmaxKgeLoss(config)
         elif config.get("train.loss") == "margin_ranking":
             margin = config.get("train.loss_arg")
-            return MarginRankingKgeLoss(config, margin)
+            if math.isnan(margin):
+                margin = 1.0
+                config.set("train.loss_arg", margin, log=True)
+            return MarginRankingKgeLoss(config, offset=margin)
         elif config.get("train.loss") == "soft_margin":
             return SoftMarginKgeLoss(config)
         else:
@@ -77,12 +85,15 @@ class KgeLoss:
 
 
 class BCEWithLogitsKgeLoss(KgeLoss):
-    def __init__(self, config, reduction="sum", **kwargs):
+    def __init__(self, config, offset=0.0, reduction="sum", **kwargs):
         super().__init__(config)
         self._loss = torch.nn.BCEWithLogitsLoss(reduction=reduction, **kwargs)
+        self._offset = offset
 
     def __call__(self, scores, labels, **kwargs):
         labels = self._labels_as_matrix(scores, labels)
+        if self._offset != 0.:
+            scores = scores + self._offset
         return self._loss(scores.view(-1), labels.view(-1))
 
 
