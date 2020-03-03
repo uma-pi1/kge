@@ -316,7 +316,7 @@ valid:
   # Apparently, many existing models have been trained with this set to True
   # during model selection and using a metric such as
   # mean_reciprocal_rank_filtered_with_test.
-  filter_with_test: False
+  filter_with_test: True
 
 
 ## EVALUATION ##################################################################
