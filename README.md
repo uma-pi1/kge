@@ -187,11 +187,13 @@ To evaluate trained model, run the following:
 
 ```sh
 # Evaluate a model on the validation split
-python kge.py valid <folder-or-checkpoint>
+python kge.py valid <folder>
 
 # Evaluate a model on the test split
-python kge.py test <folder-or-checkpoint>
+python kge.py test <folder>
 ```
+
+By default, the checkpoint file named ``checkpoint_best.pt`` (which stores the best validation result so far) is used. The filename of the checkpoint can be overwritten using ``--checkpoint``.
 
 #### Hyperparameter optimization
 
