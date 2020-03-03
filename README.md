@@ -53,7 +53,7 @@ alternative to KGE.
    - [RelationalTucker3](https://arxiv.org/abs/1902.00898)/[TuckER](https://arxiv.org/abs/1901.09590) ([code](kge/model/relational_tucker3.py), [config](kge/model/relational_tucker3.yaml))
    - [CP](https://arxiv.org/abs/1806.07297) ([code](kge/model/cp.py), [config](kge/model/cp.yaml))
    - [SimplE](https://arxiv.org/abs/1802.04868) ([code](kge/model/simple.py), [config](kge/model/simple.yaml))
-   - Experimental: [RotatE](https://arxiv.org/abs/1902.10197) ([code](kge/model/rotate.py), [config](kge/model/rotate.yaml))
+   - [RotatE](https://arxiv.org/abs/1902.10197) ([code](kge/model/rotate.py), [config](kge/model/rotate.yaml))
  - **Embedders**
    - Lookup embedder ([code](kge/model/embedder/lookup_embedder.py), [config](kge/model/embedder/lookup_embedder.yaml))
    - Projection embedder ([code](kge/model/embedder/projection_embedder.py), [config](kge/model/embedder/projection_embedder.yaml))
@@ -322,7 +322,7 @@ LibKGE currently implements the following KGE models:
 - [CP](https://arxiv.org/abs/1806.07297) ([code](kge/model/cp.py), [config](kge/model/cp.yaml))
 - [SimplE](https://arxiv.org/abs/1802.04868) ([code](kge/model/simple.py), [config](kge/model/simple.yaml))
 - [RelationalTucker3](https://arxiv.org/abs/1902.00898)/[TuckER](https://arxiv.org/abs/1901.09590) ([code](kge/model/relational_tucker3.py), [config](kge/model/relational_tucker3.yaml))
-- Experimental: [RotatE](https://arxiv.org/abs/1902.10197) ([code](kge/model/rotate.py), [config](kge/model/rotate.yaml))
+- [RotatE](https://arxiv.org/abs/1902.10197) ([code](kge/model/rotate.py), [config](kge/model/rotate.yaml))
 
 The [examples](examples) folder contains some configuration files as examples of how to train these models.
 

@@ -160,13 +160,19 @@ train:
     # Keep this many most recent additional checkpoints.
     keep: 3
 
+  # When set, LibKGE automatically corrects certain invalid configuration
+  # options. Each such change is logged. When not set and the configuration is
+  # invalid, LibKGE raises an error.
+  auto_correct: False
+
+  # If set, create a PDF of the compute graph (of first batch of first epoch).
+  visualize_graph: False
+
   # Other options
   pin_memory: False
-  auto_correct: False         # True: allows for trainer to adjust certain settings, False: throw exception
-  visualize_graph: False      # create PDF of compute graph (of first batch of first epoch)
 
 
-# Options for KvsAll training (train.type=="KvsAll)
+# Options for KvsAll training (train.type=="KvsAll")
 KvsAll:
   # Amount of label smoothing (disabled when 0). Disencourages models to
   # perform extreme predictions (0 or 1).
@@ -225,9 +231,51 @@ negative_sampling:
   implementation: triple
 
 
-## VALIDATION ##################################################################
+## VALIDATION AND EVALUATION ###################################################
 
-# Configuration options for model validation/selection during training.
+# Options used for all evaluation jobs (job.type=="eval"). Also used during
+# validation when training (unless overridden, see below). Right now, evaluation
+# jobs compute a fixed set of metrics: MRR, HITS@k.
+eval:
+  # Data used for evaluation (valid, test)
+  data: valid
+
+  # Type of evaluation (entity_ranking only at the moment)
+  type: entity_ranking
+
+  # Compute Hits@K for these choices of K
+  hits_at_k_s: [1, 3, 10, 50, 100, 200, 300, 400, 500, 1000]
+
+  # Batch size used during evaluation
+  batch_size: 100
+
+  # Perform evaluation in chunks of the specified size. When set, score against
+  # at most this many entities simultaneouly during prediction. This reduces
+  # memory consumption but may increase runtime. Useful when there are many
+  # entities and/or memory-intensive models are used.
+  chunk_size: -1                  # default: no chunking
+
+  # Metrics are always computed over the entire evaluation data. Optionally,
+  # certain more specific metrics can be computed in addition.
+  metrics_per:
+    relation_type: False          # 1-to-1, 1-to-N, N-to-1, N-to-N
+    head_and_tail: False          # head, tail
+    argument_frequency: False     # 25%, 50%, 75%, top quantiles per argument
+
+  # Amount of tracing information being written. When set to "example", traces
+  # the rank of the correct answer for each example.
+  trace_level: epoch            # example, batch, epoch
+
+  # Number of workers used to construct batches. Leave at 0 for default.
+  num_workers: 0
+
+  # Other options
+  pin_memory: False
+
+
+# Configuration options for model validation/selection during training. Applied
+# in addition to the options set under "eval" above. Always uses validation data
+# (independently of the choice of eval.data)
 valid:
   # Validation is run every this many epochs during training (disable validation
   # with 0).
@@ -258,39 +306,20 @@ valid:
       epochs: 0
       metric_value: 0.0
 
-  # When to write a trace entry. Possible values: example, batch, epoch
+  # Amount of tracing information being written. When set to "example", traces
+  # the rank of the correct answer for each example.
   trace_level: epoch
 
-  # Whether test data should used during validation. Filtered
-  # metrics by default only use train and validation data. When this is set to
-  # True, additionally produces "filtered_with_test" validation metrics (such as
-  # MRR or HITS@k). Apparently, many existing models have been trained with this
-  # set to True during model selection and using a metric such as
+  # Whether test data should used during validation. Filtered metrics by default
+  # only use train and validation data. When this is set to True, additionally
+  # produces "filtered_with_test" validation metrics (such as MRR or HITS@k).
+  # Apparently, many existing models have been trained with this set to True
+  # during model selection and using a metric such as
   # mean_reciprocal_rank_filtered_with_test.
   filter_with_test: False
 
 
 ## EVALUATION ##################################################################
-
-# Options of evaluation jobs (job.type=="eval"). Also used during validation
-# when training. Right now, evaluation jobs compute a fixed set of metrics: the
-# MRR and the specified HITS@k's.
-eval:
-  data: valid
-  type: entity_ranking
-  hits_at_k_s: [1, 3, 10, 50, 100, 200, 300, 400, 500, 1000]     # ks for HITS@k
-  batch_size: 100
-  num_workers: 0
-  pin_memory: False
-  trace_level: example            # example or batch or epoch
-  chunk_size: -1                  # default no chunking
-
-  # Metrics are always computed over the entire evaluation data. Optionally,
-  # certain more specific metric can be computed in addition.
-  metrics_per:
-    relation_type: False          # 1-to-1, 1-to-N, N-to-1, N-to-N
-    head_and_tail: False          # head, tail
-    argument_frequency: False     # 25%, 50%, 75%, top quantiles per argument
 
 
 ## HYPERPARAMETER SEARCH #######################################################

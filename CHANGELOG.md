@@ -1,5 +1,5 @@
 #### Mar 2020
-- Added RotatE (experimental)
+- [76a0077](https://github.com/uma-pi1/kge/commit/76a007731d98e00331f2f6ccb90b91cc8cf265dd) Added RotatE
 - [7235e99](https://github.com/uma-pi1/kge/commit/7235e99784e056b6d0e162ce84f0c5e1eb410895): Added option to add a constant offset before computing BCE loss
 - [67de6c5](https://github.com/uma-pi1/kge/commit/67de6c5c422c2adcefcc56f7738e04d0893c51ba): Added CP
 - [a5ee441](https://github.com/uma-pi1/kge/commit/a5ee4417b92559b3624e3f737939793da810c211): Added SimplE

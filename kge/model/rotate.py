@@ -5,7 +5,9 @@ from torch.nn import functional as F
 
 
 # TODO sp* and *po scoring with RotatE leads to *large* intermediate results. It's
-# unclear whether this can be fixed.
+# unclear whether this can be fixed. Expect out-of-memory errors when using RotatE with
+# 1vsAll or KvsAll training. To do validation/evaluation, you may want to set
+# eval.chunk_size.
 class RotatEScorer(RelationalScorer):
     r"""Implementation of the RotatE KGE scorer."""
 
