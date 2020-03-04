@@ -447,12 +447,20 @@ def _add_dump_config_parser(subparsers_dump):
     )
 
     parser_dump_config.add_argument(
+        "--minimal",
+        "-m",
+        default=False,
+        action="store_const",
+        const=True,
+        help="Only dump configuration options different from the default configuration (default)",
+    )
+    parser_dump_config.add_argument(
         "--raw",
         "-r",
         default=False,
         action="store_const",
         const=True,
-        help="Dump the config as is (default)",
+        help="Dump the config as is",
     )
     parser_dump_config.add_argument(
         "--full",
@@ -462,14 +470,6 @@ def _add_dump_config_parser(subparsers_dump):
         const=True,
         help="Add all values from the default configuration before dumping the config",
     )
-    parser_dump_config.add_argument(
-        "--minimal",
-        "-m",
-        default=False,
-        action="store_const",
-        const=True,
-        help="Only dump configuration options different from the default configuration",
-    )
 
     parser_dump_config.add_argument(
         "--include",
@@ -477,7 +477,7 @@ def _add_dump_config_parser(subparsers_dump):
         type=str,
         nargs="*",
         help="List of keys to include (separated by space). "
-        "All subkeys are also included.",
+        "All subkeys are also included. Cannot be used with --raw.",
     )
 
     parser_dump_config.add_argument(
@@ -486,17 +486,24 @@ def _add_dump_config_parser(subparsers_dump):
         type=str,
         nargs="*",
         help="List of keys to exclude (separated by space). "
-        "All subkeys are also exluded. Applied after --include.",
+        "All subkeys are also exluded. Applied after --include. "
+        "Cannot be used with --raw.",
     )
 
 
 def _dump_config(args):
     """ Executes the 'dump config' command."""
     if not (args.raw or args.full or args.minimal):
-        args.raw = True
+        args.minimal = True
 
     if args.raw + args.full + args.minimal != 1:
         raise ValueError("Exactly one of --raw, --full, or --minimal must be set")
+
+    if args.raw and (args.include or args.exclude):
+        raise ValueError(
+            "--include and --exclude cannot be used with --raw "
+            "(use --full or --minimal instead)."
+        )
 
     config = Config()
     config_file = None
