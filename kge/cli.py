@@ -119,7 +119,7 @@ def create_parser(config, additional_args=[]):
     return parser
 
 
-if __name__ == "__main__":
+def main():
     # default config
     config = Config()
 
@@ -247,3 +247,6 @@ if __name__ == "__main__":
         if args.command == "resume":
             job.resume(checkpoint_file)
         job.run()
+
+if __name__ == "__main__":
+    main()
