@@ -267,6 +267,18 @@ can also be exported from the command line (as YAML):
 kge dump checkpoint <checkpoint>
 ```
 
+Configuration files can also be dumped in various formats.
+```sh
+# dump the configuration as is
+kge dump config <config-or-folder-or-checkpoint>
+
+# dump the expanded config including all configuration keys
+kge dump config <config-or-folder-or-checkpoint> --full
+
+# dump just the configuration options that are different from the default values
+kge dump config <config-or-folder-or-checkpoint> --minimal
+```
+
 #### Help and other commands
 
 ```sh

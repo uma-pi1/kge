@@ -7,6 +7,7 @@ import csv
 import yaml
 import re
 import socket
+import copy
 
 from kge.job import Trace
 from kge import Config
@@ -24,6 +25,7 @@ def add_dump_parsers(subparsers):
     subparsers_dump.required = True
     _add_dump_trace_parser(subparsers_dump)
     _add_dump_checkpoint_parser(subparsers_dump)
+    _add_dump_config_parser(subparsers_dump)
 
 
 def dump(args):
@@ -32,6 +34,8 @@ def dump(args):
         _dump_trace(args)
     elif args.dump_command == "checkpoint":
         _dump_checkpoint(args)
+    elif args.dump_command == "config":
+        _dump_config(args)
     else:
         raise ValueError()
 
@@ -426,3 +430,154 @@ def _dump_trace(args):
     if args.timeit:
         sys.stdout.write("Grep + processing took {} \n".format(middle - start))
         sys.stdout.write("Writing took {}".format(end - middle))
+
+
+### DUMP CONFIG ########################################################################
+
+
+def _add_dump_config_parser(subparsers_dump):
+    parser_dump_config = subparsers_dump.add_parser(
+        "config", help=("Dump a configuration")
+    )
+    parser_dump_config.add_argument(
+        "source",
+        help="A path to either a checkpoint, a config file, or a job folder.",
+        nargs="?",
+        default=".",
+    )
+
+    parser_dump_config.add_argument(
+        "--raw",
+        "-r",
+        default=False,
+        action="store_const",
+        const=True,
+        help="Dump the config as is (default)",
+    )
+    parser_dump_config.add_argument(
+        "--full",
+        "-f",
+        default=False,
+        action="store_const",
+        const=True,
+        help="Add all values from the default configuration before dumping the config",
+    )
+    parser_dump_config.add_argument(
+        "--minimal",
+        "-m",
+        default=False,
+        action="store_const",
+        const=True,
+        help="Only dump configuration options different from the default configuration",
+    )
+
+    parser_dump_config.add_argument(
+        "--include",
+        "-i",
+        type=str,
+        nargs="*",
+        help="List of keys to include (separated by space). "
+        "All subkeys are also included.",
+    )
+
+    parser_dump_config.add_argument(
+        "--exclude",
+        "-e",
+        type=str,
+        nargs="*",
+        help="List of keys to exclude (separated by space). "
+        "All subkeys are also exluded. Applied after --include.",
+    )
+
+
+def _dump_config(args):
+    """ Executes the 'dump config' command."""
+    if not (args.raw or args.full or args.minimal):
+        args.raw = True
+
+    if args.raw + args.full + args.minimal != 1:
+        raise ValueError("Exactly one of --raw, --full, or --minimal must be set")
+
+    config = Config()
+    config_file = None
+    if os.path.isdir(args.source):
+        config_file = os.path.join(args.source, "config.yaml")
+        config.load(config_file)
+    elif ".yaml" in os.path.split(args.source)[-1]:
+        config_file = args.source
+        config.load(config_file)
+    else:  # a checkpoint
+        checkpoint_file = torch.load(args.source)
+        if args.raw:
+            config = checkpoint_file["config"]
+        else:
+            config.load_options(checkpoint_file["config"].options)
+
+    def print_options(options):
+        # drop all arguments that are not included
+        if args.include:
+            args.include = set(args.include)
+            options_copy = copy.deepcopy(options)
+            for key in options_copy.keys():
+                prefix = key
+                keep = False
+                while True:
+                    if prefix in args.include:
+                        keep = True
+                        break
+                    else:
+                        last_dot_index = prefix.rfind(".")
+                        if last_dot_index < 0:
+                            break
+                        else:
+                            prefix = prefix[:last_dot_index]
+                if not keep:
+                    del options[key]
+
+        # remove all arguments that are excluded
+        if args.exclude:
+            args.exclude = set(args.exclude)
+            options_copy = copy.deepcopy(options)
+            for key in options_copy.keys():
+                prefix = key
+                while True:
+                    if prefix in args.exclude:
+                        del options[key]
+                        break
+                    else:
+                        last_dot_index = prefix.rfind(".")
+                        if last_dot_index < 0:
+                            break
+                        else:
+                            prefix = prefix[:last_dot_index]
+
+        # convert the remaining options to a Config and print it
+        config = Config(load_default=False)
+        config.set_all(options, create=True)
+        print(yaml.dump(config.options))
+
+    if args.raw:
+        if config_file:
+            with open(config_file, "r") as f:
+                print(f.read())
+        else:
+            print_options(config.options)
+    elif args.full:
+        print_options(config.options)
+    else:  # minimal
+        default_config = Config()
+        imports = config.get("import")
+        if imports is not None:
+            if not isinstance(imports, list):
+                imports = [imports]
+            for module_name in imports:
+                default_config._import(module_name)
+        default_options = Config.flatten(default_config.options)
+        new_options = Config.flatten(config.options)
+        minimal_options = {}
+
+        for option, value in new_options.items():
+            if option not in default_options or default_options[option] != value:
+                minimal_options[option] = value
+
+        print_options(minimal_options)
