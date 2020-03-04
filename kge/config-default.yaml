@@ -187,16 +187,17 @@ KvsAll:
 
 # Options for negative sampling training (train.type=="negative_sampling")
 negative_sampling:
-  # Type of sampler
-  # - uniform  : samples entities/relations for corruption uniform from the set
+  # Negative sampler to use
+  # - uniform  : samples entities/relations for corruption uniformly from the set
   #              of entities/relations
   # - frequency: samples entities/relations for corruption based on their relative
-  #              occurrence in the corresponding slot in the trainset
+  #              frequency in the corresponding slot in the training data
   sampling_type: uniform
 
   # Options for sampling type frequency (negative_sampling.sampling_type=="frequency")
   frequency:
-    # smooth frequencies of entities/relations by adding a uniform prior
+    # Smoothing constant to add to frequencies in training data (disable with
+    # 0). Corresponds to a symmetric Dirichlet prior.
     smoothing: 1
 
   # Number of times each slot of each positive triple is corrupted by the
