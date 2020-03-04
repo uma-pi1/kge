@@ -188,7 +188,7 @@ KvsAll:
 # Options for negative sampling training (train.type=="negative_sampling")
 negative_sampling:
   # Type of sampler
-  sampling_type: uniform
+  sampling_type: uniform    # uniform, frequency
   symmetric_prior: 1        # this prior is used to smooth counts in frequency sampling
 
   # Number of times each slot of each positive triple is corrupted by the

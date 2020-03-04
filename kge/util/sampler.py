@@ -244,30 +244,48 @@ class KgeUniformSampler(KgeSampler):
 
 
 class KgeFrequencySampler(KgeSampler):
+    """
+    Sample negatives based on their relative occurrence in the slot in the train set.
+    Can be smoothed with a symmetric prior.
+    """
     def __init__(self, config, configuration_key, dataset):
         super().__init__(config, configuration_key, dataset)
         self.samplers = []
         alpha = self.get_option("symmetric_prior")
         for slot in SLOTS:
             vocab = np.arange(self.vocabulary_size[slot].item())
-            unique, counts = np.unique(dataset.train[:, slot], return_counts=True)
+            unique, counts = np.unique(
+                dataset._triples["train"][:, slot], return_counts=True
+            )
 
             # smooth counts with the symmetric prior alpha
             zero_counts = vocab[~np.isin(vocab, unique)]
             sort_index = np.argsort(np.concatenate([unique, zero_counts]))
-            smoothed_counts = np.concatenate([counts, np.zeros(len(zero_counts))])[sort_index] + alpha
+            smoothed_counts = (
+                np.concatenate([counts, np.zeros(len(zero_counts))])[sort_index] + alpha
+            )
 
-            self.samplers.append(torch._multinomial_alias_setup(torch.Tensor(smoothed_counts/np.sum(smoothed_counts))))
+            self.samplers.append(
+                torch._multinomial_alias_setup(
+                    torch.from_numpy(smoothed_counts / np.sum(smoothed_counts))
+                )
+            )
 
-    def sample(self, spo, slot, num_samples=None):
+    def _sample(self, positive_triples: torch.Tensor, slot: int, num_samples: int):
         if num_samples is None:
             num_samples = self.num_samples[slot]
 
         if num_samples == 0:
-            result = torch.empty([spo.size(0), num_samples])
+            result = torch.empty([positive_triples.size(0), num_samples])
         else:
-            result = torch._multinomial_alias_draw(self.samplers[slot][1], self.samplers[slot][0],
-                                                   spo.size(0)*num_samples).view(spo.size(0), num_samples)
-        if self.filter_positives[slot]:
-            result = self._filter(result)
+            result = torch._multinomial_alias_draw(
+                self.samplers[slot][1],
+                self.samplers[slot][0],
+                positive_triples.size(0) * num_samples,
+            ).view(positive_triples.size(0), num_samples)
         return result
+
+    def _sample_shared(
+        self, positive_triples: torch.Tensor, slot: int, num_samples: int
+    ):
+        return self._sample(torch.empty(1), slot, num_samples).view(-1)
