@@ -187,8 +187,18 @@ KvsAll:
 
 # Options for negative sampling training (train.type=="negative_sampling")
 negative_sampling:
-  # Type of sampler
+  # Negative sampler to use
+  # - uniform  : samples entities/relations for corruption uniformly from the set
+  #              of entities/relations
+  # - frequency: samples entities/relations for corruption based on their relative
+  #              frequency in the corresponding slot in the training data
   sampling_type: uniform
+
+  # Options for sampling type frequency (negative_sampling.sampling_type=="frequency")
+  frequency:
+    # Smoothing constant to add to frequencies in training data (disable with
+    # 0). Corresponds to a symmetric Dirichlet prior.
+    smoothing: 1
 
   # Number of times each slot of each positive triple is corrupted by the
   # sampler to obtain negative triples.
@@ -225,7 +235,7 @@ negative_sampling:
   #           'batch' if shared sampling is activated or max(num_samples.s,
   #           num_samples.p, num_samples.o) > 30. 'triple' otherwise.
   #
-  # 'batch' or 'auto' is recommended (faster) for models which have 
+  # 'batch' or 'auto' is recommended (faster) for models which have
   # efficient implementations to score many targets at once. For all other
   # models, use 'triple' (e.g., for TransE in the current implementation).
   implementation: triple

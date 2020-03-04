@@ -33,7 +33,7 @@ class KgeLoss:
             if math.isnan(margin):
                 margin = 1.0
                 config.set("train.loss_arg", margin, log=True)
-            return MarginRankingKgeLoss(config, offset=margin)
+            return MarginRankingKgeLoss(config, margin=margin)
         elif config.get("train.loss") == "soft_margin":
             return SoftMarginKgeLoss(config)
         else:
