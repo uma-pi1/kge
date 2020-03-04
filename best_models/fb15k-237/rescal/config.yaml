@@ -1,0 +1,137 @@
+# rescal-1vsAll-kl-bo-best
+# rescal-1vsAll-kl-bo
+# fb15k-237-rescal-1vsAll-kl
+job.type: search
+search.type: ax
+dataset.name: fb15k-237
+
+# training settings (fixed)
+train:
+  max_epochs: 400
+  auto_correct: True
+
+# this is faster for smaller datasets, but does not work for some models (e.g.,
+# TransE due to a pytorch issue) or for larger datasets. Change to spo in such
+# cases (either here or in ax section of model config), results will not be
+# affected.
+negative_sampling.implementation: sp_po
+
+# validation/evaluation settings (fixed)
+valid:
+  every: 5
+  metric: mean_reciprocal_rank_filtered_with_test
+  filter_with_test: True
+  early_stopping:
+    patience: 10
+    min_threshold.epochs: 50
+    min_threshold.metric_value: 0.05
+
+eval:
+  batch_size: 256
+  metrics_per.relation_type: True
+
+# settings for reciprocal relations (if used)
+import: [rescal, reciprocal_relations_model]
+reciprocal_relations_model.base_model.type: rescal
+
+# ax settings: hyperparameter serach space
+ax_search:
+  num_trials: 5
+  num_sobol_trials: 10 
+  parameters:
+      # model
+    - name: model
+      type: fixed
+      value: rescal
+
+    # training hyperparameters
+    - name: train.batch_size
+      type: fixed
+      value: 512
+      is_ordered: True
+    - name: train.type
+      type: fixed
+      value: 1vsAll
+    - name: train.optimizer
+      type: fixed
+      value: Adam
+    - name: train.loss
+      type: fixed
+      value: kl
+    - name: train.optimizer_args.lr     
+      type: fixed
+      value: 0.0007391873099551063
+      log_scale: True
+    - name: train.lr_scheduler
+      type: fixed
+      value: ReduceLROnPlateau
+    - name: train.lr_scheduler_args.mode
+      type: fixed
+      value: max  
+    - name: train.lr_scheduler_args.factor
+      type: fixed
+      value: 0.95  
+    - name: train.lr_scheduler_args.threshold
+      type: fixed
+      value: 0.0001  
+    - name: train.lr_scheduler_args.patience
+      type: fixed
+      value: 1
+
+    # embedding dimension
+    - name: lookup_embedder.dim
+      type: fixed
+      value: 128
+      is_ordered: True
+
+    # embedding initialization
+    - name: lookup_embedder.initialize
+      type: fixed
+      value: normal_
+    - name: lookup_embedder.initialize_args.normal_.mean
+      type: fixed
+      value: 0.0
+    - name: lookup_embedder.initialize_args.normal_.std
+      type: fixed
+      value: 0.12253330829253249
+      log_scale: True
+    - name: lookup_embedder.initialize_args.uniform_.a
+      type: fixed
+      value: -0.011611245661190428
+    - name: lookup_embedder.initialize_args.xavier_uniform_.gain
+      type: fixed
+      value: 1.0
+    - name: lookup_embedder.initialize_args.xavier_normal_.gain
+      type: fixed
+      value: 1.0
+
+    # embedding regularization
+    - name: lookup_embedder.regularize
+      type: fixed
+      value: ''
+      is_ordered: True
+    - name: lookup_embedder.regularize_args.weighted
+      type: fixed
+      value: True
+    - name: rescal.entity_embedder.regularize_weight
+      type: fixed
+      value: 4.7008266379369885e-11
+      log_scale: True
+    - name: rescal.relation_embedder.regularize_weight
+      type: fixed
+      value: 7.335042280341127e-13
+      log_scale: True
+
+    # embedding dropout
+    - name: rescal.entity_embedder.dropout
+      type: fixed
+      value: 0.4267429455561116
+    - name: rescal.relation_embedder.dropout
+      type: fixed
+      value: 0.15935746704923415
+
+    # training-type specific hyperparameters
+    # model-specific entries
+    - name: rescal.relation_embedder.dim
+      type: fixed
+      value: -1

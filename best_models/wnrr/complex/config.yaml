@@ -1,0 +1,134 @@
+# complex-1vsAll-kl-bo-best
+# complex-1vsAll-kl-bo
+# wnrr-complex-1vsAll-kl
+job.type: search
+search.type: ax
+dataset.name: wnrr
+
+# training settings (fixed)
+train:
+  max_epochs: 400
+  auto_correct: True
+
+# this is faster for smaller datasets, but does not work for some models (e.g.,
+# TransE due to a pytorch issue) or for larger datasets. Change to spo in such
+# cases (either here or in ax section of model config), results will not be
+# affected.
+negative_sampling.implementation: sp_po
+
+# validation/evaluation settings (fixed)
+valid:
+  every: 5
+  metric: mean_reciprocal_rank_filtered_with_test
+  filter_with_test: True
+  early_stopping:
+    patience: 10
+    min_threshold.epochs: 50
+    min_threshold.metric_value: 0.05
+
+eval:
+  batch_size: 256
+  metrics_per.relation_type: True
+
+# settings for reciprocal relations (if used)
+import: [complex, reciprocal_relations_model]
+reciprocal_relations_model.base_model.type: complex
+
+# ax settings: hyperparameter serach space
+ax_search:
+  num_trials: 5
+  num_sobol_trials: 10 
+  parameters:
+      # model
+    - name: model
+      type: fixed
+      value: complex
+
+    # training hyperparameters
+    - name: train.batch_size
+      type: fixed
+      value: 512
+      is_ordered: True
+    - name: train.type
+      type: fixed
+      value: 1vsAll
+    - name: train.optimizer
+      type: fixed
+      value: Adagrad
+    - name: train.loss
+      type: fixed
+      value: kl
+    - name: train.optimizer_args.lr     
+      type: fixed
+      value: 0.5255808623927111
+      log_scale: True
+    - name: train.lr_scheduler
+      type: fixed
+      value: ReduceLROnPlateau
+    - name: train.lr_scheduler_args.mode
+      type: fixed
+      value: max  
+    - name: train.lr_scheduler_args.factor
+      type: fixed
+      value: 0.95  
+    - name: train.lr_scheduler_args.threshold
+      type: fixed
+      value: 0.0001  
+    - name: train.lr_scheduler_args.patience
+      type: fixed
+      value: 5
+
+    # embedding dimension
+    - name: lookup_embedder.dim
+      type: fixed
+      value: 128
+      is_ordered: True
+
+    # embedding initialization
+    - name: lookup_embedder.initialize
+      type: fixed
+      value: uniform_
+    - name: lookup_embedder.initialize_args.normal_.mean
+      type: fixed
+      value: 0.0
+    - name: lookup_embedder.initialize_args.normal_.std
+      type: fixed
+      value: 0.0005472140383629246
+      log_scale: True
+    - name: lookup_embedder.initialize_args.uniform_.a
+      type: fixed
+      value: -0.28148249060722197
+    - name: lookup_embedder.initialize_args.xavier_uniform_.gain
+      type: fixed
+      value: 1.0
+    - name: lookup_embedder.initialize_args.xavier_normal_.gain
+      type: fixed
+      value: 1.0
+
+    # embedding regularization
+    - name: lookup_embedder.regularize
+      type: fixed
+      value: l2
+      is_ordered: True
+    - name: lookup_embedder.regularize_args.weighted
+      type: fixed
+      value: False
+    - name: complex.entity_embedder.regularize_weight
+      type: fixed
+      value: 4.5230047706178325e-06
+      log_scale: True
+    - name: complex.relation_embedder.regularize_weight
+      type: fixed
+      value: 4.192985917075565e-10
+      log_scale: True
+
+    # embedding dropout
+    - name: complex.entity_embedder.dropout
+      type: fixed
+      value: 0.3592749142853321
+    - name: complex.relation_embedder.dropout
+      type: fixed
+      value: 0.3112283826796357
+
+    # training-type specific hyperparameters
+    # model-specific entries
