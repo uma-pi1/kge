@@ -114,7 +114,7 @@ sh download_all.sh
 cd ..
 
 # train an example model on toy dataset (you can omit '--job.device cpu' when you have a gpu)
-python kge.py start examples/toy-complex-train.yaml --job.device cpu
+kge start examples/toy-complex-train.yaml --job.device cpu
 
 ```
 
@@ -155,16 +155,16 @@ To begin training, run one of the following:
 ```sh
 # Store the file as `config.yaml` in a new folder of your choice. Then initiate or resume
 # the training job using:
-python kge.py resume <folder>
+kge resume <folder>
 
 # Alternatively, store the configuration anywhere and use the start command
 # to create a new folder
 #   <kge-home>/local/experiments/<date>-<config-file-name>
 # with that config and start training there.
-python kge.py start <config-file>
+kge start <config-file>
 
 # In both cases, configuration options can be modified on the command line, too: e.g.,
-python kge.py start <config-file> config.yaml --job.device cuda:0 --train.optimizer Adam
+kge start <config-file> config.yaml --job.device cuda:0 --train.optimizer Adam
 ```
 
 Various checkpoints (including model parameters and configuration options) will
@@ -175,10 +175,10 @@ be created during training. These checkpoints can be used to resume training (or
 All of LibKGE's jobs can be interrupted and resumed (from a checkpoint). To resume a job, use:
 
 ```sh
-python kge.py resume <folder-or-checkpoint>
+kge resume <folder-or-checkpoint>
 
 # Change the device when resuming
-python kge.py resume <folder-or-checkpoint> --job.device cuda:1
+kge resume <folder-or-checkpoint> --job.device cuda:1
 ```
 
 #### Evaluate a trained model
@@ -187,10 +187,10 @@ To evaluate trained model, run the following:
 
 ```sh
 # Evaluate a model on the validation split
-python kge.py valid <folder>
+kge valid <folder>
 
 # Evaluate a model on the test split
-python kge.py test <folder>
+kge test <folder>
 ```
 
 By default, the checkpoint file named ``checkpoint_best.pt`` (which stores the best validation result so far) is used. The filename of the checkpoint can be overwritten using ``--checkpoint``.
@@ -233,10 +233,10 @@ Trials can be run in parallel across several devices:
 
 ```sh
 # Run 4 trials in parallel evenly distributed across two GPUs
-python kge.py resume <folder> --search.device_pool cuda:0,cuda:1 --search.num_workers 4
+kge resume <folder> --search.device_pool cuda:0,cuda:1 --search.num_workers 4
 
 # Run 3 trials in parallel, with per GPUs capacity
-python kge.py resume <folder> --search.device_pool cuda:0,cuda:1,cuda:1 --search.num_workers 3
+kge resume <folder> --search.device_pool cuda:0,cuda:1,cuda:1 --search.num_workers 3
 ```
 
 #### Export and analyze logs and checkpoints
@@ -246,7 +246,7 @@ validation). LibKGE provides a convenience methods to export the log data to
 CSV.
 
 ```sh
-python kge.py dump trace <folder>
+kge dump trace <folder>
 ```
 
 The command above yields CSV output such as [this output for a training
@@ -261,17 +261,17 @@ training loss, validation metrics, or explored hyperparameter configurations)
 can also be exported from the command line (as YAML):
 
 ```sh
-python kge.py dump checkpoint <checkpoint>
+kge dump checkpoint <checkpoint>
 ```
 
 #### Help and other commands
 
 ```sh
 # help on all commands
-python kge.py --help
+kge --help
 
 # help on a specific command
-python kge.py dump --help
+kge dump --help
 ```
 
 #### Use a pretrained model in an application

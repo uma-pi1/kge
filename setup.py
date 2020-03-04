@@ -24,4 +24,9 @@ setup(
         "numba==0.48.0"
     ],
     zip_safe=False,
+    entry_points={
+        "console_scripts": [
+            "kge = kge.cli:main",
+        ],
+    },
 )
