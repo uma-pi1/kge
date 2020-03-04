@@ -248,24 +248,21 @@ class KgeFrequencySampler(KgeSampler):
     Sample negatives based on their relative occurrence in the slot in the train set.
     Can be smoothed with a symmetric prior.
     """
+
     def __init__(self, config, configuration_key, dataset):
         super().__init__(config, configuration_key, dataset)
-        self.samplers = []
-        alpha = self.get_option("symmetric_prior")
+        self._multinomials = []
+        alpha = self.get_option("frequency.smoothing")
         for slot in SLOTS:
-            vocab = np.arange(self.vocabulary_size[slot].item())
-            unique, counts = np.unique(
-                dataset._triples["train"][:, slot], return_counts=True
-            )
-
-            # smooth counts with the symmetric prior alpha
-            zero_counts = vocab[~np.isin(vocab, unique)]
-            sort_index = np.argsort(np.concatenate([unique, zero_counts]))
             smoothed_counts = (
-                np.concatenate([counts, np.zeros(len(zero_counts))])[sort_index] + alpha
+                np.bincount(
+                    dataset.train()[:, slot],
+                    minlength=self.vocabulary_size[slot].item(),
+                )
+                + alpha
             )
 
-            self.samplers.append(
+            self._multinomials.append(
                 torch._multinomial_alias_setup(
                     torch.from_numpy(smoothed_counts / np.sum(smoothed_counts))
                 )
@@ -279,8 +276,8 @@ class KgeFrequencySampler(KgeSampler):
             result = torch.empty([positive_triples.size(0), num_samples])
         else:
             result = torch._multinomial_alias_draw(
-                self.samplers[slot][1],
-                self.samplers[slot][0],
+                self._multinomials[slot][1],
+                self._multinomials[slot][0],
                 positive_triples.size(0) * num_samples,
             ).view(positive_triples.size(0), num_samples)
         return result
