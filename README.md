@@ -175,11 +175,14 @@ be created during training. These checkpoints can be used to resume training (or
 All of LibKGE's jobs can be interrupted and resumed (from a checkpoint). To resume a job, use:
 
 ```sh
-kge resume <folder-or-checkpoint>
+kge resume <folder>
 
 # Change the device when resuming
-kge resume <folder-or-checkpoint> --job.device cuda:1
+kge resume <folder> --job.device cuda:1
 ```
+
+By default, the last checkpoint file is used. The filename of the checkpoint can be overwritten using ``--checkpoint``.
+
 
 #### Evaluate a trained model
 
