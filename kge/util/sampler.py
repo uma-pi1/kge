@@ -60,7 +60,8 @@ class KgeSampler(Configurable):
         sampling_type = config.get(configuration_key + ".sampling_type")
         if sampling_type == "uniform":
             return KgeUniformSampler(config, configuration_key, dataset)
-            # TODO add frequency-based/biased sampling
+        elif sampling_type == "frequency":
+            return KgeFrequencySampler(config, configuration_key, dataset)
         else:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError(configuration_key + ".sampling_type")
@@ -240,3 +241,48 @@ class KgeUniformSampler(KgeSampler):
                         ctr += 1
                     num_found += len(idx)
                     num_remaining = num_new - num_found
+
+
+class KgeFrequencySampler(KgeSampler):
+    """
+    Sample negatives based on their relative occurrence in the slot in the train set.
+    Can be smoothed with a symmetric prior.
+    """
+
+    def __init__(self, config, configuration_key, dataset):
+        super().__init__(config, configuration_key, dataset)
+        self._multinomials = []
+        alpha = self.get_option("frequency.smoothing")
+        for slot in SLOTS:
+            smoothed_counts = (
+                np.bincount(
+                    dataset.train()[:, slot],
+                    minlength=self.vocabulary_size[slot].item(),
+                )
+                + alpha
+            )
+
+            self._multinomials.append(
+                torch._multinomial_alias_setup(
+                    torch.from_numpy(smoothed_counts / np.sum(smoothed_counts))
+                )
+            )
+
+    def _sample(self, positive_triples: torch.Tensor, slot: int, num_samples: int):
+        if num_samples is None:
+            num_samples = self.num_samples[slot]
+
+        if num_samples == 0:
+            result = torch.empty([positive_triples.size(0), num_samples])
+        else:
+            result = torch._multinomial_alias_draw(
+                self._multinomials[slot][1],
+                self._multinomials[slot][0],
+                positive_triples.size(0) * num_samples,
+            ).view(positive_triples.size(0), num_samples)
+        return result
+
+    def _sample_shared(
+        self, positive_triples: torch.Tensor, slot: int, num_samples: int
+    ):
+        return self._sample(torch.empty(1), slot, num_samples).view(-1)
