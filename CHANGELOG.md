@@ -1,4 +1,5 @@
 #### Mar 2020
+- [14dc926](https://github.com/uma-pi1/kge/commit/14dc9268b2e24f7db36dc95ae47e5e975016955b): Add ability to dump configs in various ways
 - PR [#64](https://github.com/uma-pi1/kge/pull/64): Initial support for frequency-based negative sampling (thanks AdrianKS)
 - PR [#77](https://github.com/uma-pi1/kge/pull/77): Simpler use of command-line interface (thanks cthoyt)
 - [76a0077](https://github.com/uma-pi1/kge/commit/76a007731d98e00331f2f6ccb90b91cc8cf265dd): Added RotatE
