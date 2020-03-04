@@ -17,20 +17,10 @@ class TransEScorer(RelationalScorer):
             out = -F.pairwise_distance(s_emb + p_emb, o_emb, p=self._norm)
         elif combine == "sp*":
             out = -torch.cdist(s_emb + p_emb, o_emb, p=self._norm)
-            # old pytorch 1.2 version
-            # sp_emb = s_emb + p_emb
-            # out = torch.zeros(n, o_emb.size(0)).to(self.config.get("job.device"))
-            # for i in range(n):
-            #     out[i, :] = -F.pairwise_distance(sp_emb[i, :], o_emb, p=self._norm)
         elif combine == "*po":
             out = -torch.cdist(o_emb - p_emb, s_emb, p=self._norm)
-            # old pytorch 1.2 version
-            # po_emb = o_emb - p_emb
-            # out = torch.zeros(n, s_emb.size(0)).to(self.config.get("job.device"))
-            # for i in range(n):
-            #     out[i, :] = -F.pairwise_distance(po_emb[i, :], s_emb, p=self._norm)
         else:
-            raise ValueError('cannot handle combine="{}".format(combine)')
+            super().score_emb(s_emb, p_emb, o_emb, combine)
         return out.view(n, -1)
 
 

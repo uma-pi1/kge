@@ -64,27 +64,27 @@ class TrainingJob(Job):
 
         #: Hooks run after training for an epoch.
         #: Signature: job, trace_entry
-        self.post_epoch_hooks: List[Callable[[Job, Dict[str, Any]]]] = []
+        self.post_epoch_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
 
         #: Hooks run before starting a batch.
         #: Signature: job
-        self.pre_batch_hooks: List[Callable[[Job]]] = []
+        self.pre_batch_hooks: List[Callable[[Job], Any]] = []
 
         #: Hooks run before outputting the trace of a batch. Can modify trace entry.
         #: Signature: job, trace_entry
-        self.post_batch_trace_hooks: List[Callable[[Job, Dict[str, Any]]]] = []
+        self.post_batch_trace_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
 
         #: Hooks run before outputting the trace of an epoch. Can modify trace entry.
         #: Signature: job, trace_entry
-        self.post_epoch_trace_hooks: List[Callable[[Job, Dict[str, Any]]]] = []
+        self.post_epoch_trace_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
 
         #: Hooks run after a validation job.
         #: Signature: job, trace_entry
-        self.post_valid_hooks: List[Callable[[Job, Dict[str, Any]]]] = []
+        self.post_valid_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
 
         #: Hooks run after training
         #: Signature: job, trace_entry
-        self.post_train_hooks: List[Callable[[Job, Dict[str, Any]]]] = []
+        self.post_train_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
 
         if self.__class__ == TrainingJob:
             for f in Job.job_created_hooks:
@@ -229,6 +229,7 @@ class TrainingJob(Job):
         self.config.log("Saving checkpoint to {}...".format(filename))
         torch.save(
             {
+                "type": "train",
                 "config": self.config,
                 "epoch": self.epoch,
                 "valid_trace": self.valid_trace,
@@ -493,22 +494,22 @@ class TrainingJobKvsAll(TrainingJob):
                     "should be at least 0.".format(self.label_smoothing)
                 )
         elif self.label_smoothing > 0 and self.label_smoothing <= (
-            1.0 / dataset.num_entities
+            1.0 / dataset.num_entities()
         ):
             if config.get("train.auto_correct"):
                 # just to be sure it's used correctly
                 config.log(
-                    "Setting label_smoothing to 1/dataset.num_entities = {}, "
+                    "Setting label_smoothing to 1/num_entities = {}, "
                     "was set to {}.".format(
-                        1.0 / dataset.num_entities, self.label_smoothing
+                        1.0 / dataset.num_entities(), self.label_smoothing
                     )
                 )
-                self.label_smoothing = 1.0 / dataset.num_entities
+                self.label_smoothing = 1.0 / dataset.num_entities()
             else:
                 raise Exception(
                     "Label_smoothing was set to {}, "
                     "should be at least {}.".format(
-                        self.label_smoothing, 1.0 / dataset.num_entities
+                        self.label_smoothing, 1.0 / dataset.num_entities()
                     )
                 )
 
@@ -521,8 +522,8 @@ class TrainingJobKvsAll(TrainingJob):
 
     def _prepare(self):
         # create sp and po label_coords (if not done before)
-        train_sp = self.dataset.index_KvsAll("train", "sp")
-        train_po = self.dataset.index_KvsAll("train", "po")
+        train_sp = self.dataset.index("train_sp_to_o")
+        train_po = self.dataset.index("train_po_to_s")
 
         # convert indexes to pytoch tensors: a nx2 keys tensor (rows = keys),
         # an offset vector (row = starting offset in values for corresponding
@@ -536,12 +537,12 @@ class TrainingJobKvsAll(TrainingJob):
             self.train_sp_keys,
             self.train_sp_values,
             self.train_sp_offsets,
-        ) = Dataset.prepare_index(train_sp)
+        ) = kge.indexing.prepare_index(train_sp)
         (
             self.train_po_keys,
             self.train_po_values,
             self.train_po_offsets,
-        ) = Dataset.prepare_index(train_po)
+        ) = kge.indexing.prepare_index(train_po)
 
         # create dataloader
         self.loader = torch.utils.data.DataLoader(
@@ -637,7 +638,7 @@ class TrainingJobKvsAll(TrainingJob):
         sp_indexes = is_sp.nonzero().to(self.device).view(-1)
         po_indexes = (is_sp == 0).nonzero().to(self.device).view(-1)
         labels = kge.job.util.coord_to_sparse_tensor(
-            batch_size, self.dataset.num_entities, label_coords, self.device
+            batch_size, self.dataset.num_entities(), label_coords, self.device
         ).to_dense()
         if self.label_smoothing > 0.0:
             # as in ConvE: https://github.com/TimDettmers/ConvE
@@ -684,11 +685,13 @@ class TrainingJobNegativeSampling(TrainingJob):
         self.is_prepared = False
         self._implementation = self.config.get("negative_sampling.implementation")
         if self._implementation == "auto":
-            max_nr_of_negs = max(self._sampler.num_samples.values())
-            if max_nr_of_negs <= 30:
-                self._implementation = "spo"
+            max_nr_of_negs = max(self._sampler.num_samples)
+            if self._sampler.shared:
+                self._implementation = "batch"
+            elif max_nr_of_negs <= 30:
+                self._implementation = "triple"
             elif max_nr_of_negs > 30:
-                self._implementation = "sp_po"
+                self._implementation = "batch"
 
         config.log(
             "Initializing negative sampling training job with "
@@ -706,15 +709,15 @@ class TrainingJobNegativeSampling(TrainingJob):
         if self.is_prepared:
             return
 
+        self.num_examples = self.dataset.train().size(0)
         self.loader = torch.utils.data.DataLoader(
-            range(self.dataset.train.size(0)),
+            range(self.num_examples),
             collate_fn=self._get_collate_fun(),
             shuffle=True,
             batch_size=self.batch_size,
             num_workers=self.config.get("train.num_workers"),
             pin_memory=self.config.get("train.pin_memory"),
         )
-        self.num_examples = self.dataset.train.size(0)
 
         self.is_prepared = True
 
@@ -728,7 +731,7 @@ class TrainingJobNegativeSampling(TrainingJob):
               in order S,P,O)
             """
 
-            triples = self.dataset.train[batch, :].long()
+            triples = self.dataset.train()[batch, :].long()
             # labels = torch.zeros((len(batch), self._sampler.num_negatives_total + 1))
             # labels[:, 0] = 1
             # labels = labels.view(-1)
@@ -767,7 +770,7 @@ class TrainingJobNegativeSampling(TrainingJob):
 
             # compute corresponding scores
             scores = None
-            if self._implementation == "spo":
+            if self._implementation == "triple":
                 # construct triples
                 prepare_time -= time.time()
                 triples_to_score = triples.repeat(1, 1 + num_samples).view(-1, 3)
@@ -789,11 +792,17 @@ class TrainingJobNegativeSampling(TrainingJob):
                     direction="s" if slot == S else ("o" if slot == O else "p"),
                 ).view(batch_size, -1)
                 forward_time += time.time()
-            elif self._implementation == "sp_po":
+            elif self._implementation == "all":
+                # Score against all possible targets.
+                # Creates a score matrix of size [batch_size, num_entities].
+                # All scores relevant for positive and negative triples are contained in
+                # this score matrix.
                 # compute all scores for slot
                 forward_time -= time.time()
                 if slot == S:
                     all_scores = self.model.score_po(triples[:, P], triples[:, O])
+                elif slot == P:
+                    all_scores = self.model.score_so(triples[:, S], triples[:, O])
                 elif slot == O:
                     all_scores = self.model.score_sp(triples[:, S], triples[:, P])
                 else:
@@ -815,6 +824,47 @@ class TrainingJobNegativeSampling(TrainingJob):
                     ),
                     1,
                 ).view(-1)
+                prepare_time += time.time()
+
+                # now pick the scores we need
+                forward_time -= time.time()
+                scores = all_scores[row_indexes, column_indexes].view(batch_size, -1)
+                forward_time += time.time()
+            elif self._implementation == "batch":
+                # Score against all targets contained in the batch.
+                # Creates a score matrix of size [batch_size, unique_entities_in_slot].
+                # All scores relevant for positive and negative triples are contained in
+                # this score matrix.
+                forward_time -= time.time()
+                unique_targets, column_indexes = torch.unique(
+                    torch.cat((triples[:, [slot]], negative_samples[slot]), 1).view(-1),
+                    return_inverse=True,
+                )
+                # compute all scores for slot
+                if slot == S:
+                    all_scores = self.model.score_po(
+                        triples[:, P], triples[:, O], unique_targets
+                    )
+                elif slot == P:
+                    all_scores = self.model.score_so(
+                        triples[:, S], triples[:, O], unique_targets
+                    )
+                elif slot == O:
+                    all_scores = self.model.score_sp(
+                        triples[:, S], triples[:, P], unique_targets
+                    )
+                else:
+                    raise NotImplementedError
+                forward_time += time.time()
+
+                # determine indexes of relevant scores in scoring matrix
+                prepare_time -= time.time()
+                row_indexes = (
+                    torch.arange(batch_size, device=self.device)
+                    .unsqueeze(1)
+                    .repeat(1, 1 + num_samples)
+                    .view(-1)
+                )  # 000 111 222; each 1+num_negative times (here: 3)
                 prepare_time += time.time()
 
                 # now pick the scores we need
@@ -865,15 +915,15 @@ class TrainingJob1vsAll(TrainingJob):
         if self.is_prepared:
             return
 
+        self.num_examples = self.dataset.train().size(0)
         self.loader = torch.utils.data.DataLoader(
-            range(self.dataset.train.size(0)),
-            collate_fn=lambda batch: {"triples": self.dataset.train[batch, :].long()},
+            range(self.num_examples),
+            collate_fn=lambda batch: {"triples": self.dataset.train()[batch, :].long()},
             shuffle=True,
             batch_size=self.batch_size,
             num_workers=self.config.get("train.num_workers"),
             pin_memory=self.config.get("train.pin_memory"),
         )
-        self.num_examples = self.dataset.train.size(0)
 
         self.is_prepared = True
 
@@ -889,7 +939,7 @@ class TrainingJob1vsAll(TrainingJob):
         scores_sp = self.model.score_sp(triples[:, 0], triples[:, 1])
         loss_value_sp = self.loss(scores_sp, triples[:, 2]) / batch_size
         loss_value = loss_value_sp.item()
-        forward_time = +time.time()
+        forward_time += time.time()
         backward_time = -time.time()
         loss_value_sp.backward()
         backward_time += time.time()

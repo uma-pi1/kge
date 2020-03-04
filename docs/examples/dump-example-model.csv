@@ -1,0 +1,13 @@
+job_id,dataset,model,reciprocal,job,job_type,split,epoch,avg_loss,avg_penalty,avg_cost,metric_name,metric
+98d26bf6,toy,complex,0,train,KvsAll,train,1,68.38259438455502,0.0,68.38259438455502,mean_reciprocal_rank_filtered,
+98d26bf6,toy,complex,0,train,KvsAll,train,2,7.841646085340834,0.0,7.841646085340834,mean_reciprocal_rank_filtered,
+98d26bf6,toy,complex,0,train,KvsAll,train,3,5.5654713629208326,0.0,5.5654713629208326,mean_reciprocal_rank_filtered,
+98d26bf6,toy,complex,0,train,KvsAll,train,4,4.360564341968362,0.0,4.360564341968362,mean_reciprocal_rank_filtered,
+98d26bf6,toy,complex,0,train,KvsAll,train,5,3.5661933792744493,0.0,3.5661933792744493,mean_reciprocal_rank_filtered,
+98d26bf6,toy,complex,0,train,KvsAll,train,6,3.036525821857051,0.0,3.036525821857051,mean_reciprocal_rank_filtered,
+98d26bf6,toy,complex,0,train,KvsAll,train,7,2.6476021499252123,0.0,2.6476021499252123,mean_reciprocal_rank_filtered,
+98d26bf6,toy,complex,0,train,KvsAll,train,8,2.2916087137239907,0.0,2.2916087137239907,mean_reciprocal_rank_filtered,
+98d26bf6,toy,complex,0,train,KvsAll,train,9,2.047433320163396,0.0,2.047433320163396,mean_reciprocal_rank_filtered,
+98d26bf6,toy,complex,0,train,KvsAll,train,10,1.861540728253912,0.0,1.861540728253912,mean_reciprocal_rank_filtered,
+7da4f094,toy,complex,0,valid,entity_ranking,valid,5,,,,mean_reciprocal_rank_filtered,0.3562089062611991
+7da4f094,toy,complex,0,valid,entity_ranking,valid,10,,,,mean_reciprocal_rank_filtered,0.3981614419079702

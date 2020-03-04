@@ -148,12 +148,14 @@ class Trace:
 
         """
         if not job_id:
-            last_entry = Trace.grep_entries(
+            entries = Trace.grep_entries(
                 tracefile=tracefile,
                 conjunctions=["scope: epoch", "job: train"],
                 raw=True,
-            )[-1]
-            job_id = yaml.load(last_entry, Loader=yaml.SafeLoader).get("job_id")
+            )
+            if not entries:
+                return [], dict()
+            job_id = yaml.load(entries[-1], Loader=yaml.SafeLoader).get("job_id")
         if not job_id:
             raise Exception(
                 "Could not find a training entry in tracefile."
@@ -228,3 +230,22 @@ class Trace:
             else:
                 found_previous = False
         return entries, job_epochs
+
+    @staticmethod
+    def grep_trace_entries(tracefile:str, job, scope, job_id = None):
+        "All trace entries for the specified job_id or, if unspecified, the last job_id"
+        if not job_id:
+            entries = Trace.grep_entries(
+                tracefile=tracefile,
+                conjunctions=[f"job: {job}", f"scope: {scope}"],
+                raw=True,
+            )
+            if not entries:
+                return [], dict()
+            job_id = yaml.load(entries[-1], Loader=yaml.SafeLoader).get("job_id")
+
+        entries = Trace.grep_entries(
+            tracefile=tracefile,
+            conjunctions=[f"job_id: {job_id}", f"scope: {scope}"],
+        )
+        return entries

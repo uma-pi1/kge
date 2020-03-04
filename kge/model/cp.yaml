@@ -1,0 +1,13 @@
+import: [lookup_embedder]
+
+cp:
+  class_name: CP
+  entity_embedder:
+    type: lookup_embedder
+    # Note: dimensionality (key "dim") refers to the combined size of the
+    # head and tail embedding. Must be even.
+    +++: +++
+  relation_embedder:
+    type: lookup_embedder
+    dim: -1  # -1 means: pick as half the entity_embedder.dim
+    +++: +++

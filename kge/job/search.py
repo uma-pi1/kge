@@ -2,6 +2,7 @@ import copy
 import os
 import concurrent.futures
 from kge.job import Job, Trace
+from kge.config import _process_deprecated_options
 
 
 class SearchJob(Job):
@@ -108,8 +109,6 @@ class SearchJob(Job):
         return state
 
 
-# TODO add job submission (to device_pool/cpus) etc. to SearchJob main class with a
-# simpler API
 def _run_train_job(sicnk, device=None):
     """Runs a training job and returns the trace entry of its best validation result.
 
@@ -141,7 +140,17 @@ def _run_train_job(sicnk, device=None):
         def copy_to_search_trace(job, trace_entry):
             trace_entry = copy.deepcopy(trace_entry)
             for key in trace_keys:
-                trace_entry[key] = train_job_config.get(key)
+                # Process deprecated options to some extent. Support key renames, but
+                # not value renames.
+                actual_key = {key: None}
+                _process_deprecated_options(actual_key)
+                if len(actual_key) > 1:
+                    raise KeyError(
+                        f"{key} is deprecated but cannot be handled automatically"
+                    )
+                actual_key = next(iter(actual_key.keys()))
+                value = train_job_config.get(actual_key)
+                trace_entry[key] = value
 
             trace_entry["folder"] = os.path.split(train_job_config.folder)[1]
             metric_value = Trace.get_metric(trace_entry, metric_name)
@@ -180,13 +189,14 @@ def _run_train_job(sicnk, device=None):
                 best_metric = metric
 
         # record the best result of this job
+        best["child_job_id"] = best["job_id"]
         del (
             best["job"],
             best["job_id"],
             best["type"],
             best["parent_job_id"],
             best["scope"],
-            best["event"]
+            best["event"],
         )
         search_job.trace(
             event="search_completed",
@@ -194,7 +204,7 @@ def _run_train_job(sicnk, device=None):
             echo_prefix="  ",
             log=True,
             scope="train",
-            **best
+            **best,
         )
 
         return (train_job_index, best, best_metric)

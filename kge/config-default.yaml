@@ -23,32 +23,74 @@ dataset:
   # specified below.
   name: 'toy'
 
-  # Names of the training, validation, and test data files. Each file has the
-  # following fields, all tab-separated:
-  # - 0: subject index
-  # - 1: relation index
-  # - 2: object index
-  # - 3-...: arbitrary metadata fields
-  # Indexes are assumed to be dense throughout.
-  train: train.del
-  valid: valid.del
-  test: test.del
+  # Number of entities. If set to -1, automatically determined from the
+  # entity_ids file (see below).
+  num_entities: -1
 
-  # Names of entity and relation map files, which store auxiliary information
-  # about each entity/predicate. Fields are tab-separated:
-  # - 0: entity/predicate index (as in train/valid/test)
-  # - 1...: arbitrary metadata fields
-  entity_map: entity_map.del
-  relation_map: relation_map.del
+  # Number of relations. If set to -1, automatically determined from the
+  # relation_ids file (see below).
+  num_relations: -1
 
-  # other dataset specific keys
+  # A list of files associated with this dataset, each associated with a key.
+  # Each entry must contain at least the filename and the type fields.
+  files:
+    # train, valid, and test are the keys used for the splits in training and
+    # evaluation.
+    #
+    # The files are of type "triples" and contain tab-separated fields:
+    # - 0: subject index
+    # - 1: # relation index
+    # - 2: object index
+    # - 3-...: arbitrary metadata fields
+    #
+    # Indexes are assumed to be dense throughout.
+    train:
+      filename: train.del
+      type: triples
+    valid:
+      filename: valid.del
+      type: triples
+    test:
+      filename: test.del
+      type: triples
+
+    # Entity and relation ids files, which store the externally used ids for
+    # each entity/relation. These files are optional for many models if
+    # 'dataset.num_entitites' and 'dataset.num_relations' is specified.
+    #
+    # The map format uses two fields that are tab-separated:
+    # - 0: internal entity/relation index (as in train/valid/test)
+    # - 1: external id (interpreted as string)
+    entity_ids:
+      filename: entity_ids.del
+      type: map
+    relation_ids:
+      filename: relation_ids.del
+      type: map
+
+    # Files that store human-readble string representations of each
+    # entity/relation. These files are optional.
+    #
+    # Type can be map (field 0 is internal index) or idmap (field 0 is external
+    # id).
+    entity_strings:
+      filename: entity_ids.del  # default to id file
+      type: map
+    relation_strings:
+      filename: relation_ids.del  # default to id file
+      type: map
+
+    # Additional files can be added as needed
+    +++: +++
+
+  # Additional dataset specific keys can be added as needed
   +++: +++
 
 ## MODEL #######################################################################
 
 # Which KGE model to use. Examples include "rescal", "complex", "distmult",
 # "transe", or "conve". For available models, see the project homepage and/or
-# configuration files under kge/models and kge/models/experimental.
+# configuration files under kge/model.
 model: ''
 
 
@@ -68,11 +110,16 @@ train:
   # - bce: binary cross entropy after taking logits (all training types)
   # - kl: KL divergence between model and data distribution (all training types)
   # - margin_ranking (negative_sampling only)
-  loss: bce
+  loss: kl
 
-  ## Argument of loss function (if any)
-  ## - margin_ranking: the margin to use
-  loss_arg: 1.0
+  # Argument of loss function (if any). If .nan is specified, a default value is
+  # used (as stated in parenthesis below).
+  #
+  # - margin_ranking (1.0): margin to use
+  # - bce (0.0): offset to add to raw model scores before appyling the logistic
+  #              function. This is useful esp. when the model only outputs negative
+  #              scores (e.g., TransE, RotatE).
+  loss_arg: .nan
 
   # Maximum number of epochs used for training
   max_epochs: 20
@@ -113,13 +160,19 @@ train:
     # Keep this many most recent additional checkpoints.
     keep: 3
 
+  # When set, LibKGE automatically corrects certain invalid configuration
+  # options. Each such change is logged. When not set and the configuration is
+  # invalid, LibKGE raises an error.
+  auto_correct: False
+
+  # If set, create a PDF of the compute graph (of first batch of first epoch).
+  visualize_graph: False
+
   # Other options
   pin_memory: False
-  auto_correct: False         # True: allows for trainer to adjust certain settings, False: throw exception
-  visualize_graph: False      # create PDF of compute graph (of first batch of first epoch)
 
 
-# Options for KvsAll training (train.type=="KvsAll)
+# Options for KvsAll training (train.type=="KvsAll")
 KvsAll:
   # Amount of label smoothing (disabled when 0). Disencourages models to
   # perform extreme predictions (0 or 1).
@@ -134,26 +187,96 @@ KvsAll:
 
 # Options for negative sampling training (train.type=="negative_sampling")
 negative_sampling:
+  # Type of sampler
   sampling_type: uniform
   symmetric_prior: 1        # this prior is used to smooth counts in frequency sampling
-  num_samples_s: 3          # this is default value if others are -1, must not be -1
-  num_samples_p: -1
-  num_samples_o: -1
-  filter_positives_s: False        # default is not filtering
-  filter_positives_p: False
-  filter_positives_o: False
 
-  # set to spo (for small negative samples), sp_po (for large negative samples),
-  # or set to auto which sets spo or sp_po automatically if the
-  # max(num_samples_s, num_samples_p, num_samples_o) > 30. Recommended for
-  # models which compute sp_po with an inner product, but not for all other
-  # models (e.g., not for TransE in the current implementation).
-  implementation: spo
+  # Number of times each slot of each positive triple is corrupted by the
+  # sampler to obtain negative triples.
+  num_samples:
+    s: 3
+    p: 0          # -1 means: same as s
+    o: -1         # -1 means: same as s
+
+  # Whether to resample corrupted triples that occur in the training data (and
+  # are hence positives). Can be set separately for each slot.
+  filtering:
+    s: False       # filter and resample for slot s
+    p: False       # as above
+    o: False       # as above
+
+    # Implementation to use for filtering.
+    # standard: use slow generic implementation, available for all samplers
+    # fast: use specialized fast implementation, available for some samplers
+    # fast_if_available: use fast implementation if available, else standard
+    implementation: fast_if_available
+
+  # Whether to share the s/p/o corruptions for all triples in the batch. This
+  # can make training more efficient. Cannot be used with together with
+  # filtering.
+  shared: False
+
+  # Implementation to use for the negative sampling job. Possible values are:
+  # - triple: Scores every positive and negative triple in the batch
+  # - all   : Scores against all possible targets and filters relevant scores
+  #           out of the resulting score matrix
+  # - batch : Scores against all targets contained in batch and filters
+  #           relevant scores out of the resulting score matrix.
+  # - auto  : Chooses best implementation based on num_samples.
+  #           'batch' if shared sampling is activated or max(num_samples.s,
+  #           num_samples.p, num_samples.o) > 30. 'triple' otherwise.
+  #
+  # 'batch' or 'auto' is recommended (faster) for models which have
+  # efficient implementations to score many targets at once. For all other
+  # models, use 'triple' (e.g., for TransE in the current implementation).
+  implementation: triple
 
 
-## VALIDATION ##################################################################
+## VALIDATION AND EVALUATION ###################################################
 
-# Configuration options for model validation/selection during training.
+# Options used for all evaluation jobs (job.type=="eval"). Also used during
+# validation when training (unless overridden, see below). Right now, evaluation
+# jobs compute a fixed set of metrics: MRR, HITS@k.
+eval:
+  # Data used for evaluation (valid, test)
+  data: valid
+
+  # Type of evaluation (entity_ranking only at the moment)
+  type: entity_ranking
+
+  # Compute Hits@K for these choices of K
+  hits_at_k_s: [1, 3, 10, 50, 100, 200, 300, 400, 500, 1000]
+
+  # Batch size used during evaluation
+  batch_size: 100
+
+  # Perform evaluation in chunks of the specified size. When set, score against
+  # at most this many entities simultaneouly during prediction. This reduces
+  # memory consumption but may increase runtime. Useful when there are many
+  # entities and/or memory-intensive models are used.
+  chunk_size: -1                  # default: no chunking
+
+  # Metrics are always computed over the entire evaluation data. Optionally,
+  # certain more specific metrics can be computed in addition.
+  metrics_per:
+    relation_type: False          # 1-to-1, 1-to-N, N-to-1, N-to-N
+    head_and_tail: False          # head, tail
+    argument_frequency: False     # 25%, 50%, 75%, top quantiles per argument
+
+  # Amount of tracing information being written. When set to "example", traces
+  # the rank of the correct answer for each example.
+  trace_level: epoch            # example, batch, epoch
+
+  # Number of workers used to construct batches. Leave at 0 for default.
+  num_workers: 0
+
+  # Other options
+  pin_memory: False
+
+
+# Configuration options for model validation/selection during training. Applied
+# in addition to the options set under "eval" above. Always uses validation data
+# (independently of the choice of eval.data)
 valid:
   # Validation is run every this many epochs during training (disable validation
   # with 0).
@@ -161,7 +284,7 @@ valid:
 
   # Name of the trace entry that holds the validation metric (higher value is
   # better)
-  metric: mean_reciprocal_rank_filtered
+  metric: mean_reciprocal_rank_filtered_with_test
 
   # If the above metric is not present in trace (e.g., because a custom metric
   # should be used), a Python expression to compute the metric. Can refer to
@@ -184,39 +307,20 @@ valid:
       epochs: 0
       metric_value: 0.0
 
-  # When to write a trace entry. Possible values: example, batch, epoch
+  # Amount of tracing information being written. When set to "example", traces
+  # the rank of the correct answer for each example.
   trace_level: epoch
 
-  # Whether test data should used during validation. Filtered
-  # metrics by default only use train and validation data. When this is set to
-  # True, additionally produces "filtered_with_test" validation metrics (such as
-  # MRR or HITS@k). Apparently, many existing models have been trained with this
-  # set to True during model selection and using a metric such as
+  # Whether test data should used during validation. Filtered metrics by default
+  # only use train and validation data. When this is set to True, additionally
+  # produces "filtered_with_test" validation metrics (such as MRR or HITS@k).
+  # Apparently, many existing models have been trained with this set to True
+  # during model selection and using a metric such as
   # mean_reciprocal_rank_filtered_with_test.
-  filter_with_test: False
+  filter_with_test: True
 
 
 ## EVALUATION ##################################################################
-
-# Options of evaluation jobs (job.type=="eval"). Also used during validation
-# when training. Right now, evaluation jobs compute a fixed set of metrics: the
-# MRR and the specified HITS@k's.
-eval:
-  data: valid
-  type: entity_ranking
-  hits_at_k_s: [1, 3, 10, 50, 100, 200, 300, 400, 500, 1000]     # ks for HITS@k
-  batch_size: 100
-  num_workers: 0
-  pin_memory: False
-  trace_level: example            # example or batch or epoch
-  chunk_size: -1                  # default no chunking
-
-  # Metrics are always computed over the entire evaluation data. Optionally,
-  # certain more specific metric can be computed in addition.
-  metrics_per:
-    relation_type: False          # 1-to-1, 1-to-N, N-to-1, N-to-N
-    head_and_tail: False          # head, tail
-    argument_frequency: False     # 25%, 50%, 75%, top quantiles per argument
 
 
 ## HYPERPARAMETER SEARCH #######################################################

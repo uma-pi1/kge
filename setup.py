@@ -4,7 +4,7 @@ setup(
     name="libkge",
     version="0.1",
     description="A knowledge graph embedding library",
-    url="https://github.com/rufex2001/kge",
+    url="https://github.com/uma-pi1/kge",
     author="Universität Mannheim",
     author_email="rgemulla@uni-mannheim.de",
     packages=["kge"],
@@ -17,7 +17,16 @@ setup(
         "ax-platform>=0.1.6",
         "sqlalchemy",
         "torchviz",
-        "dataclasses"
+        "dataclasses",
+        # LibKGE uses numba typed-dicts which is part of the experimental numba API
+        # in version 0.48
+        # see http://numba.pydata.org/numba-doc/0.48.0/reference/pysupported.html
+        "numba==0.48.0"
     ],
     zip_safe=False,
+    entry_points={
+        "console_scripts": [
+            "kge = kge.cli:main",
+        ],
+    },
 )

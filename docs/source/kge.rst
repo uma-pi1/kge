@@ -29,6 +29,22 @@ kge.dataset module
     :undoc-members:
     :show-inheritance:
 
+kge.indexing module
+-------------------
+
+.. automodule:: kge.indexing
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+kge.misc module
+---------------
+
+.. automodule:: kge.misc
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 Module contents
 ---------------

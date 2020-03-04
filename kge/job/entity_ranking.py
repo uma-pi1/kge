@@ -25,18 +25,18 @@ class EntityRankingJob(EvaluationJob):
             return
 
         # create indexes
-        self.train_sp = self.dataset.index_KvsAll("train", "sp")
-        self.train_po = self.dataset.index_KvsAll("train", "po")
-        self.valid_sp = self.dataset.index_KvsAll("valid", "sp")
-        self.valid_po = self.dataset.index_KvsAll("valid", "po")
+        self.train_sp = self.dataset.index("train_sp_to_o")
+        self.train_po = self.dataset.index("train_po_to_s")
+        self.valid_sp = self.dataset.index("valid_sp_to_o")
+        self.valid_po = self.dataset.index("valid_po_to_s")
 
         if self.eval_data == "test":
-            self.triples = self.dataset.test
+            self.triples = self.dataset.test()
         else:
-            self.triples = self.dataset.valid
+            self.triples = self.dataset.valid()
         if self.eval_data == "test" or self.filter_valid_with_test:
-            self.test_sp = self.dataset.index_KvsAll("test", "sp")
-            self.test_po = self.dataset.index_KvsAll("test", "po")
+            self.test_sp = self.dataset.index("test_sp_to_o")
+            self.test_po = self.dataset.index("test_po_to_s")
 
         # and data loader
         self.loader = torch.utils.data.DataLoader(
@@ -55,14 +55,14 @@ class EntityRankingJob(EvaluationJob):
     def _collate(self, batch):
         "Looks up true triples for each triple in the batch"
         train_label_coords = kge.job.util.get_sp_po_coords_from_spo_batch(
-            batch, self.dataset.num_entities, self.train_sp, self.train_po
+            batch, self.dataset.num_entities(), self.train_sp, self.train_po
         )
         valid_label_coords = kge.job.util.get_sp_po_coords_from_spo_batch(
-            batch, self.dataset.num_entities, self.valid_sp, self.valid_po
+            batch, self.dataset.num_entities(), self.valid_sp, self.valid_po
         )
         if self.eval_data == "test" or self.filter_valid_with_test:
             test_label_coords = kge.job.util.get_sp_po_coords_from_spo_batch(
-                batch, self.dataset.num_entities, self.test_sp, self.test_po
+                batch, self.dataset.num_entities(), self.test_sp, self.test_po
             )
         else:
             test_label_coords = torch.zeros([0, 2], dtype=torch.long)
@@ -79,7 +79,7 @@ class EntityRankingJob(EvaluationJob):
         self.config.log(
             "Evaluating on " + self.eval_data + " data (epoch {})...".format(self.epoch)
         )
-        num_entities = self.dataset.num_entities
+        num_entities = self.dataset.num_entities()
 
         # we also filter with test data during validation if requested
         filtered_valid_with_test = (
@@ -159,7 +159,7 @@ class EntityRankingJob(EvaluationJob):
             if self.config.get("eval.chunk_size") > -1:
                 chunk_size = self.config.get("eval.chunk_size")
             else:
-                chunk_size = self.dataset.num_entities
+                chunk_size = self.dataset.num_entities()
 
             # process chunk by chung
             for chunk_number in range(math.ceil(num_entities / chunk_size)):
@@ -442,7 +442,7 @@ class EntityRankingJob(EvaluationJob):
         the po chunk.
 
         """
-        num_entities = self.dataset.num_entities
+        num_entities = self.dataset.num_entities()
         indices = labels._indices()
         mask_sp = (chunk_start <= indices[1, :]) & (indices[1, :] < chunk_end)
         mask_po = ((chunk_start + num_entities) <= indices[1, :]) & (
@@ -543,7 +543,7 @@ num_ties for each true score.
         metrics = {}
         n = torch.sum(rank_hist).item()
 
-        ranks = torch.arange(1, self.dataset.num_entities + 1).float().to(self.device)
+        ranks = torch.arange(1, self.dataset.num_entities() + 1).float().to(self.device)
         metrics["mean_rank" + suffix] = (
             (torch.sum(rank_hist * ranks).item() / n) if n > 0.0 else 0.0
         )

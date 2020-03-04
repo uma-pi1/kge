@@ -11,7 +11,6 @@ import yaml
 from typing import Any, Dict, List, Optional, Union
 
 
-
 class Config:
     """Configuration options.
 
@@ -25,13 +24,15 @@ class Config:
             import kge
             from kge.misc import filename_in_module
 
-
             with open(filename_in_module(kge, "config-default.yaml"), "r") as file:
                 self.options: Dict[str, Any] = yaml.load(file, Loader=yaml.SafeLoader)
         else:
             self.options = {}
 
-        self.folder = folder
+        self.folder = folder  # main folder (config file, checkpoints, ...)
+        self.log_folder = (
+            None  # None means use self.folder; used for kge.log, trace.yaml
+        )
         self.log_prefix: str = None
 
     # -- ACCESS METHODS ----------------------------------------------------------------
@@ -221,14 +222,14 @@ class Config:
         that fields and their types are correct.
 
         """
-        import kge.model, kge.model.experimental
+        import kge.model, kge.model.embedder
         from kge.misc import filename_in_module
 
         # load the module_name
         module_config = Config(load_default=False)
         module_config.load(
             filename_in_module(
-                [kge.model, kge.model.experimental], "{}.yaml".format(module_name)
+                [kge.model, kge.model.embedder], "{}.yaml".format(module_name)
             ),
             create=True,
         )
@@ -285,7 +286,17 @@ class Config:
         """
         with open(filename, "r") as file:
             new_options = yaml.load(file, Loader=yaml.SafeLoader)
+        self.load_options(
+            new_options,
+            create=create,
+            overwrite=overwrite,
+            allow_deprecated=allow_deprecated,
+        )
 
+    def load_options(
+        self, new_options, create=False, overwrite=Overwrite.Yes, allow_deprecated=True
+    ):
+        "Like `load`, but loads from an options object obtained from `yaml.load`."
         # import model configurations
         if "model" in new_options:
             model = new_options.get("model")
@@ -403,6 +414,7 @@ class Config:
     def checkpoint_file(self, cpt_id: Union[str, int]) -> str:
         "Return path of checkpoint file for given checkpoint id"
         from kge.misc import is_number
+
         if is_number(cpt_id, int):
             return os.path.join(self.folder, "checkpoint_{:05d}.pt".format(int(cpt_id)))
         else:
@@ -483,10 +495,12 @@ class Config:
         return value
 
     def logfile(self) -> str:
-        return os.path.join(self.folder, "kge.log")
+        folder = self.log_folder if self.log_folder else self.folder
+        return os.path.join(folder, "kge.log")
 
     def tracefile(self) -> str:
-        return os.path.join(self.folder, "trace.yaml")
+        folder = self.log_folder if self.log_folder else self.folder
+        return os.path.join(folder, "trace.yaml")
 
 
 class Configurable:
@@ -558,7 +572,7 @@ def _process_deprecated_options(options: Dict[str, Any]):
     def rename_key(old_key, new_key):
         if old_key in options:
             print(
-                "Warning: key {} is deprecated; use {} instead".format(
+                "Warning: key {} is deprecated; use key {} instead".format(
                     old_key, new_key
                 ),
                 file=sys.stderr,
@@ -577,7 +591,7 @@ def _process_deprecated_options(options: Dict[str, Any]):
     def rename_value(key, old_value, new_value):
         if key in options and options.get(key) == old_value:
             print(
-                "Warning: {}={} is deprecated; use {} instead".format(
+                "Warning: value {}={} is deprecated; use value {} instead".format(
                     key, old_value, new_value
                 ),
                 file=sys.stderr,
@@ -607,13 +621,41 @@ def _process_deprecated_options(options: Dict[str, Any]):
                     renamed_keys.add(key)
         return renamed_keys
 
+    # 26.02.2020
+    rename_value("negative_sampling.implementation", "spo", "triple")
+    rename_value("negative_sampling.implementation", "sp_po", "batch")
+
+    # 31.01.2020
+    rename_key("negative_sampling.num_samples_s", "negative_sampling.num_samples.s")
+    rename_key("negative_sampling.num_samples_p", "negative_sampling.num_samples.p")
+    rename_key("negative_sampling.num_samples_o", "negative_sampling.num_samples.o")
+
+    # 10.01.2020
+    rename_key("negative_sampling.filter_positives_s", "negative_sampling.filtering.s")
+    rename_key("negative_sampling.filter_positives_p", "negative_sampling.filtering.p")
+    rename_key("negative_sampling.filter_positives_o", "negative_sampling.filtering.o")
+
+    # 20.12.2019
+    for split in ["train", "valid", "test"]:
+        old_key = f"dataset.{split}"
+        if old_key in options:
+            rename_key(old_key, f"dataset.files.{split}.filename")
+            options[f"dataset.files.{split}.type"] = "triples"
+    for obj in ["entity", "relation"]:
+        old_key = f"dataset.{obj}_map"
+        if old_key in options:
+            rename_key(old_key, f"dataset.files.{obj}_ids.filename")
+            options[f"dataset.files.{obj}_ids.type"] = "map"
+
     # 14.12.2019
-    rename_key("negative_sampling.filter_true_s", "negative_sampling.filter_positives_s")
-    rename_key("negative_sampling.filter_true_p", "negative_sampling.filter_positives_p")
-    rename_key("negative_sampling.filter_true_o", "negative_sampling.filter_positives_o")
-    rename_key("negative_sampling.num_negatives_s", "negative_sampling.num_samples_s")
-    rename_key("negative_sampling.num_negatives_p", "negative_sampling.num_samples_p")
-    rename_key("negative_sampling.num_negatives_o", "negative_sampling.num_samples_o")
+    rename_key("negative_sampling.filter_true_s", "negative_sampling.filtering.s")
+    rename_key("negative_sampling.filter_true_p", "negative_sampling.filtering.p")
+    rename_key("negative_sampling.filter_true_o", "negative_sampling.filtering.o")
+
+    # 14.12.2019
+    rename_key("negative_sampling.num_negatives_s", "negative_sampling.num_samples.s")
+    rename_key("negative_sampling.num_negatives_p", "negative_sampling.num_samples.p")
+    rename_key("negative_sampling.num_negatives_o", "negative_sampling.num_samples.o")
 
     # 30.10.2019
     rename_value("train.loss", "ce", "kl")
@@ -642,5 +684,4 @@ def _process_deprecated_options(options: Dict[str, Any]):
     rename_key(
         "eval.metric_per_argument_frequency_perc", "eval.metrics_per.argument_frequency"
     )
-
     return options

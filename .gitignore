@@ -15,3 +15,5 @@ docs/_build
 *.log
 *.prof
 /libkge.egg-info/
+!/docs/examples/dump-example-model.csv
+!/docs/examples/dump-example-search.csv

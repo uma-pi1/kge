@@ -1,0 +1,150 @@
+KvsAll:
+  label_smoothing: 0.0
+ax_search:
+  fixed_parameters: []
+  num_sobol_trials: -1
+  num_trials: 10
+  parameter_constraints: []
+  parameters: []
+complex:
+  class_name: ComplEx
+  entity_embedder:
+    +++: +++
+    type: lookup_embedder
+  relation_embedder:
+    +++: +++
+    type: lookup_embedder
+dataset:
+  +++: +++
+  files:
+    +++: +++
+    entity_ids:
+      filename: entity_ids.del
+      type: map
+    entity_strings:
+      filename: entity_ids.del
+      type: map
+    relation_ids:
+      filename: relation_ids.del
+      type: map
+    relation_strings:
+      filename: relation_ids.del
+      type: map
+    test:
+      filename: test.del
+      type: triples
+    train:
+      filename: train.del
+      type: triples
+    valid:
+      filename: valid.del
+      type: triples
+  name: fb15k-237
+  num_entities: -1
+  num_relations: -1
+eval:
+  batch_size: 100
+  chunk_size: -1
+  data: valid
+  hits_at_k_s:
+  - 1
+  - 3
+  - 10
+  - 50
+  - 100
+  - 200
+  - 300
+  - 400
+  - 500
+  - 1000
+  metrics_per:
+    argument_frequency: false
+    head_and_tail: false
+    relation_type: false
+  num_workers: 0
+  pin_memory: false
+  trace_level: example
+  type: entity_ranking
+grid_search:
+  parameters:
+    +++: +++
+  run: true
+import: complex
+job:
+  device: cuda
+  type: train
+lookup_embedder:
+  class_name: LookupEmbedder
+  dim: 100
+  dropout: 0.0
+  initialize: normal_
+  initialize_args:
+    +++: +++
+  normalize:
+    p: -1.0
+    with_grad: false
+  regularize: lp
+  regularize_args:
+    +++: +++
+    weighted: false
+  regularize_weight: 8.0e-08
+  round_dim_to: []
+  sparse: false
+manual_search:
+  configurations: []
+  run: true
+model: complex
+negative_sampling:
+  filtering:
+    o: false
+    p: false
+    s: false
+  implementation: spo
+  num_samples:
+    o: -1
+    p: 0
+    s: 3
+  sampling_type: uniform
+random_seed:
+  numpy: -1
+  python: -1
+  torch: -1
+search:
+  device_pool: []
+  num_workers: 1
+  on_error: abort
+  type: ax
+train:
+  auto_correct: false
+  batch_size: 100
+  checkpoint:
+    every: 5
+    keep: 3
+  loss: bce
+  loss_arg: 1.0
+  lr_scheduler: ConstantLRScheduler
+  lr_scheduler_args:
+    +++: +++
+  max_epochs: 20
+  num_workers: 0
+  optimizer: Adagrad
+  optimizer_args:
+    +++: +++
+    lr: 0.2
+  pin_memory: false
+  trace_level: epoch
+  type: KvsAll
+  visualize_graph: false
+user:
+  +++: +++
+valid:
+  early_stopping:
+    min_threshold:
+      epochs: 0
+      metric_value: 0.0
+    patience: 5
+  every: 5
+  filter_with_test: false
+  metric: mean_reciprocal_rank_filtered
+  metric_expr: float("nan")
+  trace_level: epoch

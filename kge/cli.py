@@ -119,7 +119,7 @@ def create_parser(config, additional_args=[]):
     return parser
 
 
-if __name__ == "__main__":
+def main():
     # default config
     config = Config()
 
@@ -144,9 +144,10 @@ if __name__ == "__main__":
     process_meta_command(
         args, "valid", {"command": "resume", "job.type": "eval", "eval.data": "valid"}
     )
-    # dump commands; exits script after completion
+    # dump command
     if args.command == "dump":
         dump(args)
+        exit()
 
     # start command
     if args.command == "start":
@@ -165,6 +166,8 @@ if __name__ == "__main__":
         print("Resuming from configuration {}...".format(args.config))
         config.load(args.config)
         config.folder = os.path.dirname(args.config)
+        if not config.folder:
+            config.folder = "."
         if not os.path.exists(config.folder):
             raise ValueError(
                 "{} is not a valid config file for resuming".format(args.config)
@@ -244,3 +247,6 @@ if __name__ == "__main__":
         if args.command == "resume":
             job.resume(checkpoint_file)
         job.run()
+
+if __name__ == "__main__":
+    main()

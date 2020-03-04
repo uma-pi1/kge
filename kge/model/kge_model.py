@@ -3,12 +3,18 @@ import tempfile
 
 from torch import Tensor
 import torch.nn
+import os
 
 import kge
 from kge import Config, Configurable, Dataset
-from kge.job import Job
 from kge.misc import filename_in_module
 from typing import Any, Dict, List, Optional, Union
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from kge.job import Job
+
 
 SLOTS = [0, 1, 2]
 S, P, O = SLOTS
@@ -33,7 +39,7 @@ class KgeBase(torch.nn.Module, Configurable):
                 )
             )
 
-    def prepare_job(self, job: Job, **kwargs):
+    def prepare_job(self, job: "Job", **kwargs):
         r"""Prepares the given job to work with this model.
 
         If this model does not support the specified job type, this function may raise
@@ -147,6 +153,14 @@ class RelationalScorer(KgeBase):
             p_embs = p_emb.repeat_interleave(n_s, 0)
             o_embs = o_emb.repeat_interleave(n_s, 0)
             out = self.score_emb_spo(s_embs, p_embs, o_embs)
+        elif combine == "s*o":
+            n = s_emb.size(0)
+            assert o_emb.size(0) == n
+            n_p = p_emb.size(0)
+            s_embs = s_emb.repeat_interleave(n_p, 0)
+            p_embs = p_emb.repeat((n, 1))
+            o_embs = o_emb.repeat_interleave(n_p, 0)
+            out = self.score_emb_spo(s_embs, p_embs, o_embs)
         else:
             raise ValueError('cannot handle combine="{}".format(combine)')
 
@@ -258,11 +272,11 @@ class KgeModel(KgeBase):
                 config,
                 dataset,
                 self.configuration_key + ".entity_embedder",
-                dataset.num_entities,
+                dataset.num_entities(),
             )
 
             #: Embedder used for relations
-            num_relations = dataset.num_relations
+            num_relations = dataset.num_relations()
             self._relation_embedder = KgeEmbedder.create(
                 config,
                 dataset,
@@ -319,7 +333,7 @@ class KgeModel(KgeBase):
             )
 
     @staticmethod
-    def create_all(
+    def create_default(
         model: "KgeModel" = None,
         dataset: Dataset = None,
         options: Dict[str, Any] = {},
@@ -366,23 +380,42 @@ class KgeModel(KgeBase):
         return model
 
     @staticmethod
-    def load_from_checkpoint(filename: str, dataset=None) -> "KgeModel":
+    def load_from_checkpoint(
+        filename: str, dataset=None, use_tmp_log_folder=True, device="cpu"
+    ) -> "KgeModel":
         """Loads a model from a checkpoint file of a training job.
 
         If dataset is specified, associates this dataset with the model. Otherwise uses
         the dataset used to train the model.
 
+        If `use_tmp_log_folder` is set, the logs and traces are written to a temporary
+        file. Otherwise, the files `kge.log` and `trace.yaml` will be created (or
+        appended to) in the checkpoint's folder.
+
         """
 
-        checkpoint = torch.load(filename, map_location="cpu")
-        config = checkpoint["config"]
+        checkpoint = torch.load(filename, map_location=device)
+
+        original_config = checkpoint["config"]
+        config = Config()  # round trip to handle deprecated configs
+        config.load_options(original_config.options)
+        config.set("job.device", device)
+        if use_tmp_log_folder:
+            import tempfile
+
+            config.log_folder = tempfile.mkdtemp(prefix="kge-")
+        else:
+            config.log_folder = os.path.dirname(filename)
+            if not config.log_folder:
+                config.log_folder = "."
         if dataset is None:
-            dataset = Dataset.load(config)
+            dataset = Dataset.load(config, preload_data=False)
         model = KgeModel.create(config, dataset)
         model.load(checkpoint["model"])
+        model.eval()
         return model
 
-    def prepare_job(self, job: Job, **kwargs):
+    def prepare_job(self, job: "Job", **kwargs):
         super().prepare_job(job, **kwargs)
         self._entity_embedder.prepare_job(job, **kwargs)
         self._relation_embedder.prepare_job(job, **kwargs)
@@ -482,6 +515,28 @@ class KgeModel(KgeBase):
         p = self.get_p_embedder().embed(p)
 
         return self._scorer.score_emb(s, p, o, combine="*po")
+
+    def score_so(self, s: Tensor, o: Tensor, p: Tensor = None) -> Tensor:
+        r"""Compute scores for triples formed from a set of so-pairs and all (or a subset of the) relations.
+
+        `s` and `o` are vectors of common size :math:`n`, holding the indexes of the
+        subjects and objects to score.
+
+        Returns an :math:`n\times R` tensor, where :math:`R` is the total number of
+        known relations. The :math:`(i,j)`-entry holds the score for triple :math:`(s_i,
+        j, o_i)`.
+
+        If `p` is not None, it is a vector holding the indexes of the relations to score.
+
+        """
+        s = self.get_s_embedder().embed(s)
+        o = self.get_o_embedder().embed(o)
+        if p is None:
+            p = self.get_p_embedder().embed_all()
+        else:
+            p = self.get_p_embedder().embed(p)
+
+        return self._scorer.score_emb(s, p, o, combine="s*o")
 
     def score_sp_po(
         self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None

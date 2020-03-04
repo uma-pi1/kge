@@ -12,7 +12,9 @@ class EvaluationJob(Job):
         self.model = model
         self.batch_size = config.get("eval.batch_size")
         self.device = self.config.get("job.device")
-        max_k = min(self.dataset.num_entities, max(self.config.get("eval.hits_at_k_s")))
+        max_k = min(
+            self.dataset.num_entities(), max(self.config.get("eval.hits_at_k_s"))
+        )
         self.hits_at_k_s = list(
             filter(lambda x: x <= max_k, self.config.get("eval.hits_at_k_s"))
         )
@@ -100,7 +102,7 @@ def __initialize_hist(hists, key, job):
     """If there is no histogram with given `key` in `hists`, add an empty one."""
     if key not in hists:
         hists[key] = torch.zeros(
-            [job.dataset.num_entities],
+            [job.dataset.num_entities()],
             device=job.config.get("job.device"),
             dtype=torch.float,
         )
@@ -135,8 +137,7 @@ def hist_per_head_and_tail(hists, s, p, o, s_ranks, o_ranks, job, **kwargs):
 
 
 def hist_per_relation_type(hists, s, p, o, s_ranks, o_ranks, job, **kwargs):
-    job.dataset.index_relation_types()
-    for rel_type, rels in job.dataset.indexes["relations_per_type"].items():
+    for rel_type, rels in job.dataset.index("relations_per_type").items():
         __initialize_hist(hists, rel_type, job)
         mask = [_p in rels for _p in p.tolist()]
         for r, m in zip(o_ranks, mask):
@@ -149,8 +150,7 @@ def hist_per_relation_type(hists, s, p, o, s_ranks, o_ranks, job, **kwargs):
 
 def hist_per_frequency_percentile(hists, s, p, o, s_ranks, o_ranks, job, **kwargs):
     # initialize
-    job.dataset.index_frequency_percentiles()
-    frequency_percs = job.dataset.indexes["frequency_percentiles"]
+    frequency_percs = job.dataset.index("frequency_percentiles")
     for arg, percs in frequency_percs.items():
         for perc, value in percs.items():
             __initialize_hist(hists, "{}_{}".format(arg, perc), job)

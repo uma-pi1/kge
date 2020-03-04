@@ -21,7 +21,7 @@ class DistMultScorer(RelationalScorer):
         elif combine == "*po":
             out = (o_emb * p_emb).mm(s_emb.transpose(0, 1))
         else:
-            raise ValueError('cannot handle combine="{}".format(combine)')
+            return super().score_emb(s_emb, p_emb, o_emb, combine)
 
         return out.view(n, -1)
 
