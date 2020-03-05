@@ -88,7 +88,7 @@ def _dump_checkpoint(args):
         checkpoint_file = Config.get_best_or_last_checkpoint(args.source)
 
     # Load the checkpoint and strip some fieleds
-    checkpoint = torch.load(checkpoint_file)
+    checkpoint = torch.load(checkpoint_file, map_location="cpu")
 
     # Dump it
     print(f"# Dump of checkpoint: {checkpoint_file}")
@@ -514,7 +514,7 @@ def _dump_config(args):
         config_file = args.source
         config.load(config_file)
     else:  # a checkpoint
-        checkpoint_file = torch.load(args.source)
+        checkpoint_file = torch.load(args.source, map_location="cpu")
         if args.raw:
             config = checkpoint_file["config"]
         else:
