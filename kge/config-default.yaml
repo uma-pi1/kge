@@ -106,10 +106,25 @@ train:
   #   (all treated negative)
   type: KvsAll
 
-  # Loss used for training. Not all combination of losses and job types are supported.
-  # - bce: binary cross entropy after taking logits (all training types)
-  # - kl: KL divergence between model and data distribution (all training types)
-  # - margin_ranking (negative_sampling only)
+  # Loss used for training (bce, kl, or margin_ranking).
+  #
+  # bce (all training types): Apply logistic function to score of triple, then
+  # compute binary cross entropy w.r.t. the respective true label. Computed once
+  # for each positive and once for each negative triple in the batch.
+  #
+  # kl (all training types): Take softmax over a set of scores, then compute KL
+  # divergence between the so-obtained model distribution and data distribution.
+  # Computed once for each positive triple and slot (i.e., separately for the
+  # subject, relation, and object slots).
+  #
+  # margin_ranking (negative_sampling only): Compute margin between score of
+  # positive triple and score of one of its negative triples. Computed once per
+  # negative triple.
+  #
+  # Generally, the loss values are averaged over the batch elements (e.g.,
+  # positive triple for 1vsAll and negative_sampling, sp- or po-pair for
+  # KvsAll). If multiple loss values arise for each batch element (e.g., when
+  # BCE is used), these individual losses are summed up.
   loss: kl
 
   # Argument of loss function (if any). If .nan is specified, a default value is

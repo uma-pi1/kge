@@ -57,7 +57,10 @@ lookup_embedder:
     # roughly a factor corresponding to the number of objects in the lookup
     # table) compared to unweighted regularization.
     weighted: False
-
+    
+    # Which norm to use for lp regularization.
+    p: 2
+    
     # Other options for the regularizer.
     +++: +++
 
