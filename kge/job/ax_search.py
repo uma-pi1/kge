@@ -78,8 +78,13 @@ class AxSearchJob(AutoSearchJob):
         if self.ax_client.generation_strategy._curr.model == Models.SOBOL:
             # Fix seed for sobol. We do this by generating the model right away (instead
             # of automatically once first trial is generated).
+            if self.ax_client.generation_strategy._curr.model_kwargs is not None:
+                self.ax_client.generation_strategy._curr.model_kwargs['seed'] = 0
+                kwargs = {}
+            else:
+                kwargs = {'seed':0}
             self.ax_client.generation_strategy._set_current_model(
-                experiment=self.ax_client.experiment, data=None, seed=0
+                experiment=self.ax_client.experiment, data=None, **kwargs
             )
 
             # Regenerate and drop SOBOL arms already generated. Since we fixed the seed,
