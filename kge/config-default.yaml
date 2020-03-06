@@ -106,10 +106,17 @@ train:
   #   (all treated negative)
   type: KvsAll
 
-  # Loss used for training. Not all combination of losses and job types are supported.
+  # Loss used for training. The following combination of losses and job types are
+  # currently supported:
+  #
   # - bce: binary cross entropy after taking logits (all training types)
   # - kl: KL divergence between model and data distribution (all training types)
   # - margin_ranking (negative_sampling only)
+  #
+  # Generally, the loss values are averaged over the elements of the batch
+  # (e.g., triple for 1vsAll and negative_sampling, sp- or po-pair for KvsAll)
+  # during training. If multiple loss values arise for each such element (e.g.,
+  # when BCE is used), these individual losses are summed up.
   loss: kl
 
   # Argument of loss function (if any). If .nan is specified, a default value is
