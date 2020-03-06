@@ -105,9 +105,9 @@ documentation below on how to use checkpoints.
 LibKGE supports large datasets such as Wikidata5M (4.8M entities). The result
 given below was found by automatic hyperparameter search similar to the one used
 for the smaller datasets above, but with some values fixed (training with shared
-negative sampling, embedding dimension: 128, batch size: 200, optimizer: Adam).
-We ran 30 pseudo-random configurations for 20 epochs, and then reran the
-configuration that performed best on validation data for 200 epochs.
+negative sampling, embedding dimension: 128, batch size: 1024, optimizer:
+Adagrad). We ran 30 pseudo-random configurations for 20 epochs, and then reran
+the configuration that performed best on validation data for 200 epochs.
 
 |                                                             |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                    Config file |                                                                            Pretrained model |
 |-------------------------------------------------------------|------:|-------:|-------:|--------:|-----------------------------------------------------------------------------------------------:|--------------------------------------------------------------------------------------------:|
