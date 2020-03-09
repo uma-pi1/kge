@@ -334,10 +334,10 @@ class KgeModel(KgeBase):
 
     @staticmethod
     def create_default(
-        model: "KgeModel" = None,
-        dataset: Dataset = None,
+        model: Optional[str] = None,
+        dataset: Optional[Union[Dataset,str]] = None,
         options: Dict[str, Any] = {},
-        folder: str = None,
+        folder: Optional[str] = None,
     ) -> "KgeModel":
         """Utility method to create a model, including configuration and dataset.
 
