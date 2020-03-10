@@ -684,7 +684,8 @@ class TrainingJobNegativeSampling(TrainingJob):
         self._sampler = KgeSampler.create(config, "negative_sampling", dataset)
         self.is_prepared = False
         self._implementation = self.config.check(
-            "negative_sampling.implementation", ["triple", "loop", "all", "batch"]
+            "negative_sampling.implementation",
+            ["triple", "loop", "all", "batch", "auto"],
         )
         if self._implementation == "auto":
             max_nr_of_negs = max(self._sampler.num_samples)
