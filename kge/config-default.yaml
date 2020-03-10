@@ -242,8 +242,6 @@ negative_sampling:
 
   # Implementation to use for the negative sampling job. Possible values are:
   # - triple: Scores every positive and negative triple in the batch
-  # - loop  : Loop over the positive triples and score each triple's negatives
-  #           (*very* slow, low memory consumption)
   # - all   : Scores against all possible targets and filters relevant scores
   #           out of the resulting score matrix
   # - batch : Scores against all targets contained in batch (or chunk) and
