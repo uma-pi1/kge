@@ -316,9 +316,7 @@ import torch
 import kge.model
 
 # download link for this checkpoint given under results above
-model = kge.model.KgeModel.load_from_checkpoint(
-    'fb15k-237-checkpoint-rescal-1vsAll-kl-bo-best.pt'
-)
+model = kge.model.KgeModel.load_from_checkpoint('fb15k-237-rescal.pt')
 
 s = torch.Tensor([0, 2,]).long()             # subject indexes
 p = torch.Tensor([0, 1,]).long()             # relation indexes
