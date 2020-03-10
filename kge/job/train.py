@@ -653,7 +653,7 @@ class TrainingJobKvsAll(TrainingJob):
                 sp_po_batch[sp_indexes, 0], sp_po_batch[sp_indexes, 1]
             )
             loss_value_sp = self.loss(scores_sp, labels[sp_indexes,]) / batch_size
-            loss_value = +loss_value_sp.item()
+            loss_value = loss_value_sp.item()
             forward_time += time.time()
             backward_time = -time.time()
             loss_value_sp.backward()
@@ -666,7 +666,7 @@ class TrainingJobKvsAll(TrainingJob):
                 sp_po_batch[po_indexes, 0], sp_po_batch[po_indexes, 1]
             )
             loss_value_po = self.loss(scores_po, labels[po_indexes,]) / batch_size
-            loss_value = loss_value_po.item()
+            loss_value += loss_value_po.item()
             forward_time += time.time()
             backward_time = -time.time()
             loss_value_po.backward()
