@@ -18,7 +18,7 @@ class Config:
     :file:`config_default.yaml`.
     """
 
-    def __init__(self, folder: str = None, load_default=True):
+    def __init__(self, folder: Optional[str] = None, load_default=True):
         """Initialize with the default configuration"""
         if load_default:
             import kge
@@ -30,7 +30,7 @@ class Config:
             self.options = {}
 
         self.folder = folder  # main folder (config file, checkpoints, ...)
-        self.log_folder = (
+        self.log_folder: Optional[str] = (
             None  # None means use self.folder; used for kge.log, trace.yaml
         )
         self.log_prefix: str = None
