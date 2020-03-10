@@ -1,4 +1,5 @@
 #### Mar 2020
+- [4bc86b1](https://github.com/uma-pi1/kge/commit/4bc86b18e5cfe0a4a596dd25fbdc8dde59dcafe9): Add support for chunking a batch when training with negative sampling
 - [14dc926](https://github.com/uma-pi1/kge/commit/14dc9268b2e24f7db36dc95ae47e5e975016955b): Add ability to dump configs in various ways
 - PR [#64](https://github.com/uma-pi1/kge/pull/64): Initial support for frequency-based negative sampling (thanks AdrianKS)
 - PR [#77](https://github.com/uma-pi1/kge/pull/77): Simpler use of command-line interface (thanks cthoyt)
