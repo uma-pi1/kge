@@ -161,7 +161,7 @@ class EntityRankingJob(EvaluationJob):
             else:
                 chunk_size = self.dataset.num_entities()
 
-            # process chunk by chung
+            # process chunk by chunk
             for chunk_number in range(math.ceil(num_entities / chunk_size)):
                 chunk_start = chunk_size * chunk_number
                 chunk_end = min(chunk_size * (chunk_number + 1), num_entities)

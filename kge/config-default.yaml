@@ -246,16 +246,23 @@ negative_sampling:
   #           (*very* slow, low memory consumption)
   # - all   : Scores against all possible targets and filters relevant scores
   #           out of the resulting score matrix
-  # - batch : Scores against all targets contained in batch and filters
-  #           relevant scores out of the resulting score matrix.
+  # - batch : Scores against all targets contained in batch (or chunk) and
+  #           filters relevant scores out of the resulting score matrix.
   # - auto  : Chooses best implementation based on num_samples.
   #           'batch' if shared sampling is activated or max(num_samples.s,
   #           num_samples.p, num_samples.o) > 30. 'triple' otherwise.
   #
-  # 'batch' or 'auto' is recommended (faster) for models which have
-  # efficient implementations to score many targets at once. For all other
-  # models, use 'triple' (e.g., for TransE in the current implementation).
+  # 'batch' or 'auto' is recommended (faster) for models which have efficient
+  # implementations to score many targets at once. For all other models, use
+  # 'triple' (e.g., for TransE or RotatE in the current implementation).
   implementation: triple
+
+  # Perform training in chunks of the specified size. When set, process each
+  # batch in chunks of at most this size. This reduces memory consumption but
+  # may increase runtime. Useful when there are many negative samples and/or
+  # memory-intensive models are used. An alternative is to reduce the
+  # batch_size.
+  chunk_size: -1                  # default: no chunking
 
 
 ## VALIDATION AND EVALUATION ###################################################
