@@ -683,7 +683,9 @@ class TrainingJobNegativeSampling(TrainingJob):
         super().__init__(config, dataset, parent_job)
         self._sampler = KgeSampler.create(config, "negative_sampling", dataset)
         self.is_prepared = False
-        self._implementation = self.config.get("negative_sampling.implementation")
+        self._implementation = self.config.check(
+            "negative_sampling.implementation", ["triple", "loop", "all", "batch"]
+        )
         if self._implementation == "auto":
             max_nr_of_negs = max(self._sampler.num_samples)
             if self._sampler.shared:
@@ -791,6 +793,37 @@ class TrainingJobNegativeSampling(TrainingJob):
                     triples_to_score[:, 2],
                     direction="s" if slot == S else ("o" if slot == O else "p"),
                 ).view(batch_size, -1)
+                forward_time += time.time()
+            elif self._implementation == "loop":
+                prepare_time -= time.time()
+                scores = torch.empty(
+                    batch_size, 1 + num_samples, dtype=torch.float, device=self.device
+                )
+                prepare_time += time.time()
+
+                forward_time -= time.time()
+                scores[:, 0] = self.model.score_spo(
+                    triples[:, S], triples[:, P], triples[:, O]
+                )
+                for i in range(batch_size):
+                    if slot == S:
+                        scores[i, 1:] = self.model.score_po(
+                            triples[i, P, None],
+                            triples[i, O, None],
+                            negative_samples[slot][i, :],
+                        )
+                    elif slot == P:
+                        scores[i, 1:] = self.model.score_so(
+                            triples[i, S, None],
+                            triples[i, O, None],
+                            negative_samples[slot][i, :],
+                        )
+                    elif slot == O:
+                        scores[i, 1:] = self.model.score_sp(
+                            triples[i, S, None],
+                            triples[i, P, None],
+                            negative_samples[slot][i, :],
+                        )
                 forward_time += time.time()
             elif self._implementation == "all":
                 # Score against all possible targets.

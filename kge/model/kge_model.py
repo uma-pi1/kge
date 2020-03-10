@@ -469,7 +469,7 @@ class KgeModel(KgeBase):
         s = self.get_s_embedder().embed(s)
         p = self.get_p_embedder().embed(p)
         o = self.get_o_embedder().embed(o)
-        return self._scorer.score_emb(s, p, o, combine="spo")
+        return self._scorer.score_emb(s, p, o, combine="spo").view(-1)
 
     def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
         r"""Compute scores for triples formed from a set of sp-pairs and all (or a subset of the) objects.
