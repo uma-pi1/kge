@@ -31,7 +31,7 @@ alternative to KGE.
    - All optimizers and learning rate schedulers of PyTorch supported
    - Early stopping
    - Checkpointing
-   - Stop and resume at any time
+   - Stop (e.g., via `Ctrl-C`) and resume at any time
  - **Hyperparameter tuning**
    - Grid search, manual search, quasi-random search (using
      [Ax](https://ax.dev/)), Bayesian optimization (using [Ax](https://ax.dev/))
@@ -186,7 +186,7 @@ be created during training. These checkpoints can be used to resume training (or
 
 #### Resume training
 
-All of LibKGE's jobs can be interrupted and resumed (from a checkpoint). To resume a job, use:
+All of LibKGE's jobs can be interrupted (e.g., via `Ctrl-C`) and resumed (from one of its checkpoints). To resume a job, use:
 
 ```sh
 kge resume <folder>
