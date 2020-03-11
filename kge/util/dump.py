@@ -130,8 +130,8 @@ def _add_dump_trace_parser(subparsers_dump):
         const=True,
         default=False,
         help=(
-            "Include entries from training jobs (Note: if none of --train --valid"
-            " --test is set, this will activate all of them jointly)."
+            "Include entries from training jobs (enabled when none of --train, --valid,"
+            " or --test is specified)."
         ),
     )
     parser_dump_trace.add_argument(
@@ -141,8 +141,8 @@ def _add_dump_trace_parser(subparsers_dump):
         default=False,
         help=(
             "Include entries from validation during training and evaluation on"
-            " the validation data split (Note: if none of --train --valid --test is"
-            " set, this will activate all of them jointly)."
+            " the validation data split (enabled when none of --train, --valid, or"
+            " --test is specified)."
         ),
     )
     parser_dump_trace.add_argument(
@@ -151,9 +151,8 @@ def _add_dump_trace_parser(subparsers_dump):
         const=True,
         default=False,
         help=(
-            "Include entries from evaluation on the test data split (Note:"
-            " if none of --train --valid --test is set, this will activate"
-            " all of them jointly)."
+            "Include entries from evaluation on the test data split (enabled when "
+            "  none of --train, --valid, or --test is specified)."
         ),
     )
     parser_dump_trace.add_argument(
@@ -161,8 +160,8 @@ def _add_dump_trace_parser(subparsers_dump):
         action="store_const",
         const=True,
         default=False,
-        help="Dump the tracefile from a search job. If a tracefile from search jobs is"
-        " used, the options --train, --valid and --test are not applicable.",
+        help="Dump the tracefile of a search job. The options --train, --valid, and"
+             " --test are not applicable.",
     )
     parser_dump_trace.add_argument(
         "--keysfile",
@@ -182,11 +181,10 @@ def _add_dump_trace_parser(subparsers_dump):
         nargs="*",
         type=str,
         help=(
-            "A list of 'key' entries (separated by space). For every entry,"
-            " the corresponding values of 'key' will be searched in the config and"
-            " trace entries and in the csv file a column with name 'key' will be added."
-            " The same special keys as for --keysfile can be used but must be"
-            " surrounded by quotations ''. "
+            "A list of 'key' entries (separated by space). Each 'key' has form"
+            " 'new_key_name=key_name' or 'key_name'. This will add columns as in the"
+            " --keysfile option. When only 'key_name' is provided, it is also used as"
+            " column name."
         ),
     )
     parser_dump_trace.add_argument(
@@ -213,7 +211,8 @@ def _add_dump_trace_parser(subparsers_dump):
         default=False,
         help=(
             "Specifies the max epoch number in the tracefile"
-            " from where to start processing backwards."
+            " from where to start processing backwards. Can not be used with --truncate"
+            " when a checkpoint is provided."
         ),
     )
     parser_dump_trace.add_argument(
@@ -222,9 +221,10 @@ def _add_dump_trace_parser(subparsers_dump):
         action="store_const",
         const=True,
         help=(
-            "If a checkpoint is used (by providing one explicitly as source or by"
+            "When a checkpoint is used (by providing one explicitly as source or by"
             " using --checkpoint), --truncate will define the max_epoch number to"
-            " process as provided by the checkpoint."
+            " process as provided by the checkpoint. Can only be used when a checkpoint"
+            " is provided and it cannot be used together with --max_epoch."
         ),
     )
     parser_dump_trace.add_argument(
@@ -232,7 +232,9 @@ def _add_dump_trace_parser(subparsers_dump):
         action="store_const",
         const=True,
         default=False,
-        help="Dump the full tracefile to stdout.",
+        help="Instead of using a CSV file with a subset of entries, dump the full"
+             " trace file. Additional entries from the config can be added with the"
+             " --keysfile and --keys option."
     )
     parser_dump_trace.add_argument(
         "--batch",
@@ -263,22 +265,20 @@ def _add_dump_trace_parser(subparsers_dump):
         default=False,
         help="Exclude default keys from the csv file.",
     )
-    parser_dump_trace.add_argument(
-        "--timeit",
-        action="store_const",
-        const=True,
-        default=False,
-        help="Output timing information of the command.",
-    )
 
 
 def _dump_trace(args):
     """Execute the 'dump trace' command."""
-    start = time.time()
     if (args.train or args.valid or args.test) and args.search:
         print(
             "--search and --train, --valid, --test are mutually exclusive",
             file=sys.stderr,
+        )
+        exit(1)
+    if args.max_epoch and args.truncate:
+        print(
+            "--max epoch and --truncate cannot be used together",
+            file=sys.stderr
         )
         exit(1)
     entry_type_specified = True
@@ -298,15 +298,16 @@ def _dump_trace(args):
             checkpoint_path = Config.get_best_or_last_checkpoint(args.source)
         folder_path = args.source
         if not args.checkpoint and args.truncate:
-            raise ValueError(
-                "You can only use --truncate when a checkpoint is specified."
-                "Consider using --checkpoint or provide a checkpoint file as source"
+            print(
+                "--truncate can only be used when a checkpoint is specified."
+                "Consider using --checkpoint or provide a checkpoint file as source",
+                file=sys.stderr
             )
+            exit(1)
     trace = os.path.join(folder_path, "trace.yaml")
     if not os.path.isfile(trace):
         sys.stderr.write("No trace found at {}\n".format(trace))
         exit(1)
-
     keymap = OrderedDict()
     additional_keys = []
     if args.keysfile:
@@ -359,7 +360,6 @@ def _dump_trace(args):
         print("No relevant trace entries found.", file=sys.stderr)
         exit(1)
 
-    middle = time.time()
     if not args.yaml:
         csv_writer = csv.writer(sys.stdout)
         # dict[new_name] = (lookup_name, where)
@@ -521,10 +521,6 @@ def _dump_trace(args):
                 entry.update(new_attributes)
             sys.stdout.write(re.sub("[{}']", "", str(entry)))
             sys.stdout.write("\n")
-    end = time.time()
-    if args.timeit:
-        sys.stdout.write("Grep + processing took {} \n".format(middle - start))
-        sys.stdout.write("Writing took {}".format(end - middle))
 
 
 ### DUMP CONFIG ########################################################################
