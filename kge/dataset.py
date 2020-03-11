@@ -5,14 +5,17 @@ import sys
 import torch
 from torch import Tensor
 import numpy as np
+import pickle
+import inspect
 
 from kge import Config, Configurable
+import kge.indexing
 from kge.indexing import create_default_index_functions
 from kge.misc import kge_base_dir
 
 from typing import Dict, List, Any, Callable, Union, Optional
 
-# TODO add support to pickle dataset (and indexes) and reload from there
+
 class Dataset(Configurable):
     """Stores information about a dataset.
 
@@ -56,7 +59,8 @@ class Dataset(Configurable):
         self._indexes: Dict[str, Any] = {}
 
         #: functions that compute and add indexes as needed; arguments are dataset and
-        # key. : Indexed by key (same key as in self._indexes)
+        #: key. Index functions are expected to not recompute an index that is already
+        #: present. Indexed by key (same key as in self._indexes)
         self.index_functions: Dict[str, Callable] = {}
         create_default_index_functions(self)
 
@@ -85,9 +89,32 @@ class Dataset(Configurable):
         return dataset
 
     @staticmethod
-    def _load_triples(filename: str, delimiter="\t") -> Tensor:
+    def _to_valid_filename(s):
+        invalid_chars = "\n\t\\/"
+        replacement_chars = "ntbf"
+        trans = invalid_chars.maketrans(invalid_chars, replacement_chars)
+        return s.translate(trans)
+
+    @staticmethod
+    def _load_triples(filename: str, delimiter="\t", use_pickle=False) -> Tensor:
+        if use_pickle:
+            # check if there is a pickled, up-to-date version of the file
+            pickle_suffix = Dataset._to_valid_filename(f"-{delimiter}.pckl")
+            pickle_filename = filename + pickle_suffix
+            if os.path.isfile(pickle_filename) and os.path.getmtime(
+                pickle_filename
+            ) > Dataset._get_newest_mtime(
+                None, filename
+            ):  # self=None
+                with open(pickle_filename, "rb") as f:
+                    return pickle.load(f)
+
         triples = np.loadtxt(filename, usecols=range(0, 3), dtype=int)
-        return torch.from_numpy(triples)
+        triples = torch.from_numpy(triples)
+        if use_pickle:
+            with open(pickle_filename, "wb") as f:
+                pickle.dump(triples, f)
+        return triples
 
     def load_triples(self, key: str) -> Tensor:
         "Load or return the triples with the specified key."
@@ -99,7 +126,10 @@ class Dataset(Configurable):
                     "Unexpected file type: "
                     f"dataset.files.{key}.type='{filetype}', expected 'triples'"
                 )
-            triples = Dataset._load_triples(os.path.join(self.folder, filename))
+            triples = Dataset._load_triples(
+                os.path.join(self.folder, filename),
+                use_pickle=self.config.get("dataset.pickle"),
+            )
             self.config.log(f"Loaded {len(triples)} {key} triples")
             self._triples[key] = triples
 
@@ -111,7 +141,22 @@ class Dataset(Configurable):
         as_list: bool = False,
         delimiter: str = "\t",
         ignore_duplicates=False,
+        use_pickle=False,
     ) -> Union[List, Dict]:
+        if use_pickle:
+            # check if there is a pickled, up-to-date version of the file
+            pickle_suffix = Dataset._to_valid_filename(
+                f"-{as_list}-{delimiter}-{ignore_duplicates}.pckl"
+            )
+            pickle_filename = filename + pickle_suffix
+            if os.path.isfile(pickle_filename) and os.path.getmtime(
+                pickle_filename
+            ) > Dataset._get_newest_mtime(
+                None, filename
+            ):  # self=None
+                with open(pickle_filename, "rb") as f:
+                    return pickle.load(f)
+
         n = 0
         dictionary = {}
         warned_overrides = False
@@ -133,9 +178,14 @@ class Dataset(Configurable):
             array = [None] * n
             for index, value in dictionary.items():
                 array[index] = value
-            return array, duplicates
+            result = (array, duplicates)
         else:
-            return dictionary, duplicates
+            result = (dictionary, duplicates)
+
+        if use_pickle:
+            with open(pickle_filename, "wb") as f:
+                pickle.dump(result, f)
+        return result
 
     def load_map(
         self,
@@ -177,6 +227,7 @@ class Dataset(Configurable):
                     os.path.join(self.folder, filename),
                     as_list=False,
                     ignore_duplicates=ignore_duplicates,
+                    use_pickle=self.config.get("dataset.pickle"),
                 )
                 ids = self.load_map(ids_key, as_list=True)
                 map_ = [map_.get(ids[i], None) for i in range(len(ids))]
@@ -191,6 +242,7 @@ class Dataset(Configurable):
                     os.path.join(self.folder, filename),
                     as_list=as_list,
                     ignore_duplicates=ignore_duplicates,
+                    use_pickle=self.config.get("dataset.pickle"),
                 )
 
             if duplicates > 0:
@@ -216,6 +268,36 @@ class Dataset(Configurable):
         copy._indexes = self._indexes
         copy.index_functions = self.index_functions
         return copy
+
+    def _get_newest_mtime(self, filenames=None):
+        """Return the timestamp of latest modification of relevant data files.
+
+        If `filenames` is `None`, return latest modification of relevant modules or any
+        of the dataset files given in the configuration.
+
+        Otherwise, return latest modification of relevant modules or any of the
+        specified files.
+
+        """
+        newest_timestamp = max(
+            os.path.getmtime(inspect.getfile(Dataset)),
+            os.path.getmtime(inspect.getfile(kge.indexing)),
+        )
+        if filenames is None:
+            filenames = []
+            for key, entry in self.config.get("dataset.files").items():
+                filename = os.path.join(self.folder, entry["filename"])
+                filenames.append(filename)
+
+        if isinstance(filenames, str):
+            filenames = [filenames]
+
+        for filename in filenames:
+            if os.path.isfile(filename):
+                timestamp = os.path.getmtime(filename)
+                newest_timestamp = max(newest_timestamp, timestamp)
+
+        return newest_timestamp
 
     ## ACCESS ###########################################################################
 
@@ -332,7 +414,28 @@ class Dataset(Configurable):
 
         """
         if key not in self._indexes:
+            use_pickle = self.config.get("dataset.pickle")
+            if use_pickle:
+                pickle_filename = os.path.join(
+                    self.folder, Dataset._to_valid_filename(f"index-{key}.pckl")
+                )
+                if (
+                    os.path.isfile(pickle_filename)
+                    and os.path.getmtime(pickle_filename) > self._get_newest_mtime()
+                ):
+                    with open(pickle_filename, "rb") as f:
+                        self._indexes[key] = pickle.load(f)
+                        # call index function solely to print log messages. It's
+                        # expected to note recompute the index (which we just loaded)
+                        if key in self.index_functions:
+                            self.index_functions[key](self)
+                        return self._indexes[key]
+
             self.index_functions[key](self)
+            if use_pickle:
+                with open(pickle_filename, "wb") as f:
+                    pickle.dump(self._indexes[key], f)
+
         return self._indexes[key]
 
     @staticmethod

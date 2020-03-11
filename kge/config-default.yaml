@@ -83,6 +83,13 @@ dataset:
     # Additional files can be added as needed
     +++: +++
 
+  # Whether to store processed dataset files and indexes as binary files in the
+  # dataset directory. This enables faster loading at the cost of storage space.
+  # LibKGE will ensure that pickled files are only used when not outdated. Note
+  # that the value specified here may be overwritten by dataset-specific choices
+  # (in dataset.yaml).
+  pickle: True
+
   # Additional dataset specific keys can be added as needed
   +++: +++
 

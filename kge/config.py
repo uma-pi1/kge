@@ -496,11 +496,17 @@ class Config:
 
     def logfile(self) -> str:
         folder = self.log_folder if self.log_folder else self.folder
-        return os.path.join(folder, "kge.log")
+        if folder:
+            return os.path.join(folder, "kge.log")
+        else:
+            return os.devnull
 
     def tracefile(self) -> str:
         folder = self.log_folder if self.log_folder else self.folder
-        return os.path.join(folder, "trace.yaml")
+        if folder:
+            return os.path.join(folder, "trace.yaml")
+        else:
+            return os.devnull
 
 
 class Configurable:
