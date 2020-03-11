@@ -113,9 +113,10 @@ def _add_dump_trace_parser(subparsers_dump):
     parser_dump_trace = subparsers_dump.add_parser(
         "trace",
         help=(
-            "Dump trace to csv (default) and/or stdout. The tracefile will be processed"
-            " backwards starting from the last entry. Further options allow to start"
-            " processing from a particular checkpoint or job_id or epoch_number."
+            "Dump trace to stdout as CSV (default) or YAML. The tracefile will"
+            " be processed backwards starting from the last entry. Further options"
+            " allow to start processing from a particular checkpoint or job_id or"
+            " epoch_number."
         ),
     )
     parser_dump_trace.add_argument(
@@ -169,10 +170,10 @@ def _add_dump_trace_parser(subparsers_dump):
         help=(
             "A path to a file which contains lines in the format"
             " 'new_key_name'='key_name'. For every line in the keys file, the command"
-            " will look for the value of 'key_name' in the trace entries and config and"
-            " add a respective column in the csv file with name 'new_key_name'."
-            " Additionally, for 'key_name' the special keys '$folder', '$machine'"
-            " '$checkpoint' and '$base_model' can be used. "
+            " will look for the value of 'key_name' in the config (first) and trace"
+            " entries (second) and add a respective column in the csv file with name"
+            " 'new_key_name'. Additionally, for 'key_name' the special keys '$folder',"
+            " '$machine' '$checkpoint' and '$base_model' can be used. "
         ),
     )
     parser_dump_trace.add_argument(
@@ -211,7 +212,7 @@ def _add_dump_trace_parser(subparsers_dump):
         default=False,
         help=(
             "Specifies the max epoch number in the tracefile"
-            " from where to start processing backwards. Can not be used with --truncate"
+            " from where to start processing backwards. Cannot be used with --truncate"
             " when a checkpoint is provided."
         ),
     )
@@ -300,7 +301,7 @@ def _dump_trace(args):
         if not args.checkpoint and args.truncate:
             print(
                 "--truncate can only be used when a checkpoint is specified."
-                "Consider using --checkpoint or provide a checkpoint file as source",
+                " Consider using --checkpoint or provide a checkpoint file as source",
                 file=sys.stderr
             )
             exit(1)
