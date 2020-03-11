@@ -69,6 +69,7 @@ class AxSearchJob(AutoSearchJob):
             objective_name="metric_value",
             minimize=False,
             parameter_constraints=self.config.get("ax_search.parameter_constraints"),
+            choose_generation_strategy_kwargs={'random_seed': 0},
         )
         self.config.log(
             "ax search initialized with {}".format(self.ax_client.generation_strategy)
@@ -79,7 +80,6 @@ class AxSearchJob(AutoSearchJob):
             # Fix seed for sobol. We do this by generating the model right away (instead
             # of automatically once first trial is generated).
             if self.ax_client.generation_strategy._curr.model_kwargs is not None:
-                self.ax_client.generation_strategy._curr.model_kwargs['seed'] = 0
                 kwargs = {}
             else:
                 kwargs = {'seed':0}
