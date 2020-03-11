@@ -29,7 +29,7 @@ def add_dump_parsers(subparsers):
 
 
 def dump(args):
-    """Executes the 'kge dump' commands. """
+    """Execute the 'kge dump' commands. """
     if args.dump_command == "trace":
         _dump_trace(args)
     elif args.dump_command == "checkpoint":
@@ -79,7 +79,7 @@ def _add_dump_checkpoint_parser(subparsers_dump):
 
 
 def _dump_checkpoint(args):
-    """Executes the 'dump checkpoint' command."""
+    """Execute the 'dump checkpoint' command."""
 
     # Determine checkpoint to use
     if os.path.isfile(args.source):
@@ -113,83 +113,167 @@ def _add_dump_trace_parser(subparsers_dump):
     parser_dump_trace = subparsers_dump.add_parser(
         "trace",
         help=(
-            "Process and dump trace to stdout and/or csv. The trace will be processed "
-            "backwards, starting with a specified job_id."
+            "Dump trace to csv (default) and/or stdout. The tracefile will be processed"
+            " backwards starting from the last entry. Further options allow to start"
+            " processing from a particular checkpoint or job_id or epoch_number."
         ),
     )
-
     parser_dump_trace.add_argument(
         "source",
         help="A path to either a checkpoint or a job folder.",
         nargs="?",
         default=".",
     )
-
+    parser_dump_trace.add_argument(
+        "--train",
+        action="store_const",
+        const=True,
+        default=False,
+        help=(
+            "Include entries from training jobs (Note: if none of --train --valid"
+            " --test is set, this will activate all of them jointly)."
+        ),
+    )
+    parser_dump_trace.add_argument(
+        "--valid",
+        action="store_const",
+        const=True,
+        default=False,
+        help=(
+            "Include entries from validation during training and evaluation on"
+            " the validation data split (Note: if none of --train --valid --test is"
+            " set, this will activate all of them jointly)."
+        ),
+    )
+    parser_dump_trace.add_argument(
+        "--test",
+        action="store_const",
+        const=True,
+        default=False,
+        help=(
+            "Include entries from evaluation on the test data split (Note:"
+            " if none of --train --valid --test is set, this will activate"
+            " all of them jointly)."
+        ),
+    )
+    parser_dump_trace.add_argument(
+        "--search",
+        action="store_const",
+        const=True,
+        default=False,
+        help="Dump the tracefile from a search job. If a tracefile from search jobs is"
+        " used, the options --train, --valid and --test are not applicable.",
+    )
+    parser_dump_trace.add_argument(
+        "--keysfile",
+        default=False,
+        help=(
+            "A path to a file which contains lines in the format"
+            " 'new_key_name'='key_name'. For every line in the keys file, the command"
+            " will look for the value of 'key_name' in the trace entries and config and"
+            " add a respective column in the csv file with name 'new_key_name'."
+            " Additionally, for 'key_name' the special keys '$folder', '$machine'"
+            " '$checkpoint' and '$base_model' can be used. "
+        ),
+    )
+    parser_dump_trace.add_argument(
+        "--keys",
+        "-k",
+        nargs="*",
+        type=str,
+        help=(
+            "A list of 'key' entries (separated by space). For every entry,"
+            " the corresponding values of 'key' will be searched in the config and"
+            " trace entries and in the csv file a column with name 'key' will be added."
+            " The same special keys as for --keysfile can be used but must be"
+            " surrounded by quotations ''. "
+        ),
+    )
     parser_dump_trace.add_argument(
         "--checkpoint",
         default=False,
         action="store_const",
         const=True,
         help=(
-            "If source is a path to a job folder and --checkpoint is set the best "
-            "(if present) or last checkpoint will be used to determine the job_id"
+            "If source is a path to a job folder and --checkpoint is set, the best"
+            " (if present) or last checkpoint will be used to determine the job_id from"
+            " where the tracefile will be processed backwards."
         ),
     )
-
     parser_dump_trace.add_argument(
         "--job_id",
         default=False,
         help=(
-            "Specifies the training job id in the trace "
-            "from where to start processing backward"
+            "Specifies the training job id in the trace"
+            " from where to start processing the tracefile backward."
         ),
     )
-
     parser_dump_trace.add_argument(
         "--max_epoch",
         default=False,
         help=(
-            "Specifies the epoch in the trace"
-            "from where to start processing backwards"
+            "Specifies the max epoch number in the tracefile"
+            " from where to start processing backwards."
         ),
     )
-
     parser_dump_trace.add_argument(
         "--truncate",
         default=False,
         action="store_const",
         const=True,
         help=(
-            "If a checkpoint is used (by providing one explicitly as source or by "
-            "using --checkpoint), --truncate will define the max_epoch to process as"
-            "specified by the checkpoint"
+            "If a checkpoint is used (by providing one explicitly as source or by"
+            " using --checkpoint), --truncate will define the max_epoch number to"
+            " process as provided by the checkpoint."
         ),
     )
-
-    for argument in [
-        "--train",
-        "--valid",
-        "--test",
-        "--search",
-        "--yaml",
-        "--batch",
-        "--example",
-        "--timeit",
-        "--no-header",
-    ]:
-        parser_dump_trace.add_argument(
-            argument, action="store_const", const=True, default=False
-        )
     parser_dump_trace.add_argument(
-        "--no-default-keys", "-K", action="store_const", const=True, default=False
+        "--yaml",
+        action="store_const",
+        const=True,
+        default=False,
+        help="Dump the full tracefile to stdout.",
     )
-
-    parser_dump_trace.add_argument("--keysfile", default=False)
-    parser_dump_trace.add_argument("--keys", "-k", nargs="*", type=str)
+    parser_dump_trace.add_argument(
+        "--batch",
+        action="store_const",
+        const=True,
+        default=False,
+        help="Include entries on batch level.",
+    )
+    parser_dump_trace.add_argument(
+        "--example",
+        action="store_const",
+        const=True,
+        default=False,
+        help="Include entries on example level.",
+    )
+    parser_dump_trace.add_argument(
+        "--no-header",
+        action="store_const",
+        const=True,
+        default=False,
+        help="Exclude column names (header) from the csv file.",
+    )
+    parser_dump_trace.add_argument(
+        "--no-default-keys",
+        "-K",
+        action="store_const",
+        const=True,
+        default=False,
+        help="Exclude default keys from the csv file.",
+    )
+    parser_dump_trace.add_argument(
+        "--timeit",
+        action="store_const",
+        const=True,
+        default=False,
+        help="Output timing information of the command.",
+    )
 
 
 def _dump_trace(args):
-    """ Executes the 'dump trace' command."""
+    """Execute the 'dump trace' command."""
     start = time.time()
     if (args.train or args.valid or args.test) and args.search:
         print(
@@ -503,7 +587,7 @@ def _add_dump_config_parser(subparsers_dump):
 
 
 def _dump_config(args):
-    """ Executes the 'dump config' command."""
+    """Execute the 'dump config' command."""
     if not (args.raw or args.full or args.minimal):
         args.minimal = True
 
