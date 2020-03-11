@@ -3,7 +3,7 @@ import torch.nn
 import torch.nn.functional
 
 from kge import Config, Dataset
-from kge.job import TrainingJob
+from kge.job import Job
 from kge.model import KgeEmbedder
 from kge.misc import round_to_points
 
@@ -58,7 +58,7 @@ class LookupEmbedder(KgeEmbedder):
                 dropout = 0
         self.dropout = torch.nn.Dropout(dropout)
 
-    def prepare_job(self, job: TrainingJob, **kwargs):
+    def prepare_job(self, job: Job, **kwargs):
         super().prepare_job(job, **kwargs)
         if self.normalize_p > 0:
 
