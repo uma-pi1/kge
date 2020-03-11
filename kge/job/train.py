@@ -323,13 +323,10 @@ class TrainingJob(Job):
             # backward pass on penalties
             batch_backward_time = batch_result.backward_time - time.time()
             penalty = 0.0
-            for index, penalty_value_torch in enumerate(penalties_torch):
+            for index, (penalty_key, penalty_value_torch) in enumerate(penalties_torch):
                 penalty_value_torch.backward()
                 penalty += penalty_value_torch.item()
-                if len(sum_penalties) > index:
-                    sum_penalties[index] += penalty_value_torch.item()
-                else:
-                    sum_penalties.append(penalty_value_torch.item())
+                sum_penalties[penalty_key] += penalty_value_torch.item()
             sum_penalty += penalty
             batch_backward_time += time.time()
 
