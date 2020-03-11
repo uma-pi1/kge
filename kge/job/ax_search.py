@@ -40,6 +40,7 @@ class AxSearchJob(AutoSearchJob):
                         num_arms=self.num_sobol_trials,
                         min_arms_observed=ceil(self.num_sobol_trials / 2),
                         enforce_num_arms=True,
+                        model_kwargs={'seed': 0}
                     ),
                     GenerationStep(
                         model=Models.GPEI,
@@ -77,14 +78,9 @@ class AxSearchJob(AutoSearchJob):
 
         # Make sure sobol models are resumed correctly
         if self.ax_client.generation_strategy._curr.model == Models.SOBOL:
-            # Fix seed for sobol. We do this by generating the model right away (instead
-            # of automatically once first trial is generated).
-            if self.ax_client.generation_strategy._curr.model_kwargs is not None:
-                kwargs = {}
-            else:
-                kwargs = {'seed':0}
+
             self.ax_client.generation_strategy._set_current_model(
-                experiment=self.ax_client.experiment, data=None, **kwargs
+                experiment=self.ax_client.experiment, data=None
             )
 
             # Regenerate and drop SOBOL arms already generated. Since we fixed the seed,
