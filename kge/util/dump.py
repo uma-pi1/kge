@@ -231,7 +231,7 @@ def _dump_trace(args):
     if args.keys:
         additional_keys += args.keys
     for line in additional_keys:
-        line.rstrip("\n")
+        line = line.rstrip("\n").replace(" ", "")
         name_key = line.split("=")
         if len(name_key) == 1:
             name_key += name_key
