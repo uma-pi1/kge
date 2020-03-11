@@ -32,7 +32,6 @@ def index_KvsAll(dataset: "Dataset", split: str, key: str):
     `split_so`. If this index is already present, does not recompute it.
 
     """
-    triples = dataset.split(split)
     value = None
     if key == "sp":
         key_cols = [0, 1]
@@ -51,15 +50,15 @@ def index_KvsAll(dataset: "Dataset", split: str, key: str):
 
     name = split + "_" + key + "_to_" + value
     if not dataset._indexes.get(name):
+        triples = dataset.split(split)
         dataset._indexes[name] = _group_by(
             triples[:, key_cols], triples[:, value_column]
         )
-        dataset.config.log(
-            "{} distinct {} pairs in {}".format(
-                len(dataset._indexes[name]), key, split
-            ),
-            prefix="  ",
-        )
+
+    dataset.config.log(
+        "{} distinct {} pairs in {}".format(len(dataset._indexes[name]), key, split),
+        prefix="  ",
+    )
 
     return dataset._indexes.get(name)
 
@@ -118,16 +117,19 @@ def index_relation_types(dataset):
     """
     create dictionary mapping from {1-N, M-1, 1-1, M-N} -> set of relations
     """
-    if "relation_types" in dataset._indexes:
-        return
-    relation_types = _get_relation_types(dataset)
-    relations_per_type = {}
-    for k, v in relation_types.items():
-        relations_per_type.setdefault(v, set()).add(k)
-    for k, v in relations_per_type.items():
+    if (
+        "relation_types" not in dataset._indexes
+        or "relations_per_type" not in dataset._indexes
+    ):
+        relation_types = _get_relation_types(dataset)
+        relations_per_type = {}
+        for k, v in relation_types.items():
+            relations_per_type.setdefault(v, set()).add(k)
+        dataset._indexes["relation_types"] = relation_types
+        dataset._indexes["relations_per_type"] = relations_per_type
+
+    for k, v in dataset._indexes["relations_per_type"].items():
         dataset.config.log("{} relations of type {}".format(len(v), k), prefix="  ")
-    dataset._indexes["relation_types"] = relation_types
-    dataset._indexes["relations_per_type"] = relations_per_type
 
 
 def index_frequency_percentiles(dataset, recompute=False):
@@ -211,8 +213,10 @@ def _invert_ids(dataset, obj: str):
     if not f"{obj}_id_to_index" in dataset._indexes:
         ids = dataset.load_map(f"{obj}_ids")
         inv = {v: k for k, v in enumerate(ids)}
-        dataset.config.log(f"Indexed {len(inv)} {obj} ids")
         dataset._indexes[f"{obj}_id_to_index"] = inv
+    else:
+        inv = dataset._indexes[f"{obj}_id_to_index"]
+    dataset.config.log(f"Indexed {len(inv)} {obj} ids", prefix="  ")
 
 
 def create_default_index_functions(dataset: "Dataset"):
