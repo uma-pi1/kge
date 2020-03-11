@@ -88,6 +88,9 @@ class LookupEmbedder(KgeEmbedder):
     def embed_all(self) -> Tensor:
         return self._embed(self.embeddings.weight)
 
+    def _get_regularize_weight(self) -> Tensor:
+        return self.get_option("regularize_weight")
+
     def penalty(self, **kwargs) -> List[Tensor]:
         # TODO factor out to a utility method
         result = super().penalty(**kwargs)
@@ -99,13 +102,17 @@ class LookupEmbedder(KgeEmbedder):
                 if self.has_option("regularize_args.p")
                 else 2
             )
+            regularize_weight = self._get_regularize_weight()
             if not self.get_option("regularize_args.weighted"):
                 # unweighted Lp regularization
                 parameters = self.embeddings.weight
                 if p % 2 == 1:
                     parameters = torch.abs(parameters)
                 result += [
-                    self.get_option("regularize_weight") / p * (parameters ** p).sum()
+                    (
+                        f"{self.configuration_key}.L{p}_penalty",
+                        (regularize_weight / p * (parameters ** p)).sum(),
+                    )
                 ]
             else:
                 # weighted Lp regularization
@@ -116,13 +123,18 @@ class LookupEmbedder(KgeEmbedder):
                 if p % 2 == 1:
                     parameters = torch.abs(parameters)
                 result += [
-                    self.get_option("regularize_weight")
-                    / p
-                    * (parameters ** p * counts.float().view(-1, 1)).sum()
-                    # In contrast to unweighted Lp regulariztion, rescaling by number of
-                    # triples is necessary here so that penalty term is correct in
-                    # expectation
-                    / len(kwargs["batch"]["triples"])
+                    (
+                        f"{self.configuration_key}.L{p}_penalty",
+                        (
+                            regularize_weight
+                            / p
+                            * (parameters ** p * counts.float().view(-1, 1))
+                        ).sum()
+                        # In contrast to unweighted Lp regulariztion, rescaling by number of
+                        # triples is necessary here so that penalty term is correct in
+                        # expectation
+                        / len(kwargs["batch"]["triples"]),
+                    )
                 ]
         else:  # unknown regularziation
             raise ValueError(f"Invalid value regularize={self.regularize}")

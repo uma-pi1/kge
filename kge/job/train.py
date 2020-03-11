@@ -1,18 +1,21 @@
 import itertools
-import math
 import os
+import math
 import time
+from collections import defaultdict
+
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional
 
 import torch
 import torch.utils.data
 
-import kge.job.util
 from kge import Config, Dataset
 from kge.job import Job
 from kge.model import KgeModel
-from kge.util import KgeLoss, KgeLRScheduler, KgeOptimizer, KgeSampler
+
+from kge.util import KgeLoss, KgeOptimizer, KgeSampler, KgeLRScheduler
+from typing import Any, Callable, Dict, List, Optional
+import kge.job.util
 
 SLOTS = [0, 1, 2]
 S, P, O = SLOTS
@@ -288,7 +291,7 @@ class TrainingJob(Job):
         # variables that record various statitics
         sum_loss = 0.0
         sum_penalty = 0.0
-        sum_penalties = []
+        sum_penalties = defaultdict(lambda: 0.0)
         epoch_time = -time.time()
         prepare_time = 0.0
         forward_time = 0.0
@@ -374,7 +377,7 @@ class TrainingJob(Job):
                     "size": batch_result.size,
                     "batches": len(self.loader),
                     "avg_loss": batch_result.avg_loss,
-                    "penalties": [p.item() for p in penalties_torch],
+                    "penalties": [p.item() for k, p in penalties_torch],
                     "penalty": penalty,
                     "cost": cost_value,
                     "prepare_time": batch_result.prepare_time,
@@ -430,7 +433,7 @@ class TrainingJob(Job):
             size=self.num_examples,
             avg_loss=sum_loss / self.num_examples,
             avg_penalty=sum_penalty / len(self.loader),
-            avg_penalties=[p / len(self.loader) for p in sum_penalties],
+            avg_penalties={k: p / len(self.loader) for k, p in sum_penalties.items()},
             avg_cost=sum_loss / self.num_examples + sum_penalty / len(self.loader),
             epoch_time=epoch_time,
             prepare_time=prepare_time,
@@ -683,8 +686,7 @@ class TrainingJobNegativeSampling(TrainingJob):
         self._sampler = KgeSampler.create(config, "negative_sampling", dataset)
         self.is_prepared = False
         self._implementation = self.config.check(
-            "negative_sampling.implementation",
-            ["triple", "all", "batch", "auto"],
+            "negative_sampling.implementation", ["triple", "all", "batch", "auto"],
         )
         if self._implementation == "auto":
             max_nr_of_negs = max(self._sampler.num_samples)
