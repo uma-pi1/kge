@@ -22,6 +22,19 @@ For link prediction tasks, rule-based systems such as
 [AnyBURL](http://web.informatik.uni-mannheim.de/AnyBURL/) are a competitive
 alternative to KGE.
 
+## Table of contents
+
+1. [Features](#features)
+2. [Results and pretrained models](#results-and-pretrained-models)
+3. [Quick start](#quick-start)
+4. [Using LibKGE](#using-libkge) 
+5. [Currently supported KGE models](#currently-supported-kge-models) 
+6. [Adding a new model](#adding-a-new-model)
+7. [Known issues](#known-issues)
+8. [Changelog](CHANGELOG.md)
+9. [Other KGE frameworks](#other-kge-frameworks)
+10. [How to cite](#how-to-cite)
+
 ## Features
 
  - **Training**
