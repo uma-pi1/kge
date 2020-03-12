@@ -21,12 +21,8 @@ setup(
         # LibKGE uses numba typed-dicts which is part of the experimental numba API
         # in version 0.48
         # see http://numba.pydata.org/numba-doc/0.48.0/reference/pysupported.html
-        "numba==0.48.0"
+        "numba==0.48.0",
     ],
     zip_safe=False,
-    entry_points={
-        "console_scripts": [
-            "kge = kge.cli:main",
-        ],
-    },
+    entry_points={"console_scripts": ["kge = kge.cli:main",],},
 )

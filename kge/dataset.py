@@ -101,19 +101,14 @@ class Dataset(Configurable):
             # check if there is a pickled, up-to-date version of the file
             pickle_suffix = Dataset._to_valid_filename(f"-{delimiter}.pckl")
             pickle_filename = filename + pickle_suffix
-            if os.path.isfile(pickle_filename) and os.path.getmtime(
-                pickle_filename
-            ) > Dataset._get_newest_mtime(
-                None, filename
-            ):  # self=None
-                with open(pickle_filename, "rb") as f:
-                    return pickle.load(f)
+            triples = Dataset._pickle_load_if_uptodate(None, pickle_filename, filename)
+            if triples is not None:
+                return triples
 
         triples = np.loadtxt(filename, usecols=range(0, 3), dtype=int)
         triples = torch.from_numpy(triples)
         if use_pickle:
-            with open(pickle_filename, "wb") as f:
-                pickle.dump(triples, f)
+            Dataset._pickle_dump_atomic(triples, pickle_filename)
         return triples
 
     def load_triples(self, key: str) -> Tensor:
@@ -149,13 +144,9 @@ class Dataset(Configurable):
                 f"-{as_list}-{delimiter}-{ignore_duplicates}.pckl"
             )
             pickle_filename = filename + pickle_suffix
-            if os.path.isfile(pickle_filename) and os.path.getmtime(
-                pickle_filename
-            ) > Dataset._get_newest_mtime(
-                None, filename
-            ):  # self=None
-                with open(pickle_filename, "rb") as f:
-                    return pickle.load(f)
+            result = Dataset._pickle_load_if_uptodate(None, pickle_filename, filename)
+            if result is not None:
+                return result
 
         n = 0
         dictionary = {}
@@ -183,8 +174,7 @@ class Dataset(Configurable):
             result = (dictionary, duplicates)
 
         if use_pickle:
-            with open(pickle_filename, "wb") as f:
-                pickle.dump(result, f)
+            Dataset._pickle_dump_atomic(result, pickle_filename)
         return result
 
     def load_map(
@@ -269,11 +259,11 @@ class Dataset(Configurable):
         copy.index_functions = self.index_functions
         return copy
 
-    def _get_newest_mtime(self, filenames=None):
+    def _get_newest_mtime(self, data_filenames=None):
         """Return the timestamp of latest modification of relevant data files.
 
-        If `filenames` is `None`, return latest modification of relevant modules or any
-        of the dataset files given in the configuration.
+        If `data_filenames` is `None`, return latest modification of relevant modules or
+        any of the dataset files given in the configuration.
 
         Otherwise, return latest modification of relevant modules or any of the
         specified files.
@@ -283,21 +273,52 @@ class Dataset(Configurable):
             os.path.getmtime(inspect.getfile(Dataset)),
             os.path.getmtime(inspect.getfile(kge.indexing)),
         )
-        if filenames is None:
-            filenames = []
+        if data_filenames is None:
+            data_filenames = []
             for key, entry in self.config.get("dataset.files").items():
                 filename = os.path.join(self.folder, entry["filename"])
-                filenames.append(filename)
+                data_filenames.append(filename)
 
-        if isinstance(filenames, str):
-            filenames = [filenames]
+        if isinstance(data_filenames, str):
+            data_filenames = [data_filenames]
 
-        for filename in filenames:
+        for filename in data_filenames:
             if os.path.isfile(filename):
                 timestamp = os.path.getmtime(filename)
                 newest_timestamp = max(newest_timestamp, timestamp)
 
         return newest_timestamp
+
+    def _pickle_load_if_uptodate(
+        self, pickle_filename: str, data_filenames: List[str] = None
+    ):
+        """Load the specified pickle file if it's up-to-date.
+
+        The `data_filenames` argument is as specified in `_get_newest_mtime`. If
+        `data_filenames` is not `None`, `self` can be `None`.
+
+        Returns `None` if the pickled file is not present or if it is outdated.
+
+        """
+        if os.path.isfile(pickle_filename) and os.path.getmtime(
+            pickle_filename
+        ) > Dataset._get_newest_mtime(
+            self, data_filenames
+        ):  # self may be None
+            with open(pickle_filename, "rb") as f:
+                return pickle.load(f)
+        else:
+            return None
+
+    @staticmethod
+    def _pickle_dump_atomic(data, pickle_filename):
+        # first write to temporary file
+        tmpfile = pickle_filename + ".tmp"
+        with open(tmpfile, "wb") as f:
+            pickle.dump(data, f)
+
+        # then do an atomic replace
+        os.replace(tmpfile, pickle_filename)
 
     ## ACCESS ###########################################################################
 
@@ -419,22 +440,19 @@ class Dataset(Configurable):
                 pickle_filename = os.path.join(
                     self.folder, Dataset._to_valid_filename(f"index-{key}.pckl")
                 )
-                if (
-                    os.path.isfile(pickle_filename)
-                    and os.path.getmtime(pickle_filename) > self._get_newest_mtime()
-                ):
-                    with open(pickle_filename, "rb") as f:
-                        self._indexes[key] = pickle.load(f)
-                        # call index function solely to print log messages. It's
-                        # expected to note recompute the index (which we just loaded)
-                        if key in self.index_functions:
-                            self.index_functions[key](self)
-                        return self._indexes[key]
+                index = self._pickle_load_if_uptodate(pickle_filename)
+                if index is not None:
+                    self._indexes[key] = index
+                    # call index function solely to print log messages. It's
+                    # expected to note recompute the index (which we just loaded)
+                    if key in self.index_functions:
+                        self.index_functions[key](self)
+
+                    return self._indexes[key]
 
             self.index_functions[key](self)
             if use_pickle:
-                with open(pickle_filename, "wb") as f:
-                    pickle.dump(self._indexes[key], f)
+                Dataset._pickle_dump_atomic(self._indexes[key], pickle_filename)
 
         return self._indexes[key]
 
