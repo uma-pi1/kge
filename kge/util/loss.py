@@ -19,13 +19,22 @@ class KgeLoss:
         """Factory method for loss function instantiation."""
 
         # perhaps TODO: try class with specified name -> extensibility
-        config.check("train.loss", ["bce", "margin_ranking", "ce", "kl", "soft_margin"])
+        config.check(
+            "train.loss",
+            ["bce", "bce_mean", "margin_ranking", "ce", "kl", "soft_margin"],
+        )
         if config.get("train.loss") == "bce":
             offset = config.get("train.loss_arg")
             if math.isnan(offset):
                 offset = 0.0
                 config.set("train.loss_arg", offset, log=True)
-            return BCEWithLogitsKgeLoss(config, offset=offset)
+            return BCEWithLogitsKgeLoss(config, offset=offset, bce_type=None)
+        if config.get("train.loss") == "bce_mean":
+            offset = config.get("train.loss_arg")
+            if math.isnan(offset):
+                offset = 0.0
+                config.set("train.loss_arg", offset, log=True)
+            return BCEWithLogitsKgeLoss(config, offset=offset, bce_type="mean")
         elif config.get("train.loss") == "kl":
             return KLDivWithSoftmaxKgeLoss(config)
         elif config.get("train.loss") == "margin_ranking":
@@ -37,7 +46,9 @@ class KgeLoss:
         elif config.get("train.loss") == "soft_margin":
             return SoftMarginKgeLoss(config)
         else:
-            raise ValueError("invalid value train.loss={}".format(config.get("train.loss")))
+            raise ValueError(
+                "invalid value train.loss={}".format(config.get("train.loss"))
+            )
 
     def __call__(self, scores, labels, **kwargs):
         """Computes the loss given the scores and corresponding labels.
@@ -85,16 +96,36 @@ class KgeLoss:
 
 
 class BCEWithLogitsKgeLoss(KgeLoss):
-    def __init__(self, config, offset=0.0, reduction="sum", **kwargs):
+    def __init__(self, config, offset=0.0, bce_type=None, **kwargs):
         super().__init__(config)
+        self._bce_type = bce_type
+        if bce_type is None:
+            reduction = "sum"
+        elif bce_type is "mean":
+            reduction = "none"
+        else:
+            raise ValueError()
         self._loss = torch.nn.BCEWithLogitsLoss(reduction=reduction, **kwargs)
         self._offset = offset
 
     def __call__(self, scores, labels, **kwargs):
-        labels = self._labels_as_matrix(scores, labels)
-        if self._offset != 0.:
+        labels_as_matrix = self._labels_as_matrix(scores, labels)
+        if self._offset != 0.0:
             scores = scores + self._offset
-        return self._loss(scores.view(-1), labels.view(-1))
+        losses = self._loss(scores.view(-1), labels_as_matrix.view(-1))
+        if self._bce_type is None:
+            return losses
+        else:  # mean of negatives
+            if labels.dim() != 1:
+                raise ValueError("loss bce_mean currently not supported with KvsAll")
+
+            losses = losses.view(scores.shape)
+            losses_positives = losses[range(len(scores)), labels]
+            losses_negatives = losses.sum(dim=1) - losses_positives
+
+            return (
+                losses_positives.sum() + losses_negatives.sum() / (scores.shape[1] - 1)
+            ) / 2.0
 
 
 class KLDivWithSoftmaxKgeLoss(KgeLoss):

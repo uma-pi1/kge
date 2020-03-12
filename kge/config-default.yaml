@@ -115,10 +115,6 @@ train:
 
   # Loss used for training (bce, kl, or margin_ranking).
   #
-  # bce (all training types): Apply logistic function to score of triple, then
-  # compute binary cross entropy w.r.t. the respective true label. Computed once
-  # for each positive and once for each negative triple in the batch.
-  #
   # kl (all training types): Take softmax over a set of scores, then compute KL
   # divergence between the so-obtained model distribution and data distribution.
   # Computed once for each positive triple and slot (i.e., separately for the
@@ -127,6 +123,13 @@ train:
   # margin_ranking (negative_sampling only): Compute margin between score of
   # positive triple and score of one of its negative triples. Computed once per
   # negative triple.
+  #
+  # bce (all training types): Apply logistic function to score of triple, then
+  # compute binary cross entropy w.r.t. the respective true label. Computed once
+  # for each positive and once for each negative triple in the batch.
+  #
+  # bce_mean (not KvsAll): as BCE but for each positive triple, average the BCE
+  # of the positive triple and the *mean* BCE of its negative triples.
   #
   # Generally, the loss values are averaged over the batch elements (e.g.,
   # positive triple for 1vsAll and negative_sampling, sp- or po-pair for
@@ -138,9 +141,9 @@ train:
   # used (as stated in parenthesis below).
   #
   # - margin_ranking (1.0): margin to use
-  # - bce (0.0): offset to add to raw model scores before appyling the logistic
-  #              function. This is useful esp. when the model only outputs negative
-  #              scores (e.g., TransE, RotatE).
+  # - bce* (0.0): offset to add to raw model scores before appyling the logistic
+  #               function. This is useful esp. when the model only outputs negative
+  #               scores (e.g., TransE, RotatE).
   loss_arg: .nan
 
   # Maximum number of epochs used for training
