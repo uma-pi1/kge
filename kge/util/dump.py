@@ -141,9 +141,8 @@ def _add_dump_trace_parser(subparsers_dump):
         const=True,
         default=False,
         help=(
-            "Include entries from validation during training and evaluation on"
-            " the validation data split (enabled when none of --train, --valid, or"
-            " --test is specified)."
+            "Include entries from validation or evaluation on the valid split"
+            " (enabled when none of --train, --valid, or  --test is specified)."
         ),
     )
     parser_dump_trace.add_argument(
