@@ -67,6 +67,17 @@ def create_parser(config, additional_args=[]):
     for key in additional_args:
         parser_conf.add_argument(key)
 
+    # add argument to abort on outdated data
+    parser_conf.add_argument(
+        "--abort-when-cache-outdated",
+        action="store_const",
+        const=True,
+        default=False,
+        help="Abort processing when an outdated cached dataset file is found "
+        "(see description of `dataset.pickle` configuration key). "
+        "Default is to recompute such cache files.",
+    )
+
     # create main parsers and subparsers
     parser = argparse.ArgumentParser("kge")
     subparsers = parser.add_subparsers(title="command", dest="command")
@@ -111,8 +122,10 @@ def create_parser(config, additional_args=[]):
         p.add_argument(
             "--checkpoint",
             type=str,
-            help=("Which checkpoint to use: 'default', 'last', 'best', a number "
-                  "or a file name"),
+            help=(
+                "Which checkpoint to use: 'default', 'last', 'best', a number "
+                "or a file name"
+            ),
             default="default",
         )
     add_dump_parsers(subparsers)
@@ -175,7 +188,14 @@ def main():
 
     # overwrite configuration with command line arguments
     for key, value in vars(args).items():
-        if key in ["command", "config", "run", "folder", "checkpoint"]:
+        if key in [
+            "command",
+            "config",
+            "run",
+            "folder",
+            "checkpoint",
+            "abort_when_cache_outdated",
+        ]:
             continue
         if value is not None:
             if key == "search.device_pool":
@@ -219,6 +239,9 @@ def main():
             # otherwise, treat it as a filename
             checkpoint_file = args.checkpoint
 
+    # disable processing of outdated cached dataset files globally
+    Dataset._abort_when_cache_outdated = args.abort_when_cache_outdated
+
     # log configuration
     config.log("Configuration:")
     config.log(yaml.dump(config.options), prefix="  ")
@@ -227,12 +250,15 @@ def main():
     # set random seeds
     if config.get("random_seed.python") > -1:
         import random
+
         random.seed(config.get("random_seed.python"))
     if config.get("random_seed.torch") > -1:
         import torch
+
         torch.manual_seed(config.get("random_seed.torch"))
     if config.get("random_seed.numpy") > -1:
         import numpy.random
+
         numpy.random.seed(config.get("random_seed.numpy"))
 
     # let's go
@@ -247,6 +273,7 @@ def main():
         if args.command == "resume":
             job.resume(checkpoint_file)
         job.run()
+
 
 if __name__ == "__main__":
     main()

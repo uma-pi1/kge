@@ -25,6 +25,9 @@ class Dataset(Configurable):
 
     """
 
+    #: whether to about when an outdated cached dataset or index file is found
+    _abort_when_cache_outdated = False
+
     def __init__(self, config, folder=None):
         """Constructor for internal use.
 
@@ -300,13 +303,34 @@ class Dataset(Configurable):
         Returns `None` if the pickled file is not present or if it is outdated.
 
         """
-        if os.path.isfile(pickle_filename) and os.path.getmtime(
-            pickle_filename
-        ) > Dataset._get_newest_mtime(
-            self, data_filenames
-        ):  # self may be None
-            with open(pickle_filename, "rb") as f:
-                return pickle.load(f)
+        if os.path.isfile(pickle_filename):
+            if os.path.getmtime(pickle_filename) > Dataset._get_newest_mtime(
+                self, data_filenames
+            ):  # self may be None
+                with open(pickle_filename, "rb") as f:
+                    return pickle.load(f)
+            elif Dataset._abort_when_cache_outdated:
+                pickle_filename = os.path.abspath(pickle_filename)
+                pickle_dir = os.path.dirname(pickle_filename)
+                raise ValueError(
+                    f"""Cached dataset file
+  {pickle_filename}
+is outdated.
+
+If unsure what to do, remove the command line option '--abort-when-cache-outdated' and
+rerun to recompute the outdated file.
+
+BEWARE: If you are an expert user who understands clearly why the file is outdated AND
+that it does not need to be recomputed, you can update the timestamp of the filename as
+follows:
+
+  touch {pickle_filename}
+
+NOT RECOMMENDED: You can update the timestamp of all cached files using:
+
+  touch {pickle_dir}/*.pckl
+"""
+                )
         else:
             return None
 
