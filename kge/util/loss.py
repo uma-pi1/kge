@@ -116,9 +116,7 @@ class BCEWithLogitsKgeLoss(KgeLoss):
         if self._bce_type is None:
             return losses
         else:  # mean of negatives
-            if labels.dim() != 1:
-                raise ValueError("loss bce_mean currently not supported with KvsAll")
-
+            labels = self._labels_as_indexes(scores, labels)
             losses = losses.view(scores.shape)
             losses_positives = losses[range(len(scores)), labels]
             losses_negatives = losses.sum(dim=1) - losses_positives
