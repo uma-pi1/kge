@@ -159,12 +159,17 @@ class Config:
                 if create:
                     data[splits[i]] = dict()
                 else:
-                    raise KeyError(
-                        (
-                            "{} cannot be set because creation of "
-                            + "{} is not permitted"
-                        ).format(key, ".".join(splits[: (i + 1)]))
-                    )
+                    msg = (
+                        "Key '{}' cannot be set because key '{}' does not exist "
+                        "and no new keys are allowed to be created "
+                    ).format(key, ".".join(splits[: (i + 1)]))
+                    if i == 0:
+                        raise KeyError(msg + "at root level.")
+                    else:
+                        raise KeyError(
+                            msg + "under key '{}'.".format(".".join(splits[:i]))
+                        )
+
             path.append(splits[i])
             data = data[splits[i]]
 
@@ -178,7 +183,14 @@ class Config:
 
         if current_value is None:
             if not create:
-                raise ValueError("key {} not present".format(key))
+                msg = (
+                    f"Key '{key}' cannot be set because it does not exist and "
+                    "no new keys are allowed to be created "
+                )
+                if len(path) == 0:
+                    raise KeyError(msg + "at root level.")
+                else:
+                    raise KeyError(msg + ("under key '{}'.").format(".".join(path)))
 
             if isinstance(value, str) and is_number(value, int):
                 value = int(value)
@@ -199,14 +211,14 @@ class Config:
                 value = int(value)
             if type(value) != type(current_value):
                 raise ValueError(
-                    "key {} has incorrect type (expected {}, found {})".format(
+                    "key '{}' has incorrect type (expected {}, found {})".format(
                         key, type(current_value), type(value)
                     )
                 )
             if overwrite == Config.Overwrite.No:
                 return current_value
             if overwrite == Config.Overwrite.Error and value != current_value:
-                raise ValueError("key {} cannot be overwritten".format(key))
+                raise ValueError("key '{}' cannot be overwritten".format(key))
 
         # all fine, set value
         data[splits[-1]] = value
