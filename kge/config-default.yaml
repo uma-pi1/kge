@@ -115,10 +115,12 @@ train:
 
   # Loss used for training (bce, kl, or margin_ranking).
   #
+  # The loss function are sorted from commonly used to more esoteric.
+  #
   # kl (all training types): Take softmax over a set of scores, then compute KL
   # divergence between the so-obtained model distribution and data distribution.
   # Computed once for each positive triple and slot (i.e., separately for the
-  # subject, relation, and object slots).
+  # subject, relation, and object slots). Often called CE in the literature.
   #
   # margin_ranking (negative_sampling only): Compute margin between score of
   # positive triple and score of one of its negative triples. Computed once per
