@@ -2,6 +2,11 @@ import math
 import torch
 import torch.nn.functional as F
 
+# Undocumented losses
+#
+# Libce_mean (not KvsAll): as BCE but for each positive triple, average the BCE of the
+# positive triple and the *mean* BCE of its negative triples. Used in RotatE paper and
+# implementation.
 
 class KgeLoss:
     """A loss function.
