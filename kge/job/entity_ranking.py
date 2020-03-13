@@ -515,6 +515,8 @@ num_ties for each true score.
         # process NaN values
         scores = scores.clone()
         scores[torch.isnan(scores)] = float("-Inf")
+        true_scores = true_scores.clone()
+        true_scores[torch.isnan(true_scores)] = float("-Inf")
 
         # Determine how many scores are greater than / equal to each true answer (in its
         # corresponding row of scores)
