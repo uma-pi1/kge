@@ -192,6 +192,10 @@ train:
   # invalid, LibKGE raises an error.
   auto_correct: False
 
+  # Abort training (with an error) when the value of the cost function becomes
+  # not a number.
+  abort_on_nan: True
+
   # If set, create a PDF of the compute graph (of first batch of first epoch).
   visualize_graph: False
 

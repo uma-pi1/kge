@@ -43,6 +43,7 @@ class TrainingJob(Job):
             config, self.optimizer
         )
         self.loss = KgeLoss.create(config)
+        self.abort_on_nan: bool = config.get("train.abort_on_nan")
         self.batch_size: int = config.get("train.batch_size")
         self.device: str = self.config.get("job.device")
         valid_conf = config.clone()
@@ -332,6 +333,10 @@ class TrainingJob(Job):
 
             # determine full cost
             cost_value = batch_result.avg_loss + penalty
+
+            # abort on nan
+            if self.abort_on_nan and math.isnan(cost_value):
+                raise FloatingPointError("Cost became nan, aborting training job")
 
             # TODO # visualize graph
             # if (
