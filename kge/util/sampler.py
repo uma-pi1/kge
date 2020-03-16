@@ -23,6 +23,9 @@ class KgeSampler(Configurable):
         self.filter_positives = torch.zeros(3, dtype=torch.bool)
         self.vocabulary_size = torch.zeros(3, dtype=torch.int)
         self.shared = self.get_option("shared")
+        self.filtering_split = config.get("negative_sampling.filtering.split")
+        if self.filtering_split == "":
+            self.filtering_split = config.get("train.split")
         for slot in SLOTS:
             slot_str = SLOT_STR[slot]
             self.num_samples[slot] = self.get_option(f"num_samples.{slot_str}")
@@ -34,7 +37,7 @@ class KgeSampler(Configurable):
             # otherwise every worker would create every index again and again
             if self.filter_positives[slot]:
                 pair = ["po", "so", "sp"][slot]
-                dataset.index(f"train_{pair}_to_{slot_str}")
+                dataset.index(f"{self.filtering_split}_{pair}_to_{slot_str}")
         if any(self.filter_positives):
             if self.shared:
                 raise ValueError(
@@ -134,7 +137,9 @@ class KgeSampler(Configurable):
         """Filter and resample indices until only negatives have been created. """
         pair_str = ["po", "so", "sp"][slot]
         # holding the positive indices for the respective pair
-        index = self.dataset.index(f"train_{pair_str}_to_{SLOT_STR[slot]}")
+        index = self.dataset.index(
+            f"{self.filtering_split}_{pair_str}_to_{SLOT_STR[slot]}"
+        )
         cols = [[P, O], [S, O], [S, P]][slot]
         pairs = positive_triples[:, cols]
         for i in range(positive_triples.size(0)):
@@ -195,7 +200,9 @@ class KgeUniformSampler(KgeSampler):
     ):
         pair_str = ["po", "so", "sp"][slot]
         # holding the positive indices for the respective pair
-        index = self.dataset.index(f"train_{pair_str}_to_{SLOT_STR[slot]}")
+        index = self.dataset.index(
+            f"{self.filtering_split}_{pair_str}_to_{SLOT_STR[slot]}"
+        )
         cols = [[P, O], [S, O], [S, P]][slot]
         pairs = positive_triples[:, cols].numpy()
         batch_size = positive_triples.size(0)
