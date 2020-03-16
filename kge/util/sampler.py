@@ -256,7 +256,7 @@ class KgeFrequencySampler(KgeSampler):
         for slot in SLOTS:
             smoothed_counts = (
                 np.bincount(
-                    dataset.train()[:, slot],
+                    dataset.split(config.get("train.split"))[:, slot],
                     minlength=self.vocabulary_size[slot].item(),
                 )
                 + alpha

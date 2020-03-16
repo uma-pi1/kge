@@ -367,33 +367,6 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
         """
         return self.load_triples(split)
 
-    def train(self) -> Tensor:
-        """Return training split.
-
-        If the split is not yet loaded, load it. Returns an Nx3 IntTensor of
-        spo-triples.
-
-        """
-        return self.split("train")
-
-    def valid(self) -> Tensor:
-        """Return validation split.
-
-        If the split is not yet loaded, load it. Returns an Nx3 IntTensor of
-        spo-triples.
-
-        """
-        return self.split("valid")
-
-    def test(self) -> Tensor:
-        """Return test split.
-
-        If the split is not yet loaded, load it. Returns an Nx3 IntTensor of
-        spo-triples.
-
-        """
-        return self.split("test")
-
     def entity_ids(
         self, indexes: Optional[Union[int, Tensor]] = None
     ) -> Union[str, List[str], np.ndarray]:

@@ -149,7 +149,7 @@ def index_frequency_percentiles(dataset, recompute=False):
     subject_stats = torch.zeros((dataset.num_entities(), 1))
     relation_stats = torch.zeros((dataset.num_relations(), 1))
     object_stats = torch.zeros((dataset.num_entities(), 1))
-    for (s, p, o) in dataset.train():
+    for (s, p, o) in dataset.split("train"):
         subject_stats[s] += 1
         relation_stats[p] += 1
         object_stats[o] += 1

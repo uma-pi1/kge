@@ -46,9 +46,10 @@ class TrainingJob(Job):
         self.abort_on_nan: bool = config.get("train.abort_on_nan")
         self.batch_size: int = config.get("train.batch_size")
         self.device: str = self.config.get("job.device")
+        self.train_split = config.get("train.split")
         valid_conf = config.clone()
         valid_conf.set("job.type", "eval")
-        if self.config.get("valid.split") != '':
+        if self.config.get("valid.split") != "":
             valid_conf.set("eval.split", self.config.get("valid.split"))
         valid_conf.set("eval.trace_level", self.config.get("valid.trace_level"))
         self.valid_job = EvaluationJob.create(
@@ -376,6 +377,7 @@ class TrainingJob(Job):
                     "type": self.type_str,
                     "scope": "batch",
                     "epoch": self.epoch,
+                    "split": self.train_split,
                     "batch": batch_index,
                     "size": batch_result.size,
                     "batches": len(self.loader),
@@ -432,6 +434,7 @@ class TrainingJob(Job):
             type=self.type_str,
             scope="epoch",
             epoch=self.epoch,
+            split=self.train_split,
             batches=len(self.loader),
             size=self.num_examples,
             avg_loss=sum_loss / self.num_examples,
@@ -527,8 +530,8 @@ class TrainingJobKvsAll(TrainingJob):
 
     def _prepare(self):
         # create sp and po label_coords (if not done before)
-        train_sp = self.dataset.index("train_sp_to_o")
-        train_po = self.dataset.index("train_po_to_s")
+        train_sp = self.dataset.index(f"{self.train_split}_sp_to_o")
+        train_po = self.dataset.index(f"{self.train_split}_po_to_s")
 
         # convert indexes to pytoch tensors: a nx2 keys tensor (rows = keys),
         # an offset vector (row = starting offset in values for corresponding
@@ -717,7 +720,7 @@ class TrainingJobNegativeSampling(TrainingJob):
         if self.is_prepared:
             return
 
-        self.num_examples = self.dataset.train().size(0)
+        self.num_examples = self.dataset.split(self.train_split).size(0)
         self.loader = torch.utils.data.DataLoader(
             range(self.num_examples),
             collate_fn=self._get_collate_fun(),
@@ -739,7 +742,7 @@ class TrainingJobNegativeSampling(TrainingJob):
               in order S,P,O)
             """
 
-            triples = self.dataset.train()[batch, :].long()
+            triples = self.dataset.split(self.train_split)[batch, :].long()
             # labels = torch.zeros((len(batch), self._sampler.num_negatives_total + 1))
             # labels[:, 0] = 1
             # labels = labels.view(-1)
@@ -949,10 +952,12 @@ class TrainingJob1vsAll(TrainingJob):
         if self.is_prepared:
             return
 
-        self.num_examples = self.dataset.train().size(0)
+        self.num_examples = self.dataset.split(self.train_split).size(0)
         self.loader = torch.utils.data.DataLoader(
             range(self.num_examples),
-            collate_fn=lambda batch: {"triples": self.dataset.train()[batch, :].long()},
+            collate_fn=lambda batch: {
+                "triples": self.dataset.split(self.train_split)[batch, :].long()
+            },
             shuffle=True,
             batch_size=self.batch_size,
             num_workers=self.config.get("train.num_workers"),

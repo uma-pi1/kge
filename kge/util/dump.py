@@ -395,7 +395,10 @@ def _dump_trace(args):
             # "split" in {train,test,valid} for the datatype
             # "job" in {train,eval,valid,search}
             if entry.get("job") == "train":
-                actual_default["split"] = "train"
+                if "split" in entry:
+                    actual_default["split"] = entry.get("split")
+                else:
+                    actual_default["split"] = "train"
                 actual_default["job"] = "train"
             elif entry.get("job") == "eval":
                 if "split" in entry:

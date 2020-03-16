@@ -105,6 +105,9 @@ model: ''
 
 # Options of training jobs (job.type=="train")
 train:
+  # Split used for training (specified under 'dataset.files').
+  split: train
+
   # Type of training job.
   # - KvsAll: scores each unique sp/po pair along with all possible objectes/subjects.
   # - negative_sampling: scores each unique spo triple along with sampled corrupted
