@@ -1,13 +1,20 @@
 import math
 import torch
 import torch.nn.functional as F
+from kge import Config
 
-# Undocumented losses
+# Documented losses
+# - See description in config-default.yaml
 #
-# Libce_mean (not KvsAll): as BCE but for each positive triple, average the BCE of the
+# Other, undocumented losses. EXPERIMENTAL, may be removed.
+#
+# bce_mean (not KvsAll): as BCE but for each positive triple, average the BCE of the
 # positive triple and the *mean* BCE of its negative triples. Used in RotatE paper and
 # implementation.
-
+#
+# bce_self_adversarial (not KvsAll): as bce_mean, but average the negative triples
+# weighted by a softmax over their scores. Temperature is taken from
+# "user.bce_self_adversarial_temperature" if specified there.
 class KgeLoss:
     """A loss function.
 
@@ -15,18 +22,26 @@ class KgeLoss:
 
     """
 
-    def __init__(self, config):
+    def __init__(self, config: Config):
         self.config = config
         self._loss = None
 
     @staticmethod
-    def create(config):
+    def create(config: Config):
         """Factory method for loss function instantiation."""
 
         # perhaps TODO: try class with specified name -> extensibility
         config.check(
             "train.loss",
-            ["bce", "bce_mean", "margin_ranking", "ce", "kl", "soft_margin"],
+            [
+                "bce",
+                "bce_mean",
+                "bce_self_adversarial",
+                "margin_ranking",
+                "ce",
+                "kl",
+                "soft_margin",
+            ],
         )
         if config.get("train.loss") == "bce":
             offset = config.get("train.loss_arg")
@@ -34,12 +49,28 @@ class KgeLoss:
                 offset = 0.0
                 config.set("train.loss_arg", offset, log=True)
             return BCEWithLogitsKgeLoss(config, offset=offset, bce_type=None)
-        if config.get("train.loss") == "bce_mean":
+        elif config.get("train.loss") == "bce_mean":
             offset = config.get("train.loss_arg")
             if math.isnan(offset):
                 offset = 0.0
                 config.set("train.loss_arg", offset, log=True)
             return BCEWithLogitsKgeLoss(config, offset=offset, bce_type="mean")
+        elif config.get("train.loss") == "bce_self_adversarial":
+            offset = config.get("train.loss_arg")
+            if math.isnan(offset):
+                offset = 0.0
+                config.set("train.loss_arg", offset, log=True)
+            try:
+                temperature = float(config.get("user.bce_self_adversarial_temperature"))
+            except KeyError:
+                temperature = 1.0
+            config.log(f"Using adversarial temperature {temperature}")
+            return BCEWithLogitsKgeLoss(
+                config,
+                offset=offset,
+                bce_type="self_adversarial",
+                temperature=temperature,
+            )
         elif config.get("train.loss") == "kl":
             return KLDivWithSoftmaxKgeLoss(config)
         elif config.get("train.loss") == "margin_ranking":
@@ -101,13 +132,16 @@ class KgeLoss:
 
 
 class BCEWithLogitsKgeLoss(KgeLoss):
-    def __init__(self, config, offset=0.0, bce_type=None, **kwargs):
+    def __init__(self, config, offset=0.0, bce_type=None, temperature=1.0, **kwargs):
         super().__init__(config)
         self._bce_type = bce_type
         if bce_type is None:
             reduction = "sum"
         elif bce_type is "mean":
             reduction = "none"
+        elif bce_type is "self_adversarial":
+            reduction = "none"
+            self._temperature = temperature
         else:
             raise ValueError()
         self._loss = torch.nn.BCEWithLogitsLoss(reduction=reduction, **kwargs)
@@ -120,7 +154,7 @@ class BCEWithLogitsKgeLoss(KgeLoss):
         losses = self._loss(scores.view(-1), labels_as_matrix.view(-1))
         if self._bce_type is None:
             return losses
-        else:  # mean of negatives
+        elif self._bce_type is "mean":
             labels = self._labels_as_indexes(scores, labels)
             losses = losses.view(scores.shape)
             losses_positives = losses[range(len(scores)), labels]
@@ -129,6 +163,27 @@ class BCEWithLogitsKgeLoss(KgeLoss):
             return (
                 losses_positives.sum() + losses_negatives.sum() / (scores.shape[1] - 1)
             ) / 2.0
+        elif self._bce_type is "self_adversarial":
+            labels = self._labels_as_indexes(scores, labels)
+            negative_indexes = torch.nonzero(labels_as_matrix.view(-1) == 0.0)
+            losses = losses.view(scores.shape)
+            losses_positives = losses[range(len(scores)), labels]
+            scores_negatives = (
+                scores.detach()  # do not backprop adversarial weights
+                .view(-1)[negative_indexes]
+                .view((len(scores), scores.shape[1] - 1))
+            )
+            losses_negatives = losses.view(-1)[negative_indexes].view(
+                (len(scores), scores.shape[1] - 1)
+            )
+            losses_negatives = (
+                F.softmax(scores_negatives * self._temperature, dim=1)
+                * losses_negatives
+            ).sum(dim=1)
+
+            return (losses_positives.sum() + losses_negatives.sum()) / 2.0
+        else:
+            raise NotImplementedError()
 
 
 class KLDivWithSoftmaxKgeLoss(KgeLoss):
