@@ -285,8 +285,21 @@ negative_sampling:
 # validation when training (unless overridden, see below). Right now, evaluation
 # jobs compute a fixed set of metrics: MRR, HITS@k.
 eval:
-  # Data used for evaluation (valid, test)
-  data: valid
+  # Split used for evaluation (specified under 'dataset.files').
+  split: valid
+
+  # Splits used to filter for filtered metrics. The split using for evaluation
+  # (as set above) will be added automatically if not present.
+  filter_splits: [ 'train', 'valid' ]
+
+  # Whether test data should be used for filtering even if the current filter
+  # splits do not contain it (most notably: during validation). When this is set
+  # to True and "test" is not already a filter split, *additionally* produces
+  # "filtered_with_test" metrics (such as MRR or HITS@k). Apparently, many
+  # existing models have been trained with this set to True during model
+  # selection and using a metric such as
+  # mean_reciprocal_rank_filtered_with_test.
+  filter_with_test: True
 
   # Type of evaluation (entity_ranking only at the moment)
   type: entity_ranking
@@ -322,9 +335,12 @@ eval:
 
 
 # Configuration options for model validation/selection during training. Applied
-# in addition to the options set under "eval" above. Always uses validation data
-# (independently of the choice of eval.data)
+# in addition to the options set under "eval" above.
 valid:
+  # Split used for validation. If '', use eval.split, else override eval.split
+  # during validation with this value.
+  split: 'valid'
+
   # Validation is run every this many epochs during training (disable validation
   # with 0).
   every: 5
@@ -357,14 +373,6 @@ valid:
   # Amount of tracing information being written. When set to "example", traces
   # the rank of the correct answer for each example.
   trace_level: epoch
-
-  # Whether test data should used during validation. Filtered metrics by default
-  # only use train and validation data. When this is set to True, additionally
-  # produces "filtered_with_test" validation metrics (such as MRR or HITS@k).
-  # Apparently, many existing models have been trained with this set to True
-  # during model selection and using a metric such as
-  # mean_reciprocal_rank_filtered_with_test.
-  filter_with_test: True
 
 
 ## EVALUATION ##################################################################

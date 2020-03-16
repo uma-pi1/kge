@@ -187,7 +187,13 @@ class Trace:
                             " parent_job_id: {}".format(current_job_id),
                         ),
                         " job: eval",
-                        (" data: valid", " data: train"),
+                        (
+                            " split: valid",
+                            " split: train",
+                            # old keys
+                            " data: valid",
+                            " data: train",
+                        ),
                     ]
                     + [scopes],
                     [
@@ -196,7 +202,7 @@ class Trace:
                             " parent_job_id: {}".format(current_job_id),
                         ),
                         " job: eval",
-                        " data: test",
+                        (" split: test", " data: test"),
                     ]
                     + [scopes],
                 ],
@@ -232,7 +238,7 @@ class Trace:
         return entries, job_epochs
 
     @staticmethod
-    def grep_trace_entries(tracefile:str, job, scope, job_id = None):
+    def grep_trace_entries(tracefile: str, job, scope, job_id=None):
         "All trace entries for the specified job_id or, if unspecified, the last job_id"
         if not job_id:
             entries = Trace.grep_entries(
@@ -245,7 +251,6 @@ class Trace:
             job_id = yaml.load(entries[-1], Loader=yaml.SafeLoader).get("job_id")
 
         entries = Trace.grep_entries(
-            tracefile=tracefile,
-            conjunctions=[f"job_id: {job_id}", f"scope: {scope}"],
+            tracefile=tracefile, conjunctions=[f"job_id: {job_id}", f"scope: {scope}"],
         )
         return entries

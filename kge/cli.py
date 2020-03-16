@@ -152,10 +152,10 @@ def main():
     process_meta_command(args, "create", {"command": "start", "run": False})
     process_meta_command(args, "eval", {"command": "resume", "job.type": "eval"})
     process_meta_command(
-        args, "test", {"command": "resume", "job.type": "eval", "eval.data": "test"}
+        args, "test", {"command": "resume", "job.type": "eval", "eval.split": "test"}
     )
     process_meta_command(
-        args, "valid", {"command": "resume", "job.type": "eval", "eval.data": "valid"}
+        args, "valid", {"command": "resume", "job.type": "eval", "eval.split": "valid"}
     )
     # dump command
     if args.command == "dump":

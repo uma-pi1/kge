@@ -639,6 +639,10 @@ def _process_deprecated_options(options: Dict[str, Any]):
                     renamed_keys.add(key)
         return renamed_keys
 
+    # 16.03.2020
+    rename_key("eval.data", "eval.split")
+    rename_key("valid.filter_with_test", "eval.filter_with_test")
+
     # 26.02.2020
     rename_value("negative_sampling.implementation", "spo", "triple")
     rename_value("negative_sampling.implementation", "sp_po", "batch")

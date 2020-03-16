@@ -48,7 +48,8 @@ class TrainingJob(Job):
         self.device: str = self.config.get("job.device")
         valid_conf = config.clone()
         valid_conf.set("job.type", "eval")
-        valid_conf.set("eval.data", "valid")
+        if self.config.get("valid.split") != '':
+            valid_conf.set("eval.split", self.config.get("valid.split"))
         valid_conf.set("eval.trace_level", self.config.get("valid.trace_level"))
         self.valid_job = EvaluationJob.create(
             valid_conf, dataset, parent_job=self, model=self.model

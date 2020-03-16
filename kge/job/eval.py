@@ -23,8 +23,11 @@ class EvaluationJob(Job):
         self.trace_batch = (
             self.trace_examples or self.config.get("train.trace_level") == "batch"
         )
-        self.eval_data = self.config.check("eval.data", ["valid", "test"])
-        self.filter_valid_with_test = config.get("valid.filter_with_test")
+        self.eval_split = self.config.get("eval.split")
+        self.filter_splits = self.config.get("eval.filter_splits")
+        if self.eval_split not in self.filter_splits:
+            self.filter_splits.append(self.eval_split)
+        self.filter_with_test = config.get("eval.filter_with_test")
         self.epoch = -1
 
         #: Hooks run after training for an epoch.

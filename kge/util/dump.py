@@ -398,14 +398,22 @@ def _dump_trace(args):
                 actual_default["split"] = "train"
                 actual_default["job"] = "train"
             elif entry.get("job") == "eval":
-                actual_default["split"] = entry.get("data")  # test or valid
+                if "split" in entry:
+                    actual_default["split"] = entry.get("split")  # test or valid
+                else:
+                    # deprecated
+                    actual_default["split"] = entry.get("data")  # test or valid
                 if entry.get("resumed_from_job_id"):
                     actual_default["job"] = "eval"  # from "kge eval"
                 else:
                     actual_default["job"] = "valid"  # child of training job
             else:
                 actual_default["job"] = entry.get("job")
-                actual_default["split"] = entry.get("data")
+                if "split" in entry:
+                    actual_default["split"] = entry.get("split")
+                else:
+                    # deprecated
+                    actual_default["split"] = entry.get("data")  # test or valid
             actual_default["job_id"] = entry.get("job_id").split("-")[0]
             actual_default["model"] = model
             actual_default["reciprocal"] = reciprocal

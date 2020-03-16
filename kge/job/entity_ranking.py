@@ -4,13 +4,14 @@ import time
 import torch
 import kge.job
 from kge.job import EvaluationJob, Job
+from kge import Config, Dataset
 from collections import defaultdict
 
 
 class EntityRankingJob(EvaluationJob):
     """ Entity ranking evaluation protocol """
 
-    def __init__(self, config, dataset, parent_job, model):
+    def __init__(self, config: Config, dataset: Dataset, parent_job, model):
         super().__init__(config, dataset, parent_job, model)
         self.is_prepared = False
 
@@ -24,19 +25,14 @@ class EntityRankingJob(EvaluationJob):
         if self.is_prepared:
             return
 
-        # create indexes
-        self.train_sp = self.dataset.index("train_sp_to_o")
-        self.train_po = self.dataset.index("train_po_to_s")
-        self.valid_sp = self.dataset.index("valid_sp_to_o")
-        self.valid_po = self.dataset.index("valid_po_to_s")
-
-        if self.eval_data == "test":
-            self.triples = self.dataset.test()
-        else:
-            self.triples = self.dataset.valid()
-        if self.eval_data == "test" or self.filter_valid_with_test:
-            self.test_sp = self.dataset.index("test_sp_to_o")
-            self.test_po = self.dataset.index("test_po_to_s")
+        # create data and precompute indexes
+        self.triples = self.dataset.split(self.config.get("eval.split"))
+        for split in self.filter_splits:
+            self.dataset.index(f"{split}_sp_to_o")
+            self.dataset.index(f"{split}_po_to_s")
+        if "test" not in self.filter_splits and self.filter_with_test:
+            self.dataset.index("test_sp_to_o")
+            self.dataset.index("test_po_to_s")
 
         # and data loader
         self.loader = torch.utils.data.DataLoader(
@@ -54,21 +50,29 @@ class EntityRankingJob(EvaluationJob):
 
     def _collate(self, batch):
         "Looks up true triples for each triple in the batch"
-        train_label_coords = kge.job.util.get_sp_po_coords_from_spo_batch(
-            batch, self.dataset.num_entities(), self.train_sp, self.train_po
-        )
-        valid_label_coords = kge.job.util.get_sp_po_coords_from_spo_batch(
-            batch, self.dataset.num_entities(), self.valid_sp, self.valid_po
-        )
-        if self.eval_data == "test" or self.filter_valid_with_test:
+        label_coords = []
+        for split in self.filter_splits:
+            split_label_coords = kge.job.util.get_sp_po_coords_from_spo_batch(
+                batch,
+                self.dataset.num_entities(),
+                self.dataset.index(f"{split}_sp_to_o"),
+                self.dataset.index(f"{split}_po_to_s"),
+            )
+            label_coords.append(split_label_coords)
+        label_coords = torch.cat(label_coords)
+
+        if "test" not in self.filter_splits and self.filter_with_test:
             test_label_coords = kge.job.util.get_sp_po_coords_from_spo_batch(
-                batch, self.dataset.num_entities(), self.test_sp, self.test_po
+                batch,
+                self.dataset.num_entities(),
+                self.dataset.index("test_sp_to_o"),
+                self.dataset.index("test_po_to_s"),
             )
         else:
             test_label_coords = torch.zeros([0, 2], dtype=torch.long)
 
         batch = torch.cat(batch).reshape((-1, 3))
-        return batch, train_label_coords, valid_label_coords, test_label_coords
+        return batch, label_coords, test_label_coords
 
     @torch.no_grad()
     def run(self) -> dict:
@@ -77,19 +81,21 @@ class EntityRankingJob(EvaluationJob):
         was_training = self.model.training
         self.model.eval()
         self.config.log(
-            "Evaluating on " + self.eval_data + " data (epoch {})...".format(self.epoch)
+            "Evaluating on "
+            + self.eval_split
+            + " data (epoch {})...".format(self.epoch)
         )
         num_entities = self.dataset.num_entities()
 
-        # we also filter with test data during validation if requested
-        filtered_valid_with_test = (
-            self.eval_data == "valid" and self.filter_valid_with_test
+        # we also filter with test data if requested
+        filter_with_test = (
+            "test" not in self.filter_splits and self.filter_with_test
         )
 
         # which rankings to compute (DO NOT REORDER; code assumes the order given here)
         rankings = (
             ["_raw", "_filt", "_filt_test"]
-            if filtered_valid_with_test
+            if filter_with_test
             else ["_raw", "_filt"]
         )
 
@@ -112,27 +118,18 @@ class EntityRankingJob(EvaluationJob):
             # TODO add timing information
             batch = batch_coords[0].to(self.device)
             s, p, o = batch[:, 0], batch[:, 1], batch[:, 2]
-            train_label_coords = batch_coords[1].to(self.device)
-            valid_label_coords = batch_coords[2].to(self.device)
-            test_label_coords = batch_coords[3].to(self.device)
-            if self.eval_data == "test":
-                label_coords = torch.cat(
-                    [train_label_coords, valid_label_coords, test_label_coords]
+            label_coords = batch_coords[1].to(self.device)
+            if filter_with_test:
+                test_label_coords = batch_coords[2].to(self.device)
+                # create sparse labels tensor
+                test_labels = kge.job.util.coord_to_sparse_tensor(
+                    len(batch),
+                    2 * num_entities,
+                    test_label_coords,
+                    self.device,
+                    float("Inf"),
                 )
-            elif self.eval_data == "valid":  # it's valid
-                label_coords = torch.cat([train_label_coords, valid_label_coords])
-                if filtered_valid_with_test:
-                    # create sparse labels tensor
-                    test_labels = kge.job.util.coord_to_sparse_tensor(
-                        len(batch),
-                        2 * num_entities,
-                        test_label_coords,
-                        self.device,
-                        float("Inf"),
-                    )
-                    labels_for_ranking["_filt_test"] = test_labels
-            else:  # neither test nor valid
-                raise ValueError()
+                labels_for_ranking["_filt_test"] = test_labels
 
             # create sparse labels tensor
             labels = kge.job.util.coord_to_sparse_tensor(
@@ -200,7 +197,14 @@ class EntityRankingJob(EvaluationJob):
 
                     # compute partial ranking and filter the scores (sets scores of true
                     # labels to infinity)
-                    s_rank_chunk, s_num_ties_chunk, o_rank_chunk, o_num_ties_chunk, scores_sp_filt, scores_po_filt = self._filter_and_rank(
+                    (
+                        s_rank_chunk,
+                        s_num_ties_chunk,
+                        o_rank_chunk,
+                        o_num_ties_chunk,
+                        scores_sp_filt,
+                        scores_po_filt,
+                    ) = self._filter_and_rank(
                         scores_sp, scores_po, labels_chunk, o_true_scores, s_true_scores
                     )
 
@@ -242,7 +246,7 @@ class EntityRankingJob(EvaluationJob):
                 f(batch_hists_filt, s, p, o, s_ranks_filt, o_ranks_filt, job=self)
 
             # and the same for filtered_with_test ranks
-            if filtered_valid_with_test:
+            if filter_with_test:
                 batch_hists_filt_test = dict()
                 s_ranks_filt_test = self._get_ranks(
                     ranks_and_ties_for_ranking["s_filt_test"][0],
@@ -268,7 +272,8 @@ class EntityRankingJob(EvaluationJob):
                 entry = {
                     "type": "entity_ranking",
                     "scope": "example",
-                    "data": self.eval_data,
+                    "split": self.eval_split,
+                    "filter_splits": self.filter_splits,
                     "size": len(batch),
                     "batches": len(self.loader),
                     "epoch": self.epoch,
@@ -280,7 +285,7 @@ class EntityRankingJob(EvaluationJob):
                         p[i].item(),
                         o[i].item(),
                     )
-                    if filtered_valid_with_test:
+                    if filter_with_test:
                         entry["rank_filtered_with_test"] = (
                             o_ranks_filt_test[i].item() + 1
                         )
@@ -291,7 +296,7 @@ class EntityRankingJob(EvaluationJob):
                         rank_filtered=o_ranks_filt[i].item() + 1,
                         **entry,
                     )
-                    if filtered_valid_with_test:
+                    if filter_with_test:
                         entry["rank_filtered_with_test"] = (
                             s_ranks_filt_test[i].item() + 1
                         )
@@ -308,7 +313,7 @@ class EntityRankingJob(EvaluationJob):
             metrics.update(
                 self._compute_metrics(batch_hists_filt["all"], suffix="_filtered")
             )
-            if filtered_valid_with_test:
+            if filter_with_test:
                 metrics.update(
                     self._compute_metrics(
                         batch_hists_filt_test["all"], suffix="_filtered_with_test"
@@ -321,7 +326,8 @@ class EntityRankingJob(EvaluationJob):
                     event="batch_completed",
                     type="entity_ranking",
                     scope="batch",
-                    data=self.eval_data,
+                    split=self.eval_split,
+                    filter_splits = self.filter_splits,
                     epoch=self.epoch,
                     batch=batch_number,
                     size=len(batch),
@@ -365,7 +371,7 @@ class EntityRankingJob(EvaluationJob):
 
             merge_hist(hists, batch_hists)
             merge_hist(hists_filt, batch_hists_filt)
-            if filtered_valid_with_test:
+            if filter_with_test:
                 merge_hist(hists_filt_test, batch_hists_filt_test)
 
         # we are done; compute final metrics
@@ -376,7 +382,7 @@ class EntityRankingJob(EvaluationJob):
             metrics.update(
                 self._compute_metrics(hists_filt[key], suffix="_filtered" + name)
             )
-            if filtered_valid_with_test:
+            if filter_with_test:
                 metrics.update(
                     self._compute_metrics(
                         hists_filt_test[key], suffix="_filtered_with_test" + name
@@ -388,7 +394,8 @@ class EntityRankingJob(EvaluationJob):
         trace_entry = dict(
             type="entity_ranking",
             scope="epoch",
-            data=self.eval_data,
+            split=self.eval_split,
+            filter_splits=self.filter_splits,
             epoch=self.epoch,
             batches=len(self.loader),
             size=len(self.triples),
@@ -414,7 +421,7 @@ class EntityRankingJob(EvaluationJob):
         # reset model and return metrics
         if was_training:
             self.model.train()
-        self.config.log("Finished evaluating on " + self.eval_data + " data.")
+        self.config.log("Finished evaluating on " + self.eval_split + " split.")
 
         for f in self.post_valid_hooks:
             f(self, trace_entry)
