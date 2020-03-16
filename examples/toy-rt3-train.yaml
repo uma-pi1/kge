@@ -28,5 +28,3 @@ train:
   optimizer_args:
     lr: 0.1
     # weight_decay: 0.4e-7
-valid:
-  filter_with_test: True

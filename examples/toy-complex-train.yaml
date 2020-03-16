@@ -10,8 +10,6 @@ train:
     mode: max
     patience: 4
 
-valid.filter_with_test: True
-
 model: complex
 lookup_embedder:
   dim: 100

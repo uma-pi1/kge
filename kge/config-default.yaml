@@ -244,10 +244,11 @@ negative_sampling:
   # Whether to resample corrupted triples that occur in the training data (and
   # are hence positives). Can be set separately for each slot.
   filtering:
-    split: ''      # split to use; default is train.split
     s: False       # filter and resample for slot s
     p: False       # as above
     o: False       # as above
+
+    split: ''      # split containing the positives; default is train.split
 
     # Implementation to use for filtering.
     # standard: use slow generic implementation, available for all samplers

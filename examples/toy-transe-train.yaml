@@ -16,7 +16,6 @@ train:
 valid:
   early_stopping.patience: 5
   every: 5
-  filter_with_test: True
   metric: mean_reciprocal_rank_filtered_with_test
 
 eval:
