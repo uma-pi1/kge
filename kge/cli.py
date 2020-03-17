@@ -2,6 +2,7 @@
 import datetime
 import argparse
 import os
+import traceback
 import yaml
 
 from kge import Dataset
@@ -222,58 +223,63 @@ def main():
         else:
             config.folder = args.folder
 
-    if args.command == "start" and not config.init_folder():
-        raise ValueError("output folder {} exists already".format(config.folder))
-    config.log("Using folder: {}".format(config.folder))
+    # catch errors to log them
+    try:
+        if args.command == "start" and not config.init_folder():
+            raise ValueError("output folder {} exists already".format(config.folder))
+        config.log("Using folder: {}".format(config.folder))
 
-    # determine checkpoint to resume (if any)
-    if hasattr(args, "checkpoint"):
-        if args.checkpoint == "default":
-            if config.get("job.type") in ["eval", "valid"]:
-                checkpoint_file = config.checkpoint_file("best")
+        # determine checkpoint to resume (if any)
+        if hasattr(args, "checkpoint"):
+            if args.checkpoint == "default":
+                if config.get("job.type") in ["eval", "valid"]:
+                    checkpoint_file = config.checkpoint_file("best")
+                else:
+                    checkpoint_file = None  # means last
+            elif is_number(args.checkpoint, int) or args.checkpoint == "best":
+                checkpoint_file = config.checkpoint_file(args.checkpoint)
             else:
-                checkpoint_file = None  # means last
-        elif is_number(args.checkpoint, int) or args.checkpoint == "best":
-            checkpoint_file = config.checkpoint_file(args.checkpoint)
-        else:
-            # otherwise, treat it as a filename
-            checkpoint_file = args.checkpoint
+                # otherwise, treat it as a filename
+                checkpoint_file = args.checkpoint
 
-    # disable processing of outdated cached dataset files globally
-    Dataset._abort_when_cache_outdated = args.abort_when_cache_outdated
+        # disable processing of outdated cached dataset files globally
+        Dataset._abort_when_cache_outdated = args.abort_when_cache_outdated
 
-    # log configuration
-    config.log("Configuration:")
-    config.log(yaml.dump(config.options), prefix="  ")
-    config.log("git commit: {}".format(get_git_revision_short_hash()), prefix="  ")
+        # log configuration
+        config.log("Configuration:")
+        config.log(yaml.dump(config.options), prefix="  ")
+        config.log("git commit: {}".format(get_git_revision_short_hash()), prefix="  ")
 
-    # set random seeds
-    if config.get("random_seed.python") > -1:
-        import random
+        # set random seeds
+        if config.get("random_seed.python") > -1:
+            import random
 
-        random.seed(config.get("random_seed.python"))
-    if config.get("random_seed.torch") > -1:
-        import torch
+            random.seed(config.get("random_seed.python"))
+        if config.get("random_seed.torch") > -1:
+            import torch
 
-        torch.manual_seed(config.get("random_seed.torch"))
-    if config.get("random_seed.numpy") > -1:
-        import numpy.random
+            torch.manual_seed(config.get("random_seed.torch"))
+        if config.get("random_seed.numpy") > -1:
+            import numpy.random
 
-        numpy.random.seed(config.get("random_seed.numpy"))
-
-    # let's go
-    if args.command == "start" and not args.run:
-        config.log("Job created successfully.")
-    else:
-        # load data
-        dataset = Dataset.load(config)
+            numpy.random.seed(config.get("random_seed.numpy"))
 
         # let's go
-        job = Job.create(config, dataset)
-        if args.command == "resume":
-            job.resume(checkpoint_file)
-        job.run()
+        if args.command == "start" and not args.run:
+            config.log("Job created successfully.")
+        else:
+            # load data
+            dataset = Dataset.load(config)
 
+            # let's go
+            job = Job.create(config, dataset)
+            if args.command == "resume":
+                job.resume(checkpoint_file)
+            job.run()
+    except BaseException as e:
+        tb = traceback.format_exc()
+        config.log(tb, echo=False)
+        raise e from None
 
 if __name__ == "__main__":
     main()
