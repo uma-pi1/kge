@@ -1,3 +1,4 @@
+from kge import Config, Configurable
 import torch.optim
 from torch.optim.lr_scheduler import _LRScheduler
 
@@ -19,35 +20,49 @@ class KgeOptimizer:
             raise ValueError("train.optimizer")
 
 
-class KgeLRScheduler:
+class KgeLRScheduler(Configurable):
     """ Wraps torch learning rate (LR) schedulers """
 
-    @staticmethod
-    def create(config, optimizer):
-        """ Factory method for LR scheduler creation """
-        try:
-            name = config.get("train.lr_scheduler")
-            metric_based = False
-            if name == "ConstantLRScheduler":
-                return ConstantLRScheduler(optimizer), metric_based
-            args = config.get("train.lr_scheduler_args")
-            scheduler = getattr(torch.optim.lr_scheduler, name)(optimizer, **args)
-            metric_based_schedulers = ["ReduceLROnPlateau"]
-            if name in metric_based_schedulers:
-                metric_based = True
-            return scheduler, metric_based
-        except Exception as e:
-            raise ValueError(
-                "Invalid LR scheduler options. Could not find '{}' "
-                "in torch.optim.lr_scheduler, error was {}".format(name, e)
-            )
+    def __init__(self, config: Config, optimizer):
+        super().__init__(config)
+        name = config.get("train.lr_scheduler")
+        args = config.get("train.lr_scheduler_args")
+        self._lr_scheduler: _LRScheduler = None
+        if name != "":
+            try:
+                self._lr_scheduler = getattr(torch.optim.lr_scheduler, name)(
+                    optimizer, **args
+                )
+            except Exception as e:
+                raise ValueError(
+                    (
+                        "Invalid LR scheduler {} or scheduler arguments {}. "
+                        "Error: {}"
+                    ).format(name, args, e)
+                )
 
+        self._metric_based = name in ["ReduceLROnPlateau"]
 
-class ConstantLRScheduler(_LRScheduler):
-    """Default LR scheduler that does nothing."""
+    def step(self, metric=None):
+        if self._lr_scheduler is None:
+            return
+        if self._metric_based:
+            if metric is not None:
+                # metric is set only after validation has been performed, so here we
+                # step
+                self._lr_scheduler.step(metrics=metric)
+        else:
+            # otherwise, step after every epoch
+            self._lr_scheduler.step()
 
-    def __init__(self, optimizer, last_epoch=-1):
-        super(ConstantLRScheduler, self).__init__(optimizer, last_epoch)
+    def state_dict(self):
+        if self._lr_scheduler is None:
+            return dict()
+        else:
+            return self._lr_scheduler.state_dict()
 
-    def get_lr(self):
-        return [group["lr"] for group in self.optimizer.param_groups]
+    def load_state_dict(self, state_dict):
+        if self._lr_scheduler is None:
+            pass
+        else:
+            self._lr_scheduler.load_state_dict(state_dict)

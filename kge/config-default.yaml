@@ -170,8 +170,9 @@ train:
     +++: +++
 
   # Learning rate scheduler to use. Any scheduler from torch.optim.lr_scheduler
-  # can be used (e.g., ConstantLRScheduler or ReduceLROnPlateau).
-  lr_scheduler: ConstantLRScheduler #
+  # can be used (e.g., ReduceLROnPlateau). When left empty, no LR scheduler is
+  # used.
+  lr_scheduler: ""
 
   # Additional arguments for the scheduler.
   lr_scheduler_args:

@@ -610,7 +610,7 @@ def _process_deprecated_options(options: Dict[str, Any]):
         if key in options and options.get(key) == old_value:
             print(
                 "Warning: value {}={} is deprecated; use value {} instead".format(
-                    key, old_value, new_value
+                    key, old_value, new_value if new_value != "" else "''"
                 ),
                 file=sys.stderr,
             )
@@ -638,6 +638,9 @@ def _process_deprecated_options(options: Dict[str, Any]):
                 if rename_value(key, old_value, new_value):
                     renamed_keys.add(key)
         return renamed_keys
+
+    # 18.03.2020
+    rename_value("train.lr_scheduler", "ConstantLRScheduler", "")
 
     # 16.03.2020
     rename_key("eval.data", "eval.split")

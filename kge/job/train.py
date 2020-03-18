@@ -39,9 +39,7 @@ class TrainingJob(Job):
         super().__init__(config, dataset, parent_job)
         self.model: KgeModel = KgeModel.create(config, dataset)
         self.optimizer = KgeOptimizer.create(config, self.model)
-        self.lr_scheduler, self.metric_based_scheduler = KgeLRScheduler.create(
-            config, self.optimizer
-        )
+        self.kge_lr_scheduler = KgeLRScheduler(config, self.optimizer)
         self.loss = KgeLoss.create(config)
         self.abort_on_nan: bool = config.get("train.abort_on_nan")
         self.batch_size: int = config.get("train.batch_size")
@@ -173,7 +171,7 @@ class TrainingJob(Job):
             self.model.meta["train_config"] = self.config
             self.model.meta["train_trace_entry"] = trace_entry
 
-            # validate
+            # validate and update learning rate
             if (
                 self.config.get("valid.every") > 0
                 and self.epoch % self.config.get("valid.every") == 0
@@ -186,12 +184,9 @@ class TrainingJob(Job):
                 self.model.meta["valid_trace_entry"] = trace_entry
 
                 # metric-based scheduler step
-                if self.metric_based_scheduler:
-                    self.lr_scheduler.step(trace_entry[metric_name])
-
-            # epoch-based scheduler step
-            if self.lr_scheduler and not self.metric_based_scheduler:
-                self.lr_scheduler.step(self.epoch)
+                self.kge_lr_scheduler.step(trace_entry[metric_name])
+            else:
+                self.kge_lr_scheduler.step()
 
             # create checkpoint and delete old one, if necessary
             self.save(self.config.checkpoint_file(self.epoch))
@@ -240,6 +235,7 @@ class TrainingJob(Job):
                 "valid_trace": self.valid_trace,
                 "model": self.model.save(),
                 "optimizer_state_dict": self.optimizer.state_dict(),
+                "lr_scheduler_state_dict": self.kge_lr_scheduler.state_dict(),
                 "job_id": self.job_id,
             },
             filename,
@@ -258,6 +254,9 @@ class TrainingJob(Job):
             # old format (deprecated, will eventually be removed)
             self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        if "lr_scheduler_state_dict" in checkpoint:
+            # new format
+            self.kge_lr_scheduler.load_state_dict(checkpoint["lr_scheduler_state_dict"])
         self.epoch = checkpoint["epoch"]
         self.valid_trace = checkpoint["valid_trace"]
         self.model.train()
@@ -381,6 +380,7 @@ class TrainingJob(Job):
                     "batch": batch_index,
                     "size": batch_result.size,
                     "batches": len(self.loader),
+                    "lr": [group["lr"] for group in self.optimizer.param_groups],
                     "avg_loss": batch_result.avg_loss,
                     "penalties": [p.item() for k, p in penalties_torch],
                     "penalty": penalty,
@@ -437,6 +437,7 @@ class TrainingJob(Job):
             split=self.train_split,
             batches=len(self.loader),
             size=self.num_examples,
+            lr = [group["lr"] for group in self.optimizer.param_groups],
             avg_loss=sum_loss / self.num_examples,
             avg_penalty=sum_penalty / len(self.loader),
             avg_penalties={k: p / len(self.loader) for k, p in sum_penalties.items()},
