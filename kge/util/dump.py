@@ -436,6 +436,7 @@ def _dump_trace(args):
             configs[config_key] = config
 
         new_attributes = OrderedDict()
+        # when training was reciprocal, use the base_model as model
         if config.get_default("model") == "reciprocal_relations_model":
             model = config.get_default("reciprocal_relations_model.base_model.type")
             # the string that substitutes $base_model in keymap if it exists
@@ -445,27 +446,32 @@ def _dump_trace(args):
             model = config.get_default("model")
             subs_model = model
             reciprocal = 0
+        # search for the additional keys from --keys and --keysfile
         for new_key in keymap.keys():
             lookup = keymap[new_key]
+            # search for special keys
+            value = None
+            if lookup == "$folder":
+                value = os.path.abspath(folder_path)
+            elif lookup == "$checkpoint" and checkpoint_path:
+                value = os.path.abspath(checkpoint_path)
+            elif lookup == "$machine":
+                value = socket.gethostname()
             if "$base_model" in lookup:
                 lookup = lookup.replace("$base_model", subs_model)
-            try:
-                if lookup == "$folder":
-                    val = os.path.abspath(folder_path)
-                elif lookup == "$checkpoint":
-                    val = os.path.abspath(checkpoint_path)
-                elif lookup == "$machine":
-                    val = socket.gethostname()
-                else:
-                    val = config.get_default(lookup)
-            except:
-                # creates empty field if key is not existing
-                val = entry.get(lookup)
-            if type(val) == bool and val:
-                val = 1
-            elif type(val) == bool and not val:
-                val = 0
-            new_attributes[new_key] = val
+            # search for ordinary keys; start searching in trace entry then config
+            if not value:
+                value = entry.get(lookup)
+            if not value:
+                try:
+                    value = config.get_default(lookup)
+                except:
+                    pass  # value stays None; creates empty field in csv
+            if value and isinstance(value, bool):
+                value = 1
+            elif not value and isinstance(value, bool):
+                value = 0
+            new_attributes[new_key] = value
         if not args.yaml:
             # find the actual values for the default attributes
             actual_default = default_attributes.copy()
