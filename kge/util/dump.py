@@ -161,7 +161,7 @@ def _add_dump_trace_parser(subparsers_dump):
         const=True,
         default=False,
         help="Dump the tracefile of a search job. The options --train, --valid, and"
-             " --test are not applicable.",
+        " --test are not applicable.",
     )
     parser_dump_trace.add_argument(
         "--keysfile",
@@ -207,19 +207,11 @@ def _add_dump_trace_parser(subparsers_dump):
         ),
     )
     parser_dump_trace.add_argument(
-        "--max_epoch",
-        default=False,
-        help=(
-            "Specifies the max epoch number in the tracefile"
-            " from where to start processing backwards. Cannot be used with --truncate"
-            " when a checkpoint is provided."
-        ),
-    )
-    parser_dump_trace.add_argument(
         "--truncate",
+        action="store",
         default=False,
-        action="store_const",
         const=True,
+        nargs="?",
         help=(
             "When a checkpoint is used (by providing one explicitly as source or by"
             " using --checkpoint), --truncate will define the max_epoch number to"
@@ -233,8 +225,8 @@ def _add_dump_trace_parser(subparsers_dump):
         const=True,
         default=False,
         help="Instead of using a CSV file with a subset of entries, dump the full"
-             " trace file. Additional entries from the config can be added with the"
-             " --keysfile and --keys option."
+        " trace file. Additional entries from the config can be added with the"
+        " --keysfile and --keys option.",
     )
     parser_dump_trace.add_argument(
         "--batch",
@@ -269,24 +261,37 @@ def _add_dump_trace_parser(subparsers_dump):
 
 def _dump_trace(args):
     """Execute the 'dump trace' command."""
-    if (args.train or args.valid or args.test) and args.search:
-        print(
-            "--search and --train, --valid, --test are mutually exclusive",
-            file=sys.stderr,
+    if (
+        args.train
+        or args.valid
+        or args.test
+        or args.truncate
+        or args.job_id
+        or args.checkpoint
+        or args.batch
+        or args.example
+    ) and args.search:
+        sys.exit(
+            "--search and any of --train, --valid, --test, --truncate, --job_id,"
+            " --checkpoint, --batch, --example are mutually exclusive"
         )
-        exit(1)
-    if args.max_epoch and args.truncate:
-        print(
-            "--max epoch and --truncate cannot be used together",
-            file=sys.stderr
-        )
-        exit(1)
+
     entry_type_specified = True
     if not (args.train or args.valid or args.test or args.search):
         entry_type_specified = False
         args.train = True
         args.valid = True
         args.test = True
+
+    truncate_flag = False
+    truncate_epoch = None
+    if isinstance(args.truncate, bool) and args.truncate:
+        truncate_flag = True
+    elif not isinstance(args.truncate, bool):
+        if args.truncate.isdigit():
+            truncate_epoch = int(args.truncate)
+        else:
+            sys.exit("Numeric argument or no argument for --truncate must be used")
 
     checkpoint_path = None
     if ".pt" in os.path.split(args.source)[-1]:
@@ -297,17 +302,19 @@ def _dump_trace(args):
         if args.checkpoint:
             checkpoint_path = Config.get_best_or_last_checkpoint(args.source)
         folder_path = args.source
-        if not args.checkpoint and args.truncate:
-            print(
-                "--truncate can only be used when a checkpoint is specified."
-                " Consider using --checkpoint or provide a checkpoint file as source",
-                file=sys.stderr
-            )
-            exit(1)
+    if not checkpoint_path and truncate_flag:
+        sys.exit(
+            "--truncate can only be used as a flag when a checkpoint is specified."
+            " Consider specifying a checkpoint or use an integer argument for the"
+            " --truncate option"
+        )
+    if checkpoint_path and args.job_id:
+        sys.exit("--job_id cannot be used together with a checkpoint.")
     trace = os.path.join(folder_path, "trace.yaml")
     if not os.path.isfile(trace):
-        sys.stderr.write("No trace found at {}\n".format(trace))
-        exit(1)
+        sys.exit(f"No file 'trace.yaml' found at {os.path.abspath(folder_path)}")
+
+    # process additional keys from --keys and --keysfile
     keymap = OrderedDict()
     additional_keys = []
     if args.keysfile:
@@ -323,21 +330,19 @@ def _dump_trace(args):
         keymap[name_key[0]] = name_key[1]
 
     job_id = None
-    epoch = int(args.max_epoch)
-    # use job_id and epoch from checkpoint
-    if checkpoint_path and args.truncate:
+    # use job_id and truncate_epoch from checkpoint
+    if checkpoint_path and truncate_flag:
         checkpoint = torch.load(f=checkpoint_path, map_location="cpu")
         job_id = checkpoint["job_id"]
-        epoch = checkpoint["epoch"]
+        truncate_epoch = checkpoint["epoch"]
     # only use job_id from checkpoint
     elif checkpoint_path:
         checkpoint = torch.load(f=checkpoint_path, map_location="cpu")
         job_id = checkpoint["job_id"]
-    # override job_id and epoch with user arguments
     if args.job_id:
         job_id = args.job_id
-    if not epoch:
-        epoch = float("inf")
+    if not truncate_epoch:
+        truncate_epoch = float("inf")
 
     entries, job_epochs = [], {}
     if not args.search:
@@ -349,16 +354,20 @@ def _dump_trace(args):
             example=args.example,
             batch=args.batch,
             job_id=job_id,
-            epoch_of_last=epoch,
+            epoch_of_last=truncate_epoch,
         )
     if not entries and (args.search or not entry_type_specified):
         entries = Trace.grep_entries(tracefile=trace, conjunctions=[f"scope: train"])
-        epoch = None
+        truncate_epoch = None
         if entries:
             args.search = True
+    if not entries and entry_type_specified:
+        sys.exit(
+            "No relevant trace entries found. If this was a trace from a search"
+            " job, dont use any of --train --valid --test."
+        )
     if not entries:
-        print("No relevant trace entries found.", file=sys.stderr)
-        exit(1)
+        sys.exit("No relevant trace entries found.")
 
     if not args.yaml:
         csv_writer = csv.writer(sys.stdout)
@@ -397,13 +406,24 @@ def _dump_trace(args):
     configs = {}
     warning_shown = False
     for entry in entries:
-        if epoch and not entry.get("epoch") <= float(epoch):
+        if truncate_epoch and not entry.get("epoch") <= float(truncate_epoch):
             continue
         # filter out not needed entries from a previous job when
         # a job was resumed from the middle
+        current_epoch = entry.get("epoch")
         if entry.get("job") == "train":
             job_id = entry.get("job_id")
-            if entry.get("epoch") > job_epochs[job_id]:
+            if current_epoch > job_epochs[job_id]:
+                continue
+        elif entry.get("job") == "eval":
+            skip = False
+            for train_job_id in [
+                entry.get("resumed_from_job_id"),
+                entry.get("parent_job_id"),
+            ]:
+                if train_job_id and current_epoch > job_epochs[train_job_id]:
+                    skip = True
+            if skip:
                 continue
 
         # find relevant config file
