@@ -113,10 +113,10 @@ def _add_dump_trace_parser(subparsers_dump):
     parser_dump_trace = subparsers_dump.add_parser(
         "trace",
         help=(
-            "Dump trace to stdout as CSV (default) or YAML. The tracefile will"
-            " be processed backwards starting from the last entry. Further options"
-            " allow to start processing from a particular checkpoint or job_id or"
-            " epoch_number."
+            "Dump the trace of a job to stdout as CSV (default) or YAML. The tracefile"
+            " is processed backwards starting from the last entry. Further options"
+            " allow to start processing from a particular checkpoint, job_id, or"
+            " epoch number."
         ),
     )
     parser_dump_trace.add_argument(
@@ -141,8 +141,8 @@ def _add_dump_trace_parser(subparsers_dump):
         const=True,
         default=False,
         help=(
-            "Include entries from validation or evaluation on the valid split"
-            " (enabled when none of --train, --valid, or  --test is specified)."
+            "Include entries from validation or evaluation jobs on the valid split"
+            " (enabled when none of --train, --valid, or --test is specified)."
         ),
     )
     parser_dump_trace.add_argument(
@@ -160,8 +160,12 @@ def _add_dump_trace_parser(subparsers_dump):
         action="store_const",
         const=True,
         default=False,
-        help="Dump the tracefile of a search job. The options --train, --valid, and"
-        " --test are not applicable.",
+        help=(
+            "Dump the tracefile of a search job. The best result of every "
+            " search trial is dumped. The options --train, --valid, --test,"
+            " --truncate, --job_id, --checkpoint, --batch, and --example are not"
+            " applicable."
+        ),
     )
     parser_dump_trace.add_argument(
         "--keysfile",
@@ -169,10 +173,10 @@ def _add_dump_trace_parser(subparsers_dump):
         help=(
             "A path to a file which contains lines in the format"
             " 'new_key_name'='key_name'. For every line in the keys file, the command"
-            " will look for the value of 'key_name' in the config (first) and trace"
-            " entries (second) and add a respective column in the csv file with name"
+            " searches the value of 'key_name' in the trace entries (first) and"
+            " config (second) and adds a respective column in the CSV file with name"
             " 'new_key_name'. Additionally, for 'key_name' the special keys '$folder',"
-            " '$machine' '$checkpoint' and '$base_model' can be used. "
+            " '$machine' '$checkpoint' and '$base_model' can be used."
         ),
     )
     parser_dump_trace.add_argument(
@@ -182,9 +186,9 @@ def _add_dump_trace_parser(subparsers_dump):
         type=str,
         help=(
             "A list of 'key' entries (separated by space). Each 'key' has form"
-            " 'new_key_name=key_name' or 'key_name'. This will add columns as in the"
+            " 'new_key_name=key_name' or 'key_name'. This adds a columns as in the"
             " --keysfile option. When only 'key_name' is provided, it is also used as"
-            " column name."
+            " the column name in the CSV file."
         ),
     )
     parser_dump_trace.add_argument(
@@ -194,16 +198,17 @@ def _add_dump_trace_parser(subparsers_dump):
         const=True,
         help=(
             "If source is a path to a job folder and --checkpoint is set, the best"
-            " (if present) or last checkpoint will be used to determine the job_id from"
-            " where the tracefile will be processed backwards."
+            " (if present) or last checkpoint is used to determine the job_id from"
+            " where the tracefile is processed backwards."
         ),
     )
     parser_dump_trace.add_argument(
         "--job_id",
         default=False,
         help=(
-            "Specifies the training job id in the trace"
-            " from where to start processing the tracefile backward."
+            "Specifies the training job_id in the tracefile from where to start"
+            " processing backwards when no checkpoint is specified. If not provided,"
+            " the job_id of the last training job entry in the tracefile is used."
         ),
     )
     parser_dump_trace.add_argument(
@@ -213,10 +218,13 @@ def _add_dump_trace_parser(subparsers_dump):
         const=True,
         nargs="?",
         help=(
-            "When a checkpoint is used (by providing one explicitly as source or by"
-            " using --checkpoint), --truncate will define the max_epoch number to"
-            " process as provided by the checkpoint. Can only be used when a checkpoint"
-            " is provided and it cannot be used together with --max_epoch."
+            "Takes an integer argument which defines the maximum epoch number from"
+            " where the tracefile is processed backwards. If not provided, all epochs"
+            " are included (the epoch number can still be bounded by a specified"
+            " job_id or checkpoint). When a checkpoint is specified, (by providing one"
+            " explicitly as source or by using --checkpoint), --truncate can"
+            " additionally be enabled without an argument which sets the maximum epoch"
+            " number to the epoch provided by the checkpoint."
         ),
     )
     parser_dump_trace.add_argument(
@@ -224,9 +232,7 @@ def _add_dump_trace_parser(subparsers_dump):
         action="store_const",
         const=True,
         default=False,
-        help="Instead of using a CSV file with a subset of entries, dump the full"
-        " trace file. Additional entries from the config can be added with the"
-        " --keysfile and --keys option.",
+        help="Dump YAML instead of CSV.",
     )
     parser_dump_trace.add_argument(
         "--batch",
@@ -247,7 +253,7 @@ def _add_dump_trace_parser(subparsers_dump):
         action="store_const",
         const=True,
         default=False,
-        help="Exclude column names (header) from the csv file.",
+        help="Exclude column names (header) from the CSV file.",
     )
     parser_dump_trace.add_argument(
         "--no-default-keys",
@@ -255,7 +261,7 @@ def _add_dump_trace_parser(subparsers_dump):
         action="store_const",
         const=True,
         default=False,
-        help="Exclude default keys from the csv file.",
+        help="Exclude default keys from the CSV file.",
     )
 
 
@@ -288,10 +294,9 @@ def _dump_trace(args):
     if isinstance(args.truncate, bool) and args.truncate:
         truncate_flag = True
     elif not isinstance(args.truncate, bool):
-        if args.truncate.isdigit():
-            truncate_epoch = int(args.truncate)
-        else:
-            sys.exit("Numeric argument or no argument for --truncate must be used")
+        if not args.truncate.isdigit():
+            sys.exit("Integer argument or no argument for --truncate must be used")
+        truncate_epoch = int(args.truncate)
 
     checkpoint_path = None
     if ".pt" in os.path.split(args.source)[-1]:
@@ -309,7 +314,10 @@ def _dump_trace(args):
             " --truncate option"
         )
     if checkpoint_path and args.job_id:
-        sys.exit("--job_id cannot be used together with a checkpoint.")
+        sys.exit(
+            "--job_id cannot be used together with a checkpoint as the checkpoint"
+            " already specifies the job_id"
+        )
     trace = os.path.join(folder_path, "trace.yaml")
     if not os.path.isfile(trace):
         sys.exit(f"No file 'trace.yaml' found at {os.path.abspath(folder_path)}")
@@ -339,8 +347,10 @@ def _dump_trace(args):
     elif checkpoint_path:
         checkpoint = torch.load(f=checkpoint_path, map_location="cpu")
         job_id = checkpoint["job_id"]
-    if args.job_id:
+    # no checkpoint specified job_id might have been set manually
+    elif args.job_id:
         job_id = args.job_id
+    # don't restrict epoch number in case it has not been specified yet
     if not truncate_epoch:
         truncate_epoch = float("inf")
 
@@ -366,7 +376,7 @@ def _dump_trace(args):
             "No relevant trace entries found. If this was a trace from a search"
             " job, dont use any of --train --valid --test."
         )
-    if not entries:
+    elif not entries:
         sys.exit("No relevant trace entries found.")
 
     if not args.yaml:
@@ -406,32 +416,27 @@ def _dump_trace(args):
     configs = {}
     warning_shown = False
     for entry in entries:
-        if truncate_epoch and not entry.get("epoch") <= float(truncate_epoch):
-            continue
-        # filter out not needed entries from a previous job when
-        # a job was resumed from the middle
         current_epoch = entry.get("epoch")
-        if entry.get("job") == "train":
-            job_id = entry.get("job_id")
+        job_type = entry.get("job")
+        job_id = entry.get("job_id")
+        if truncate_epoch and not current_epoch <= float(truncate_epoch):
+            continue
+        # filter out entries not relevant to the unique training sequence determined
+        # by the options; not relevant for search
+        if job_type == "train":
             if current_epoch > job_epochs[job_id]:
                 continue
-        elif entry.get("job") == "eval":
-            skip = False
-            for train_job_id in [
-                entry.get("resumed_from_job_id"),
-                entry.get("parent_job_id"),
-            ]:
-                if train_job_id and current_epoch > job_epochs[train_job_id]:
-                    skip = True
-            if skip:
-                continue
-
+        elif job_type == "eval":
+            if "resumed_from_job_id" in entry:
+                if current_epoch > job_epochs[entry.get("resumed_from_job_id")]:
+                    continue
+            elif "parent_job_id" in entry:
+                if current_epoch > job_epochs[entry.get("parent_job_id")]:
+                    continue
         # find relevant config file
         child_job_id = entry.get("child_job_id") if "child_job_id" in entry else None
         config_key = (
-            entry.get("folder") + "/" + str(child_job_id)
-            if args.search
-            else entry.get("job_id")
+            entry.get("folder") + "/" + str(child_job_id) if args.search else job_id
         )
         if config_key in configs.keys():
             config = configs[config_key]
@@ -452,7 +457,7 @@ def _dump_trace(args):
                 )
                 entry["type"] = config.get("train.type")
             else:
-                config = get_config_for_job_id(entry.get("job_id"), folder_path)
+                config = get_config_for_job_id(job_id, folder_path)
             configs[config_key] = config
 
         new_attributes = OrderedDict()
@@ -504,13 +509,13 @@ def _dump_trace(args):
             # keys with separate treatment
             # "split" in {train,test,valid} for the datatype
             # "job" in {train,eval,valid,search}
-            if entry.get("job") == "train":
+            if job_type == "train":
                 if "split" in entry:
                     actual_default["split"] = entry.get("split")
                 else:
                     actual_default["split"] = "train"
                 actual_default["job"] = "train"
-            elif entry.get("job") == "eval":
+            elif job_type == "eval":
                 if "split" in entry:
                     actual_default["split"] = entry.get("split")  # test or valid
                 else:
@@ -521,13 +526,13 @@ def _dump_trace(args):
                 else:
                     actual_default["job"] = "valid"  # child of training job
             else:
-                actual_default["job"] = entry.get("job")
+                actual_default["job"] = job_type
                 if "split" in entry:
                     actual_default["split"] = entry.get("split")
                 else:
                     # deprecated
                     actual_default["split"] = entry.get("data")  # test or valid
-            actual_default["job_id"] = entry.get("job_id").split("-")[0]
+            actual_default["job_id"] = job_id.split("-")[0]
             actual_default["model"] = model
             actual_default["reciprocal"] = reciprocal
             # lookup name is in config value is in trace
