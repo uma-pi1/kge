@@ -67,7 +67,7 @@ class Trace:
 
     @staticmethod
     def grep_entries(tracefile: str, conjunctions: list, raw=False):
-        """ For a given tracefile, returns entries that match patterns with 'grep'.
+        """For a given tracefile, return entries that match patterns with 'grep'.
 
         :param tracefile: String, path to tracefile
         :param conjunctions: A list of strings(patterns) or tuples with strings to be
@@ -123,7 +123,7 @@ class Trace:
         job_id=None,
         epoch_of_last=None,
     ):
-        """ Extracts trace entry types from a training job trace.
+        """Extract trace entry types from a training job trace.
 
         For a given job_id, the sequence of training job's leading to the job with
         job_id is retrieved. All entry types specified by the options that are
