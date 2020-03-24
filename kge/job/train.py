@@ -533,6 +533,11 @@ class TrainingJobKvsAll(TrainingJob):
         # create sp and po label_coords (if not done before)
         train_sp = self.dataset.index(f"{self.train_split}_sp_to_o")
         train_po = self.dataset.index(f"{self.train_split}_po_to_s")
+        if self.config.get("KvsAll.use_so"):
+            train_so = self.dataset.index(f"{self.train_split}_so_to_p")
+            len_train_so = len(train_so)
+        else:
+            len_train_so = 0
 
         # convert indexes to pytoch tensors: a nx2 keys tensor (rows = keys),
         # an offset vector (row = starting offset in values for corresponding
@@ -552,28 +557,36 @@ class TrainingJobKvsAll(TrainingJob):
             self.train_po_values,
             self.train_po_offsets,
         ) = kge.indexing.prepare_index(train_po)
+        if self.config.get("KvsAll.use_so"):
+            (
+                self.train_so_keys,
+                self.train_so_values,
+                self.train_so_offsets,
+            ) = kge.indexing.prepare_index(train_so)
 
         # create dataloader
         self.loader = torch.utils.data.DataLoader(
-            range(len(train_sp) + len(train_po)),
+            range(len(train_sp) + len(train_po) + len_train_so),
             collate_fn=self._get_collate_fun(),
             shuffle=True,
             batch_size=self.batch_size,
             num_workers=self.config.get("train.num_workers"),
             pin_memory=self.config.get("train.pin_memory"),
         )
-        self.num_examples = len(train_sp) + len(train_po)
+        self.num_examples = len(train_sp) + len(train_po) + len_train_so
 
     def _get_collate_fun(self):
         num_sp = len(self.train_sp_keys)
+        num_po = len(self.train_po_keys)
+        end_po = num_sp + num_po
 
         # create the collate function
         def collate(batch):
-            """For a batch of size n, returns a triple of:
+            """For a batch of size n, returns a dictionary of:
 
-            - pairs (nx2 tensor, row = sp or po indexes),
-            - label coordinates (position of ones in a batch_size x num_entities tensor)
-            - is_sp (vector of size n, 1 if corresponding example_index is sp, 0 if po)
+            - pairs (nx2 tensor, row = sp, po or so indexes),
+            - label coordinates (position of ones in a n x num_entities or n x num_relations tensor for so respectively)
+            - key_type (vector of size n, 2 if corresponding example_index is so, 1 if sp, 0 if po)
             - triples (all true triples in the batch: needed for weighted penalties only)
 
             """
@@ -583,32 +596,42 @@ class TrainingJobKvsAll(TrainingJob):
                 if example_index < num_sp:
                     num_ones += self.train_sp_offsets[example_index + 1]
                     num_ones -= self.train_sp_offsets[example_index]
-                else:
+                elif example_index < end_po:
                     example_index -= num_sp
                     num_ones += self.train_po_offsets[example_index + 1]
                     num_ones -= self.train_po_offsets[example_index]
+                else:
+                    example_index -= end_po
+                    num_ones += self.train_so_offsets[example_index + 1]
+                    num_ones -= self.train_so_offsets[example_index]
 
             # now create the results
-            sp_po_batch = torch.zeros([len(batch), 2], dtype=torch.long)
-            is_sp = torch.zeros([len(batch)], dtype=torch.long)
+            sp_po_so_batch = torch.zeros([len(batch), 2], dtype=torch.long)
+            key_type = torch.zeros([len(batch)], dtype=torch.long)
             label_coords = torch.zeros([num_ones, 2], dtype=torch.int)
             current_index = 0
             triples = torch.zeros([num_ones, 3], dtype=torch.long)
             for batch_index, example_index in enumerate(batch):
-                is_sp[batch_index] = 1 if example_index < num_sp else 0
-                if is_sp[batch_index]:
+                key_type[batch_index] = 1 if example_index < num_sp else (0 if example_index < end_po else 2)
+                if key_type[batch_index] == 1:
                     keys = self.train_sp_keys
                     offsets = self.train_sp_offsets
                     values = self.train_sp_values
-                    sp_po_col_1, sp_po_col_2, o_s_col = S, P, O
-                else:
+                    sp_po_so_col_1, sp_po_so_col_2, o_s_p_col = S, P, O
+                elif key_type[batch_index] == 0:
                     example_index -= num_sp
                     keys = self.train_po_keys
                     offsets = self.train_po_offsets
                     values = self.train_po_values
-                    o_s_col, sp_po_col_1, sp_po_col_2 = S, P, O
+                    o_s_p_col, sp_po_so_col_1, sp_po_so_col_2 = S, P, O
+                else:
+                    example_index -= end_po
+                    keys = self.train_so_keys
+                    offsets = self.train_so_offsets
+                    values = self.train_so_values
+                    sp_po_so_col_1, o_s_p_col, sp_po_so_col_2 = S, P, O
 
-                sp_po_batch[batch_index,] = keys[example_index]
+                sp_po_so_batch[batch_index,] = keys[example_index]
                 start = offsets[example_index]
                 end = offsets[example_index + 1]
                 size = end - start
@@ -616,22 +639,22 @@ class TrainingJobKvsAll(TrainingJob):
                 label_coords[current_index : (current_index + size), 1] = values[
                     start:end
                 ]
-                triples[current_index : (current_index + size), sp_po_col_1] = keys[
+                triples[current_index : (current_index + size), sp_po_so_col_1] = keys[
                     example_index
                 ][0]
-                triples[current_index : (current_index + size), sp_po_col_2] = keys[
+                triples[current_index : (current_index + size), sp_po_so_col_2] = keys[
                     example_index
                 ][1]
-                triples[current_index : (current_index + size), o_s_col] = values[
+                triples[current_index : (current_index + size), o_s_p_col] = values[
                     start:end
                 ]
                 current_index += size
 
             # all done
             return {
-                "sp_po_batch": sp_po_batch,
+                "sp_po_so_batch": sp_po_so_batch,
                 "label_coords": label_coords,
-                "is_sp": is_sp,
+                "key_type": key_type,
                 "triples": triples,
             }
 
@@ -640,18 +663,29 @@ class TrainingJobKvsAll(TrainingJob):
     def _process_batch(self, batch_index, batch) -> TrainingJob._ProcessBatchResult:
         # prepare
         prepare_time = -time.time()
-        sp_po_batch = batch["sp_po_batch"].to(self.device)
-        batch_size = len(sp_po_batch)
+        sp_po_so_batch = batch["sp_po_so_batch"].to(self.device)
+        batch_size = len(sp_po_so_batch)
         label_coords = batch["label_coords"].to(self.device)
-        is_sp = batch["is_sp"]
-        sp_indexes = is_sp.nonzero().to(self.device).view(-1)
-        po_indexes = (is_sp == 0).nonzero().to(self.device).view(-1)
+        key_type = batch["key_type"]
+        sp_indexes = (key_type == 1).nonzero().to(self.device).view(-1)
+        po_indexes = (key_type == 0).nonzero().to(self.device).view(-1)
+        so_indexes = (key_type == 2).nonzero().to(self.device).view(-1)
+
         labels = kge.job.util.coord_to_sparse_tensor(
-            batch_size, self.dataset.num_entities(), label_coords, self.device
+            batch_size, max(self.dataset.num_entities(), self.dataset.num_relations()), label_coords, self.device
         ).to_dense()
+
+        labels_sp = labels[sp_indexes, :self.dataset.num_entities()]
+        labels_po = labels[po_indexes, :self.dataset.num_entities()]
+        labels_so = labels[so_indexes, :self.dataset.num_relations()]
+
         if self.label_smoothing > 0.0:
             # as in ConvE: https://github.com/TimDettmers/ConvE
-            labels = (1.0 - self.label_smoothing) * labels + 1.0 / labels.size(1)
+            labels_sp = (1.0 - self.label_smoothing) * labels_sp + 1.0 / labels_sp.size(1)
+            labels_po = (1.0 - self.label_smoothing) * labels_po + 1.0 / labels_po.size(1)
+            if self.config.get("KvsAll.use_so"):
+                labels_so = (1.0 - self.label_smoothing) * labels_so + 1.0 / labels_so.size(1)
+
         prepare_time += time.time()
 
         # forward/backward pass (sp)
@@ -659,9 +693,9 @@ class TrainingJobKvsAll(TrainingJob):
         if len(sp_indexes) > 0:
             forward_time = -time.time()
             scores_sp = self.model.score_sp(
-                sp_po_batch[sp_indexes, 0], sp_po_batch[sp_indexes, 1]
+                sp_po_so_batch[sp_indexes, 0], sp_po_so_batch[sp_indexes, 1]
             )
-            loss_value_sp = self.loss(scores_sp, labels[sp_indexes,]) / batch_size
+            loss_value_sp = self.loss(scores_sp, labels_sp) / batch_size
             loss_value = loss_value_sp.item()
             forward_time += time.time()
             backward_time = -time.time()
@@ -672,13 +706,26 @@ class TrainingJobKvsAll(TrainingJob):
         if len(po_indexes) > 0:
             forward_time = -time.time()
             scores_po = self.model.score_po(
-                sp_po_batch[po_indexes, 0], sp_po_batch[po_indexes, 1]
+                sp_po_so_batch[po_indexes, 0], sp_po_so_batch[po_indexes, 1]
             )
-            loss_value_po = self.loss(scores_po, labels[po_indexes,]) / batch_size
+            loss_value_po = self.loss(scores_po, labels_po) / batch_size
             loss_value += loss_value_po.item()
             forward_time += time.time()
             backward_time = -time.time()
             loss_value_po.backward()
+            backward_time += time.time()
+
+        # forward/backward pass (so)
+        if len(so_indexes) > 0:
+            forward_time = -time.time()
+            scores_so = self.model.score_so(
+                sp_po_so_batch[so_indexes, 0], sp_po_so_batch[so_indexes, 1]
+            )
+            loss_value_so = self.loss(scores_so, labels_so) / batch_size
+            loss_value += loss_value_so.item()
+            forward_time += time.time()
+            backward_time = -time.time()
+            loss_value_so.backward()
             backward_time += time.time()
 
         # all done
