@@ -220,7 +220,14 @@ def _invert_ids(dataset, obj: str):
 
 
 def create_default_index_functions(dataset: "Dataset"):
-    for split in ["train", "valid", "test"]:
+    for split in [
+        "train",
+        "valid",
+        "test",
+        "train_sample",
+        "valid_without_unseen",
+        "test_without_unseen",
+    ]:
         for key, value in [("sp", "o"), ("po", "s"), ("so", "p")]:
             # self assignment needed to capture the loop var
             dataset.index_functions[f"{split}_{key}_to_{value}"] = IndexWrapper(
