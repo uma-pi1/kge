@@ -164,7 +164,8 @@ class Trace:
         entries = []
         current_job_id = job_id
         # key is a job and epoch is the max epoch needed for this job
-        job_epochs = {current_job_id: epoch_of_last}
+        job_epochs = {}
+        added_last = False
         found_previous = True
         scopes = ""
         # scopes is always needed to filter out meta entries
@@ -222,6 +223,9 @@ class Trace:
             )
             resumed_id = ""
             if len(current_entries):
+                if not added_last:
+                    job_epochs[current_entries[0].get("job_id")] = epoch_of_last
+                    added_last = True
                 resumed_id = current_entries[0].get("resumed_from_job_id")
                 if train:
                     current_entries.extend(entries)
