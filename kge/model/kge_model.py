@@ -112,7 +112,7 @@ class RelationalScorer(KgeBase):
         :math:`d_r` are the sizes of the entity and relation embeddings, respectively.
 
         The provided embeddings are combined based on the value of `combine`. Common
-        values are :code:`"spo"`, :code:`"sp*"`, and :code:`"*po"`. Not all models may
+        values are :code:`"spo"`, :code:`"sp_"`, and :code:`"_po"`. Not all models may
         support all combinations.
 
         When `combine` is :code:`"spo"`, then embeddings are combined row-wise. In this
@@ -121,13 +121,13 @@ class RelationalScorer(KgeBase):
         which the :math:`i`-th entry holds the score of the embedding triple
         :math:`(s_i, p_i, o_i)`.
 
-        When `combine` is :code:`"sp*"`, the subjects and predicates are taken row-wise
+        When `combine` is :code:`"sp_"`, the subjects and predicates are taken row-wise
         and subsequently combined with all objects. In this case, it is required that
         :math:`n_s=n_p=n`. The output is a :math`n\times n_o` tensor, in which the
         :math:`(i,j)`-th entry holds the score of the embedding triple :math:`(s_i, p_i,
         o_j)`.
 
-        When `combine` is :code:`"*po"`, predicates and objects are taken row-wise and
+        When `combine` is :code:`"_po"`, predicates and objects are taken row-wise and
         subsequently combined with all subjects. In this case, it is required that
         :math:`n_p=n_o=n`. The output is a :math`n\times n_s` tensor, in which the
         :math:`(i,j)`-th entry holds the score of the embedding triple :math:`(s_j, p_i,
@@ -139,21 +139,21 @@ class RelationalScorer(KgeBase):
         if combine == "spo":
             assert s_emb.size(0) == n and o_emb.size(0) == n
             out = self.score_emb_spo(s_emb, p_emb, o_emb)
-        elif combine == "sp*":
+        elif combine == "sp_":
             assert s_emb.size(0) == n
             n_o = o_emb.size(0)
             s_embs = s_emb.repeat_interleave(n_o, 0)
             p_embs = p_emb.repeat_interleave(n_o, 0)
             o_embs = o_emb.repeat((n, 1))
             out = self.score_emb_spo(s_embs, p_embs, o_embs)
-        elif combine == "*po":
+        elif combine == "_po":
             assert o_emb.size(0) == n
             n_s = s_emb.size(0)
             s_embs = s_emb.repeat((n, 1))
             p_embs = p_emb.repeat_interleave(n_s, 0)
             o_embs = o_emb.repeat_interleave(n_s, 0)
             out = self.score_emb_spo(s_embs, p_embs, o_embs)
-        elif combine == "s*o":
+        elif combine == "s_o":
             n = s_emb.size(0)
             assert o_emb.size(0) == n
             n_p = p_emb.size(0)
@@ -491,7 +491,7 @@ class KgeModel(KgeBase):
         else:
             o = self.get_o_embedder().embed(o)
 
-        return self._scorer.score_emb(s, p, o, combine="sp*")
+        return self._scorer.score_emb(s, p, o, combine="sp_")
 
     def score_po(self, p: Tensor, o: Tensor, s: Tensor = None) -> Tensor:
         r"""Compute scores for triples formed from a set of po-pairs and (or a subset of the) subjects.
@@ -514,7 +514,7 @@ class KgeModel(KgeBase):
         o = self.get_o_embedder().embed(o)
         p = self.get_p_embedder().embed(p)
 
-        return self._scorer.score_emb(s, p, o, combine="*po")
+        return self._scorer.score_emb(s, p, o, combine="_po")
 
     def score_so(self, s: Tensor, o: Tensor, p: Tensor = None) -> Tensor:
         r"""Compute scores for triples formed from a set of so-pairs and all (or a subset of the) relations.
@@ -536,7 +536,7 @@ class KgeModel(KgeBase):
         else:
             p = self.get_p_embedder().embed(p)
 
-        return self._scorer.score_emb(s, p, o, combine="s*o")
+        return self._scorer.score_emb(s, p, o, combine="s_o")
 
     def score_sp_po(
         self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None
@@ -567,8 +567,8 @@ class KgeModel(KgeBase):
                 all_entities = self.get_s_embedder().embed(entity_subset)
             else:
                 all_entities = self.get_s_embedder().embed_all()
-            sp_scores = self._scorer.score_emb(s, p, all_entities, combine="sp*")
-            po_scores = self._scorer.score_emb(all_entities, p, o, combine="*po")
+            sp_scores = self._scorer.score_emb(s, p, all_entities, combine="sp_")
+            po_scores = self._scorer.score_emb(all_entities, p, o, combine="_po")
         else:
             if entity_subset is not None:
                 all_objects = self.get_o_embedder().embed(entity_subset)
@@ -576,6 +576,6 @@ class KgeModel(KgeBase):
             else:
                 all_objects = self.get_o_embedder().embed_all()
                 all_subjects = self.get_s_embedder().embed_all()
-            sp_scores = self._scorer.score_emb(s, p, all_objects, combine="sp*")
-            po_scores = self._scorer.score_emb(all_subjects, p, o, combine="*po")
+            sp_scores = self._scorer.score_emb(s, p, all_objects, combine="sp_")
+            po_scores = self._scorer.score_emb(all_subjects, p, o, combine="_po")
         return torch.cat((sp_scores, po_scores), dim=1)

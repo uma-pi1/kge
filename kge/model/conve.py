@@ -83,7 +83,7 @@ class ConvEScorer(RelationalScorer):
         out = self.projection_dropout(out)
         out = self.bn2(out)
         out = self.non_linear(out)
-        if combine == "sp*":
+        if combine == "sp_":
             out = torch.mm(out, o_emb[:, 1:].transpose(1, 0))
         elif combine == "spo":
             out = (out * o_emb[:, 1:]).sum(-1)
