@@ -313,7 +313,9 @@ class Dataset(Configurable):
                 pickle_filename = os.path.abspath(pickle_filename)
                 pickle_dir = os.path.dirname(pickle_filename)
                 raise ValueError(
-                    f"""Cached dataset file {pickle_filename} is outdated.
+                    f"""Cached dataset file
+  {pickle_filename}
+is outdated.
 
 If unsure what to do, remove the command line option '--abort-when-cache-outdated' and
 rerun to recompute the outdated file.
