@@ -313,9 +313,7 @@ class Dataset(Configurable):
                 pickle_filename = os.path.abspath(pickle_filename)
                 pickle_dir = os.path.dirname(pickle_filename)
                 raise ValueError(
-                    f"""Cached dataset file
-  {pickle_filename}
-is outdated.
+                    f"""Cached dataset file {pickle_filename} is outdated.
 
 If unsure what to do, remove the command line option '--abort-when-cache-outdated' and
 rerun to recompute the outdated file.
@@ -345,6 +343,14 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
         os.replace(tmpfile, pickle_filename)
 
     ## ACCESS ###########################################################################
+
+    def files_of_type(self, file_type: str) -> List[str]:
+        "Return all keys of files with the specified type."
+        return [
+            key
+            for key, entry in self.config.get("dataset.files").items()
+            if entry["type"] == file_type
+        ]
 
     def num_entities(self) -> int:
         "Return the number of entities in this dataset."
