@@ -74,12 +74,12 @@ def prepare_index(index):
     Afterwards, it holds:
         index[keys[i]] = values[offsets[i]:offsets[i+1]]
     """
-    sp_po = torch.tensor(list(index.keys()), dtype=torch.int)
-    o_s = torch.cat(list(index.values()))
+    keys = torch.tensor(list(index.keys()), dtype=torch.int)
+    values = torch.cat(list(index.values()))
     offsets = torch.cumsum(
         torch.tensor([0] + list(map(len, index.values())), dtype=torch.int), 0
     )
-    return sp_po, o_s, offsets
+    return keys, values, offsets
 
 
 def _get_relation_types(dataset,):

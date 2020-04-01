@@ -221,7 +221,10 @@ KvsAll:
   label_smoothing: 0.0
 
   # If set, training also runs on subject object (so) pairs additionally to sp and op pairs
-  use_so: False
+  queries:
+    sp_to_o: True
+    so_to_p: False
+    po_to_s: True
 
 # Options for negative sampling training (train.type=="negative_sampling")
 negative_sampling:
