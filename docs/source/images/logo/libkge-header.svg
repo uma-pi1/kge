@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="590.82526mm"
+   height="69.830002mm"
+   viewBox="0 0 590.82526 69.830002"
+   version="1.1"
+   id="svg2033"
+   inkscape:version="0.92.4 (5da689c313, 2019-01-14)"
+   sodipodi:docname="libkge-header.svg"
+   inkscape:export-filename="D:\libkge-header-800.png"
+   inkscape:export-xdpi="34.389999"
+   inkscape:export-ydpi="34.389999">
+  <defs
+     id="defs2027" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.7"
+     inkscape:cx="1027.0797"
+     inkscape:cy="382.1089"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0"
+     inkscape:window-width="2560"
+     inkscape:window-height="1361"
+     inkscape:window-x="-9"
+     inkscape:window-y="-9"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata2030">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(80.590472,-33.787382)">
+    <g
+       id="g2800">
+      <text
+         id="text2580"
+         y="76.753273"
+         x="46.982441"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:25.39999962px;line-height:1.25;font-family:'Segoe UI';-inkscape-font-specification:'Segoe UI, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458332"
+         xml:space="preserve"><tspan
+           y="76.753273"
+           x="46.982441"
+           id="tspan2755"
+           sodipodi:role="line">A knowledge graph embedding library</tspan></text>
+      <g
+         id="g2620"
+         style="fill-rule:evenodd;stroke-width:28.22200012;stroke-linejoin:round"
+         transform="matrix(0.01,0,0,0.01,-80.300472,33.447382)">
+        <g
+           style="stroke-width:31.07072639"
+           transform="matrix(0.86177529,0,0,0.95736756,1214.9094,140.77896)"
+           id="g77"
+           class="com.sun.star.drawing.CustomShape">
+          <g
+             style="stroke-width:31.07072639"
+             id="id3">
+            <rect
+               style="fill:none;stroke:none;stroke-width:31.07072639"
+               id="rect72"
+               height="2906"
+               width="3241"
+               y="506"
+               x="7582"
+               class="BoundingBox" />
+            <path
+               style="fill:#1b98e0;stroke:none;stroke-width:31.07072639"
+               inkscape:connector-curvature="0"
+               id="path74"
+               d="M 9127,2043 7583,676 l 150,-170 3088,2734 -150,170 z" />
+          </g>
+        </g>
+        <g
+           style="stroke-width:29.02022171"
+           transform="matrix(0.93064621,0,0,1.0162241,464.86626,-103.73721)"
+           id="g84"
+           class="com.sun.star.drawing.CustomShape">
+          <g
+             style="stroke-width:29.02022171"
+             id="id4">
+            <rect
+               style="fill:none;stroke:none;stroke-width:29.02022171"
+               id="rect79"
+               height="2939"
+               width="2922"
+               y="3455"
+               x="7906"
+               class="BoundingBox" />
+            <path
+               style="fill:#1b98e0;stroke:none;stroke-width:29.02022171"
+               inkscape:connector-curvature="0"
+               id="path81"
+               d="m 9447,5004 -1380,1389 -161,-160 2759,-2777 161,159 z" />
+          </g>
+        </g>
+        <g
+           style="stroke-width:27.22616577"
+           transform="matrix(1.1166995,0.04582724,-0.04113419,0.9605137,-326.89923,-45.174389)"
+           id="g91"
+           class="com.sun.star.drawing.CustomShape">
+          <g
+             style="stroke-width:27.22616577"
+             id="id5">
+            <rect
+               style="fill:none;stroke:none;stroke-width:27.22616577"
+               id="rect86"
+               height="1100"
+               width="3969"
+               y="5318"
+               x="3559"
+               class="BoundingBox" />
+            <path
+               style="fill:#1b98e0;stroke:none;stroke-width:27.22616577"
+               inkscape:connector-curvature="0"
+               id="path88"
+               d="m 5518,5978 -1959,-438 50,-222 3917,877 -50,222 z" />
+          </g>
+        </g>
+        <g
+           id="g100"
+           class="com.sun.star.drawing.CustomShape">
+          <g
+             id="id6">
+            <rect
+               style="fill:none;stroke:none"
+               id="rect93"
+               height="1345"
+               width="1415"
+               y="34"
+               x="7117"
+               class="BoundingBox" />
+            <path
+               style="fill:#1b98e0;stroke:none"
+               inkscape:connector-curvature="0"
+               id="path95"
+               d="m 7823,110 c 357,0 631,258 631,595 0,337 -274,596 -631,596 -357,0 -630,-259 -630,-596 0,-337 273,-595 630,-595 z m -630,0 z m 1262,1192 z" />
+            <path
+               style="fill:none;stroke:#ffffff;stroke-width:152;stroke-linejoin:round"
+               inkscape:connector-curvature="0"
+               id="path97"
+               d="m 7823,110 c 357,0 631,258 631,595 0,337 -274,596 -631,596 -357,0 -630,-259 -630,-596 0,-337 273,-595 630,-595 z" />
+          </g>
+        </g>
+        <g
+           id="g109"
+           class="com.sun.star.drawing.CustomShape">
+          <g
+             id="id7">
+            <rect
+               style="fill:none;stroke:none"
+               id="rect102"
+               height="1345"
+               width="1415"
+               y="2753"
+               x="9836"
+               class="BoundingBox" />
+            <path
+               style="fill:#1b98e0;stroke:none"
+               inkscape:connector-curvature="0"
+               id="path104"
+               d="m 10542,2830 c 357,0 631,258 631,595 0,337 -274,595 -631,595 -357,0 -630,-258 -630,-595 0,-337 273,-595 630,-595 z m -630,0 z m 1262,1191 z" />
+            <path
+               style="fill:none;stroke:#ffffff;stroke-width:152;stroke-linejoin:round"
+               inkscape:connector-curvature="0"
+               id="path106"
+               d="m 10542,2830 c 357,0 631,258 631,595 0,337 -274,595 -631,595 -357,0 -630,-258 -630,-595 0,-337 273,-595 630,-595 z" />
+          </g>
+        </g>
+        <g
+           id="g118"
+           class="com.sun.star.drawing.CustomShape">
+          <g
+             id="id8">
+            <rect
+               style="fill:none;stroke:none"
+               id="rect111"
+               height="1345"
+               width="1414"
+               y="5672"
+               x="7113"
+               class="BoundingBox" />
+            <path
+               style="fill:#1b98e0;stroke:none"
+               inkscape:connector-curvature="0"
+               id="path113"
+               d="m 7819,5748 c 357,0 630,258 630,595 0,337 -273,596 -630,596 -357,0 -630,-259 -630,-596 0,-337 273,-595 630,-595 z m -630,0 z m 1261,1192 z" />
+            <path
+               style="fill:none;stroke:#ffffff;stroke-width:152;stroke-linejoin:round"
+               inkscape:connector-curvature="0"
+               id="path115"
+               d="m 7819,5748 c 357,0 630,258 630,595 0,337 -273,596 -630,596 -357,0 -630,-259 -630,-596 0,-337 273,-595 630,-595 z" />
+          </g>
+        </g>
+        <g
+           id="g127"
+           class="com.sun.star.drawing.CustomShape">
+          <g
+             id="id9">
+            <rect
+               style="fill:none;stroke:none"
+               id="rect120"
+               height="1346"
+               width="1415"
+               y="4720"
+               x="2745"
+               class="BoundingBox" />
+            <path
+               style="fill:#1b98e0;stroke:none"
+               inkscape:connector-curvature="0"
+               id="path122"
+               d="m 3451,4796 c 357,0 631,258 631,595 0,337 -274,596 -631,596 -357,0 -630,-259 -630,-596 0,-337 273,-595 630,-595 z m -630,0 z m 1262,1192 z" />
+            <path
+               style="fill:none;stroke:#ffffff;stroke-width:152;stroke-linejoin:round"
+               inkscape:connector-curvature="0"
+               id="path124"
+               d="m 3451,4796 c 357,0 631,258 631,595 0,337 -274,596 -631,596 -357,0 -630,-259 -630,-596 0,-337 273,-595 630,-595 z" />
+          </g>
+        </g>
+        <rect
+           class="BoundingBox"
+           x="-29"
+           y="1895"
+           width="10282"
+           height="3211"
+           id="rect131"
+           style="fill:none;stroke:none;stroke-width:158.75;stroke-miterlimit:4;stroke-dasharray:none" />
+        <text
+           class="TextShape"
+           id="text141"
+           x="264.58334"
+           y="-52.916664"
+           style="stroke-width:158.75;stroke-miterlimit:4;stroke-dasharray:none">
+          <tspan
+             class="TextParagraph"
+             font-size="2540px"
+             font-weight="700"
+             id="tspan139"
+             style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:2540px;font-family:'Segoe UI';-inkscape-font-specification:'Segoe UI, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;stroke-width:158.75;stroke-miterlimit:4;stroke-dasharray:none">
+            <tspan
+               class="TextPosition"
+               x="485.58328"
+               y="4325.0835"
+               id="tspan137"
+               style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:2540px;font-family:'Segoe UI';-inkscape-font-specification:'Segoe UI, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;stroke-width:158.75;stroke-miterlimit:4;stroke-dasharray:none">
+              <tspan
+                 id="tspan133"
+                 style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:2540px;font-family:'Segoe UI';-inkscape-font-specification:'Segoe UI, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;fill:#272635;stroke:none;stroke-width:158.75;stroke-miterlimit:4;stroke-dasharray:none">Lib</tspan>
+              <tspan
+                 id="tspan135"
+                 style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:2540px;font-family:'Segoe UI';-inkscape-font-specification:'Segoe UI, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;fill:#1b98e0;stroke:none;stroke-width:158.75;stroke-miterlimit:4;stroke-dasharray:none">KGE</tspan>
+            </tspan>
+          </tspan>
+        </text>
+      </g>
+    </g>
+  </g>
+</svg>
