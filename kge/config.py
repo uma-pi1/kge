@@ -448,7 +448,7 @@ class Config:
 
     @staticmethod
     def get_best_or_last_checkpoint(path: str) -> str:
-        """Returns best (if present) or last checkpoint path for a given folder path."""
+        """Return best (if present) or last checkpoint path for a given folder path."""
         config = Config(folder=path, load_default=False)
         checkpoint_file = config.checkpoint_file("best")
         if os.path.isfile(checkpoint_file):

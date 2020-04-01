@@ -4,7 +4,7 @@ from kge.model.kge_model import RelationalScorer, KgeModel
 from torch.nn import functional as F
 
 
-# TODO sp* and *po scoring with RotatE leads to *large* intermediate results. It's
+# TODO sp_ and _po scoring with RotatE leads to *large* intermediate results. It's
 # unclear whether this can be fixed. Expect out-of-memory errors when using RotatE with
 # 1vsAll or KvsAll training. To do validation/evaluation, you may want to set
 # eval.chunk_size.
@@ -38,7 +38,7 @@ class RotatEScorer(RelationalScorer):
 
             # now take the norm of the absolute values of the difference vector
             out = torch.norm(diff_abs, dim=1, p=self._norm)
-        elif combine == "sp*":
+        elif combine == "sp_":
             # as above, but pair each sp-pair with each object
             sp_emb_re, sp_emb_im = hadamard_complex(
                 s_emb_re, s_emb_im, p_emb_re, p_emb_im
@@ -48,7 +48,7 @@ class RotatEScorer(RelationalScorer):
             )  # sp x o x dim
             diff_abs = norm_complex(diff_re, diff_im)  # sp x o x dim
             out = torch.norm(diff_abs, dim=2, p=self._norm)
-        elif combine == "*po":
+        elif combine == "_po":
             # as above, but pair each subject with each po-pair
             sp_emb_re, sp_emb_im = pairwise_hadamard_complex(
                 s_emb_re, s_emb_im, p_emb_re, p_emb_im

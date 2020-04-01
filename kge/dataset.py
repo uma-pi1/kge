@@ -346,6 +346,14 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
 
     ## ACCESS ###########################################################################
 
+    def files_of_type(self, file_type: str) -> List[str]:
+        "Return all keys of files with the specified type."
+        return [
+            key
+            for key, entry in self.config.get("dataset.files").items()
+            if entry["type"] == file_type
+        ]
+
     def num_entities(self) -> int:
         "Return the number of entities in this dataset."
         if not self._num_entities:

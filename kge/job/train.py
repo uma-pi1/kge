@@ -982,7 +982,7 @@ class TrainingJobNegativeSampling(TrainingJob):
 
 
 class TrainingJob1vsAll(TrainingJob):
-    """Samples SPO pairs and queries sp* and *po, treating all other entities as negative."""
+    """Samples SPO pairs and queries sp_ and _po, treating all other entities as negative."""
 
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)

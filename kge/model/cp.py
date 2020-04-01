@@ -21,9 +21,9 @@ class CPScorer(RelationalScorer):
 
         if combine == "spo":
             out = (s_emb_h * p_emb * o_emb_t).sum(dim=1)
-        elif combine == "sp*":
+        elif combine == "sp_":
             out = (s_emb_h * p_emb).mm(o_emb_t.transpose(0, 1))
-        elif combine == "*po":
+        elif combine == "_po":
             out = (o_emb_t * p_emb).mm(s_emb_h.transpose(0, 1))
         else:
             return super().score_emb(s_emb, p_emb, o_emb, combine)

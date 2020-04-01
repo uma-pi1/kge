@@ -15,9 +15,9 @@ class TransEScorer(RelationalScorer):
         n = p_emb.size(0)
         if combine == "spo":
             out = -F.pairwise_distance(s_emb + p_emb, o_emb, p=self._norm)
-        elif combine == "sp*":
+        elif combine == "sp_":
             out = -torch.cdist(s_emb + p_emb, o_emb, p=self._norm)
-        elif combine == "*po":
+        elif combine == "_po":
             out = -torch.cdist(o_emb - p_emb, s_emb, p=self._norm)
         else:
             super().score_emb(s_emb, p_emb, o_emb, combine)

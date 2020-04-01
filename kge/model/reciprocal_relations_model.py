@@ -8,8 +8,8 @@ class ReciprocalRelationsModel(KgeModel):
     """Modifies a base model to use different relation embeddings for predicting subject and object.
 
     This implements the reciprocal relations training procedure of [TODO cite ConvE].
-    Note that this model cannot be used to score a single triple, but only to rank sp*
-    or *po questions.
+    Note that this model cannot be used to score a single triple, but only to rank sp_
+    or _po questions.
 
     """
 
@@ -58,7 +58,7 @@ class ReciprocalRelationsModel(KgeModel):
             s = self.get_s_embedder().embed(s)
         p = self.get_p_embedder().embed(p + self.dataset.num_relations())
         o = self.get_o_embedder().embed(o)
-        return self._scorer.score_emb(o, p, s, combine="sp*")
+        return self._scorer.score_emb(o, p, s, combine="sp_")
 
     def score_so(self, s, o, p=None):
         raise Exception("The reciprocal relations model cannot score relations.")
@@ -79,8 +79,8 @@ class ReciprocalRelationsModel(KgeModel):
                 all_entities = self.get_s_embedder().embed(entity_subset)
             else:
                 all_entities = self.get_s_embedder().embed_all()
-            sp_scores = self._scorer.score_emb(s, p, all_entities, combine="sp*")
-            po_scores = self._scorer.score_emb(o, p_inv, all_entities, combine="sp*")
+            sp_scores = self._scorer.score_emb(s, p, all_entities, combine="sp_")
+            po_scores = self._scorer.score_emb(o, p_inv, all_entities, combine="sp_")
         else:
             if entity_subset is not None:
                 all_objects = self.get_o_embedder().embed(entity_subset)
@@ -88,6 +88,6 @@ class ReciprocalRelationsModel(KgeModel):
             else:
                 all_objects = self.get_o_embedder().embed_all()
                 all_subjects = self.get_s_embedder().embed_all()
-            sp_scores = self._scorer.score_emb(s, p, all_objects, combine="sp*")
-            po_scores = self._scorer.score_emb(o, p_inv, all_subjects, combine="sp*")
+            sp_scores = self._scorer.score_emb(s, p, all_objects, combine="sp_")
+            po_scores = self._scorer.score_emb(o, p_inv, all_subjects, combine="sp_")
         return torch.cat((sp_scores, po_scores), dim=1)

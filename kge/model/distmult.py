@@ -16,9 +16,9 @@ class DistMultScorer(RelationalScorer):
 
         if combine == "spo":
             out = (s_emb * p_emb * o_emb).sum(dim=1)
-        elif combine == "sp*":
+        elif combine == "sp_":
             out = (s_emb * p_emb).mm(o_emb.transpose(0, 1))
-        elif combine == "*po":
+        elif combine == "_po":
             out = (o_emb * p_emb).mm(s_emb.transpose(0, 1))
         else:
             return super().score_emb(s_emb, p_emb, o_emb, combine)

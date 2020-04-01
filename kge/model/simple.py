@@ -22,10 +22,10 @@ class SimplEScorer(RelationalScorer):
         if combine == "spo":
             out1 = (s_emb_h * p_emb_forward * o_emb_t).sum(dim=1)
             out2 = (s_emb_t * p_emb_backward * o_emb_h).sum(dim=1)
-        elif combine == "sp*":
+        elif combine == "sp_":
             out1 = (s_emb_h * p_emb_forward).mm(o_emb_t.transpose(0, 1))
             out2 = (s_emb_t * p_emb_backward).mm(o_emb_h.transpose(0, 1))
-        elif combine == "*po":
+        elif combine == "_po":
             out1 = (o_emb_t * p_emb_forward).mm(s_emb_h.transpose(0, 1))
             out2 = (o_emb_h * p_emb_backward).mm(s_emb_t.transpose(0, 1))
         else:

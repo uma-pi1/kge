@@ -186,7 +186,7 @@ def _add_dump_trace_parser(subparsers_dump):
         type=str,
         help=(
             "A list of 'key' entries (separated by space). Each 'key' has form"
-            " 'new_key_name=key_name' or 'key_name'. This adds a columns as in the"
+            " 'new_key_name=key_name' or 'key_name'. This adds a column as in the"
             " --keysfile option. When only 'key_name' is provided, it is also used as"
             " the column name in the CSV file."
         ),
@@ -262,6 +262,17 @@ def _add_dump_trace_parser(subparsers_dump):
         const=True,
         default=False,
         help="Exclude default keys from the CSV file.",
+    )
+    parser_dump_trace.add_argument(
+        "--list-keys",
+        action="store",
+        const=True,
+        default=False,
+        nargs="?",
+        help="Output the CSV default keys and all usable keys for --keysfile and --keys"
+        " for the given configuration of options. Takes an optional string argument"
+        " which separates the listed keys (default comma), e.g. use $'\\n' to display"
+        " every key on a new line.",
     )
 
 
@@ -379,6 +390,9 @@ def _dump_trace(args):
     elif not entries:
         sys.exit("No relevant trace entries found.")
 
+    if args.list_keys:
+        all_trace_keys = set()
+
     if not args.yaml:
         csv_writer = csv.writer(sys.stdout)
         # dict[new_name] = (lookup_name, where)
@@ -408,7 +422,7 @@ def _dump_trace(args):
                 default_attributes["child_folder"] = ("folder", "trace")
                 default_attributes["child_job_id"] = ("child_job_id", "sep")
 
-        if not args.no_header:
+        if not (args.no_header or args.list_keys):
             csv_writer.writerow(
                 list(default_attributes.keys()) + [key for key in keymap.keys()]
             )
@@ -459,7 +473,9 @@ def _dump_trace(args):
             else:
                 config = get_config_for_job_id(job_id, folder_path)
             configs[config_key] = config
-
+        if args.list_keys:
+            all_trace_keys.update(entry.keys())
+            continue
         new_attributes = OrderedDict()
         # when training was reciprocal, use the base_model as model
         if config.get_default("model") == "reciprocal_relations_model":
@@ -550,8 +566,29 @@ def _dump_trace(args):
             entry.update({"reciprocal": reciprocal, "model": model})
             if keymap:
                 entry.update(new_attributes)
-            sys.stdout.write(re.sub("[{}']", "", str(entry)))
-            sys.stdout.write("\n")
+            print(entry)
+    if args.list_keys:
+        # only one config needed
+        config = configs[list(configs.keys())[0]]
+        options = Config.flatten(config.options)
+        options = sorted(
+            filter(lambda opt: "+++" not in opt, options), key=lambda opt: opt.lower()
+        )
+        if isinstance(args.list_keys, bool):
+            sep = ", "
+        else:
+            sep = args.list_keys
+        print("Default keys for CSV: ")
+        print(*default_attributes.keys(), sep=sep)
+        print("")
+        print("Special keys: ")
+        print(*["$folder", "$checkpoint", "$machine", "$base_model"], sep=sep)
+        print("")
+        print("Keys found in trace: ")
+        print(*sorted(all_trace_keys), sep=sep)
+        print("")
+        print("Keys found in config: ")
+        print(*options, sep=sep)
 
 
 ### DUMP CONFIG ########################################################################

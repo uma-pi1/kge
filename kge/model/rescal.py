@@ -34,14 +34,14 @@ class RescalScorer(RelationalScorer):
             ).sum(
                 dim=-1
             )  # and sum to obtain predictions
-        elif combine == "sp*":
+        elif combine == "sp_":
             out = (
                 s_emb.unsqueeze(1)
                 .bmm(p_mixmat)
                 .view(batch_size, entity_size)
                 .mm(o_emb.transpose(0, 1))
             )
-        elif combine == "*po":
+        elif combine == "_po":
             out = (
                 p_mixmat.bmm(o_emb.unsqueeze(2))
                 .view(batch_size, entity_size)
