@@ -28,8 +28,9 @@ def index_KvsAll(dataset: "Dataset", split: str, key: str):
 
     The index maps from `tuple' to `torch.LongTensor`.
 
-    The index is cached in the provided dataset under name `split_sp` or `split_po` or
-    `split_so`. If this index is already present, does not recompute it.
+    The index is cached in the provided dataset under name `{split}_sp_to_o` or
+    `{split}_po_to_s`, or `{split}_so_to_p`. If this index is already present, does not
+    recompute it.
 
     """
     value = None
@@ -63,7 +64,7 @@ def index_KvsAll(dataset: "Dataset", split: str, key: str):
     return dataset._indexes.get(name)
 
 
-def prepare_index(index):
+def index_KvsAll_to_torch(index):
     """Convert `index_KvsAll` indexes to pytorch tensors.
 
     Returns an nx2 keys tensor (rows = keys), an offset vector

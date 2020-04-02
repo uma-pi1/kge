@@ -109,7 +109,7 @@ train:
   split: train
 
   # Type of training job.
-  # - KvsAll: scores each unique sp/po pair along with all possible objectes/subjects.
+  # - KvsAll: scores each unique sp/po/so pair along with all possible completions.
   # - negative_sampling: scores each unique spo triple along with sampled corrupted
   #   triples
   # - 1vsAll: scores each spo triples against the complete set of s/p-corrputed triples
@@ -209,8 +209,8 @@ train:
 
 # Options for KvsAll training (train.type=="KvsAll")
 KvsAll:
-  # Amount of label smoothing (disabled when 0). Disencourages models to
-  # perform extreme predictions (0 or 1).
+  # Amount of label smoothing (disabled when 0) for sp_ and _po queries.
+  # Disencourages models to perform extreme predictions (0 or 1).
   #
   # Technically, reduces all labels by fraction given by this value and
   # subsequently increases them by 1.0/num_entities. For example, 0s become
@@ -220,7 +220,9 @@ KvsAll:
   # ( https://github.com/TimDettmers/ConvE/blob/853d7010a4b569c3d24c9e6eeaf9dc3535d78832/main.py#L156) with a default value of 0.1.
   label_smoothing: 0.0
 
-  # For each query type being set means that training is run on predicting "_" from given slots
+  # Query types used during training. Here _ indicates the prediction target.
+  # For example, sp_ means queries of form (s,p,?): predict all objects for each
+  # distinct subject-predicate pair (s,p).
   query_types:
     sp_: True
     s_o: False
