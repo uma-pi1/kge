@@ -220,11 +220,11 @@ KvsAll:
   # ( https://github.com/TimDettmers/ConvE/blob/853d7010a4b569c3d24c9e6eeaf9dc3535d78832/main.py#L156) with a default value of 0.1.
   label_smoothing: 0.0
 
-  # If set, training also runs on subject object (so) pairs additionally to sp and op pairs
-  queries:
-    sp_to_o: True
-    so_to_p: False
-    po_to_s: True
+  # For each query type being set means that training is run on predicting "_" from given slots
+  query_types:
+    sp_: True
+    s_o: False
+    _po: True
 
 # Options for negative sampling training (train.type=="negative_sampling")
 negative_sampling:
