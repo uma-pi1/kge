@@ -485,6 +485,16 @@ class TrainingJob(Job):
 
 
 class TrainingJobKvsAll(TrainingJob):
+    """Train with examples consisting of a query and its answers.
+
+    Terminology:
+    - Query type: which queries to ask (sp_, s_o, and/or _po), can be configured via
+      configuration key `KvsAll.query_type` (which see)
+    - Query: a particular query, e.g., (John,marriedTo) of type sp_
+    - Labels: list of true answers of a query (e.g., [Jane])
+    - Example: a query + its labels, e.g., (John,marriedTo), [Jane]
+    """
+
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
         self.label_smoothing = config.check_range(
@@ -550,8 +560,8 @@ class TrainingJobKvsAll(TrainingJob):
         #' label_offsets[query_type][i]:label_offsets[query_type][i+1]
         self.label_offsets = {}
 
-        #' for each query type (ordered as in self.query_types), index of last example
-        #' of that type in the list of all examples
+        #' for each query type (ordered as in self.query_types), index right after last
+        #' example of that type in the list of all examples
         self.query_end_index = []
 
         # construct relevant data structures
@@ -592,7 +602,8 @@ class TrainingJobKvsAll(TrainingJob):
             - label_coords: for each query, position of true answers (an Nx2 tensor,
               first columns holds query index, second colum holds index of label)
             - query_type_indexes (vector of size n holding the query type of each query)
-            - triples (all true triples in the batch; e.g., needed for weighted penalties)
+            - triples (all true triples in the batch; e.g., needed for weighted
+              penalties)
 
             """
 
@@ -673,6 +684,8 @@ class TrainingJobKvsAll(TrainingJob):
         label_coords_batch = batch["label_coords"].to(self.device)
         query_type_indexes_batch = batch["query_type_indexes"]
 
+        # in this method, example refers to the index of an example in the batch, i.e.,
+        # it takes values in 0,1,...,batch_size-1
         examples_for_query_type = {}
         for query_type_index, query_type in enumerate(self.query_types):
             examples_for_query_type[query_type] = (
