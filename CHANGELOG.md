@@ -1,3 +1,7 @@
+#### Apr 2020
+
+- PR [#86]: Support (s,?,o) queries for KvsAll training (thanks vonVogelstein)
+
 #### Mar 2020
 
 - [cf64dd2](https://github.com/uma-pi1/kge/commit/cf64dd2fcc4c5961bda2d9142ea1b08d41c16ba2) Fast dataset/index loading via cached pickle files

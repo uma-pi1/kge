@@ -437,7 +437,7 @@ class TrainingJob(Job):
             split=self.train_split,
             batches=len(self.loader),
             size=self.num_examples,
-            lr = [group["lr"] for group in self.optimizer.param_groups],
+            lr=[group["lr"] for group in self.optimizer.param_groups],
             avg_loss=sum_loss / self.num_examples,
             avg_penalty=sum_penalty / len(self.loader),
             avg_penalties={k: p / len(self.loader) for k, p in sum_penalties.items()},
@@ -485,6 +485,16 @@ class TrainingJob(Job):
 
 
 class TrainingJobKvsAll(TrainingJob):
+    """Train with examples consisting of a query and its answers.
+
+    Terminology:
+    - Query type: which queries to ask (sp_, s_o, and/or _po), can be configured via
+      configuration key `KvsAll.query_type` (which see)
+    - Query: a particular query, e.g., (John,marriedTo) of type sp_
+    - Labels: list of true answers of a query (e.g., [Jane])
+    - Example: a query + its labels, e.g., (John,marriedTo), [Jane]
+    """
+
     def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
         self.label_smoothing = config.check_range(
@@ -530,109 +540,138 @@ class TrainingJobKvsAll(TrainingJob):
                 f(self)
 
     def _prepare(self):
-        # create sp and po label_coords (if not done before)
-        train_sp = self.dataset.index(f"{self.train_split}_sp_to_o")
-        train_po = self.dataset.index(f"{self.train_split}_po_to_s")
+        from kge.indexing import index_KvsAll_to_torch
 
-        # convert indexes to pytoch tensors: a nx2 keys tensor (rows = keys),
-        # an offset vector (row = starting offset in values for corresponding
-        # key), a values vector (entries correspond to values of original
-        # index)
-        #
-        # Afterwards, it holds:
-        # index[keys[i]] = values[offsets[i]:offsets[i+1]]
+        # determine enabled query types
+        self.query_types = [
+            key
+            for key, enabled in self.config.get("KvsAll.query_types").items()
+            if enabled
+        ]
 
-        (
-            self.train_sp_keys,
-            self.train_sp_values,
-            self.train_sp_offsets,
-        ) = kge.indexing.prepare_index(train_sp)
-        (
-            self.train_po_keys,
-            self.train_po_values,
-            self.train_po_offsets,
-        ) = kge.indexing.prepare_index(train_po)
+        #' for each query type: list of queries
+        self.queries = {}
+
+        #' for each query type: list of all labels (concatenated across queries)
+        self.labels = {}
+
+        #' for each query type: list of starting offset of labels in self.labels. The
+        #' labels for the i-th query of query_type are in labels[query_type] in range
+        #' label_offsets[query_type][i]:label_offsets[query_type][i+1]
+        self.label_offsets = {}
+
+        #' for each query type (ordered as in self.query_types), index right after last
+        #' example of that type in the list of all examples
+        self.query_end_index = []
+
+        # construct relevant data structures
+        self.num_examples = 0
+        for query_type in self.query_types:
+            index_type = (
+                "sp_to_o"
+                if query_type == "sp_"
+                else ("so_to_p" if query_type == "s_o" else "po_to_s")
+            )
+            index = self.dataset.index(f"{self.train_split}_{index_type}")
+            self.num_examples += len(index)
+            self.query_end_index.append(self.num_examples)
+
+            # Convert indexes to pytorch tensors (as described above).
+            (
+                self.queries[query_type],
+                self.labels[query_type],
+                self.label_offsets[query_type],
+            ) = index_KvsAll_to_torch(index)
 
         # create dataloader
         self.loader = torch.utils.data.DataLoader(
-            range(len(train_sp) + len(train_po)),
+            range(self.num_examples),
             collate_fn=self._get_collate_fun(),
             shuffle=True,
             batch_size=self.batch_size,
             num_workers=self.config.get("train.num_workers"),
             pin_memory=self.config.get("train.pin_memory"),
         )
-        self.num_examples = len(train_sp) + len(train_po)
 
     def _get_collate_fun(self):
-        num_sp = len(self.train_sp_keys)
-
         # create the collate function
         def collate(batch):
-            """For a batch of size n, returns a triple of:
+            """For a batch of size n, returns a dictionary of:
 
-            - pairs (nx2 tensor, row = sp or po indexes),
-            - label coordinates (position of ones in a batch_size x num_entities tensor)
-            - is_sp (vector of size n, 1 if corresponding example_index is sp, 0 if po)
-            - triples (all true triples in the batch: needed for weighted penalties only)
+            - queries: nx2 tensor, row = query (sp, po, or so indexes)
+            - label_coords: for each query, position of true answers (an Nx2 tensor,
+              first columns holds query index, second colum holds index of label)
+            - query_type_indexes (vector of size n holding the query type of each query)
+            - triples (all true triples in the batch; e.g., needed for weighted
+              penalties)
 
             """
-            # count how many labels we have
+
+            # count how many labels we have across the entire batch
             num_ones = 0
             for example_index in batch:
-                if example_index < num_sp:
-                    num_ones += self.train_sp_offsets[example_index + 1]
-                    num_ones -= self.train_sp_offsets[example_index]
-                else:
-                    example_index -= num_sp
-                    num_ones += self.train_po_offsets[example_index + 1]
-                    num_ones -= self.train_po_offsets[example_index]
+                start = 0
+                for query_type_index, query_type in enumerate(self.query_types):
+                    end = self.query_end_index[query_type_index]
+                    if example_index < end:
+                        example_index -= start
+                        num_ones += self.label_offsets[query_type][example_index + 1]
+                        num_ones -= self.label_offsets[query_type][example_index]
+                        break
+                    start = end
 
-            # now create the results
-            sp_po_batch = torch.zeros([len(batch), 2], dtype=torch.long)
-            is_sp = torch.zeros([len(batch)], dtype=torch.long)
-            label_coords = torch.zeros([num_ones, 2], dtype=torch.int)
+            # now create the batch elements
+            queries_batch = torch.zeros([len(batch), 2], dtype=torch.long)
+            query_type_indexes_batch = torch.zeros([len(batch)], dtype=torch.long)
+            label_coords_batch = torch.zeros([num_ones, 2], dtype=torch.int)
+            triples_batch = torch.zeros([num_ones, 3], dtype=torch.long)
             current_index = 0
-            triples = torch.zeros([num_ones, 3], dtype=torch.long)
             for batch_index, example_index in enumerate(batch):
-                is_sp[batch_index] = 1 if example_index < num_sp else 0
-                if is_sp[batch_index]:
-                    keys = self.train_sp_keys
-                    offsets = self.train_sp_offsets
-                    values = self.train_sp_values
-                    sp_po_col_1, sp_po_col_2, o_s_col = S, P, O
-                else:
-                    example_index -= num_sp
-                    keys = self.train_po_keys
-                    offsets = self.train_po_offsets
-                    values = self.train_po_values
-                    o_s_col, sp_po_col_1, sp_po_col_2 = S, P, O
+                start = 0
+                for query_type_index, query_type in enumerate(self.query_types):
+                    end = self.query_end_index[query_type_index]
+                    if example_index < end:
+                        example_index -= start
+                        query_type_indexes_batch[batch_index] = query_type_index
+                        queries = self.queries[query_type]
+                        label_offsets = self.label_offsets[query_type]
+                        labels = self.labels[query_type]
+                        if query_type == "sp_":
+                            query_col_1, query_col_2, target_col = S, P, O
+                        elif query_type == "s_o":
+                            query_col_1, target_col, query_col_2 = S, P, O
+                        else:
+                            target_col, query_col_1, query_col_2 = S, P, O
+                        break
+                    start = end
 
-                sp_po_batch[batch_index,] = keys[example_index]
-                start = offsets[example_index]
-                end = offsets[example_index + 1]
+                queries_batch[batch_index,] = queries[example_index]
+                start = label_offsets[example_index]
+                end = label_offsets[example_index + 1]
                 size = end - start
-                label_coords[current_index : (current_index + size), 0] = batch_index
-                label_coords[current_index : (current_index + size), 1] = values[
+                label_coords_batch[
+                    current_index : (current_index + size), 0
+                ] = batch_index
+                label_coords_batch[current_index : (current_index + size), 1] = labels[
                     start:end
                 ]
-                triples[current_index : (current_index + size), sp_po_col_1] = keys[
-                    example_index
-                ][0]
-                triples[current_index : (current_index + size), sp_po_col_2] = keys[
-                    example_index
-                ][1]
-                triples[current_index : (current_index + size), o_s_col] = values[
-                    start:end
-                ]
+                triples_batch[
+                    current_index : (current_index + size), query_col_1
+                ] = queries[example_index][0]
+                triples_batch[
+                    current_index : (current_index + size), query_col_2
+                ] = queries[example_index][1]
+                triples_batch[
+                    current_index : (current_index + size), target_col
+                ] = labels[start:end]
                 current_index += size
 
             # all done
             return {
-                "sp_po_batch": sp_po_batch,
-                "label_coords": label_coords,
-                "is_sp": is_sp,
-                "triples": triples,
+                "queries": queries_batch,
+                "label_coords": label_coords_batch,
+                "query_type_indexes": query_type_indexes_batch,
+                "triples": triples_batch,
             }
 
         return collate
@@ -640,50 +679,80 @@ class TrainingJobKvsAll(TrainingJob):
     def _process_batch(self, batch_index, batch) -> TrainingJob._ProcessBatchResult:
         # prepare
         prepare_time = -time.time()
-        sp_po_batch = batch["sp_po_batch"].to(self.device)
-        batch_size = len(sp_po_batch)
-        label_coords = batch["label_coords"].to(self.device)
-        is_sp = batch["is_sp"]
-        sp_indexes = is_sp.nonzero().to(self.device).view(-1)
-        po_indexes = (is_sp == 0).nonzero().to(self.device).view(-1)
-        labels = kge.job.util.coord_to_sparse_tensor(
-            batch_size, self.dataset.num_entities(), label_coords, self.device
+        queries_batch = batch["queries"].to(self.device)
+        batch_size = len(queries_batch)
+        label_coords_batch = batch["label_coords"].to(self.device)
+        query_type_indexes_batch = batch["query_type_indexes"]
+
+        # in this method, example refers to the index of an example in the batch, i.e.,
+        # it takes values in 0,1,...,batch_size-1
+        examples_for_query_type = {}
+        for query_type_index, query_type in enumerate(self.query_types):
+            examples_for_query_type[query_type] = (
+                (query_type_indexes_batch == query_type_index)
+                .nonzero()
+                .to(self.device)
+                .view(-1)
+            )
+
+        labels_batch = kge.job.util.coord_to_sparse_tensor(
+            batch_size,
+            max(self.dataset.num_entities(), self.dataset.num_relations()),
+            label_coords_batch,
+            self.device,
         ).to_dense()
+        labels_for_query_type = {}
+        for query_type, examples in examples_for_query_type.items():
+            if query_type == "s_o":
+                labels_for_query_type[query_type] = labels_batch[
+                    examples, : self.dataset.num_relations()
+                ]
+            else:
+                labels_for_query_type[query_type] = labels_batch[
+                    examples, : self.dataset.num_entities()
+                ]
+
         if self.label_smoothing > 0.0:
             # as in ConvE: https://github.com/TimDettmers/ConvE
-            labels = (1.0 - self.label_smoothing) * labels + 1.0 / labels.size(1)
+            for query_type, labels in labels_for_query_type.items():
+                if query_type != "s_o":  # entity targets only for now
+                    labels_for_query_type[query_type] = (
+                        1.0 - self.label_smoothing
+                    ) * labels + 1.0 / labels.size(1)
+
         prepare_time += time.time()
 
         # forward/backward pass (sp)
-        loss_value = 0.0
-        if len(sp_indexes) > 0:
-            forward_time = -time.time()
-            scores_sp = self.model.score_sp(
-                sp_po_batch[sp_indexes, 0], sp_po_batch[sp_indexes, 1]
-            )
-            loss_value_sp = self.loss(scores_sp, labels[sp_indexes,]) / batch_size
-            loss_value = loss_value_sp.item()
-            forward_time += time.time()
-            backward_time = -time.time()
-            loss_value_sp.backward()
-            backward_time += time.time()
-
-        # forward/backward pass (po)
-        if len(po_indexes) > 0:
-            forward_time = -time.time()
-            scores_po = self.model.score_po(
-                sp_po_batch[po_indexes, 0], sp_po_batch[po_indexes, 1]
-            )
-            loss_value_po = self.loss(scores_po, labels[po_indexes,]) / batch_size
-            loss_value += loss_value_po.item()
-            forward_time += time.time()
-            backward_time = -time.time()
-            loss_value_po.backward()
-            backward_time += time.time()
+        loss_value_total = 0.0
+        backward_time = 0
+        forward_time = 0
+        for query_type, examples in examples_for_query_type.items():
+            if len(examples) > 0:
+                forward_time -= time.time()
+                if query_type == "sp_":
+                    scores = self.model.score_sp(
+                        queries_batch[examples, 0], queries_batch[examples, 1]
+                    )
+                elif query_type == "s_o":
+                    scores = self.model.score_so(
+                        queries_batch[examples, 0], queries_batch[examples, 1]
+                    )
+                else:
+                    scores = self.model.score_po(
+                        queries_batch[examples, 0], queries_batch[examples, 1]
+                    )
+                loss_value = (
+                    self.loss(scores, labels_for_query_type[query_type]) / batch_size
+                )
+                loss_value_total = loss_value.item()
+                forward_time += time.time()
+                backward_time -= time.time()
+                loss_value.backward()
+                backward_time += time.time()
 
         # all done
         return TrainingJob._ProcessBatchResult(
-            loss_value, batch_size, prepare_time, forward_time, backward_time
+            loss_value_total, batch_size, prepare_time, forward_time, backward_time
         )
 
 
