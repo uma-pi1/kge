@@ -1,6 +1,6 @@
 #### Apr 2020
 
-- PR [#86]: Support (s,?,o) queries for KvsAll training (thanks vonVogelstein)
+- PR [#86](https://github.com/uma-pi1/kge/pull/86): Support (s,?,o) queries for KvsAll training (thanks vonVogelstein)
 
 #### Mar 2020
 
