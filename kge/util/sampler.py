@@ -23,6 +23,12 @@ class KgeSampler(Configurable):
         self.filter_positives = torch.zeros(3, dtype=torch.bool)
         self.vocabulary_size = torch.zeros(3, dtype=torch.int)
         self.shared = self.get_option("shared")
+        self.with_replacement = self.get_option("with_replacement")
+        if not self.with_replacement and not self.shared:
+            raise ValueError(
+                "Without replacement sampling is only supported when "
+                "shared negative sampling is enabled."
+            )
         self.filtering_split = config.get("negative_sampling.filtering.split")
         if self.filtering_split == "":
             self.filtering_split = config.get("train.split")
@@ -86,7 +92,7 @@ class KgeSampler(Configurable):
 
         """
         if num_samples is None:
-            num_samples = self.num_samples[slot]
+            num_samples = self.num_samples[slot].item()
         if self.shared:
             negative_samples = self._sample_shared(
                 positive_triples, slot, num_samples
@@ -193,7 +199,11 @@ class KgeUniformSampler(KgeSampler):
     def _sample_shared(
         self, positive_triples: torch.Tensor, slot: int, num_samples: int
     ):
-        return self._sample(torch.empty(1), slot, num_samples).view(-1)
+        return torch.tensor(
+            np.random.choice(
+                self.vocabulary_size[slot], num_samples, replace=self.with_replacement
+            )
+        )
 
     def _filter_and_resample_fast(
         self, negative_samples: torch.Tensor, slot: int, positive_triples: torch.Tensor
@@ -277,7 +287,7 @@ class KgeFrequencySampler(KgeSampler):
 
     def _sample(self, positive_triples: torch.Tensor, slot: int, num_samples: int):
         if num_samples is None:
-            num_samples = self.num_samples[slot]
+            num_samples = self.num_samples[slot].item()
 
         if num_samples == 0:
             result = torch.empty([positive_triples.size(0), num_samples])
@@ -292,4 +302,9 @@ class KgeFrequencySampler(KgeSampler):
     def _sample_shared(
         self, positive_triples: torch.Tensor, slot: int, num_samples: int
     ):
+        if not self.with_replacement:
+            raise ValueError(
+                "Without replacement sampling is currently not"
+                " supported by frequency-based negative sampler."
+            )
         return self._sample(torch.empty(1), slot, num_samples).view(-1)

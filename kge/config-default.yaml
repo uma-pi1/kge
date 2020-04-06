@@ -270,6 +270,10 @@ negative_sampling:
   # filtering.
   shared: False
 
+  # Whether sampling should be performed with replacement. Without replacement
+  # sampling is currently only supported for shared sampling.
+  with_replacement: True
+
   # Implementation to use for the negative sampling job. Possible values are:
   # - triple: Scores every positive and negative triple in the batch
   # - all   : Scores against all possible targets and filters relevant scores
