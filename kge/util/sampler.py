@@ -198,21 +198,36 @@ class KgeUniformSampler(KgeSampler):
     def _sample_shared(
         self, positive_triples: torch.Tensor, slot: int, num_samples: int
     ):
-        # -1 to not sample the positive
-        base_samples = np.random.choice(
-            self.vocabulary_size[slot] - 1, num_samples, replace=self.with_replacement
-        )
+        if self.with_replacement:
+            # take one more sample than necessary (used to replace sampled positives)
+            base_samples = np.random.choice(
+                self.vocabulary_size[slot], num_samples + 1, replace=True
+            )
 
-        # first stack samples row-wise, then ensure for each row, that the corresponding
-        # positive is not sampled as a negative. This is done by increasing all indexes
-        # larger than or equal to the corrsponding positive by one. For each row, the
-        # resulting distribution is uniform in [0,...,positive_index-1,
-        # positive_index+1,...,vocabulary_size], as desired.
-        samples = np.broadcast_to(base_samples, (len(positive_triples), num_samples))
-        lte_positive = (
-            samples.transpose() >= positive_triples[:, slot].numpy()
-        ).transpose()
-        samples = samples + lte_positive
+            # stack samples row-wise
+            samples = np.broadcast_to(
+                base_samples, (len(positive_triples), num_samples + 1)
+            ).copy()
+
+            # For each row, select a sample to drop. For rows that contain its positive,
+            # drop that positive. For all other rows, drop a random position.
+            drop = (
+                samples.transpose() == positive_triples[:, slot].numpy()
+            ).transpose()  # the positives
+            no_positive_rows = np.where(~np.any(drop, axis=1))[0]
+            drop[
+                no_positive_rows,
+                np.random.choice(num_samples + 1, len(no_positive_rows)),
+            ] = 1  # the random choices for the remaining rows
+
+            # dropping is performed by moving the last sample to the position of the
+            # sample to be dropped
+            samples[drop.nonzero()] = base_samples[num_samples]
+
+            # now drop last sample (last column)
+            samples = samples[:, :num_samples]
+        else:
+            raise ValueError()
 
         return torch.tensor(samples)
 
