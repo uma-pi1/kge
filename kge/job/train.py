@@ -20,6 +20,10 @@ import kge.job.util
 SLOTS = [0, 1, 2]
 S, P, O = SLOTS
 
+def _worker_init_fn(worker_num):
+    # ensure that NumPy uses different seeds at each worker
+    np.random.seed()
+
 
 class TrainingJob(Job):
     """Abstract base job to train a single model with a fixed set of hyperparameters.
@@ -590,6 +594,7 @@ class TrainingJobKvsAll(TrainingJob):
             shuffle=True,
             batch_size=self.batch_size,
             num_workers=self.config.get("train.num_workers"),
+            worker_init_fn=_worker_init_fn,
             pin_memory=self.config.get("train.pin_memory"),
         )
 
@@ -797,6 +802,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             shuffle=True,
             batch_size=self.batch_size,
             num_workers=self.config.get("train.num_workers"),
+            worker_init_fn=_worker_init_fn,
             pin_memory=self.config.get("train.pin_memory"),
         )
 
@@ -1031,6 +1037,7 @@ class TrainingJob1vsAll(TrainingJob):
             shuffle=True,
             batch_size=self.batch_size,
             num_workers=self.config.get("train.num_workers"),
+            worker_init_fn=_worker_init_fn,
             pin_memory=self.config.get("train.pin_memory"),
         )
 
