@@ -198,36 +198,55 @@ class KgeUniformSampler(KgeSampler):
     def _sample_shared(
         self, positive_triples: torch.Tensor, slot: int, num_samples: int
     ):
-        if not self.with_replacement:
-            # take one more sample than necessary (used to replace sampled positives)
-            base_samples = np.random.choice(
-                self.vocabulary_size[slot], num_samples + 1, replace=False
+        # determine number of distinct negatives for each positive
+        if self.with_replacement:
+            # Crude way to get the distribution of number of distinct values in the
+            # negative sample (WR sampling except the positive, hence the -1)
+            num_unique = len(
+                np.unique(
+                    np.random.choice(
+                        self.vocabulary_size[slot] - 1, num_samples, replace=True
+                    )
+                )
             )
-
-            # stack samples row-wise
-            samples = np.broadcast_to(
-                base_samples, (len(positive_triples), num_samples + 1)
-            ).copy()
-
-            # For each row, select a sample to drop. For rows that contain its positive,
-            # drop that positive. For all other rows, drop a random position.
-            drop = (
-                samples.transpose() == positive_triples[:, slot].numpy()
-            ).transpose()  # the positives
-            no_positive_rows = np.where(~np.any(drop, axis=1))[0]
-            drop[
-                no_positive_rows,
-                np.random.choice(num_samples + 1, len(no_positive_rows)),
-            ] = 1  # the random choices for the remaining rows
-
-            # dropping is performed by moving the last sample to the position of the
-            # sample to be dropped
-            samples[drop.nonzero()] = base_samples[num_samples]
-
-            # now drop last sample (last column)
-            samples = samples[:, :num_samples]
         else:
-            raise ValueError()
+            num_unique = num_samples
+
+        # take one more WOR sample than necessary (used to replace sampled positives)
+        base_samples = np.random.choice(
+            self.vocabulary_size[slot], num_unique + 1, replace=False
+        )
+
+        # Start by using the sample samples for each row (each positive)
+        samples = np.broadcast_to(
+            base_samples, (len(positive_triples), num_unique + 1)
+        ).copy()
+
+        # For each row, select a sample to drop. For rows that contain its positive,
+        # drop that positive. For all other rows, drop a random position.
+        drop = (
+            samples.transpose() == positive_triples[:, slot].numpy()
+        ).transpose()  # the positives
+        no_positive_rows = np.where(~np.any(drop, axis=1))[0]
+        drop[
+            no_positive_rows, np.random.choice(num_unique + 1, len(no_positive_rows)),
+        ] = 1  # the random choices for the remaining rows
+
+        # dropping is performed by moving the num_unique+1'th sample to the position of
+        # the sample to be dropped
+        samples[drop.nonzero()] = base_samples[-1]
+
+        # now drop the superfluos num_unique+1'th sample
+        samples = samples[:, :num_unique]
+
+        # samples now contains num_unique WOR samples per triple and no positive. For
+        # WOR, we are done. For WR, we now upsample.
+        if self.with_replacement:
+            wr_indexes = np.random.choice(
+                num_unique, num_samples - num_unique, replace=True
+            )
+            wr_samples = samples[:, wr_indexes]
+            samples = np.hstack([samples, wr_samples])
 
         return torch.tensor(samples)
 
