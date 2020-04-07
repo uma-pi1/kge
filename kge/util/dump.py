@@ -746,4 +746,8 @@ def _dump_config(args):
             if option not in default_options or default_options[option] != value:
                 minimal_options[option] = value
 
+        # always retain all imports
+        if imports is not None:
+            minimal_options["import"] = list(set(imports))
+
         print_options(minimal_options)
