@@ -94,9 +94,7 @@ class KgeSampler(Configurable):
         if num_samples is None:
             num_samples = self.num_samples[slot].item()
         if self.shared:
-            negative_samples = self._sample_shared(
-                positive_triples, slot, num_samples
-            ).expand(positive_triples.size(0), num_samples)
+            negative_samples = self._sample_shared(positive_triples, slot, num_samples)
         else:
             negative_samples = self._sample(positive_triples, slot, num_samples)
         if self.filter_positives[slot]:
@@ -130,10 +128,11 @@ class KgeSampler(Configurable):
     def _sample_shared(
         self, positive_triples: torch.Tensor, slot: int, num_samples: int
     ):
-        """Sample negative examples with shared entities for corruption.
+        """Sample negative examples with sharing.
 
-        Returns a vector with with indexes of the sampled negative entities (`slot`=0 or
-        `slot`=2) or relations (`slot`=1).
+        The negative samples returned by this method are shared for the positive triples
+        to the amount possible.
+
         """
         raise NotImplementedError()
 
@@ -199,11 +198,23 @@ class KgeUniformSampler(KgeSampler):
     def _sample_shared(
         self, positive_triples: torch.Tensor, slot: int, num_samples: int
     ):
-        return torch.tensor(
-            np.random.choice(
-                self.vocabulary_size[slot], num_samples, replace=self.with_replacement
-            )
+        # -1 to not sample the positive
+        base_samples = np.random.choice(
+            self.vocabulary_size[slot] - 1, num_samples, replace=self.with_replacement
         )
+
+        # first stack samples row-wise, then ensure for each row, that the corresponding
+        # positive is not sampled as a negative. This is done by increasing all indexes
+        # larger than or equal to the corrsponding positive by one. For each row, the
+        # resulting distribution is uniform in [0,...,positive_index-1,
+        # positive_index+1,...,vocabulary_size], as desired.
+        samples = np.broadcast_to(base_samples, (len(positive_triples), num_samples))
+        lte_positive = (
+            samples.transpose() >= positive_triples[:, slot].numpy()
+        ).transpose()
+        samples = samples + lte_positive
+
+        return torch.tensor(samples)
 
     def _filter_and_resample_fast(
         self, negative_samples: torch.Tensor, slot: int, positive_triples: torch.Tensor
@@ -298,13 +309,3 @@ class KgeFrequencySampler(KgeSampler):
                 positive_triples.size(0) * num_samples,
             ).view(positive_triples.size(0), num_samples)
         return result
-
-    def _sample_shared(
-        self, positive_triples: torch.Tensor, slot: int, num_samples: int
-    ):
-        if not self.with_replacement:
-            raise ValueError(
-                "Without replacement sampling is currently not"
-                " supported by frequency-based negative sampler."
-            )
-        return self._sample(torch.empty(1), slot, num_samples).view(-1)

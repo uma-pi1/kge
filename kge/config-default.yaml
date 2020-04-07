@@ -267,7 +267,8 @@ negative_sampling:
 
   # Whether to share the s/p/o corruptions for all triples in the batch. This
   # can make training more efficient. Cannot be used with together with
-  # filtering.
+  # filtering, but it is ensured that each triple does not get itself as a
+  # negative.
   shared: False
 
   # Whether sampling should be performed with replacement. Without replacement
