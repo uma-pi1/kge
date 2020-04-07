@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 import torch
 import torch.utils.data
+import numpy as np
 
 from kge import Config, Dataset
 from kge.job import Job
