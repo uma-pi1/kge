@@ -198,7 +198,7 @@ class KgeUniformSampler(KgeSampler):
     def _sample_shared(
         self, positive_triples: torch.Tensor, slot: int, num_samples: int
     ):
-        if self.with_replacement:
+        if not self.with_replacement:
             # take one more sample than necessary (used to replace sampled positives)
             base_samples = np.random.choice(
                 self.vocabulary_size[slot], num_samples + 1, replace=True
