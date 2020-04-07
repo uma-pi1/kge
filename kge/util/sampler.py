@@ -201,7 +201,7 @@ class KgeUniformSampler(KgeSampler):
         if not self.with_replacement:
             # take one more sample than necessary (used to replace sampled positives)
             base_samples = np.random.choice(
-                self.vocabulary_size[slot], num_samples + 1, replace=True
+                self.vocabulary_size[slot], num_samples + 1, replace=False
             )
 
             # stack samples row-wise
