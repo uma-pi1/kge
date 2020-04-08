@@ -198,63 +198,65 @@ class KgeUniformSampler(KgeSampler):
     def _sample_shared(
         self, positive_triples: torch.Tensor, slot: int, num_samples: int
     ):
-        # determine number of distinct negatives for each positive
+        batch_size = len(positive_triples)
+
+        # determine number of distinct negative samples for each positive
         if self.with_replacement:
             # Crude way to get the distribution of number of distinct values in the
             # negative sample (WR sampling except the positive, hence the -1)
-            num_unique = len(
+            num_distinct = len(
                 np.unique(
                     np.random.choice(
                         self.vocabulary_size[slot] - 1, num_samples, replace=True
                     )
                 )
             )
-        else:
-            num_unique = num_samples
+        else:  # WOR -> all distinct
+            num_distinct = num_samples
 
         # Take one more WOR sample than necessary (used to replace sampled positives).
         # Numpy is horribly slow for large vocabulary sizes, so we use random.sample
         # instead
         #
-        # base_samples = np.random.choice(
-        #     self.vocabulary_size[slot], num_unique + 1, replace=False
+        # shared_samples = np.random.choice(
+        #     self.vocabulary_size[slot], num_distinct + 1, replace=False
         # )
-        base_samples = np.array(
-            random.sample(range(self.vocabulary_size[slot]), num_unique + 1)
+        shared_samples = random.sample(
+            range(self.vocabulary_size[slot]), num_distinct + 1
         )
 
-        # Start by using the sample samples for each row (each positive)
-        samples = np.broadcast_to(
-            base_samples, (len(positive_triples), num_unique + 1)
-        ).copy()
+        # For each row i (positive triple), select a sample to drop. For rows that
+        # contain its positive, drop that positive. For all other rows, drop a random
+        # position.
+        shared_samples_index = {s: j for j, s in enumerate(shared_samples)}
+        replacement = np.random.choice(
+            num_distinct + 1, batch_size, replace=True
+        )
+        drop = torch.tensor(
+            [
+                shared_samples_index.get(s, replacement[i])
+                for i, s in enumerate(positive_triples[:, slot].numpy())
+            ]
+        )
 
-        # For each row, select a sample to drop. For rows that contain its positive,
-        # drop that positive. For all other rows, drop a random position.
-        drop = (
-            samples.transpose() == positive_triples[:, slot].numpy()
-        ).transpose()  # the positives
-        no_positive_rows = np.where(~np.any(drop, axis=1))[0]
-        drop[
-            no_positive_rows, np.random.choice(num_unique + 1, len(no_positive_rows)),
-        ] = 1  # the random choices for the remaining rows
+        # this will hold the result
+        samples = torch.empty(batch_size, num_samples, dtype=torch.long)
 
-        # dropping is performed by moving the num_unique+1'th sample to the position of
-        # the sample to be dropped
-        samples[drop.nonzero()] = base_samples[-1]
+        # Add the first num_distinct samples for each positive. Dropping is performed by
+        # copying the last shared sample over the dropped sample
+        samples[:, :num_distinct] = torch.tensor(shared_samples[:-1])
+        update_rows = torch.nonzero(drop != num_distinct).squeeze()
+        samples[update_rows, drop[update_rows]] = shared_samples[-1]
 
-        # now drop the superfluos num_unique+1'th sample
-        samples = samples[:, :num_unique]
-
-        # samples now contains num_unique WOR samples per triple and no positive. For
-        # WOR, we are done. For WR, we now upsample.
-        if self.with_replacement:
-            wr_indexes = np.random.choice(
-                num_unique, num_samples - num_unique, replace=True
+        # samples now contains num_distinct WOR samples per triple and no positive. For
+        # WOR, we are done. For WR, upsample
+        if num_distinct != num_samples:  # only happens with WR
+            indexes = torch.tensor(
+                np.random.choice(num_distinct, num_samples - num_distinct, replace=True)
             )
-            wr_samples = samples[:, wr_indexes]
-            samples = np.hstack([samples, wr_samples])
+            samples[:, num_distinct:] = samples[:, indexes]
 
-        return torch.tensor(samples)
+        return samples
 
     def _filter_and_resample_fast(
         self, negative_samples: torch.Tensor, slot: int, positive_triples: torch.Tensor
