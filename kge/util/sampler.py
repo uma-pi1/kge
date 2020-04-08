@@ -1,11 +1,11 @@
 from kge import Config, Configurable, Dataset
 from kge.indexing import where_in
 
+import random
 import torch
 from typing import Optional
 import numpy as np
 import numba
-
 
 SLOTS = [0, 1, 2]
 SLOT_STR = ["s", "p", "o"]
@@ -212,9 +212,15 @@ class KgeUniformSampler(KgeSampler):
         else:
             num_unique = num_samples
 
-        # take one more WOR sample than necessary (used to replace sampled positives)
-        base_samples = np.random.choice(
-            self.vocabulary_size[slot], num_unique + 1, replace=False
+        # Take one more WOR sample than necessary (used to replace sampled positives).
+        # Numpy is horribly slow for large vocabulary sizes, so we use random.sample
+        # instead
+        #
+        # base_samples = np.random.choice(
+        #     self.vocabulary_size[slot], num_unique + 1, replace=False
+        # )
+        base_samples = np.array(
+            random.sample(range(self.vocabulary_size[slot]), num_unique + 1)
         )
 
         # Start by using the sample samples for each row (each positive)
