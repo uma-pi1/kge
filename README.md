@@ -237,26 +237,25 @@ The following config file defines a search of 10 SOBOL trials (arms) followed by
 
 ```yaml
 job.type: search
+search.type: ax
+
 dataset.name: wnrr
+model: complex
 valid.metric: mean_reciprocal_rank_filtered
 
-search.type: ax
 ax_search:
   num_trials: 30
   num_sobol_trials: 10  # remaining trials are Bayesian
   parameters:
     - name: train.batch_size
-      type: choice   
+      type: choice
       values: [256, 512, 1024]
-    - name: train.optimizer_args.lr     
+    - name: train.optimizer_args.lr
       type: range
       bounds: [0.0003, 1.0]
     - name: train.type
       type: fixed
       value: 1vsAll
-
-model: reciprocal_relations_model
-reciprocal_relations_model.base_model.type: conve
 ```
 
 Trials can be run in parallel across several devices:
