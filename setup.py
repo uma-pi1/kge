@@ -14,7 +14,7 @@ setup(
         "pandas",
         "argparse",
         "path.py",
-        "ax-platform>=0.1.9",
+        "ax-platform>=0.1.10",
         "sqlalchemy",
         "torchviz",
         "dataclasses",
