@@ -1,5 +1,6 @@
 #### Apr 2020
 
+- Improved shared negative sampling (WOR sampling, exclude positive triples from negative sample)
 - PR [#86](https://github.com/uma-pi1/kge/pull/86): Support (s,?,o) queries for KvsAll training (thanks vonVogelstein)
 
 #### Mar 2020
