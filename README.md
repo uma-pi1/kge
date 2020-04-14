@@ -125,7 +125,7 @@ data for 200 epochs.
 
 |                                                             |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                    Config file |                                                                            Pretrained model |
 |-------------------------------------------------------------|------:|-------:|-------:|--------:|-----------------------------------------------------------------------------------------------:|--------------------------------------------------------------------------------------------:|
-| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.295 |  0.238 |  0.327 |   0.394 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wikidata5m-complex.yaml) | [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wikidata5m-complex.pt) |
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.301 |  0.245 |  0.331 |   0.397 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wikidata5m-complex.yaml) | [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wikidata5m-complex.pt) |
 
 ## Quick start
 
