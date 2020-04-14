@@ -37,15 +37,15 @@ class AxSearchJob(AutoSearchJob):
                 steps=[
                     GenerationStep(
                         model=Models.SOBOL,
-                        num_arms=self.num_sobol_trials,
-                        min_arms_observed=ceil(self.num_sobol_trials / 2),
-                        enforce_num_arms=True,
+                        num_trials=self.num_sobol_trials,
+                        min_trials_observed=ceil(self.num_sobol_trials / 2),
+                        enforce_num_trials=True,
                         model_kwargs={'seed': 0}
                     ),
                     GenerationStep(
                         model=Models.GPEI,
-                        num_arms=-1,
-                        recommended_max_parallelism=3,
+                        num_trials=-1,
+                        max_parallelism=3,
                         model_gen_kwargs={
                             "fixed_features": ObservationFeatures(
                                 parameters={
