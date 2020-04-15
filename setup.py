@@ -13,7 +13,7 @@ setup(
         "pyyaml",
         "pandas",
         "argparse",
-        "path.py",
+        "path",
         "ax-platform>=0.1.10",
         "sqlalchemy",
         "torchviz",
