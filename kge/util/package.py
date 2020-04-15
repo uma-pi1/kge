@@ -1,5 +1,6 @@
 import os
 import torch
+from kge import Config, Dataset
 
 
 def add_package_parser(subparsers):
@@ -17,12 +18,18 @@ def package_model(checkpoint_path):
     A packaged model only contains the model, entity/relation ids and the config.
     """
     checkpoint = torch.load(checkpoint_path, map_location="cpu")
+    original_config = checkpoint["config"]
+    config = Config()  # round trip to handle deprecated configs
+    config.load_options(original_config.options)
+    dataset = Dataset.load(config, preload_data=False)
     packaged_model = {
         "type": "package",
         "model": checkpoint["model"],
         "config": checkpoint["config"],
-        "entity_ids": checkpoint["entity_ids"],
-        "relation_ids": checkpoint["relation_ids"],
+        "entity_ids": dataset.entity_ids(),
+        "relation_ids": dataset.relation_ids(),
+        "entity_strings": dataset.entity_strings(),
+        "relation_strings": dataset.relation_strings(),
     }
     output_folder = os.path.dirname(checkpoint_path)
     filename = "model_{}.pt".format(checkpoint["epoch"])

@@ -242,8 +242,6 @@ class TrainingJob(Job):
                 "optimizer_state_dict": self.optimizer.state_dict(),
                 "lr_scheduler_state_dict": self.kge_lr_scheduler.state_dict(),
                 "job_id": self.job_id,
-                "entity_ids": self.dataset.entity_ids(),
-                "relation_ids": self.dataset.relation_ids(),
             },
             filename,
         )
@@ -254,7 +252,7 @@ class TrainingJob(Job):
         Returns job id of the job that created the checkpoint."""
         self.config.log("Loading checkpoint from {}...".format(filename))
         checkpoint = torch.load(filename, map_location="cpu")
-        if self.config.get("job.type") == "train" and checkpoint["type"] == "package":
+        if self.config.get("job.type") == "train" and checkpoint["type"] != "train":
             raise ValueError("Can not continue training on a packaged model")
         if "model" in checkpoint:
             # new format

@@ -380,10 +380,10 @@ class KgeModel(KgeBase):
         return model
 
     @staticmethod
-    def load_from_checkpoint(
+    def load_from(
         filename: str, dataset=None, use_tmp_log_folder=True, device="cpu"
     ) -> "KgeModel":
-        """Loads a model from a checkpoint file of a training job.
+        """Loads a model from a checkpoint file of a training job or a packaged model.
 
         If dataset is specified, associates this dataset with the model. Otherwise uses
         the dataset used to train the model.
@@ -409,7 +409,14 @@ class KgeModel(KgeBase):
             if not config.log_folder:
                 config.log_folder = "."
         if dataset is None:
-            dataset = Dataset.load(config, preload_data=False)
+            if checkpoint["type"] == "package":
+                dataset = Dataset(config)
+                dataset._meta["entity_ids"] = checkpoint["entity_ids"]
+                dataset._meta["relation_ids"] = checkpoint["relation_ids"]
+                dataset._meta["entity_strings"] = checkpoint["entity_strings"]
+                dataset._meta["relation_strings"] = checkpoint["relation_strings"]
+            else:
+                dataset = Dataset.load(config, preload_data=False)
         model = KgeModel.create(config, dataset)
         model.load(checkpoint["model"])
         model.eval()
