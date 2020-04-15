@@ -10,6 +10,7 @@ from kge import Config
 from kge.job import Job
 from kge.misc import get_git_revision_short_hash, kge_base_dir, is_number
 from kge.util.dump import add_dump_parsers, dump
+from kge.util.package import package_model, add_package_parser
 
 
 def argparse_bool_type(v):
@@ -130,6 +131,7 @@ def create_parser(config, additional_args=[]):
             default="default",
         )
     add_dump_parsers(subparsers)
+    add_package_parser(subparsers)
     return parser
 
 
@@ -161,6 +163,11 @@ def main():
     # dump command
     if args.command == "dump":
         dump(args)
+        exit()
+
+    # package command
+    if args.command == "package":
+        package_model(args.checkpoint)
         exit()
 
     # start command
