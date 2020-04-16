@@ -5,6 +5,7 @@ local/*
 /data/
 !data/*.sh
 !data/preprocess.py
+!data/preprocess_ig.py
 /trace.csv
 *.csv
 *.pyc
