@@ -46,6 +46,10 @@ class TrainingJob(Job):
         self.optimizer = KgeOptimizer.create(config, self.model)
         self.kge_lr_scheduler = KgeLRScheduler(config, self.optimizer)
         self.loss = KgeLoss.create(config)
+        if self.config.get("train.init_pretrained"):
+            packaged_model = torch.load(self.config.get("train.init_pretrained"),
+                                 map_location="cpu")
+            self.model.init_pretrained(packaged_model, dataset.entity_ids(), dataset.relation_ids())
         self.abort_on_nan: bool = config.get("train.abort_on_nan")
         self.batch_size: int = config.get("train.batch_size")
         self.device: str = self.config.get("job.device")

@@ -1,6 +1,7 @@
 from torch import Tensor
 import torch.nn
 import torch.nn.functional
+import numpy as np
 
 from kge import Config, Dataset
 from kge.job import Job
@@ -76,6 +77,21 @@ class LookupEmbedder(KgeEmbedder):
                         )
 
             job.pre_batch_hooks.append(normalize_embeddings)
+
+    @torch.no_grad()
+    def init_pretrained(self, packaged_model, ids):
+        _, dataset_intersect_ind, checkpoint_intersect_ind = np.intersect1d(
+            ids, packaged_model["ids"], return_indices=True
+        )
+        self.embeddings.weight[
+            torch.from_numpy(dataset_intersect_ind)
+            .to(self.config.get("job.device"))
+            .long()
+        ] = packaged_model["model"]["embeddings.weight"][
+            torch.from_numpy(checkpoint_intersect_ind).long()
+        ].to(
+            self.config.get("job.device")
+        )
 
     def _embed(self, embeddings: Tensor) -> Tensor:
         if self.dropout.p > 0:
