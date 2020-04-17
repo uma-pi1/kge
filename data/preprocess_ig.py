@@ -136,6 +136,10 @@ if __name__ == "__main__":
         with open(os.path.join(args.folder, raw_files[split]), "r") as f:
             data_raw = json.load(f)
 
+        data_raw = dict([
+            (key, value) for key, value in data_raw.items() if len(value) != 0
+        ])
+
         with open(os.path.join(args.folder, files_ig_names[split]), "w") as f:
             f.writelines(
                 "\n".join(
