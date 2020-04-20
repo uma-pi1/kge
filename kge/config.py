@@ -661,20 +661,6 @@ def _process_deprecated_options(options: Dict[str, Any]):
                     renamed_keys.add(key)
         return renamed_keys
 
-    def remove_key(key):
-        if key in options:
-            print(
-                "Warning: key {} is deprecated and is ignored;".format(
-                    key
-                ),
-                file=sys.stderr,
-            )
-            options.pop(key, None)
-            return True
-        return False
-
-    remove_key("train.checkpoint.store_packaged_model")
-
     # 18.03.2020
     rename_value("train.lr_scheduler", "ConstantLRScheduler", "")
 
