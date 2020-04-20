@@ -49,25 +49,6 @@ class AutoSearchJob(SearchJob):
             filename,
         )
 
-    def resume(self, checkpoint_file=None):
-        if checkpoint_file is None:
-            last_checkpoint = self.config.last_checkpoint()
-            if last_checkpoint is not None:
-                checkpoint_file = self.config.checkpoint_file(last_checkpoint)
-
-        if checkpoint_file is not None:
-            self.resumed_from_job_id = self.load(checkpoint_file)
-            self.trace(
-                event="job_resumed", checkpoint_file=checkpoint_file
-            )
-            self.config.log(
-                "Resumed from {} of job {}".format(
-                    checkpoint_file, self.resumed_from_job_id
-                )
-            )
-        else:
-            self.config.log("No checkpoint found, starting from scratch...")
-
     # -- Abstract methods --------------------------------------------------------------
 
     def init_search(self):

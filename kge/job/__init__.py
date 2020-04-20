@@ -1,4 +1,5 @@
 from kge.job.trace import Trace
+from kge.job.job_factory import JobFactory
 from kge.job.job import Job
 from kge.job.train import TrainingJob
 from kge.job.eval import EvaluationJob

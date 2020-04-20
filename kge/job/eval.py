@@ -1,10 +1,14 @@
 import torch
 
+from kge import Config, Dataset
 from kge.job import Job
+from kge.model import KgeModel
+
+from typing import Dict, Union
 
 
 class EvaluationJob(Job):
-    def __init__(self, config, dataset, parent_job, model):
+    def __init__(self, config, dataset, parent_job, model, init=True):
         super().__init__(config, dataset, parent_job)
 
         self.config = config
@@ -83,19 +87,30 @@ class EvaluationJob(Job):
         """ Compute evaluation metrics, output results to trace file """
         raise NotImplementedError
 
-    def resume(self, checkpoint_file=None):
-        """Load model state from last or specified checkpoint."""
-        # load model
-        from kge.job import TrainingJob
-
-        training_job = TrainingJob.create(self.config, self.dataset)
-        training_job.resume(checkpoint_file)
-        self.model = training_job.model
-        self.epoch = training_job.epoch
-        self.resumed_from_job_id = training_job.resumed_from_job_id
-        self.trace(
-            event="job_resumed", epoch=self.epoch, checkpoint_file=checkpoint_file
+    @classmethod
+    def load_from(
+        cls,
+        checkpoint: Union[str, Dict] = None,
+        config: Config = None,
+        dataset: Dataset = None,
+        parent_job=None,
+        device="cpu",
+    ) -> Job:
+        checkpoint_file = None
+        if checkpoint is None or type(checkpoint) is str:
+            checkpoint_file = checkpoint
+            checkpoint, config = super().load_from(
+                checkpoint, config=config, device=device
+            )
+        model = KgeModel.load_from(checkpoint, config=config, dataset=dataset)
+        eval_job = cls.create(
+            config=config, dataset=dataset, parent_job=parent_job, model=model
         )
+        eval_job.resumed_from_job_id = checkpoint.get("job_id")
+        eval_job.trace(
+            event="job_resumed", epoch=eval_job.epoch, checkpoint_file=checkpoint_file
+        )
+        return eval_job
 
 
 # HISTOGRAM COMPUTATION ###############################################################

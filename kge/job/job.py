@@ -5,6 +5,7 @@ from kge.misc import get_git_revision_short_hash
 import os
 import socket
 from typing import Any, Callable, Dict, List, Optional
+import torch
 
 
 def _trace_job_creation(job: "Job"):
@@ -39,7 +40,7 @@ class Job:
         _save_job_config,
     ]
 
-    def __init__(self, config: Config, dataset: Dataset, parent_job: "Job" = None):
+    def __init__(self, config: Config, dataset: Dataset, parent_job: "Job" = None, init=True):
         self.config = config
         self.dataset = dataset
         self.job_id = str(uuid.uuid4())
@@ -55,35 +56,28 @@ class Job:
             for f in Job.job_created_hooks:
                 f(self)
 
-    def resume(self, checkpoint_file: str = None):
-        """Load job state from last or specified checkpoint.
+    @staticmethod
+    def load_from(checkpoint_file: str = None, config: Config = None, device="cpu", parent_job=None) -> (Dict, Optional[Config]):
+        if checkpoint_file is None and config is None:
+            raise ValueError("Either a config file or a checkpoint file need to be provided to load a checkpoint.")
+        elif checkpoint_file is None:
+            last_checkpoint = config.last_checkpoint()
+            if last_checkpoint is not None:
+                checkpoint_file = config.checkpoint_file(last_checkpoint)
 
-        Restores all relevant state to resume a previous job. To run the restored job,
-        use :func:`run`.
-
-        Should set `resumed_from_job` to the job ID of the previous job.
-
-        """
-        raise NotImplementedError
+        if checkpoint_file is not None:
+            checkpoint = torch.load(checkpoint_file, map_location=device)
+            if config is None:
+                original_config = checkpoint["config"]
+                config = Config()  # round trip to handle deprecated configs
+                config.load_options(original_config.options)
+                config.set("job.device", device)
+        else:
+            checkpoint = None
+        return checkpoint, config
 
     def run(self):
         raise NotImplementedError
-
-    def create(config: Config, dataset: Dataset, parent_job: "Job" = None) -> "Job":
-        """Creates a job for a given configuration."""
-
-        from kge.job import TrainingJob, EvaluationJob, SearchJob
-
-        if config.get("job.type") == "train":
-            job = TrainingJob.create(config, dataset, parent_job)
-        elif config.get("job.type") == "search":
-            job = SearchJob.create(config, dataset, parent_job)
-        elif config.get("job.type") == "eval":
-            job = EvaluationJob.create(config, dataset, parent_job)
-        else:
-            raise ValueError("unknown job type")
-
-        return job
 
     def trace(self, **kwargs) -> Dict[str, Any]:
         """Write a set of key-value pairs to the trace file and automatically append

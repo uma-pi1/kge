@@ -335,7 +335,7 @@ class KgeModel(KgeBase):
     @staticmethod
     def create_default(
         model: Optional[str] = None,
-        dataset: Optional[Union[Dataset,str]] = None,
+        dataset: Optional[Union[Dataset, str]] = None,
         options: Dict[str, Any] = {},
         folder: Optional[str] = None,
     ) -> "KgeModel":
@@ -381,7 +381,11 @@ class KgeModel(KgeBase):
 
     @staticmethod
     def load_from(
-        filename: str, dataset=None, use_tmp_log_folder=True, device="cpu"
+        checkpoint: Union[str, Dict],
+        dataset=None,
+        use_tmp_log_folder=True,
+        device="cpu",
+        config: Config = None,
     ) -> "KgeModel":
         """Loads a model from a checkpoint file of a training job or a packaged model.
 
@@ -393,13 +397,15 @@ class KgeModel(KgeBase):
         appended to) in the checkpoint's folder.
 
         """
+        if type(checkpoint) is str:
+            filename = checkpoint
+            checkpoint = torch.load(checkpoint, map_location=device)
 
-        checkpoint = torch.load(filename, map_location=device)
-
-        original_config = checkpoint["config"]
-        config = Config()  # round trip to handle deprecated configs
-        config.load_options(original_config.options)
-        config.set("job.device", device)
+        if config is None:
+            original_config = checkpoint["config"]
+            config = Config()  # round trip to handle deprecated configs
+            config.load_options(original_config.options)
+            config.set("job.device", device)
         if use_tmp_log_folder:
             import tempfile
 

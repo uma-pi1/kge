@@ -1,5 +1,5 @@
 import os
-from kge.job import Job
+from kge.job import Job, JobFactory
 from kge import Config
 import itertools
 
@@ -68,8 +68,12 @@ class GridSearchJob(Job):
 
         # and run it
         if self.config.get("grid_search.run"):
-            job = Job.create(self.config, self.dataset, parent_job=self)
-            job.resume()
+            job = JobFactory.load_from(
+                checkpoint_file=None,
+                config=self.config,
+                dataset=self.dataset,
+                parent_job=self,
+            )
             job.run()
         else:
             self.config.log("Skipping running of search job as requested by user...")
