@@ -117,12 +117,16 @@ class Job:
             device = "cpu"
         if type(checkpoint) == str:
             checkpoint = load_checkpoint(checkpoint, device)
+        checkpoint_config = None
+        if "config" in checkpoint:  # search jobs don't have a config
+            checkpoint_config = checkpoint["config"]
         config = Config.load_from(
-            checkpoint["config"], config, folder=checkpoint["folder"]
+            checkpoint_config, config, folder=checkpoint["folder"]
         )
         model: KgeModel = None
         dataset = None
-        if checkpoint["model"] is not None:
+        # search jobs don't have a model
+        if "model" in checkpoint and checkpoint["model"] is not None:
             model = KgeModel.load_from(checkpoint, config=config, dataset=dataset)
             dataset = model.dataset
         if dataset is None:

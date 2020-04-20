@@ -438,7 +438,8 @@ class Config:
 
         """
         config = Config()  # round trip to handle deprecated configs
-        config.load_options(checkpoint_config.options)
+        if checkpoint_config is not None:
+            config.load_options(checkpoint_config.options)
         if folder is not None:
             config.folder = folder
         if new_config is not None:

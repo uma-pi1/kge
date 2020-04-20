@@ -49,7 +49,7 @@ class AutoSearchJob(SearchJob):
             filename,
         )
 
-    def load(self, checkpoint):
+    def load(self, checkpoint, model=None):
         self.resumed_from_job_id = checkpoint.get("job_id")
         self.trace(
             event="job_resumed", checkpoint_file=checkpoint["file"]
