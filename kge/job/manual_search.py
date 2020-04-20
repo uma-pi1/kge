@@ -32,12 +32,6 @@ class ManualSearchJob(SearchJob):
             for f in Job.job_created_hooks:
                 f(self)
 
-    @classmethod
-    def load_from(cls, checkpoint_file: str = None, config: Config = None, dataset: Dataset = None, device="cpu", parent_job=None) -> Job:
-        # no need to do anything here; run code automatically resumes
-        job = cls.create(config=config, dataset=dataset, parent_job=parent_job)
-        return job
-
     def run(self):
         # read search configurations and expand them to full configs
         search_configs = copy.deepcopy(self.config.get("manual_search.configurations"))

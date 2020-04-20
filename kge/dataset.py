@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import csv
 import os
 import sys
@@ -90,6 +92,20 @@ class Dataset(Configurable):
             for split in ["train", "valid", "test"]:
                 dataset.split(split)
         return dataset
+
+    @staticmethod
+    def load_meta(config: Config, meta_checkpoint: Dict, preload_data=True) -> Dataset:
+        """Loads a dataset and overrides meta data."""
+        dataset = Dataset.load(config, preload_data)
+        dataset._meta.update(meta_checkpoint)
+        return dataset
+
+    def save_meta(self, keys: List[str]):
+        """Creates a dataset_meta dictionary for a checkpoint."""
+        meta_checkpoint = {}
+        for key in keys:
+            meta_checkpoint[key] = self._meta[key]
+        return meta_checkpoint
 
     @staticmethod
     def _to_valid_filename(s):

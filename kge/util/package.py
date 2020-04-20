@@ -26,10 +26,7 @@ def package_model(checkpoint_path):
         "type": "package",
         "model": checkpoint["model"],
         "config": checkpoint["config"],
-        "entity_ids": dataset.entity_ids(),
-        "relation_ids": dataset.relation_ids(),
-        "entity_strings": dataset.entity_strings(),
-        "relation_strings": dataset.relation_strings(),
+        "dataset_meta": dataset.save_meta(["entity_ids", "relation_ids", "entity_strings", "relation_strings"])
     }
     output_folder = os.path.dirname(checkpoint_path)
     filename = "model_{}.pt".format(checkpoint["epoch"])

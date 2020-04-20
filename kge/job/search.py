@@ -1,7 +1,7 @@
 import copy
 import os
 import concurrent.futures
-from kge.job import Job, JobFactory, Trace
+from kge.job import Job, Trace
 from kge.config import _process_deprecated_options
 
 
@@ -11,7 +11,7 @@ class SearchJob(Job):
     Provides functionality for scheduling training jobs across workers.
     """
 
-    def __init__(self, config, dataset, parent_job=None, init=True):
+    def __init__(self, config, dataset, parent_job=None):
         super().__init__(config, dataset, parent_job)
 
         # create data structures for parallel job submission
@@ -42,7 +42,7 @@ class SearchJob(Job):
                 f(self)
 
     @staticmethod
-    def create(config, dataset, parent_job=None, init=True):
+    def create(config, dataset, parent_job=None):
         """Factory method to create a search job."""
 
         if config.get("search.type") == "manual":
@@ -131,8 +131,8 @@ def _run_train_job(sicnk, device=None):
                 train_job_config.get("job.device"),
             )
         )
-        job = JobFactory.load_from(
-            checkpoint_file=None,
+        job = Job.resume(
+            checkpoint=None,
             config=train_job_config,
             dataset=search_job.dataset,
             parent_job=search_job,

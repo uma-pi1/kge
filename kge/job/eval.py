@@ -8,7 +8,7 @@ from typing import Dict, Union
 
 
 class EvaluationJob(Job):
-    def __init__(self, config, dataset, parent_job, model, init=True):
+    def __init__(self, config, dataset, parent_job, model):
         super().__init__(config, dataset, parent_job)
 
         self.config = config
@@ -87,29 +87,25 @@ class EvaluationJob(Job):
         """ Compute evaluation metrics, output results to trace file """
         raise NotImplementedError
 
+    def load(self, checkpoint, model):
+        self.resumed_from_job_id = checkpoint.get("job_id")
+        self.epoch = checkpoint["epoch"]
+        self.trace(
+            event="job_resumed", epoch=self.epoch, checkpoint_file=checkpoint["file"]
+        )
+
     @classmethod
     def load_from(
         cls,
-        checkpoint: Union[str, Dict] = None,
+        checkpoint: Union[str, Dict],
         config: Config = None,
         dataset: Dataset = None,
         parent_job=None,
-        device="cpu",
     ) -> Job:
-        checkpoint_file = None
-        if checkpoint is None or type(checkpoint) is str:
-            checkpoint_file = checkpoint
-            checkpoint, config = super().load_from(
-                checkpoint, config=config, device=device
-            )
-        model = KgeModel.load_from(checkpoint, config=config, dataset=dataset)
-        eval_job = cls.create(
-            config=config, dataset=dataset, parent_job=parent_job, model=model
-        )
-        eval_job.resumed_from_job_id = checkpoint.get("job_id")
-        eval_job.trace(
-            event="job_resumed", epoch=eval_job.epoch, checkpoint_file=checkpoint_file
-        )
+        if config is None:
+            config = Config()
+            config.set("job.type", "eval")
+        eval_job = super().load_from(checkpoint, config, dataset, parent_job=parent_job)
         return eval_job
 
 

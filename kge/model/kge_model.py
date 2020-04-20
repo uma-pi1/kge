@@ -8,6 +8,7 @@ import os
 import kge
 from kge import Config, Configurable, Dataset
 from kge.misc import filename_in_module
+from kge.util import load_checkpoint
 from typing import Any, Dict, List, Optional, Union
 
 from typing import TYPE_CHECKING
@@ -398,29 +399,21 @@ class KgeModel(KgeBase):
 
         """
         if type(checkpoint) is str:
-            filename = checkpoint
-            checkpoint = torch.load(checkpoint, map_location=device)
+            checkpoint = load_checkpoint(checkpoint, device=device)
 
-        if config is None:
-            original_config = checkpoint["config"]
-            config = Config()  # round trip to handle deprecated configs
-            config.load_options(original_config.options)
-            config.set("job.device", device)
+        config = Config.load_from(checkpoint["config"], config)
+
         if use_tmp_log_folder:
             import tempfile
 
             config.log_folder = tempfile.mkdtemp(prefix="kge-")
         else:
-            config.log_folder = os.path.dirname(filename)
+            config.log_folder = checkpoint["folder"]
             if not config.log_folder:
                 config.log_folder = "."
         if dataset is None:
             if checkpoint["type"] == "package":
-                dataset = Dataset(config)
-                dataset._meta["entity_ids"] = checkpoint["entity_ids"]
-                dataset._meta["relation_ids"] = checkpoint["relation_ids"]
-                dataset._meta["entity_strings"] = checkpoint["entity_strings"]
-                dataset._meta["relation_strings"] = checkpoint["relation_strings"]
+                dataset.load_meta(config, checkpoint["dataset_meta"], preload_data=False)
             else:
                 dataset = Dataset.load(config, preload_data=False)
         model = KgeModel.create(config, dataset)

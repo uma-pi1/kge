@@ -7,7 +7,7 @@ import yaml
 
 from kge import Dataset
 from kge import Config
-from kge.job import JobFactory
+from kge.job import Job
 from kge.misc import get_git_revision_short_hash, kge_base_dir, is_number
 from kge.util.dump import add_dump_parsers, dump
 from kge.util.package import package_model, add_package_parser
@@ -280,9 +280,9 @@ def main():
 
             # let's go
             if args.command == "resume":
-                job = JobFactory.load_from(checkpoint_file, config=config)
+                job = Job.resume(checkpoint_file, config=config)
             else:
-                job = JobFactory.create(config, dataset)
+                job = Job.create(config, dataset)
             job.run()
     except BaseException as e:
         tb = traceback.format_exc()

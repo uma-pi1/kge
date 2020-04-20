@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import collections
 import copy
 import datetime
@@ -423,6 +425,26 @@ class Config:
             return True
         return False
 
+    @staticmethod
+    def load_from(checkpoint_config: Config, new_config=None, folder=None) -> Config:
+        """
+        Load a config from checkpoint and update all deprecated keys.
+        Overwrite options in checkpoint config with a new config.
+        Args:
+            checkpoint_config: Config stored in checkpoint
+            new_config: new config with options to overwrite
+
+        Returns: Config object
+
+        """
+        config = Config()  # round trip to handle deprecated configs
+        config.load_options(checkpoint_config.options)
+        if folder is not None:
+            config.folder = folder
+        if new_config is not None:
+            config.load_options(new_config.options)
+        return config
+
     def checkpoint_file(self, cpt_id: Union[str, int]) -> str:
         "Return path of checkpoint file for given checkpoint id"
         from kge.misc import is_number
@@ -638,6 +660,20 @@ def _process_deprecated_options(options: Dict[str, Any]):
                 if rename_value(key, old_value, new_value):
                     renamed_keys.add(key)
         return renamed_keys
+
+    def remove_key(key):
+        if key in options:
+            print(
+                "Warning: key {} is deprecated and is ignored;".format(
+                    key
+                ),
+                file=sys.stderr,
+            )
+            options.pop(key, None)
+            return True
+        return False
+
+    remove_key("train.checkpoint.store_packaged_model")
 
     # 18.03.2020
     rename_value("train.lr_scheduler", "ConstantLRScheduler", "")

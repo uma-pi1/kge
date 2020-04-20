@@ -1,11 +1,14 @@
+from __future__ import annotations
+
 from kge import Config, Dataset
+from kge.model import KgeModel
+from kge.util import load_checkpoint
 import uuid
 
 from kge.misc import get_git_revision_short_hash
 import os
 import socket
-from typing import Any, Callable, Dict, List, Optional
-import torch
+from typing import Any, Callable, Dict, List, Optional, Union
 
 
 def _trace_job_creation(job: "Job"):
@@ -40,7 +43,7 @@ class Job:
         _save_job_config,
     ]
 
-    def __init__(self, config: Config, dataset: Dataset, parent_job: "Job" = None, init=True):
+    def __init__(self, config: Config, dataset: Dataset, parent_job: "Job" = None):
         self.config = config
         self.dataset = dataset
         self.job_id = str(uuid.uuid4())
@@ -57,24 +60,79 @@ class Job:
                 f(self)
 
     @staticmethod
-    def load_from(checkpoint_file: str = None, config: Config = None, device="cpu", parent_job=None) -> (Dict, Optional[Config]):
-        if checkpoint_file is None and config is None:
-            raise ValueError("Either a config file or a checkpoint file need to be provided to load a checkpoint.")
-        elif checkpoint_file is None:
+    def create(config: Config, dataset: Dataset, parent_job=None, model=None):
+        from kge.job import TrainingJob, EvaluationJob, SearchJob
+
+        job_type = config.get("job.type")
+        if job_type == "train":
+            return TrainingJob.create(
+                config, dataset, parent_job=parent_job, model=model
+            )
+        elif job_type == "search":
+            return SearchJob.create(config, dataset, parent_job=parent_job)
+        elif job_type == "eval":
+            return EvaluationJob.create(
+                config, dataset, parent_job=parent_job, model=model
+            )
+        else:
+            raise ValueError("unknown job type")
+
+    @staticmethod
+    def resume(
+        checkpoint: str = None,
+        config: Config = None,
+        dataset: Dataset = None,
+        parent_job=None,
+    ) -> Job:
+        if checkpoint is None and config is None:
+            raise ValueError(
+                "Please provide either the config file located in the folder structure "
+                "containing the checkpoint or the checkpoint itself."
+            )
+        elif checkpoint is None:
             last_checkpoint = config.last_checkpoint()
             if last_checkpoint is not None:
-                checkpoint_file = config.checkpoint_file(last_checkpoint)
+                checkpoint = config.checkpoint_file(last_checkpoint)
 
-        if checkpoint_file is not None:
-            checkpoint = torch.load(checkpoint_file, map_location=device)
-            if config is None:
-                original_config = checkpoint["config"]
-                config = Config()  # round trip to handle deprecated configs
-                config.load_options(original_config.options)
-                config.set("job.device", device)
+        if checkpoint is not None:
+            job = Job.load_from(checkpoint, config, dataset, parent_job=parent_job)
+            if type(checkpoint) == str:
+                job.config.log("Loading checkpoint from {}...".format(checkpoint))
         else:
-            checkpoint = None
-        return checkpoint, config
+            job = Job.create(config, dataset, parent_job=parent_job)
+            job.config.log("No checkpoint found, starting from scratch...")
+        return job
+
+    @classmethod
+    def load_from(
+        cls,
+        checkpoint: Union[str, Dict],
+        config: Config = None,
+        dataset: Dataset = None,
+        parent_job=None,
+    ) -> Job:
+        if config is not None:
+            device = config.get("job.device")
+        else:
+            device = "cpu"
+        if type(checkpoint) == str:
+            checkpoint = load_checkpoint(checkpoint, device)
+        config = Config.load_from(
+            checkpoint["config"], config, folder=checkpoint["folder"]
+        )
+        model: KgeModel = None
+        dataset = None
+        if checkpoint["model"] is not None:
+            model = KgeModel.load_from(checkpoint, config=config, dataset=dataset)
+            dataset = model.dataset
+        if dataset is None:
+            dataset = Dataset.load(config)
+        job = Job.create(config, dataset, parent_job, model)
+        job.load(checkpoint, model)
+        return job
+
+    def load(self, checkpoint, model):
+        pass
 
     def run(self):
         raise NotImplementedError
