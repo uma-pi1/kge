@@ -328,7 +328,7 @@ import torch
 import kge.model
 
 # download link for this checkpoint given under results above
-model = kge.model.KgeModel.load_from('fb15k-237-rescal.pt')
+model = kge.model.KgeModel.create_from('fb15k-237-rescal.pt')
 
 s = torch.Tensor([0, 2,]).long()             # subject indexes
 p = torch.Tensor([0, 1,]).long()             # relation indexes

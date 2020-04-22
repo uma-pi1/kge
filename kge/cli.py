@@ -167,7 +167,7 @@ def main():
 
     # package command
     if args.command == "package":
-        package_model(args.checkpoint)
+        package_model(args.checkpoint, args.file)
         exit()
 
     # start command
@@ -280,7 +280,9 @@ def main():
 
             # let's go
             if args.command == "resume":
-                job = Job.resume(checkpoint_file, config=config)
+                job = Job.find_and_create_from(
+                    checkpoint_file, config=config, dataset=dataset
+                )
             else:
                 job = Job.create(config, dataset)
             job.run()
@@ -288,6 +290,7 @@ def main():
         tb = traceback.format_exc()
         config.log(tb, echo=False)
         raise e from None
+
 
 if __name__ == "__main__":
     main()

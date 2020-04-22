@@ -381,9 +381,9 @@ class KgeModel(KgeBase):
         return model
 
     @staticmethod
-    def load_from(
+    def create_from(
         checkpoint: Union[str, Dict],
-        dataset=None,
+        dataset: Optional[Dataset]=None,
         use_tmp_log_folder=True,
         device="cpu",
         config: Config = None,
@@ -401,7 +401,7 @@ class KgeModel(KgeBase):
         if type(checkpoint) is str:
             checkpoint = load_checkpoint(checkpoint, device=device)
 
-        config = Config.load_from(checkpoint["config"], config)
+        config = Config.create_from(checkpoint, config)
 
         if use_tmp_log_folder:
             import tempfile
@@ -411,11 +411,7 @@ class KgeModel(KgeBase):
             config.log_folder = checkpoint["folder"]
             if not config.log_folder:
                 config.log_folder = "."
-        if dataset is None:
-            if checkpoint["type"] == "package":
-                dataset.load_meta(config, checkpoint["dataset_meta"], preload_data=False)
-            else:
-                dataset = Dataset.load(config, preload_data=False)
+        dataset = Dataset.create_from(checkpoint, config, dataset, preload_data=False)
         model = KgeModel.create(config, dataset)
         model.load(checkpoint["model"])
         model.eval()

@@ -238,19 +238,26 @@ class TrainingJob(Job):
     def save(self, filename) -> None:
         """Save current state to specified file"""
         self.config.log("Saving checkpoint to {}...".format(filename))
+        checkpoint = self.save_to({})
         torch.save(
-            {
-                "type": "train",
-                "config": self.config,
-                "epoch": self.epoch,
-                "valid_trace": self.valid_trace,
-                "model": self.model.save(),
-                "optimizer_state_dict": self.optimizer.state_dict(),
-                "lr_scheduler_state_dict": self.kge_lr_scheduler.state_dict(),
-                "job_id": self.job_id,
-            },
-            filename,
+            checkpoint, filename,
         )
+
+    def save_to(self, checkpoint: Dict) -> Dict:
+        """Adds trainjob specific information to the checkpoint"""
+        train_checkpoint = {
+            "type": "train",
+            "epoch": self.epoch,
+            "valid_trace": self.valid_trace,
+            "model": self.model.save(),
+            "optimizer_state_dict": self.optimizer.state_dict(),
+            "lr_scheduler_state_dict": self.kge_lr_scheduler.state_dict(),
+            "job_id": self.job_id,
+        }
+        train_checkpoint = self.config.save_to(train_checkpoint)
+        train_checkpoint = self.dataset.save_to(train_checkpoint)
+        checkpoint = checkpoint.update(train_checkpoint)
+        return checkpoint
 
     def load(self, checkpoint: Dict, model: Optional[KgeModel] = None) -> str:
         """Load job state from specified file.
@@ -285,22 +292,6 @@ class TrainingJob(Job):
             )
         )
         return checkpoint.get("job_id")
-
-    @classmethod
-    def load_from(
-        cls,
-        checkpoint: Union[str, Dict],
-        config: Config = None,
-        dataset: Dataset = None,
-        parent_job=None,
-    ) -> Job:
-        if config is None:
-            config = Config()
-            config.set("job.type", "train")
-        train_job = super().load_from(
-            checkpoint, config, dataset, parent_job=parent_job
-        )
-        return train_job
 
     def run_epoch(self) -> Dict[str, Any]:
         "Runs an epoch and returns a trace entry."

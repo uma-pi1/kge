@@ -338,6 +338,11 @@ class Config:
         with open(filename, "w+") as file:
             file.write(yaml.dump(self.options))
 
+    def save_to(self, checkpoint: Dict) -> Dict:
+        """Adds the config file to a checkpoint"""
+        checkpoint["config"] = self
+        return checkpoint
+
     @staticmethod
     def flatten(options: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a dictionary of flattened configuration options."""
@@ -426,24 +431,26 @@ class Config:
         return False
 
     @staticmethod
-    def load_from(checkpoint_config: Config, new_config=None, folder=None) -> Config:
+    def create_from(
+        checkpoint: Dict, overwrite_config: Optional[Config] = None
+    ) -> Config:
         """
-        Load a config from checkpoint and update all deprecated keys.
+        Create a config from a checkpoint and update all deprecated keys.
         Overwrite options in checkpoint config with a new config.
         Args:
-            checkpoint_config: Config stored in checkpoint
-            new_config: new config with options to overwrite
+            checkpoint: loaded checkpoint
+            overwrite_config: new config with options to overwrite
 
         Returns: Config object
 
         """
         config = Config()  # round trip to handle deprecated configs
-        if checkpoint_config is not None:
-            config.load_options(checkpoint_config.options)
-        if folder is not None:
-            config.folder = folder
-        if new_config is not None:
-            config.load_options(new_config.options)
+        if "config" in checkpoint and checkpoint["config"] is not None:
+            config.load_options(checkpoint["config"].options)
+        if "folder" in checkpoint and checkpoint["folder"] is not None:
+            config.folder = checkpoint["folder"]
+        if overwrite_config is not None:
+            config.load_options(overwrite_config.options)
         return config
 
     def checkpoint_file(self, cpt_id: Union[str, int]) -> str:

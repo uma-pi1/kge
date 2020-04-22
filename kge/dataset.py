@@ -94,18 +94,39 @@ class Dataset(Configurable):
         return dataset
 
     @staticmethod
-    def load_meta(config: Config, meta_checkpoint: Dict, preload_data=True) -> Dataset:
-        """Loads a dataset and overrides meta data."""
-        dataset = Dataset.load(config, preload_data)
-        dataset._meta.update(meta_checkpoint)
+    def create_from(
+        checkpoint: Dict,
+        config: Config,
+        dataset: Optional[Dataset] = None,
+        preload_data=True,
+    ) -> Dataset:
+        """
+        Creates dataset based on a checkpoint.
+        If a dataset is provided it will be updated
+        Args:
+            checkpoint: loaded checkpoint
+            config: config created from checkpoint
+            dataset: dataset to update
+            preload_data: preload data
+
+        Returns: created/updated dataset
+
+        """
+        if dataset is None:
+            dataset = Dataset.load(config, preload_data)
+        if "dataset.meta" in checkpoint and checkpoint["dataset.meta"] is not None:
+            dataset._meta.update(checkpoint["dataset.meta"])
         return dataset
 
-    def save_meta(self, keys: List[str]):
-        """Creates a dataset_meta dictionary for a checkpoint."""
+    def save_to(self, checkpoint: Dict, meta_keys: Optional[List[str]] = None) -> Dict:
+        """Adds specified meta data to a checkpoint"""
+        if meta_keys is None:
+            return checkpoint
         meta_checkpoint = {}
-        for key in keys:
-            meta_checkpoint[key] = self._meta[key]
-        return meta_checkpoint
+        for key in meta_keys:
+            meta_checkpoint[key] = self._map_indexes(None, key)
+        checkpoint["dataset.meta"] = meta_checkpoint
+        return checkpoint
 
     @staticmethod
     def _to_valid_filename(s):

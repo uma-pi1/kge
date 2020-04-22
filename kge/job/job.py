@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from kge import Config, Dataset
-from kge.model import KgeModel
 from kge.util import load_checkpoint
 import uuid
 
@@ -60,8 +59,13 @@ class Job:
                 f(self)
 
     @staticmethod
-    def create(config: Config, dataset: Dataset, parent_job=None, model=None):
+    def create(
+        config: Config, dataset: Optional[Dataset] = None, parent_job=None, model=None
+    ):
         from kge.job import TrainingJob, EvaluationJob, SearchJob
+
+        if dataset is None:
+            dataset = Dataset.load(dataset)
 
         job_type = config.get("job.type")
         if job_type == "train":
@@ -78,12 +82,26 @@ class Job:
             raise ValueError("unknown job type")
 
     @staticmethod
-    def resume(
+    def find_and_create_from(
         checkpoint: str = None,
         config: Config = None,
         dataset: Dataset = None,
         parent_job=None,
     ) -> Job:
+        """
+        Finds and loads the checkpoint to resume from given a config file in in the
+        experiment folder structure.
+        If a checkpoint is specified, it will be loaded. In this case no config file
+        needs to be specified.
+        Args:
+            checkpoint: path to checkpoint file
+            config: config in the experiment folder structure
+            dataset: dataset object
+            parent_job: parent job (e.g. search job)
+
+        Returns: Job based on checkpoint or new Job if no checkpoint found
+
+        """
         if checkpoint is None and config is None:
             raise ValueError(
                 "Please provide either the config file located in the folder structure "
@@ -95,7 +113,7 @@ class Job:
                 checkpoint = config.checkpoint_file(last_checkpoint)
 
         if checkpoint is not None:
-            job = Job.load_from(checkpoint, config, dataset, parent_job=parent_job)
+            job = Job.create_from(checkpoint, config, dataset, parent_job=parent_job)
             if type(checkpoint) == str:
                 job.config.log("Loading checkpoint from {}...".format(checkpoint))
         else:
@@ -104,38 +122,46 @@ class Job:
         return job
 
     @classmethod
-    def load_from(
+    def create_from(
         cls,
         checkpoint: Union[str, Dict],
         config: Config = None,
         dataset: Dataset = None,
         parent_job=None,
     ) -> Job:
+        """
+        Creates a Job based on a checkpoint
+        Args:
+            checkpoint: path to checkpoint file or loaded checkpoint
+            config: config object
+            dataset: dataset object
+            parent_job: parent job (e.g. search job)
+
+        Returns: Job based on checkpoint
+
+        """
+        from kge.model import KgeModel
+
         if config is not None:
             device = config.get("job.device")
         else:
             device = "cpu"
         if type(checkpoint) == str:
             checkpoint = load_checkpoint(checkpoint, device)
-        checkpoint_config = None
-        if "config" in checkpoint:  # search jobs don't have a config
-            checkpoint_config = checkpoint["config"]
-        config = Config.load_from(
-            checkpoint_config, config, folder=checkpoint["folder"]
-        )
+        config = Config.create_from(checkpoint, config)
         model: KgeModel = None
-        dataset = None
         # search jobs don't have a model
         if "model" in checkpoint and checkpoint["model"] is not None:
-            model = KgeModel.load_from(checkpoint, config=config, dataset=dataset)
+            model = KgeModel.create_from(checkpoint, config=config, dataset=dataset)
             dataset = model.dataset
-        if dataset is None:
-            dataset = Dataset.load(config)
+        else:
+            dataset = Dataset.create_from(checkpoint, config, dataset)
         job = Job.create(config, dataset, parent_job, model)
         job.load(checkpoint, model)
         return job
 
     def load(self, checkpoint, model):
+        """Job type specific operations when loaded from checkpoint"""
         pass
 
     def run(self):

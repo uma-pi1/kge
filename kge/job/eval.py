@@ -94,20 +94,6 @@ class EvaluationJob(Job):
             event="job_resumed", epoch=self.epoch, checkpoint_file=checkpoint["file"]
         )
 
-    @classmethod
-    def load_from(
-        cls,
-        checkpoint: Union[str, Dict],
-        config: Config = None,
-        dataset: Dataset = None,
-        parent_job=None,
-    ) -> Job:
-        if config is None:
-            config = Config()
-            config.set("job.type", "eval")
-        eval_job = super().load_from(checkpoint, config, dataset, parent_job=parent_job)
-        return eval_job
-
 
 # HISTOGRAM COMPUTATION ###############################################################
 
