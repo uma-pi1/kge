@@ -132,6 +132,13 @@ class Config:
         else:
             return self.get(self.get_first_present_key(*keys))
 
+    def has_option(self, key: str, remove_plusplusplus=True) -> bool:
+        try:
+            self.get(key, remove_plusplusplus)
+            return True
+        except KeyError:
+            return False
+
     Overwrite = Enum("Overwrite", "Yes No Error")
 
     def set(

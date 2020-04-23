@@ -88,11 +88,31 @@ class EvaluationJob(Job):
         raise NotImplementedError
 
     def load(self, checkpoint, model):
+        if checkpoint["type"] == "search":
+            raise ValueError("Can not evaluate on a search job checkpoint.")
         self.resumed_from_job_id = checkpoint.get("job_id")
         self.epoch = checkpoint["epoch"]
         self.trace(
             event="job_resumed", epoch=self.epoch, checkpoint_file=checkpoint["file"]
         )
+
+    @classmethod
+    def create_from(
+        cls,
+        checkpoint: Union[str, Dict],
+        config: Config = None,
+        dataset: Dataset = None,
+        parent_job=None,
+        eval_split: str = "valid"
+    ) -> Job:
+        if config is None:
+            config = Config(load_default=False)
+        if not config.has_option("job.type") or config.get("job.type") != "eval":
+            config.set("job.type", "eval", create=True)
+        if not config.has_option("eval.split"):
+            config.set("eval.split", eval_split, create=True)
+
+        return super().create_from(checkpoint, config, dataset, parent_job)
 
 
 # HISTOGRAM COMPUTATION ###############################################################

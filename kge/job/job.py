@@ -142,7 +142,7 @@ class Job:
         """
         from kge.model import KgeModel
 
-        if config is not None:
+        if config is not None and config.has_option("job.device"):
             device = config.get("job.device")
         else:
             device = "cpu"

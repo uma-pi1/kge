@@ -307,12 +307,12 @@ class KgeModel(KgeBase):
 
     @staticmethod
     def create(
-        config: Config, dataset: Dataset, configuration_key: str = None
+        config: Config, dataset: Dataset, configuration_key: Optional[str] = None
     ) -> "KgeModel":
         """Factory method for model creation."""
 
         try:
-            if configuration_key:
+            if configuration_key is not None:
                 model_name = config.get(configuration_key + ".type")
             else:
                 model_name = config.get("model")
