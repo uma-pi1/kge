@@ -21,6 +21,8 @@ def package_model(checkpoint_path: str, filename: str = None):
     A packaged model only contains the model, entity/relation ids and the config.
     """
     checkpoint = load_checkpoint(checkpoint_path, device="cpu")
+    if checkpoint["type"] == "search":
+        raise ValueError("Can not package a search job.")
     config = Config.create_from(checkpoint)
     dataset = Dataset.create_from(checkpoint, config, preload_data=False)
     packaged_model = {
