@@ -255,7 +255,6 @@ class TrainingJob(Job):
             "job_id": self.job_id,
         }
         train_checkpoint = self.config.save_to(train_checkpoint)
-        train_checkpoint = self.dataset.save_to(train_checkpoint)
         checkpoint = checkpoint.update(train_checkpoint)
         return checkpoint
 

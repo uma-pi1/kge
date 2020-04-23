@@ -114,18 +114,27 @@ class Dataset(Configurable):
         """
         if dataset is None:
             dataset = Dataset.load(config, preload_data)
-        if "dataset.meta" in checkpoint and checkpoint["dataset.meta"] is not None:
-            dataset._meta.update(checkpoint["dataset.meta"])
+        if "dataset" in checkpoint:
+            dataset_checkpoint = checkpoint["dataset"]
+            if "dataset.meta" in dataset_checkpoint and dataset_checkpoint["meta"] is not None:
+                dataset._meta.update(dataset_checkpoint["meta"])
+            dataset._num_entities = dataset_checkpoint["num_entities"]
+            dataset._num_relations = dataset_checkpoint["num_relations"]
         return dataset
 
     def save_to(self, checkpoint: Dict, meta_keys: Optional[List[str]] = None) -> Dict:
         """Adds specified meta data to a checkpoint"""
+        dataset_checkpoint = {
+            "num_entities": self.num_entities(),
+            "num_relations": self.num_relations()
+        }
         if meta_keys is None:
             return checkpoint
         meta_checkpoint = {}
         for key in meta_keys:
             meta_checkpoint[key] = self._map_indexes(None, key)
-        checkpoint["dataset.meta"] = meta_checkpoint
+        dataset_checkpoint["meta"] = meta_checkpoint
+        checkpoint["dataset"] = dataset_checkpoint
         return checkpoint
 
     @staticmethod
