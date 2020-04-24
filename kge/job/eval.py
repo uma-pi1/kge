@@ -103,7 +103,7 @@ class EvaluationJob(Job):
         config: Config = None,
         dataset: Dataset = None,
         parent_job=None,
-        eval_split: str = "valid"
+        eval_split: str = "valid",
     ) -> Job:
         if config is None:
             config = Config(load_default=False)
