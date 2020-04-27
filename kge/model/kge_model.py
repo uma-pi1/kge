@@ -383,7 +383,7 @@ class KgeModel(KgeBase):
     @staticmethod
     def create_from(
         checkpoint: Union[str, Dict],
-        dataset: Optional[Dataset]=None,
+        dataset: Optional[Dataset] = None,
         use_tmp_log_folder=True,
         device="cpu",
         config: Config = None,
@@ -409,7 +409,7 @@ class KgeModel(KgeBase):
             config.log_folder = tempfile.mkdtemp(prefix="kge-")
         else:
             config.log_folder = checkpoint["folder"]
-            if not config.log_folder:
+            if not config.log_folder or not os.path.exists(config.log_folder):
                 config.log_folder = "."
         dataset = Dataset.create_from(checkpoint, config, dataset, preload_data=False)
         model = KgeModel.create(config, dataset)

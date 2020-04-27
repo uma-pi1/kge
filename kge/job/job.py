@@ -107,7 +107,7 @@ class Job:
                 "Please provide either the config file located in the folder structure "
                 "containing the checkpoint or the checkpoint itself."
             )
-        elif checkpoint is None:
+        if checkpoint is None:
             last_checkpoint = config.last_checkpoint()
             if last_checkpoint is not None:
                 checkpoint = config.checkpoint_file(last_checkpoint)
@@ -116,16 +116,18 @@ class Job:
             job = Job.create_from(checkpoint, config, dataset, parent_job=parent_job)
             if type(checkpoint) == str:
                 job.config.log("Loading checkpoint from {}...".format(checkpoint))
+            else:
+                job.config.log("Loaded checkpoint.")
         else:
             job = Job.create(config, dataset, parent_job=parent_job)
-            job.config.log("No checkpoint found, starting from scratch...")
+            job.config.log("No checkpoint found or specified, starting from scratch...")
         return job
 
     @classmethod
     def create_from(
         cls,
         checkpoint: Union[str, Dict],
-        config: Config = None,
+        overwrite_config: Config = None,
         dataset: Dataset = None,
         parent_job=None,
     ) -> Job:
@@ -133,7 +135,8 @@ class Job:
         Creates a Job based on a checkpoint
         Args:
             checkpoint: path to checkpoint file or loaded checkpoint
-            config: config object
+            overwrite_config: optional config object - overwrites options of config
+                              stored in checkpoint
             dataset: dataset object
             parent_job: parent job (e.g. search job)
 
@@ -142,25 +145,27 @@ class Job:
         """
         from kge.model import KgeModel
 
-        if config is not None and config.has_option("job.device"):
-            device = config.get("job.device")
+        if overwrite_config is not None and overwrite_config.exists("job.device"):
+            device = overwrite_config.get("job.device")
         else:
             device = "cpu"
         if type(checkpoint) == str:
             checkpoint = load_checkpoint(checkpoint, device)
-        config = Config.create_from(checkpoint, config)
+        overwrite_config = Config.create_from(checkpoint, overwrite_config)
         model: KgeModel = None
         # search jobs don't have a model
         if "model" in checkpoint and checkpoint["model"] is not None:
-            model = KgeModel.create_from(checkpoint, config=config, dataset=dataset)
+            model = KgeModel.create_from(
+                checkpoint, config=overwrite_config, dataset=dataset
+            )
             dataset = model.dataset
         else:
-            dataset = Dataset.create_from(checkpoint, config, dataset)
-        job = Job.create(config, dataset, parent_job, model)
+            dataset = Dataset.create_from(checkpoint, overwrite_config, dataset)
+        job = Job.create(overwrite_config, dataset, parent_job, model)
         job.load(checkpoint, model)
         return job
 
-    def load(self, checkpoint, model):
+    def load(self, checkpoint: Dict, model):
         """Job type specific operations when loaded from checkpoint"""
         pass
 

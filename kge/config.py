@@ -132,7 +132,7 @@ class Config:
         else:
             return self.get(self.get_first_present_key(*keys))
 
-    def has_option(self, key: str, remove_plusplusplus=True) -> bool:
+    def exists(self, key: str, remove_plusplusplus=True) -> bool:
         try:
             self.get(key, remove_plusplusplus)
             return True

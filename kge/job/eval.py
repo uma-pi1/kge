@@ -88,8 +88,8 @@ class EvaluationJob(Job):
         raise NotImplementedError
 
     def load(self, checkpoint, model):
-        if checkpoint["type"] == "search":
-            raise ValueError("Can not evaluate on a search job checkpoint.")
+        if checkpoint["type"] not in ["train", "package"]:
+            raise ValueError("Can only evaluate train and package checkpoints.")
         self.resumed_from_job_id = checkpoint.get("job_id")
         self.epoch = checkpoint["epoch"]
         self.trace(
@@ -99,20 +99,23 @@ class EvaluationJob(Job):
     @classmethod
     def create_from(
         cls,
-        checkpoint: Union[str, Dict],
-        config: Config = None,
+        checkpoint: Dict,
+        overwrite_config: Config = None,
         dataset: Dataset = None,
         parent_job=None,
         eval_split: str = "valid",
     ) -> Job:
-        if config is None:
-            config = Config(load_default=False)
-        if not config.has_option("job.type") or config.get("job.type") != "eval":
-            config.set("job.type", "eval", create=True)
-        if not config.has_option("eval.split"):
-            config.set("eval.split", eval_split, create=True)
+        if overwrite_config is None:
+            overwrite_config = Config(load_default=False)
+        if (
+            not overwrite_config.exists("job.type")
+            or overwrite_config.get("job.type") != "eval"
+        ):
+            overwrite_config.set("job.type", "eval", create=True)
+        if not overwrite_config.exists("eval.split"):
+            overwrite_config.set("eval.split", eval_split, create=True)
 
-        return super().create_from(checkpoint, config, dataset, parent_job)
+        return super().create_from(checkpoint, overwrite_config, dataset, parent_job)
 
 
 # HISTOGRAM COMPUTATION ###############################################################

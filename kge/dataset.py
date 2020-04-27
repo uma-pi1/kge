@@ -131,13 +131,13 @@ class Dataset(Configurable):
             "num_entities": self.num_entities(),
             "num_relations": self.num_relations(),
         }
+        checkpoint["dataset"] = dataset_checkpoint
         if meta_keys is None:
             return checkpoint
         meta_checkpoint = {}
         for key in meta_keys:
             meta_checkpoint[key] = self._map_indexes(None, key)
-        dataset_checkpoint["meta"] = meta_checkpoint
-        checkpoint["dataset"] = dataset_checkpoint
+        checkpoint["dataset"]["meta"] = dataset_checkpoint
         return checkpoint
 
     @staticmethod

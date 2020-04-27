@@ -263,7 +263,7 @@ class TrainingJob(Job):
 
         Returns job id of the job that created the checkpoint."""
         if checkpoint["type"] != "train":
-            raise ValueError("Can not continue training on a packaged model")
+            raise ValueError("Training can only be continued on trained checkpoints")
         if model is not None:
             self.model = model
         else:
