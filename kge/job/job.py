@@ -104,8 +104,7 @@ class Job:
         """
         if checkpoint is None and config is None:
             raise ValueError(
-                "Please provide either the config file located in the folder structure "
-                "containing the checkpoint or the checkpoint itself."
+                "Config or checkpoint required."
             )
         if checkpoint is None:
             last_checkpoint = config.last_checkpoint()
