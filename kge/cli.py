@@ -280,8 +280,8 @@ def main():
 
             # let's go
             if args.command == "resume":
-                job = Job.find_and_create_from(
-                    checkpoint_file, config=config, dataset=dataset
+                job = Job.create_from(
+                    checkpoint_file, overwrite_config=config, dataset=dataset
                 )
             else:
                 job = Job.create(config, dataset)

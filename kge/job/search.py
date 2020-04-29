@@ -131,9 +131,9 @@ def _run_train_job(sicnk, device=None):
                 train_job_config.get("job.device"),
             )
         )
-        job = Job.find_and_create_from(
+        job = Job.create_from(
             checkpoint=None,
-            config=train_job_config,
+            overwrite_config=train_job_config,
             dataset=search_job.dataset,
             parent_job=search_job,
         )

@@ -81,51 +81,10 @@ class Job:
         else:
             raise ValueError("unknown job type")
 
-    @staticmethod
-    def find_and_create_from(
-        checkpoint: str = None,
-        config: Config = None,
-        dataset: Dataset = None,
-        parent_job=None,
-    ) -> Job:
-        """
-        Finds and loads the checkpoint to resume from given a config file in in the
-        experiment folder structure.
-        If a checkpoint is specified, it will be loaded. In this case no config file
-        needs to be specified.
-        Args:
-            checkpoint: path to checkpoint file
-            config: config in the experiment folder structure
-            dataset: dataset object
-            parent_job: parent job (e.g. search job)
-
-        Returns: Job based on checkpoint or new Job if no checkpoint found
-
-        """
-        if checkpoint is None and config is None:
-            raise ValueError(
-                "Config or checkpoint required."
-            )
-        if checkpoint is None:
-            last_checkpoint = config.last_checkpoint()
-            if last_checkpoint is not None:
-                checkpoint = config.checkpoint_file(last_checkpoint)
-
-        if checkpoint is not None:
-            job = Job.create_from(checkpoint, config, dataset, parent_job=parent_job)
-            if type(checkpoint) == str:
-                job.config.log("Loading checkpoint from {}...".format(checkpoint))
-            else:
-                job.config.log("Loaded checkpoint.")
-        else:
-            job = Job.create(config, dataset, parent_job=parent_job)
-            job.config.log("No checkpoint found or specified, starting from scratch...")
-        return job
-
     @classmethod
     def create_from(
         cls,
-        checkpoint: Union[str, Dict],
+        checkpoint: Optional[Union[str, Dict]] = None,
         overwrite_config: Config = None,
         dataset: Dataset = None,
         parent_job=None,
@@ -144,6 +103,20 @@ class Job:
         """
         from kge.model import KgeModel
 
+        if checkpoint is None and overwrite_config is None:
+            raise ValueError(
+                "Config or checkpoint required."
+            )
+        if checkpoint is None:
+            last_checkpoint = overwrite_config.last_checkpoint()
+            if last_checkpoint is not None:
+                checkpoint = overwrite_config.checkpoint_file(last_checkpoint)
+
+        if checkpoint is None:
+            job = Job.create(overwrite_config, dataset, parent_job=parent_job)
+            job.config.log("No checkpoint found or specified, starting from scratch...")
+            return job
+
         if overwrite_config is not None and overwrite_config.exists("job.device"):
             device = overwrite_config.get("job.device")
         else:
@@ -161,6 +134,7 @@ class Job:
         else:
             dataset = Dataset.create_from(checkpoint, overwrite_config, dataset)
         job = Job.create(overwrite_config, dataset, parent_job, model)
+        job.config.log("Loading checkpoint from {}...".format(checkpoint["file"]))
         job.load(checkpoint, model)
         return job
 
