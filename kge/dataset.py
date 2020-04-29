@@ -166,6 +166,10 @@ class Dataset(Configurable):
     def load_triples(self, key: str) -> Tensor:
         "Load or return the triples with the specified key."
         if key not in self._triples:
+            if self.folder is None or not os.path.exists(self.folder):
+                raise IOError(
+                    "Dataset {} not found".format(self.config.get("dataset.name"))
+                )
             filename = self.config.get(f"dataset.files.{key}.filename")
             filetype = self.config.get(f"dataset.files.{key}.type")
             if filetype != "triples":
@@ -253,6 +257,10 @@ class Dataset(Configurable):
 
         """
         if key not in self._meta:
+            if self.folder is None or not os.path.exists(self.folder):
+                raise IOError(
+                    "Dataset {} not found".format(self.config.get("dataset.name"))
+                )
             filename = self.config.get(f"dataset.files.{key}.filename")
             filetype = self.config.get(f"dataset.files.{key}.type")
             if (maptype and filetype != maptype) or (
