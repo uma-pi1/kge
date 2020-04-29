@@ -104,18 +104,17 @@ class Job:
         from kge.model import KgeModel
 
         if checkpoint is None and overwrite_config is None:
-            raise ValueError(
-                "Config or checkpoint required."
-            )
+            raise ValueError("Config or checkpoint required.")
         if checkpoint is None:
             last_checkpoint = overwrite_config.last_checkpoint()
             if last_checkpoint is not None:
                 checkpoint = overwrite_config.checkpoint_file(last_checkpoint)
-
-        if checkpoint is None:
-            job = Job.create(overwrite_config, dataset, parent_job=parent_job)
-            job.config.log("No checkpoint found or specified, starting from scratch...")
-            return job
+            else:
+                job = Job.create(overwrite_config, dataset, parent_job=parent_job)
+                job.config.log(
+                    "No checkpoint found or specified, starting from scratch..."
+                )
+                return job
 
         if overwrite_config is not None and overwrite_config.exists("job.device"):
             device = overwrite_config.get("job.device")
