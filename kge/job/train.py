@@ -255,7 +255,7 @@ class TrainingJob(Job):
             "job_id": self.job_id,
         }
         train_checkpoint = self.config.save_to(train_checkpoint)
-        checkpoint = checkpoint.update(train_checkpoint)
+        checkpoint.update(train_checkpoint)
         return checkpoint
 
     def load(self, checkpoint: Dict, model: Optional[KgeModel] = None) -> str:
