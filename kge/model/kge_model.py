@@ -386,7 +386,7 @@ class KgeModel(KgeBase):
         dataset: Optional[Dataset] = None,
         use_tmp_log_folder=True,
         device="cpu",
-        config: Config = None,
+        overwrite_config: Config = None,
     ) -> "KgeModel":
         """Loads a model from a checkpoint file of a training job or a packaged model.
 
@@ -401,7 +401,7 @@ class KgeModel(KgeBase):
         if type(checkpoint) is str:
             checkpoint = load_checkpoint(checkpoint, device=device)
 
-        config = Config.create_from(checkpoint, config)
+        config = Config.create_from(checkpoint, overwrite_config)
 
         if use_tmp_log_folder:
             import tempfile

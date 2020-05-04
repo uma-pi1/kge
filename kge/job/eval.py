@@ -4,7 +4,7 @@ from kge import Config, Dataset
 from kge.job import Job
 from kge.model import KgeModel
 
-from typing import Dict, Union
+from typing import Dict, Union, Optional
 
 
 class EvaluationJob(Job):
@@ -87,7 +87,7 @@ class EvaluationJob(Job):
         """ Compute evaluation metrics, output results to trace file """
         raise NotImplementedError
 
-    def load(self, checkpoint, model):
+    def load(self, checkpoint: Dict, model: Optional[KgeModel] = None):
         if checkpoint["type"] not in ["train", "package"]:
             raise ValueError("Can only evaluate train and package checkpoints.")
         self.resumed_from_job_id = checkpoint.get("job_id")
@@ -99,7 +99,7 @@ class EvaluationJob(Job):
     @classmethod
     def create_from(
         cls,
-        checkpoint: Dict,
+        checkpoint: Optional[Union[str, Dict]] = None,
         overwrite_config: Config = None,
         dataset: Dataset = None,
         parent_job=None,

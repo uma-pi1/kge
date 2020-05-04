@@ -65,7 +65,7 @@ class Job:
         from kge.job import TrainingJob, EvaluationJob, SearchJob
 
         if dataset is None:
-            dataset = Dataset.load(dataset)
+            dataset = Dataset.load(config)
 
         job_type = config.get("job.type")
         if job_type == "train":
@@ -122,17 +122,18 @@ class Job:
             device = "cpu"
         if type(checkpoint) == str:
             checkpoint = load_checkpoint(checkpoint, device)
-        overwrite_config = Config.create_from(checkpoint, overwrite_config)
         model: KgeModel = None
         # search jobs don't have a model
         if "model" in checkpoint and checkpoint["model"] is not None:
             model = KgeModel.create_from(
-                checkpoint, config=overwrite_config, dataset=dataset
+                checkpoint, overwrite_config=overwrite_config, dataset=dataset
             )
+            config = model.config
             dataset = model.dataset
         else:
-            dataset = Dataset.create_from(checkpoint, overwrite_config, dataset)
-        job = Job.create(overwrite_config, dataset, parent_job, model)
+            config = Config.create_from(checkpoint, overwrite_config)
+            dataset = Dataset.create_from(checkpoint, config, dataset)
+        job = Job.create(config, dataset, parent_job, model)
         job.config.log("Loading checkpoint from {}...".format(checkpoint["file"]))
         job.load(checkpoint, model)
         return job

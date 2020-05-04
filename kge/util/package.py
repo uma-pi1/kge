@@ -15,12 +15,14 @@ def add_package_parser(subparsers):
     )
 
 
-def package_model(checkpoint_path: str, filename: str = None):
+def package_model(args):
     """
     Converts a checkpoint to a packaged model.
     A packaged model only contains the model, entity/relation ids and the config.
     """
-    checkpoint = load_checkpoint(checkpoint_path, device="cpu")
+    checkpoint_file = args.checkpoint
+    filename = args.file
+    checkpoint = load_checkpoint(checkpoint_file, device="cpu")
     if checkpoint["type"] != "train":
         raise ValueError("Can only package trained checkpoints.")
     config = Config.create_from(checkpoint)
@@ -32,7 +34,7 @@ def package_model(checkpoint_path: str, filename: str = None):
     packaged_model = config.save_to(packaged_model)
     packaged_model = dataset.save_to(packaged_model, ["entity_ids", "relation_ids"],)
     if filename is None:
-        output_folder, filename = os.path.split(checkpoint_path)
+        output_folder, filename = os.path.split(checkpoint_file)
         if "checkpoint" in filename:
             filename = filename.replace("checkpoint", "model")
         else:

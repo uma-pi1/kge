@@ -167,7 +167,7 @@ def main():
 
     # package command
     if args.command == "package":
-        package_model(args.checkpoint, args.file)
+        package_model(args)
         exit()
 
     # start command

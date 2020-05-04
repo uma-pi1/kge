@@ -71,6 +71,18 @@ class Dataset(Configurable):
 
     ## LOADING ##########################################################################
 
+    def assert_available(self, key):
+        """Checks if key can be loaded"""
+        if self.folder is None or not os.path.exists(self.folder):
+            raise IOError(
+                "Dataset {} not found".format(self.config.get("dataset.name"))
+            )
+        filename = self.config.get(f"dataset.files.{key}.filename")
+        if filename is None:
+            raise IOError("Filename for key {} not specified in config".format(key))
+        if not os.path.exists(os.path.join(self.folder, filename)):
+            raise IOError("File {} for key {} could not be found".format(os.path.join(self.folder, filename), key))
+
     @staticmethod
     def load(config: Config, preload_data=True):
         """Loads a dataset.
@@ -98,7 +110,7 @@ class Dataset(Configurable):
         checkpoint: Dict,
         config: Config,
         dataset: Optional[Dataset] = None,
-        preload_data=True,
+        preload_data=False,
     ) -> Dataset:
         """
         Creates dataset based on a checkpoint.
@@ -136,7 +148,7 @@ class Dataset(Configurable):
             return checkpoint
         meta_checkpoint = {}
         for key in meta_keys:
-            meta_checkpoint[key] = self._map_indexes(None, key)
+            meta_checkpoint[key] = self.map_indexes(None, key)
         checkpoint["dataset"]["meta"] = dataset_checkpoint
         return checkpoint
 
@@ -166,10 +178,7 @@ class Dataset(Configurable):
     def load_triples(self, key: str) -> Tensor:
         "Load or return the triples with the specified key."
         if key not in self._triples:
-            if self.folder is None or not os.path.exists(self.folder):
-                raise IOError(
-                    "Dataset {} not found".format(self.config.get("dataset.name"))
-                )
+            self.assert_available(key)
             filename = self.config.get(f"dataset.files.{key}.filename")
             filetype = self.config.get(f"dataset.files.{key}.type")
             if filetype != "triples":
@@ -257,10 +266,7 @@ class Dataset(Configurable):
 
         """
         if key not in self._meta:
-            if self.folder is None or not os.path.exists(self.folder):
-                raise IOError(
-                    "Dataset {} not found".format(self.config.get("dataset.name"))
-                )
+            self.assert_available(key)
             filename = self.config.get(f"dataset.files.{key}.filename")
             filetype = self.config.get(f"dataset.files.{key}.type")
             if (maptype and filetype != maptype) or (
