@@ -133,6 +133,10 @@ train:
   # true label. Computed once for each positive and once for each negative
   # triple in the batch. See loss_arg for parameters.
   #
+  # Squared error (se, all training types): Calculate squared error between
+  # the score of a triple and its true value (0, 1). Computed once for each
+  # positive and once for each negative triple in the batch.
+  #
   # Generally, the loss values are averaged over the batch elements (e.g.,
   # positive triple for 1vsAll and negative_sampling, sp- or po-pair for
   # KvsAll). If multiple loss values arise for each batch element (e.g., when
