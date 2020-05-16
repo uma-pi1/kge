@@ -32,7 +32,6 @@ class LookupEmbedder(KgeEmbedder):
         self.embeddings = torch.nn.Embedding(
             self.vocab_size, self.dim, sparse=self.sparse
         )
-        self.all_indexes = torch.arange(self.vocab_size).long()
 
         # initialize weights
         init_ = self.get_option("initialize")
@@ -84,11 +83,20 @@ class LookupEmbedder(KgeEmbedder):
         return embeddings
 
     def embed(self, indexes: Tensor) -> Tensor:
-        return self._embed(self.embeddings(indexes.long()))
+        if indexes is None:
+            return self._embed(self._get_all_parameters())
+        else:
+            return self._embed(self.embeddings(indexes.long()))
 
     def embed_all(self) -> Tensor:
-        self.all_indexes = self.all_indexes.to(self.embeddings.weight.device)
-        return self.embed(self.all_indexes)
+        return self.embed(None)
+
+    def _get_all_parameters(self) -> Tensor:
+        return self.embeddings(
+            torch.arange(
+                self.vocab_size, dtype=torch.long, device=self.embeddings.weight.device
+            )
+        )
 
     def _get_regularize_weight(self) -> Tensor:
         return self.get_option("regularize_weight")
@@ -107,8 +115,7 @@ class LookupEmbedder(KgeEmbedder):
             regularize_weight = self._get_regularize_weight()
             if not self.get_option("regularize_args.weighted"):
                 # unweighted Lp regularization
-                self.all_indexes = self.all_indexes.to(self.embeddings.weight.device)
-                parameters = self.embeddings(self.all_indexes)
+                parameters = self._get_all_parameters()
                 result += [
                     (
                         f"{self.configuration_key}.L{p}_penalty",
