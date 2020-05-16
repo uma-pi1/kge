@@ -69,7 +69,7 @@ class AxSearchJob(AutoSearchJob):
             # note that here the argument is called "random_seed" not "seed"
             choose_generation_strategy_kwargs={
                 "random_seed": self.config.get("ax_search.sobol_seed")
-            },
+            }
         self.ax_client.create_experiment(
             name=self.job_id,
             parameters=self.config.get("ax_search.parameters"),
