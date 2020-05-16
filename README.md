@@ -414,7 +414,7 @@ If you use LibKGE, please cite the following publication:
 ```
 @inproceedings{
   ruffinelli2020you,
-  title={You {\{}CAN{\}} Teach an Old Dog New Tricks! On Training Knowledge Graph Embeddings},
+  title={You {CAN} Teach an Old Dog New Tricks! On Training Knowledge Graph Embeddings},
   author={Daniel Ruffinelli and Samuel Broscheit and Rainer Gemulla},
   booktitle={International Conference on Learning Representations},
   year={2020},
