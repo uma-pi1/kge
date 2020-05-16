@@ -460,6 +460,10 @@ ax_search:
   # If equal or larger than num_trials, only Sobal trials will be run.
   num_sobol_trials: -1
 
+  # Random seed for generating the sobol sequence. Has to be fixed for each
+  # experiment, or else resuming the sobol sequence is inconsistent.
+  sobol_seed: 0
+
   # Search space definition passed to ax. See create_experiment in
   # https://ax.dev/api/service.html#module-ax.service.ax_client
   parameters: []
