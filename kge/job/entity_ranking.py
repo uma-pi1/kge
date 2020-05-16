@@ -3,7 +3,7 @@ import time
 
 import torch
 import kge.job
-from kge.job import EvaluationJob, Job
+from kge.job import EvaluationJob, Job, TrainingJob
 from kge import Config, Dataset
 from collections import defaultdict
 
@@ -385,6 +385,18 @@ class EntityRankingJob(EvaluationJob):
                     )
                 )
         epoch_time += time.time()
+
+        if isinstance(self.parent_job, TrainingJob):
+            self.parent_job: TrainingJob = self.parent_job
+            train_trace_entry = self.parent_job.run_epoch(
+                split=self.eval_split, echo_trace=False, do_backward=False
+            )
+            metrics.update(
+                avg_loss=train_trace_entry["avg_loss"],
+                avg_penalty=train_trace_entry["avg_penalty"],
+                avg_penalties=train_trace_entry["avg_penalties"],
+                avg_cost=train_trace_entry["avg_cost"],
+            )
 
         # compute trace
         trace_entry = dict(
