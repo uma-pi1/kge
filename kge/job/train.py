@@ -1,8 +1,6 @@
-import itertools
 import os
 import math
 import time
-import sys
 from collections import defaultdict
 
 from dataclasses import dataclass
@@ -17,7 +15,7 @@ from kge.job import Job
 from kge.model import KgeModel
 
 from kge.util import KgeLoss, KgeOptimizer, KgeSampler, KgeLRScheduler
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional
 import kge.job.util
 
 SLOTS = [0, 1, 2]
@@ -67,8 +65,6 @@ class TrainingJob(Job):
             self.model: KgeModel = KgeModel.create(config, dataset)
         else:
             self.model: KgeModel = model
-        self.optimizer = KgeOptimizer.create(config, self.model)
-        self.kge_lr_scheduler = KgeLRScheduler(config, self.optimizer)
         self.loss = KgeLoss.create(config)
         self.abort_on_nan: bool = config.get("train.abort_on_nan")
         self.batch_size: int = config.get("train.batch_size")
@@ -129,8 +125,6 @@ class TrainingJob(Job):
         if self.__class__ == TrainingJob:
             for f in Job.job_created_hooks:
                 f(self)
-
-        self.model.train()
 
     @staticmethod
     def create(
@@ -823,8 +817,7 @@ class TrainingJobKvsAll(TrainingJob):
 
 class TrainingJobNegativeSampling(TrainingJob):
     def __init__(
-            self, config, dataset, parent_job=None, model=None, initialize_for_forward_only=False
-    ):
+            self, config, dataset, parent_job=None, model=None, initialize_for_forward_only=False):
         super().__init__(config, dataset, parent_job, model, initialize_for_forward_only)
         self._sampler = KgeSampler.create(config, "negative_sampling", dataset)
         self._implementation = self.config.check(

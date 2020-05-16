@@ -1,14 +1,10 @@
 import time
-from typing import Any, Dict
+from typing import Any, Optional, Dict
 
 import torch
 from kge import Config, Dataset
 
-from kge import Config, Dataset
-from kge.job import Job
-from kge.model import KgeModel
-
-from typing import Dict, Union, Optional
+from kge.job import Job, TrainingJob
 
 
 class EvaluationJob(Job):
@@ -213,6 +209,7 @@ class TrainingLossEvaluationJob(EvaluationJob):
 
         train_job_on_eval_split_config = config.clone()
         train_job_on_eval_split_config.set("train.split", self.eval_split)
+        train_job_on_eval_split_config.set("verbose", False)
         train_job_on_eval_split_config.set(
             "negative_sampling.filtering.splits",
             [self.config.get("train.split"), self.eval_split] + ["valid"]
@@ -229,9 +226,9 @@ class TrainingLossEvaluationJob(EvaluationJob):
             config=train_job_on_eval_split_config,
             parent_job=self,
             dataset=dataset,
+            model=model,
             initialize_for_forward_only=True,
         )
-        self._train_job.model = model
         self._train_job_verbose = False
 
         if self.__class__ == TrainingLossEvaluationJob:
@@ -246,7 +243,7 @@ class TrainingLossEvaluationJob(EvaluationJob):
         self.epoch = self.parent_job.epoch
         epoch_time += time.time()
 
-        train_trace_entry = self._train_job.run_epoch(verbose=self._train_job_verbose)
+        train_trace_entry = self._train_job.run_epoch()
         # compute trace
         trace_entry = dict(
             type="training_loss",
@@ -262,7 +259,6 @@ class TrainingLossEvaluationJob(EvaluationJob):
 
 
 # HISTOGRAM COMPUTATION ###############################################################
-
 
 def __initialize_hist(hists, key, job):
     """If there is no histogram with given `key` in `hists`, add an empty one."""
