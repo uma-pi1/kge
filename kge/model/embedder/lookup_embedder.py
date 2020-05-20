@@ -29,7 +29,7 @@ class LookupEmbedder(KgeEmbedder):
             self.dim = round_to_points(round_embedder_dim_to, self.dim)
 
         # setup embedder
-        self.embeddings = torch.nn.Embedding(
+        self._embeddings = torch.nn.Embedding(
             self.vocab_size, self.dim, sparse=self.sparse
         )
 
@@ -45,7 +45,7 @@ class LookupEmbedder(KgeEmbedder):
             init_args["a"] = init_args["b"] * -1
             self.set_option("initialize_args.a", init_args["a"], log=True)
 
-        self.initialize(self.embeddings.weight.data, init_, init_args)
+        self.initialize(self._embeddings.weight.data, init_, init_args)
 
         # TODO handling negative dropout because using it with ax searches for now
         dropout = self.get_option("dropout")
@@ -64,37 +64,38 @@ class LookupEmbedder(KgeEmbedder):
 
             def normalize_embeddings(job):
                 if self.normalize_with_grad:
-                    self.embeddings.weight = torch.nn.functional.normalize(
-                        self.embeddings.weight, p=self.normalize_p, dim=-1
+                    self._embeddings.weight = torch.nn.functional.normalize(
+                        self._embeddings.weight, p=self.normalize_p, dim=-1
                     )
                 else:
                     with torch.no_grad():
-                        self.embeddings.weight = torch.nn.Parameter(
+                        self._embeddings.weight = torch.nn.Parameter(
                             torch.nn.functional.normalize(
-                                self.embeddings.weight, p=self.normalize_p, dim=-1
+                                self._embeddings.weight, p=self.normalize_p, dim=-1
                             )
                         )
 
             job.pre_batch_hooks.append(normalize_embeddings)
 
-    def _embed(self, embeddings: Tensor) -> Tensor:
+    def _postprocess(self, embeddings: Tensor) -> Tensor:
         if self.dropout.p > 0:
             embeddings = self.dropout(embeddings)
         return embeddings
 
     def embed(self, indexes: Tensor) -> Tensor:
-        if indexes is None:
-            return self._embed(self._get_all_parameters())
-        else:
-            return self._embed(self.embeddings(indexes.long()))
+        return self._postprocess(self._embeddings(indexes.long()))
 
     def embed_all(self) -> Tensor:
-        return self.embed(None)
-
-    def _get_all_parameters(self) -> Tensor:
-        return self.embeddings(
+        return self.embed(
             torch.arange(
-                self.vocab_size, dtype=torch.long, device=self.embeddings.weight.device
+                self.vocab_size, dtype=torch.long, device=self._embeddings.weight.device
+            )
+        )
+
+    def _embeddings_all(self) -> Tensor:
+        return self._embeddings(
+            torch.arange(
+                self.vocab_size, dtype=torch.long, device=self._embeddings.weight.device
             )
         )
 
@@ -115,7 +116,7 @@ class LookupEmbedder(KgeEmbedder):
             regularize_weight = self._get_regularize_weight()
             if not self.get_option("regularize_args.weighted"):
                 # unweighted Lp regularization
-                parameters = self._get_all_parameters()
+                parameters = self._embeddings_all()
                 result += [
                     (
                         f"{self.configuration_key}.L{p}_penalty",
@@ -127,7 +128,7 @@ class LookupEmbedder(KgeEmbedder):
                 unique_ids, counts = torch.unique(
                     kwargs["batch"]["triples"][:, kwargs["slot"]], return_counts=True
                 )
-                parameters = self.embeddings(unique_ids)
+                parameters = self._embeddings(unique_ids)
                 if p % 2 == 1:
                     parameters = torch.abs(parameters)
                 result += [
