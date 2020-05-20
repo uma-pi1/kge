@@ -386,17 +386,10 @@ class EntityRankingJob(EvaluationJob):
                 )
         epoch_time += time.time()
 
-        if isinstance(self.parent_job, TrainingJob):
-            self.parent_job: TrainingJob = self.parent_job
-            train_trace_entry = self.parent_job.run_epoch(
-                split=self.eval_split, echo_trace=False, do_backward=False
-            )
-            metrics.update(
-                avg_loss=train_trace_entry["avg_loss"],
-                avg_penalty=train_trace_entry["avg_penalty"],
-                avg_penalties=train_trace_entry["avg_penalties"],
-                avg_cost=train_trace_entry["avg_cost"],
-            )
+        train_trace_entry = self.eval_train_loss_job.run_epoch(
+            echo_trace=False, forward_only=False
+        )
+        metrics.update(avg_loss=train_trace_entry["avg_loss"],)
 
         # compute trace
         trace_entry = dict(
