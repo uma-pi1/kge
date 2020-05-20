@@ -22,9 +22,17 @@ SLOTS = [0, 1, 2]
 S, P, O = SLOTS
 
 
-def _worker_init_fn(worker_num):
-    # ensure that NumPy uses different seeds at each worker
-    np.random.seed()
+def _worker_init_fn(numpy_seed):
+    if numpy_seed > -1:
+        def result_fn(worker_num):
+            # ensure that NumPy uses different seeds at each worker
+            np.random.seed(numpy_seed + worker_num)
+        return result_fn
+    else:
+        def result_fn(worker_num):
+            # ensure that NumPy uses different seeds at each worker
+            np.random.seed()
+        return result_fn
 
 
 class TrainingJob(Job):
@@ -596,9 +604,7 @@ class TrainingJobKvsAll(TrainingJob):
             shuffle=True,
             batch_size=self.batch_size,
             num_workers=self.config.get("train.num_workers"),
-            worker_init_fn=_worker_init_fn
-            if self.config.get("random_seed.numpy") == -1
-            else None,
+            worker_init_fn=_worker_init_fn(self.config.get("random_seed.numpy")),
             pin_memory=self.config.get("train.pin_memory"),
         )
 
@@ -806,9 +812,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             shuffle=True,
             batch_size=self.batch_size,
             num_workers=self.config.get("train.num_workers"),
-            worker_init_fn=_worker_init_fn
-            if self.config.get("random_seed.numpy") == -1
-            else None,
+            worker_init_fn=_worker_init_fn(self.config.get("random_seed.numpy")),
             pin_memory=self.config.get("train.pin_memory"),
         )
 
@@ -1043,9 +1047,7 @@ class TrainingJob1vsAll(TrainingJob):
             shuffle=True,
             batch_size=self.batch_size,
             num_workers=self.config.get("train.num_workers"),
-            worker_init_fn=_worker_init_fn
-            if self.config.get("random_seed.numpy") == -1
-            else None,
+            worker_init_fn=_worker_init_fn(self.config.get("random_seed.numpy")),
             pin_memory=self.config.get("train.pin_memory"),
         )
 
