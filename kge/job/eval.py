@@ -171,7 +171,7 @@ class EvalTrainingLossJob(EvaluationJob):
         epoch_time += time.time()
 
         train_trace_entry = self.eval_train_loss_job.run_epoch(
-            echo_trace=False, forward_only=False
+            echo_trace=False, forward_only=True
         )
         # compute trace
         trace_entry = dict(

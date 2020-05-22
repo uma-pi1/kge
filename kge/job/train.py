@@ -188,7 +188,7 @@ class TrainingJob(Job):
             # start a new epoch
             self.epoch += 1
             self.config.log("Starting epoch {}...".format(self.epoch))
-            trace_entry = self.run_epoch(echo_trace=True, forward_only=True)
+            trace_entry = self.run_epoch(echo_trace=True, forward_only=False)
             for f in self.post_epoch_hooks:
                 f(self, trace_entry)
             self.config.log("Finished epoch {}.".format(self.epoch))
@@ -340,7 +340,7 @@ class TrainingJob(Job):
             batch_backward_time = batch_result.backward_time - time.time()
             penalty = 0.0
             for index, (penalty_key, penalty_value_torch) in enumerate(penalties_torch):
-                if forward_only:
+                if not forward_only:
                     penalty_value_torch.backward()
                 penalty += penalty_value_torch.item()
                 sum_penalties[penalty_key] += penalty_value_torch.item()
@@ -382,7 +382,7 @@ class TrainingJob(Job):
 
             # update parameters
             batch_optimizer_time = 0
-            if forward_only:
+            if not forward_only:
                 batch_optimizer_time = -time.time()
                 self.optimizer.step()
                 batch_optimizer_time += time.time()
@@ -770,7 +770,7 @@ class TrainingJobKvsAll(TrainingJob):
                 loss_value_total = loss_value.item()
                 forward_time += time.time()
                 backward_time -= time.time()
-                if forward_only:
+                if not forward_only:
                     loss_value.backward()
                 backward_time += time.time()
 
@@ -1015,7 +1015,7 @@ class TrainingJobNegativeSampling(TrainingJob):
 
                 # backward pass for this chunk
                 backward_time -= time.time()
-                if forward_only:
+                if not forward_only:
                     loss_value_torch.backward()
                 backward_time += time.time()
 
@@ -1069,7 +1069,7 @@ class TrainingJob1vsAll(TrainingJob):
         loss_value = loss_value_sp.item()
         forward_time += time.time()
         backward_time = -time.time()
-        if forward_only:
+        if not forward_only:
             loss_value_sp.backward()
         backward_time += time.time()
 
@@ -1080,7 +1080,7 @@ class TrainingJob1vsAll(TrainingJob):
         loss_value += loss_value_po.item()
         forward_time += time.time()
         backward_time -= time.time()
-        if forward_only:
+        if not forward_only:
             loss_value_po.backward()
         backward_time += time.time()
 
