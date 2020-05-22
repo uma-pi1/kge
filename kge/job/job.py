@@ -84,7 +84,7 @@ class Job:
     @classmethod
     def create_from(
         cls,
-        checkpoint: Optional[Union[str, Dict]] = None,
+        checkpoint: Dict,
         overwrite_config: Config = None,
         dataset: Dataset = None,
         parent_job=None,
@@ -92,7 +92,7 @@ class Job:
         """
         Creates a Job based on a checkpoint
         Args:
-            checkpoint: path to checkpoint file or loaded checkpoint
+            checkpoint: loaded checkpoint
             overwrite_config: optional config object - overwrites options of config
                               stored in checkpoint
             dataset: dataset object
@@ -103,25 +103,6 @@ class Job:
         """
         from kge.model import KgeModel
 
-        if checkpoint is None and overwrite_config is None:
-            raise ValueError("Config or checkpoint required.")
-        if checkpoint is None:
-            last_checkpoint = overwrite_config.last_checkpoint()
-            if last_checkpoint is not None:
-                checkpoint = overwrite_config.checkpoint_file(last_checkpoint)
-            else:
-                job = Job.create(overwrite_config, dataset, parent_job=parent_job)
-                job.config.log(
-                    "No checkpoint found or specified, starting from scratch..."
-                )
-                return job
-
-        if overwrite_config is not None and overwrite_config.exists("job.device"):
-            device = overwrite_config.get("job.device")
-        else:
-            device = "cpu"
-        if type(checkpoint) == str:
-            checkpoint = load_checkpoint(checkpoint, device)
         model: KgeModel = None
         # search jobs don't have a model
         if "model" in checkpoint and checkpoint["model"] is not None:

@@ -99,12 +99,28 @@ class EvaluationJob(Job):
     @classmethod
     def create_from(
         cls,
-        checkpoint: Optional[Union[str, Dict]] = None,
+        checkpoint: Dict,
         overwrite_config: Config = None,
         dataset: Dataset = None,
         parent_job=None,
-        eval_split: str = "valid",
+        eval_split: Optional[str] = None,
     ) -> Job:
+        """
+        Creates a Job based on a checkpoint
+        Args:
+            checkpoint: loaded checkpoint
+            overwrite_config: optional config object - overwrites options of config
+                              stored in checkpoint
+            dataset: dataset object
+            parent_job: parent job (e.g. search job)
+            eval_split: 'valid' or 'test'.
+                        Defines the split to evaluate on.
+                        Overwrites split defined in overwrite_config or config of
+                        checkpoint.
+
+        Returns: Evaluation-Job based on checkpoint
+
+        """
         if overwrite_config is None:
             overwrite_config = Config(load_default=False)
         if (
@@ -112,7 +128,7 @@ class EvaluationJob(Job):
             or overwrite_config.get("job.type") != "eval"
         ):
             overwrite_config.set("job.type", "eval", create=True)
-        if not overwrite_config.exists("eval.split"):
+        if eval_split is not None:
             overwrite_config.set("eval.split", eval_split, create=True)
 
         return super().create_from(checkpoint, overwrite_config, dataset, parent_job)

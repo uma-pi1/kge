@@ -10,6 +10,7 @@ from kge import Config
 from kge.job import Job
 from kge.misc import get_git_revision_short_hash, kge_base_dir, is_number
 from kge.util.dump import add_dump_parsers, dump
+from kge.util.io import get_correct_checkpoint_file, load_checkpoint
 from kge.util.package import package_model, add_package_parser
 
 
@@ -238,16 +239,7 @@ def main():
 
         # determine checkpoint to resume (if any)
         if hasattr(args, "checkpoint"):
-            if args.checkpoint == "default":
-                if config.get("job.type") in ["eval", "valid"]:
-                    checkpoint_file = config.checkpoint_file("best")
-                else:
-                    checkpoint_file = None  # means last
-            elif is_number(args.checkpoint, int) or args.checkpoint == "best":
-                checkpoint_file = config.checkpoint_file(args.checkpoint)
-            else:
-                # otherwise, treat it as a filename
-                checkpoint_file = args.checkpoint
+            checkpoint_file = get_correct_checkpoint_file(config, args.checkpoint)
 
         # disable processing of outdated cached dataset files globally
         Dataset._abort_when_cache_outdated = args.abort_when_cache_outdated
@@ -280,9 +272,18 @@ def main():
 
             # let's go
             if args.command == "resume":
-                job = Job.create_from(
-                    checkpoint_file, overwrite_config=config, dataset=dataset
-                )
+                if checkpoint_file is not None:
+                    checkpoint = load_checkpoint(
+                        checkpoint_file, config.get("job.device")
+                    )
+                    job = Job.create_from(
+                        checkpoint, overwrite_config=config, dataset=dataset
+                    )
+                else:
+                    job = Job.create(config, dataset)
+                    job.config.log(
+                        "No checkpoint found or specified, starting from scratch..."
+                    )
             else:
                 job = Job.create(config, dataset)
             job.run()
