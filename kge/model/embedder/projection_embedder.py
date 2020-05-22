@@ -23,8 +23,7 @@ class ProjectionEmbedder(KgeEmbedder):
         if self.dim < 0:
             self.dim = self.base_embedder.dim
         self.dropout = self.get_option("dropout")
-        self.normalize = self.check_option("normalize", ["", "L2"])
-        self.regularize = self.check_option("regularize", ["", "l1", "l2"])
+        self.regularize = self.check_option("regularize", ["", "lp"])
         self.projection = torch.nn.Linear(self.base_embedder.dim, self.dim, bias=False)
         self.initialize(
             self.projection.weight.data,
@@ -38,8 +37,6 @@ class ProjectionEmbedder(KgeEmbedder):
             embeddings = torch.nn.functional.dropout(
                 embeddings, p=self.dropout, training=self.training
             )
-        if self.normalize == "L2":
-            embeddings = torch.nn.functional.normalize(embeddings)
         return embeddings
 
     def embed(self, indexes):
@@ -51,18 +48,17 @@ class ProjectionEmbedder(KgeEmbedder):
     def penalty(self, **kwargs):
         # TODO factor out to a utility method
         if self.regularize == "" or self.get_option("regularize_weight") == 0.0:
-            p = []
-        elif self.regularize == "l1":
-            p = [
-                self.get_option("regularize_weight")
-                * self.projection.weight.norm(p=1)
-            ]
-        elif self.regularize == "l2":
-            p = [
-                self.get_option("regularize_weight")
-                * self.projection.weight.norm(p=2) ** 2
-            ]
+            result = []
+        elif self.regularize == "lp":
+            p = self.get_option("regularize_args.p")
+            result = [
+                (
+                    f"{self.configuration_key}.L{p}_penalty",
+                    self.get_option("regularize_weight")
+                    * self.projection.weight.norm(p=p).sum()
+                )
+                ]
         else:
             raise ValueError("unknown penalty")
 
-        return super().penalty(**kwargs) + p + self.base_embedder.penalty(**kwargs)
+        return super().penalty(**kwargs) + result + self.base_embedder.penalty(**kwargs)

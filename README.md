@@ -8,8 +8,9 @@ below](#other-kge-frameworks).
 
 The key goal of LibKGE is to foster *reproducible research* into (as well as
 meaningful comparisons between) KGE models and training methods. As we argue in
-our [ICLR 2020 paper](https://github.com/uma-pi1/kge-iclr20), the choice of
-training strategy and hyperparameters are very influential on model performance,
+our [ICLR 2020 paper](https://github.com/uma-pi1/kge-iclr20)
+(see [video](https://iclr.cc/virtual_2020/poster_BkxSmlBFvr.html)), the choice
+of training strategy and hyperparameters are very influential on model performance,
 often more so than the model class itself. LibKGE aims to provide *clean
 implementations* of training, hyperparameter optimization, and evaluation
 strategies that can be used with any model. Every potential knob or heuristic
@@ -27,8 +28,8 @@ alternative to KGE.
 1. [Features](#features)
 2. [Results and pretrained models](#results-and-pretrained-models)
 3. [Quick start](#quick-start)
-4. [Using LibKGE](#using-libkge) 
-5. [Currently supported KGE models](#currently-supported-kge-models) 
+4. [Using LibKGE](#using-libkge)
+5. [Currently supported KGE models](#currently-supported-kge-models)
 6. [Adding a new model](#adding-a-new-model)
 7. [Known issues](#known-issues)
 8. [Changelog](CHANGELOG.md)
@@ -119,8 +120,8 @@ LibKGE supports large datasets such as Wikidata5M (4.8M entities). The result
 given below was found by automatic hyperparameter search similar to the one used
 for the smaller datasets above, but with some values fixed (training with shared
 negative sampling, embedding dimension: 128, batch size: 1024, optimizer:
-Adagrad, regularization: weighted). We ran 30 pseudo-random configurations for 
-20 epochs, and then reran the configuration that performed best on validation 
+Adagrad, regularization: weighted). We ran 30 pseudo-random configurations for
+20 epochs, and then reran the configuration that performed best on validation
 data for 200 epochs.
 
 |                                                             |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                    Config file |                                                                            Pretrained model |
@@ -413,7 +414,7 @@ If you use LibKGE, please cite the following publication:
 ```
 @inproceedings{
   ruffinelli2020you,
-  title={You {\{}CAN{\}} Teach an Old Dog New Tricks! On Training Knowledge Graph Embeddings},
+  title={You {CAN} Teach an Old Dog New Tricks! On Training Knowledge Graph Embeddings},
   author={Daniel Ruffinelli and Samuel Broscheit and Rainer Gemulla},
   booktitle={International Conference on Learning Representations},
   year={2020},
