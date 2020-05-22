@@ -22,16 +22,22 @@ SLOTS = [0, 1, 2]
 S, P, O = SLOTS
 
 
-def _worker_init_fn(worker_num, fixed_seed):
-    # ensure that NumPy uses different seeds at each worker
-    if fixed_seed:
-        # reseed based on current seed (same for all workers) and worker number
-        # (different)
-        base_seed = np.random.randint(2**32-1)
-        np.random.seed(base_seed + worker_num)
-    else:
-        # reseed fresh
-        np.random.seed()
+def _generate_worker_init_fn(config):
+    "Initialize workers of a DataLoader"
+    use_fixed_seed = config.get("random_seed.numpy") >= 0
+
+    def worker_init_fn(worker_num):
+        # ensure that NumPy uses different seeds at each worker
+        if use_fixed_seed:
+            # reseed based on current seed (same for all workers) and worker number
+            # (different)
+            base_seed = np.random.randint(2 ** 32 - 1)
+            np.random.seed(base_seed + worker_num)
+        else:
+            # reseed fresh
+            np.random.seed()
+
+    return worker_init_fn
 
 
 class TrainingJob(Job):
@@ -597,17 +603,13 @@ class TrainingJobKvsAll(TrainingJob):
             ) = index_KvsAll_to_torch(index)
 
         # create dataloader
-        if self.config.get("random_seed.numpy") < 0:
-            worker_init_fn = lambda worker_num: _worker_init_fn(worker_num, False)
-        else:
-            worker_init_fn = lambda worker_num: _worker_init_fn(worker_num, True)
         self.loader = torch.utils.data.DataLoader(
             range(self.num_examples),
             collate_fn=self._get_collate_fun(),
             shuffle=True,
             batch_size=self.batch_size,
             num_workers=self.config.get("train.num_workers"),
-            worker_init_fn=worker_init_fn,
+            worker_init_fn=_generate_worker_init_fn(self.config),
             pin_memory=self.config.get("train.pin_memory"),
         )
 
@@ -815,7 +817,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             shuffle=True,
             batch_size=self.batch_size,
             num_workers=self.config.get("train.num_workers"),
-            worker_init_fn=_worker_init_fn(self.config.get("random_seed.numpy")),
+            worker_init_fn=_generate_worker_init_fn(self.config),
             pin_memory=self.config.get("train.pin_memory"),
         )
 
@@ -1050,7 +1052,7 @@ class TrainingJob1vsAll(TrainingJob):
             shuffle=True,
             batch_size=self.batch_size,
             num_workers=self.config.get("train.num_workers"),
-            worker_init_fn=_worker_init_fn(self.config.get("random_seed.numpy")),
+            worker_init_fn=_generate_worker_init_fn(self.config),
             pin_memory=self.config.get("train.pin_memory"),
         )
 
