@@ -382,10 +382,9 @@ class KgeModel(KgeBase):
 
     @staticmethod
     def create_from(
-        checkpoint: Union[str, Dict],
+        checkpoint: Dict,
         dataset: Optional[Dataset] = None,
         use_tmp_log_folder=True,
-        device="cpu",
         overwrite_config: Config = None,
     ) -> "KgeModel":
         """Loads a model from a checkpoint file of a training job or a packaged model.
@@ -398,9 +397,6 @@ class KgeModel(KgeBase):
         appended to) in the checkpoint's folder.
 
         """
-        if type(checkpoint) is str:
-            checkpoint = load_checkpoint(checkpoint, device=device)
-
         config = Config.create_from(checkpoint, overwrite_config)
 
         if use_tmp_log_folder:
