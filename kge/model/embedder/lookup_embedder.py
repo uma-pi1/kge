@@ -77,20 +77,16 @@ class LookupEmbedder(KgeEmbedder):
 
             job.pre_batch_hooks.append(normalize_embeddings)
 
-    def _postprocess(self, embeddings: Tensor) -> Tensor:
-        if self.dropout.p > 0:
-            embeddings = self.dropout(embeddings)
-        return embeddings
-
     def embed(self, indexes: Tensor) -> Tensor:
         return self._postprocess(self._embeddings(indexes.long()))
 
     def embed_all(self) -> Tensor:
-        return self.embed(
-            torch.arange(
-                self.vocab_size, dtype=torch.long, device=self._embeddings.weight.device
-            )
-        )
+        return self._postprocess(self._embeddings_all())
+
+    def _postprocess(self, embeddings: Tensor) -> Tensor:
+        if self.dropout.p > 0:
+            embeddings = self.dropout(embeddings)
+        return embeddings
 
     def _embeddings_all(self) -> Tensor:
         return self._embeddings(
@@ -145,7 +141,7 @@ class LookupEmbedder(KgeEmbedder):
                         / len(kwargs["batch"]["triples"]),
                     )
                 ]
-        else:  # unknown regularziation
+        else:  # unknown regularization
             raise ValueError(f"Invalid value regularize={self.regularize}")
 
         return result
