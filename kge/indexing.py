@@ -99,7 +99,9 @@ def _get_relation_types(dataset,):
         (dataset.index("train_po_to_s"), 0),
     ]:
         for prefix, labels in index.items():
-            relation_stats[prefix[p], 0 + p * 2] = labels.float().sum()
+            relation_stats[prefix[p], 0 + p * 2] = (
+                relation_stats[prefix[p], 0 + p * 2] + len(labels)
+            )
             relation_stats[prefix[p], 1 + p * 2] = (
                 relation_stats[prefix[p], 1 + p * 2] + 1.0
             )
