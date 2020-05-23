@@ -1,4 +1,5 @@
 import time
+from typing import Any, Dict
 
 import torch
 from kge import Config, Dataset
@@ -19,12 +20,6 @@ class EvaluationJob(Job):
         self.model = model
         self.batch_size = config.get("eval.batch_size")
         self.device = self.config.get("job.device")
-        max_k = min(
-            self.dataset.num_entities(), max(self.config.get("eval.hits_at_k_s"))
-        )
-        self.hits_at_k_s = list(
-            filter(lambda x: x <= max_k, self.config.get("eval.hits_at_k_s"))
-        )
         self.config.check("train.trace_level", ["example", "batch", "epoch"])
         self.trace_examples = self.config.get("eval.trace_level") == "example"
         self.trace_batch = (
@@ -34,14 +29,10 @@ class EvaluationJob(Job):
         self.filter_splits = self.config.get("eval.filter_splits")
         if self.eval_split not in self.filter_splits:
             self.filter_splits.append(self.eval_split)
-        self.filter_with_test = config.get("eval.filter_with_test")
         self.epoch = -1
 
-        train_job_on_eval_split_config = config.clone()
-        train_job_on_eval_split_config.set("train.split", self.eval_split)
-        self.eval_train_loss_job = TrainingJob.create(
-            config=train_job_on_eval_split_config, parent_job=self, dataset=dataset
-        )
+        self.verbose = True
+        self.is_prepared = False
 
         #: Hooks run after training for an epoch.
         #: Signature: job, trace_entry
@@ -73,6 +64,22 @@ class EvaluationJob(Job):
         if config.get("eval.metrics_per.argument_frequency"):
             self.hist_hooks.append(hist_per_frequency_percentile)
 
+        # Add the training loss as a default to every evaluation job
+        # TODO: create AggregatingEvaluationsJob that runs and aggregates a list
+        #  of EvaluationAjobs, such that users can configure combinations of
+        #  EvalJobs themselves. Then this can be removed.
+        #  See https://github.com/uma-pi1/kge/issues/102
+        if not isinstance(self, EvalTrainingLossJob):
+            self.eval_train_loss_job = EvalTrainingLossJob(
+                config, dataset, parent_job=self, model=model
+            )
+            self.eval_train_loss_job.verbose = False
+            self.post_epoch_trace_hooks.append(
+                lambda job, trace: trace.update(
+                    avg_loss=self.eval_train_loss_job.run()["avg_loss"]
+                )
+            )
+
         # all done, run job_created_hooks if necessary
         if self.__class__ == EvaluationJob:
             for f in Job.job_created_hooks:
@@ -97,7 +104,55 @@ class EvaluationJob(Job):
         else:
             raise ValueError("eval.type")
 
-    def run(self) -> dict:
+    def _prepare(self):
+        """Prepare this job for running. Guaranteed to be called exactly once
+        """
+        raise NotImplementedError
+
+    def run(self) -> Dict[str, Any]:
+
+        if not self.is_prepared:
+            self._prepare()
+            self.model.prepare_job(self)  # let the model add some hooks
+            self.is_prepared = True
+
+        was_training = self.model.training
+        self.model.eval()
+        self.config.log(
+            "Evaluating on "
+            + self.eval_split
+            + " data (epoch {})...".format(self.epoch),
+            echo=self.verbose
+        )
+
+        trace_entry = self._run()
+
+        # if validation metric is not present, try to compute it
+        metric_name = self.config.get("valid.metric")
+        if metric_name not in trace_entry:
+            trace_entry[metric_name] = eval(
+                self.config.get("valid.metric_expr"),
+                None,
+                dict(config=self.config, **trace_entry),
+            )
+
+        for f in self.post_epoch_trace_hooks:
+            f(self, trace_entry)
+
+        # write out trace
+        trace_entry = self.trace(**trace_entry, echo=self.verbose, echo_prefix="  ", log=True)
+
+        # reset model and return metrics
+        if was_training:
+            self.model.train()
+        self.config.log("Finished evaluating on " + self.eval_split + " split.", echo=self.verbose)
+
+        for f in self.post_valid_hooks:
+            f(self, trace_entry)
+
+        return trace_entry
+
+    def _run(self) -> Dict[str, Any]:
         """ Compute evaluation metrics, output results to trace file """
         raise NotImplementedError
 
@@ -150,28 +205,30 @@ class EvalTrainingLossJob(EvaluationJob):
 
     def __init__(self, config: Config, dataset: Dataset, parent_job, model):
         super().__init__(config, dataset, parent_job, model)
-        self.is_prepared = False
+        self.is_prepared = True
+
+        train_job_on_eval_split_config = config.clone()
+        train_job_on_eval_split_config.set("train.split", self.eval_split)
+        self._train_job = TrainingJob.create(
+            config=train_job_on_eval_split_config, parent_job=self, dataset=dataset
+        )
+
+        self._train_job_verbose = False
 
         if self.__class__ == EvalTrainingLossJob:
             for f in Job.job_created_hooks:
                 f(self)
 
     @torch.no_grad()
-    def run(self) -> dict:
+    def _run(self) -> Dict[str, Any]:
 
         epoch_time = -time.time()
 
-        was_training = self.model.training
-        self.model.eval()
-        self.config.log(
-            "Evaluating on "
-            + self.eval_split
-            + " data (epoch {})...".format(self.epoch)
-        )
+        self.epoch = self.parent_job.epoch
         epoch_time += time.time()
 
-        train_trace_entry = self.eval_train_loss_job.run_epoch(
-            echo_trace=False, forward_only=True
+        train_trace_entry = self._train_job.run_epoch(
+            verbose=self._train_job_verbose, forward_only=True
         )
         # compute trace
         trace_entry = dict(
@@ -183,30 +240,6 @@ class EvalTrainingLossJob(EvaluationJob):
             event="eval_completed",
             avg_loss=train_trace_entry["avg_loss"],
         )
-        for f in self.post_epoch_trace_hooks:
-            f(self, trace_entry)
-
-        # if validation metric is not present, try to compute it
-        metric_name = self.config.get("valid.metric")
-        if metric_name not in trace_entry:
-            trace_entry[metric_name] = eval(
-                self.config.get("valid.metric_expr"),
-                None,
-                dict(config=self.config, **trace_entry),
-            )
-
-        # write out trace
-        trace_entry = self.trace(**trace_entry, echo=True, echo_prefix="  ", log=True)
-
-        # reset model and return metrics
-        if was_training:
-            self.model.train()
-        self.config.log(
-            "Finished evaluating train loss on " + self.eval_split + " split."
-        )
-
-        for f in self.post_valid_hooks:
-            f(self, trace_entry)
 
         return trace_entry
 

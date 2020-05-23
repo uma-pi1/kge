@@ -188,7 +188,7 @@ class TrainingJob(Job):
             # start a new epoch
             self.epoch += 1
             self.config.log("Starting epoch {}...".format(self.epoch))
-            trace_entry = self.run_epoch(echo_trace=True, forward_only=False)
+            trace_entry = self.run_epoch()
             for f in self.post_epoch_hooks:
                 f(self, trace_entry)
             self.config.log("Finished epoch {}.".format(self.epoch))
@@ -295,7 +295,7 @@ class TrainingJob(Job):
             )
         )
 
-    def run_epoch(self, echo_trace: bool, forward_only: bool) -> Dict[str, Any]:
+    def run_epoch(self, verbose: bool= True, forward_only: bool = False) -> Dict[str, Any]:
         "Runs an epoch and returns a trace entry."
 
         # prepare the job is not done already
@@ -412,7 +412,6 @@ class TrainingJob(Job):
                 self.trace(**batch_trace, event="batch_completed")
             if echo_trace:
                 self.config.print(
-                    (
                         "\r"  # go back
                         + "{}  batch{: "
                         + str(1 + int(math.ceil(math.log10(len(self.loader)))))
@@ -471,7 +470,7 @@ class TrainingJob(Job):
         for f in self.post_epoch_trace_hooks:
             f(self, trace_entry)
         trace_entry = self.trace(
-            **trace_entry, echo=echo_trace, echo_prefix="  ", log=True
+            **trace_entry, echo=verbose, echo_prefix="  ", log=True
         )
         return trace_entry
 
@@ -552,6 +551,21 @@ class TrainingJobKvsAll(TrainingJob):
                     )
                 )
 
+        self.queries = None
+        self.labels = None
+        self.label_offsets = None
+        self.query_end_index = None
+
+        config.log("Initializing 1-to-N training job...")
+        self.type_str = "KvsAll"
+
+        if self.__class__ == TrainingJobKvsAll:
+            for f in Job.job_created_hooks:
+                f(self)
+
+    def _prepare(self):
+        from kge.indexing import index_KvsAll_to_torch
+
         #' for each query type: list of queries
         self.queries = {}
 
@@ -566,16 +580,6 @@ class TrainingJobKvsAll(TrainingJob):
         #' for each query type (ordered as in self.query_types), index right after last
         #' example of that type in the list of all examples
         self.query_end_index = {}
-
-        config.log("Initializing 1-to-N training job...")
-        self.type_str = "KvsAll"
-
-        if self.__class__ == TrainingJobKvsAll:
-            for f in Job.job_created_hooks:
-                f(self)
-
-    def _prepare(self):
-        from kge.indexing import index_KvsAll_to_torch
 
         # determine enabled query types
         self.query_types = [
