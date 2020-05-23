@@ -121,10 +121,10 @@ class LookupEmbedder(KgeEmbedder):
                 ]
             else:
                 # weighted Lp regularization
-                unique_ids, counts = torch.unique(
-                    kwargs["batch"]["triples"][:, kwargs["slot"]], return_counts=True
+                unique_indexes, counts = torch.unique(
+                    kwargs["indexes"], return_counts=True
                 )
-                parameters = self._embeddings(unique_ids)
+                parameters = self._embeddings(unique_indexes)
                 if p % 2 == 1:
                     parameters = torch.abs(parameters)
                 result += [
@@ -135,10 +135,10 @@ class LookupEmbedder(KgeEmbedder):
                             / p
                             * (parameters ** p * counts.float().view(-1, 1))
                         ).sum()
-                        # In contrast to unweighted Lp regulariztion, rescaling by number of
-                        # triples is necessary here so that penalty term is correct in
-                        # expectation
-                        / len(kwargs["batch"]["triples"]),
+                        # In contrast to unweighted Lp regularization, rescaling by
+                        # number of triples/indexes is necessary here so that penalty
+                        # term is correct in expectation
+                        / len(kwargs["indexes"]),
                     )
                 ]
         else:  # unknown regularization
