@@ -10,6 +10,10 @@ train:
     mode: max
     patience: 4
 
+eval.type: triple_classification
+
+valid.every: 1
+
 model: complex
 lookup_embedder:
   dim: 100
