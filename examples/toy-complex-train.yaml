@@ -1,5 +1,6 @@
 job.type: train
-dataset.name: toy
+dataset.name: fb15k-237
+#dataset.name: fb15k
 
 train:
   optimizer: Adagrad
@@ -9,17 +10,14 @@ train:
   lr_scheduler_args:
     mode: max
     patience: 4
+  batch_size: 1024
 
 eval.type: triple_classification
 
 valid.every: 1
+valid.metric: accuracy
 
 model: complex
 lookup_embedder:
   dim: 100
-  regularize_weight: 0.8e-7
-  initialize: normal_
-  initialize_args:
-    normal_:
-      mean: 0.0
-      std: 0.1
+  regularize_weight: 0.0

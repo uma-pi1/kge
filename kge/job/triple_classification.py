@@ -1,9 +1,92 @@
 import time
 
 import torch
-from sklearn.metrics import accuracy_score, precision_score
+from kge import Dataset, Config, Configurable
+from kge.util.sampler import KgeUniformSampler
 from kge.job import EvaluationJob
-from kge.util.sampler import TripleClassificationSampler
+
+SLOTS = [0, 1, 2]
+SLOT_STR = ["s", "p", "o"]
+S, P, O = SLOTS
+
+
+class TripleClassificationSampler(Configurable):
+    def __init__(self, config: Config, configuration_key: str, dataset: Dataset):
+        super().__init__(config, configuration_key)
+        self.dataset = dataset
+        self._is_prepared = False
+        self.train_data = None
+        self.s_entities = None
+        self.o_entities = None
+        uni_sampler_config = config.clone()
+        # uni_sampler_config.set("negative_sampling.num_samples.s", self.get_option("num_samples.s"))
+        uni_sampler_config.set("negative_sampling.num_samples.s", 1)
+        uni_sampler_config.set("negative_sampling.filtering.s", True)
+        # uni_sampler_config.set("negative_sampling.num_samples.o", self.get_option("num_samples.o"))
+        uni_sampler_config.set("negative_sampling.num_samples.o", 1)
+        uni_sampler_config.set("negative_sampling.filtering.o", True)
+        self.uniform_sampler = KgeUniformSampler(
+            uni_sampler_config, "negative_sampling", dataset
+        )
+
+    def _prepare(self,):
+        train_data = self.dataset.split("train")
+        self.s_entities = train_data[:, S].unique().tolist()
+        self.o_entities = train_data[:, O].unique().tolist()
+        self._is_prepared = True
+
+    def sample(self, positive_triples: torch.Tensor):
+        """Generates dataset with positive and negative triples.
+
+        Takes each triple of the specified dataset and randomly replaces either the
+        subject or the object with another subject/object. Only allows a subject/object
+        to be sampled if it appeared as a subject/object at the same position in the dataset.
+
+        Returns:
+            corrupted: A new dataset with the original and corrupted triples.
+
+            labels: A vector with labels for the corresponding triples in the dataset.
+
+            rel_labels: A dictionary mapping relations to labels.
+                        Example if we had two triples of relation 1 in the original
+                        dataset: {1: [1, 0, 1, 0]}
+        """
+
+        if not self._is_prepared:
+            self._prepare()
+
+        # Create objects for the corrupted dataset and the corresponding labels
+        corrupted = positive_triples.repeat(1, 2).view(-1, 3)
+        labels = (
+            torch.as_tensor([1, 0] * len(positive_triples))
+            .type(torch.bool)
+            .to(self.config.get("job.device"))
+        )
+
+        # Random decision if sample subject(sample=nonzero) or object(sample=zero)
+        sample_subject = torch.randint(2, (len(positive_triples),)).type(torch.bool)
+
+        # Sample subjects from subjects which appeared in the dataset
+        # corrupted[1::2][:, S][sample_subject] = torch.as_tensor(
+        #     random.choice(self.s_entities)
+        # )
+        corrupted[1::2, S][sample_subject] = self.uniform_sampler.sample(
+            corrupted[1::2][sample_subject], S, 1
+        ).view(-1)
+
+        # Sample objects from objects which appeared in the dataset
+        # corrupted[1::2][:, O][(sample_subject == False)] = torch.as_tensor(
+        #     random.choice(self.o_entities)
+        # )
+        corrupted[1::2, O][sample_subject == False] = self.uniform_sampler.sample(
+            corrupted[1::2][sample_subject == False], O, 1
+        ).view(-1)
+
+        # Save the labels per relation, since this will be needed frequently later on
+        p = corrupted[:, 1]
+        rel_labels = {int(r): labels[p == r] for r in p.unique()}
+
+        return corrupted, labels, rel_labels
 
 
 class TripleClassificationJob(EvaluationJob):
@@ -24,7 +107,9 @@ class TripleClassificationJob(EvaluationJob):
     def __init__(self, config, dataset, parent_job, model):
         super().__init__(config, dataset, parent_job, model)
         self.valid_data_is_prepared = False
-        self.triple_classification_sampler = TripleClassificationSampler(config, "config_key", dataset)
+        self.triple_classification_sampler = TripleClassificationSampler(
+            config, "triple_classification", dataset
+        )
 
     def _prepare(self):
         """Prepare the corrupted validation and test data.
@@ -46,23 +131,31 @@ class TripleClassificationJob(EvaluationJob):
                 self.tune_data,
                 self.tune_labels,
                 self.rel_tune_labels,
-            ) = self.triple_classification_sampler.sample(self.dataset.split('valid'))
+            ) = self.triple_classification_sampler.sample(
+                self.dataset.split("valid").to(self.config.get("job.device"))
+            )
             (
                 self.eval_data,
                 self.eval_labels,
                 self.rel_eval_labels,
-            ) = self.triple_classification_sampler.sample(self.dataset.split('test'))
+            ) = self.triple_classification_sampler.sample(
+                self.dataset.split("test").to(self.config.get("job.device"))
+            )
         else:
             (
                 self.tune_data,
                 self.tune_labels,
                 self.rel_tune_label,
-            ) = self.triple_classification_sampler.sample(self.dataset.split('valid'))
+            ) = self.triple_classification_sampler.sample(
+                self.dataset.split("valid").to(self.config.get("job.device"))
+            )
             (
                 self.eval_data,
                 self.eval_labels,
                 self.rel_eval_labels,
-            ) = self.triple_classification_sampler.sample(self.dataset.split('valid'))
+            ) = self.triple_classification_sampler.sample(
+                self.dataset.split("valid").to(self.config.get("job.device"))
+            )
 
         # let the model add some hooks, if it wants to do so
         self.model.prepare_job(self)
@@ -71,7 +164,6 @@ class TripleClassificationJob(EvaluationJob):
     def run(self):
         """Runs the triple classification job."""
 
-        self.config.log("Starting triple classification...")
         self._prepare()
 
         was_training = self.model.training
@@ -80,7 +172,6 @@ class TripleClassificationJob(EvaluationJob):
         epoch_time = -time.time()
 
         # Get scores and scores per relation for the corrupted valid data
-        self.config.log("Compute scores for tune and eval datasets...")
         s_tune, p_tune, o_tune = (
             self.tune_data[:, 0],
             self.tune_data[:, 1],
@@ -88,9 +179,7 @@ class TripleClassificationJob(EvaluationJob):
         )
         p_tune_unique = p_tune.unique()
         tune_scores = self.model.score_spo(s_tune, p_tune, o_tune)
-        rel_tune_scores = {
-            r: tune_scores[(p_tune == r)] for r in p_tune_unique
-        }
+        rel_tune_scores = {r: tune_scores[(p_tune == r)] for r in p_tune_unique}
 
         # Get scores and scores per relation for the corrupted test data
         s_eval, p_eval, o_eval = (
@@ -102,22 +191,12 @@ class TripleClassificationJob(EvaluationJob):
         eval_scores = self.model.score_spo(s_eval, p_eval, o_eval)
 
         # Find the best thresholds for every relation on validation data
-        self.config.log("Tuning thresholds.")
-        rel_thresholds = self.findThresholds(
-            p_tune_unique,
-            tune_scores,
-        )
+        rel_thresholds = self.findThresholds(p_tune_unique, tune_scores,)
 
         # Make prediction for the specified evaluation data
         self.config.log("Evaluating on {} data.".format(self.eval_split))
-        rel_predictions, not_in_eval = self.predict(
+        metrics, not_in_eval = self.predict(
             eval_scores, rel_thresholds, p_tune_unique, p_eval_unique
-        )
-
-        # Compute Metrics
-        self.config.log("Classification results:")
-        metrics = self._compute_metrics(
-            self.eval_labels, self.rel_eval_labels, rel_predictions, p_eval, not_in_eval
         )
 
         epoch_time += time.time()
@@ -126,11 +205,8 @@ class TripleClassificationJob(EvaluationJob):
             type="triple_classification",
             scope="epoch",
             data_thresholds="Valid",
-            size_threshold_data=len(self.tune_data),
             data_evaluate=self.eval_split,
-            size_data_evaluate=len(self.eval_data),
             epoch=self.epoch,
-            size=2 * len(self.dataset.valid),
             epoch_time=epoch_time,
             **metrics,
         )
@@ -152,13 +228,11 @@ class TripleClassificationJob(EvaluationJob):
         # reset model and return metrics
         if was_training:
             self.model.train()
-        self.config.log("Finished evaluating on " + self.eval_data + " data.")
+        self.config.log("Finished evaluating on " + self.eval_split + " data.")
 
         return trace_entry
 
-    def findThresholds(
-        self, p_tune_unique, tune_scores
-    ):
+    def findThresholds(self, p_tune_unique, tune_scores):
         """Find the best thresholds per relation by maximizing accuracy on
         validation data.
 
@@ -193,8 +267,7 @@ class TripleClassificationJob(EvaluationJob):
         """
 
         # Initialize accuracies and thresholds
-        rel_accuracies = {r: -1 for r in p_tune_unique}
-        rel_thresholds = {r: 0 for r in p_tune_unique}
+        rel_thresholds = {r: -float("inf") for r in range(self.dataset.num_relations())}
 
         # Change the valid scores from a 2D to a 1D tensor
         # tune_scores = torch.as_tensor(
@@ -203,24 +276,25 @@ class TripleClassificationJob(EvaluationJob):
 
         for r in p_tune_unique:
             # 0-1 vector for indexing triples of the current relation
-            current_rel = (
-                self.tune_data[:, 1] == r
-            )
-            true_labels = self.tune_labels[current_rel]
+            current_rel = self.tune_data[:, 1] == r
+            true_labels = self.tune_labels[current_rel].view(-1)
 
             # tune_scores[current_rel] and rel_tune_scores[r] both
             # contain the scores of the current relation. In the comparison, every
             # score is evaluated as possible threshold against all scores.
             predictions = (
-                tune_scores[current_rel].view(-1, 1) >= tune_scores[current_rel].view(1, -1)
-            )
+                tune_scores[current_rel].view(-1, 1)
+                >= tune_scores[current_rel].view(1, -1)
+            ).t()
 
-            accuracies = (predictions & true_labels).float().sum(dim=1) / true_labels.size(0)
-            rel_accuracies[r] = accuracies.max()
+            accuracies = (predictions == true_labels).float().sum(dim=1)
+            accuracies_max = accuracies.max()
 
             # Choose the smallest score of the ones which give the maximum
             # accuracy as threshold to stay consistent.
-            rel_thresholds[r] = (tune_scores[current_rel][rel_accuracies[r] >= tune_scores[current_rel]]).min()
+            rel_thresholds[r.item()] = tune_scores[current_rel][
+                accuracies_max == accuracies
+            ].min()
 
         return rel_thresholds
 
@@ -235,7 +309,7 @@ class TripleClassificationJob(EvaluationJob):
             not_in_eval: List with relations that are in the test data, but not in the validation data.
         """
 
-        rel_predictions = dict()
+        tptn = 0
         # Set variable for relations which are not in valid data, but in test data
         not_in_eval = []
         for r in p_eval_unique:
@@ -243,59 +317,13 @@ class TripleClassificationJob(EvaluationJob):
                 r in p_tune_unique
             ):  # Check if relation which is in valid data also is in test data
                 # Predict
-                current_rel = (
-                        self.eval_data[:, 1] == r
-                )
-                rel_predictions[r] = (
-                    eval_scores[current_rel] >= rel_thresholds[r]
-                )
+                current_rel = self.eval_data[:, 1] == r
+                true_labels = self.eval_labels[current_rel]
+                predictions = eval_scores[current_rel] >= rel_thresholds[r.item()]
+                tptn += (predictions == true_labels).float().sum().item()
             else:
                 not_in_eval.append(r)
 
-        return rel_predictions, not_in_eval
+        metrics = dict(accuracy=tptn / self.eval_data.size(0))
 
-    def _compute_metrics(
-        self, test_labels, rel_test_labels, rel_predictions, p_test, not_in_eval
-    ):
-        """Computes accuracy and precision metrics of predictions.
-
-        Returns:
-            metrics: dictionary with the specified metrics accuracy and precision as keys. If specified, metrics per
-            relation are stored as dictionaries in the dictionary.
-            E.g.: {accuracy: 0.9
-                   accuracy_per_relation:
-                        {relation 1: 0.8}
-                        {relation 2: 0.9}
-                    }
-        """
-        metrics = {}
-
-        # Create a list for all predicted labels, matching the shape of test_labels
-        pred_list = torch.tensor(
-            [i for r in p_test.unique() for i in rel_predictions[int(r)]],
-            dtype=torch.int64,
-        )
-
-        metrics["accuracy"] = float(accuracy_score(test_labels, pred_list))
-        metrics["precision"] = float(precision_score(test_labels, pred_list))
-
-        if self.config.get("eval.metrics_per.relation"):
-            precision_per_r = {}
-            accuracy_per_r = {}
-            for r in p_test.unique():
-                precision_per_r[str(self.dataset.relations[int(r)])] = float(
-                    precision_score(rel_test_labels[int(r)], rel_predictions[int(r)])
-                )
-                accuracy_per_r[str(self.dataset.relations[int(r)])] = float(
-                    accuracy_score(rel_test_labels[int(r)], rel_predictions[int(r)])
-                )
-
-            metrics["accuracy_per_relation"] = accuracy_per_r
-
-            metrics["precision_per_relation"] = precision_per_r
-
-        metrics["untested relations due to missing in evaluation data"] = len(
-            not_in_eval
-        )
-
-        return metrics
+        return metrics, not_in_eval
