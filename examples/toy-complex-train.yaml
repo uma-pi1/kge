@@ -1,4 +1,5 @@
 job.type: train
+#dataset.name: toy
 dataset.name: fb15k-237
 #dataset.name: fb15k
 
