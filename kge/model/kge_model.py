@@ -408,7 +408,7 @@ class KgeModel(KgeBase):
         """
         config = Config.create_from(checkpoint)
         if new_config:
-            config.load_options(new_config.options)
+            config.load_config(new_config)
 
         if use_tmp_log_folder:
             import tempfile

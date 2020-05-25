@@ -673,11 +673,11 @@ def _dump_config(args):
         config_file = args.source
         config.load(config_file)
     else:  # a checkpoint
-        checkpoint_file = torch.load(args.source, map_location="cpu")
+        checkpoint = torch.load(args.source, map_location="cpu")
         if args.raw:
-            config = checkpoint_file["config"]
+            config = checkpoint["config"]
         else:
-            config.load_options(checkpoint_file["config"].options)
+            config.load_config(checkpoint["config"])
 
     def print_options(options):
         # drop all arguments that are not included

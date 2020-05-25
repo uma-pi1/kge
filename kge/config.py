@@ -341,6 +341,12 @@ class Config:
         # now set all options
         self.set_all(new_options, create, overwrite)
 
+    def load_config(
+        self, config, create=False, overwrite=Overwrite.Yes, allow_deprecated=True
+    ):
+        "Like `load`, but loads from a Config object."
+        self.load_options(config.options, create, overwrite, allow_deprecated)
+
     def save(self, filename):
         """Save this configuration to the given file"""
         with open(filename, "w+") as file:
@@ -443,7 +449,7 @@ class Config:
         """Create a config from a checkpoint."""
         config = Config()  # round trip to handle deprecated configs
         if "config" in checkpoint and checkpoint["config"] is not None:
-            config.load_options(checkpoint["config"].clone().options)
+            config.load_config(checkpoint["config"].clone())
         if "folder" in checkpoint and checkpoint["folder"] is not None:
             config.folder = checkpoint["folder"]
         return config
