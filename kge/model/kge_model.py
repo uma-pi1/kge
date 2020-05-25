@@ -406,7 +406,9 @@ class KgeModel(KgeBase):
         appended to) in the checkpoint's folder.
 
         """
-        config = Config.create_from(checkpoint, new_config)
+        config = Config.create_from(checkpoint)
+        if new_config:
+            config.set_all(new_config.options)
 
         if use_tmp_log_folder:
             import tempfile

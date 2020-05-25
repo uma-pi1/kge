@@ -439,29 +439,13 @@ class Config:
         return False
 
     @staticmethod
-    def create_from(
-        checkpoint: Dict, new_config: Optional[Union[Config,Dict]] = None
-    ) -> Config:
-        """
-        Create a config from a checkpoint and update all deprecated keys.
-        Overwrite options in checkpoint config with a new config.
-        Args:
-            checkpoint: loaded checkpoint
-            new_config: new config with options to overwritten
-
-        Returns: Config object
-
-        """
+    def create_from(checkpoint: Dict) -> Config:
+        """Create a config from a checkpoint."""
         config = Config()  # round trip to handle deprecated configs
         if "config" in checkpoint and checkpoint["config"] is not None:
             config.load_options(checkpoint["config"].clone().options)
         if "folder" in checkpoint and checkpoint["folder"] is not None:
             config.folder = checkpoint["folder"]
-        if new_config is not None:
-            if isinstance(new_config, Config):
-                config.load_options(new_config.options)
-            else:
-                config.set_all(new_config)
         return config
 
     @staticmethod
