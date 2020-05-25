@@ -327,8 +327,8 @@ eval:
   # mean_reciprocal_rank_filtered_with_test.
   filter_with_test: True
 
-  # Type of evaluation (entity_ranking or only training_loss, while entity
-  # ranking runs training_loss as well.)
+  # Type of evaluation (entity_ranking or training_loss). Currently, 
+  # entity_ranking runs training_loss as well.
   type: entity_ranking
 
   # Compute Hits@K for these choices of K
