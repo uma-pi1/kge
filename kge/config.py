@@ -307,12 +307,13 @@ class Config:
         """
         with open(filename, "r") as file:
             new_options = yaml.load(file, Loader=yaml.SafeLoader)
-        self.load_options(
-            new_options,
-            create=create,
-            overwrite=overwrite,
-            allow_deprecated=allow_deprecated,
-        )
+        if new_options is not None:
+            self.load_options(
+                new_options,
+                create=create,
+                overwrite=overwrite,
+                allow_deprecated=allow_deprecated,
+            )
 
     def load_options(
         self, new_options, create=False, overwrite=Overwrite.Yes, allow_deprecated=True
