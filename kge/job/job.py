@@ -114,7 +114,7 @@ class Job:
         else:
             config = Config.create_from(checkpoint)
             if new_config:
-                config.set_all(new_config.options)
+                config.load_options(new_config.options)
             dataset = Dataset.create_from(checkpoint, config, dataset)
         job = Job.create(config, dataset, parent_job, model)
         job.config.log("Loading checkpoint from {}...".format(checkpoint["file"]))

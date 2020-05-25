@@ -30,13 +30,6 @@ class AutoSearchJob(SearchJob):
             for f in Job.job_created_hooks:
                 f(self)
 
-    def load(self, filename):
-        self.config.log("Loading checkpoint from {}...".format(filename))
-        checkpoint = torch.load(filename, map_location="cpu")
-        self.parameters = checkpoint["parameters"]
-        self.results = checkpoint["results"]
-        return checkpoint.get("job_id")
-
     def save(self, filename):
         self.config.log("Saving checkpoint to {}...".format(filename))
         torch.save(
@@ -51,6 +44,8 @@ class AutoSearchJob(SearchJob):
 
     def load(self, checkpoint, model=None):
         self.resumed_from_job_id = checkpoint.get("job_id")
+        self.parameters = checkpoint["parameters"]
+        self.results = checkpoint["results"]
         self.trace(
             event="job_resumed", checkpoint_file=checkpoint["file"]
         )
