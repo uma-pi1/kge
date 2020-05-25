@@ -30,6 +30,9 @@ def package_model(args):
     packaged_model = {
         "type": "package",
         "model": checkpoint["model"],
+        "epoch": checkpoint["epoch"],
+        "job_id": checkpoint["job_id"],
+        "valid_trace": checkpoint["valid_trace"],
     }
     packaged_model = config.save_to(packaged_model)
     packaged_model = dataset.save_to(packaged_model, ["entity_ids", "relation_ids"],)
@@ -40,4 +43,5 @@ def package_model(args):
         else:
             filename = filename.split(".pt")[0] + "_package.pt"
         filename = os.path.join(output_folder, filename)
+    print(f"Saving to {filename}...")
     torch.save(packaged_model, filename)
