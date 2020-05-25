@@ -326,12 +326,12 @@ subject-relations pairs: ('Dominican Republic', 'has form of government', ?) and
 
 ```python
 import torch
-import kge.model
+import kge.model import KgeModel
 from kge.util.io import load_checkpoint 
 
 # download link for this checkpoint given under results above
 checkpoint = load_checkpoint('fb15k-237-rescal.pt')
-model = kge.model.KgeModel.create_from(checkpoint)
+model = KgeModel.create_from(checkpoint)
 
 s = torch.Tensor([0, 2,]).long()             # subject indexes
 p = torch.Tensor([0, 1,]).long()             # relation indexes
