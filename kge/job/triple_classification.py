@@ -57,11 +57,7 @@ class TripleClassificationSampler(Configurable):
 
         # Create objects for the corrupted dataset and the corresponding labels
         corrupted = positive_triples.repeat(1, 2).view(-1, 3)
-        labels = (
-            torch.as_tensor([1, 0] * len(positive_triples))
-            .type(torch.bool)
-            .to(self.config.get("job.device"))
-        )
+        labels = torch.as_tensor([1, 0] * len(positive_triples)).type(torch.bool)
 
         # Random decision if sample subject(sample=nonzero) or object(sample=zero)
         sample_subject = torch.randint(2, (len(positive_triples),)).type(torch.bool)
@@ -82,11 +78,10 @@ class TripleClassificationSampler(Configurable):
             corrupted[1::2][sample_subject == False], O, 1
         ).view(-1)
 
-        # Save the labels per relation, since this will be needed frequently later on
-        p = corrupted[:, 1]
-        rel_labels = {int(r): labels[p == r] for r in p.unique()}
-
-        return corrupted, labels, rel_labels
+        return (
+            corrupted.to(self.config.get("job.device")),
+            labels.to(self.config.get("job.device")),
+        )
 
 
 class TripleClassificationJob(EvaluationJob):
@@ -130,32 +125,20 @@ class TripleClassificationJob(EvaluationJob):
             (
                 self.tune_data,
                 self.tune_labels,
-                self.rel_tune_labels,
-            ) = self.triple_classification_sampler.sample(
-                self.dataset.split("valid").to(self.config.get("job.device"))
-            )
+            ) = self.triple_classification_sampler.sample(self.dataset.split("valid"))
             (
                 self.eval_data,
                 self.eval_labels,
-                self.rel_eval_labels,
-            ) = self.triple_classification_sampler.sample(
-                self.dataset.split("test").to(self.config.get("job.device"))
-            )
+            ) = self.triple_classification_sampler.sample(self.dataset.split("test"))
         else:
             (
                 self.tune_data,
                 self.tune_labels,
-                self.rel_tune_label,
-            ) = self.triple_classification_sampler.sample(
-                self.dataset.split("valid").to(self.config.get("job.device"))
-            )
+            ) = self.triple_classification_sampler.sample(self.dataset.split("valid"))
             (
                 self.eval_data,
                 self.eval_labels,
-                self.rel_eval_labels,
-            ) = self.triple_classification_sampler.sample(
-                self.dataset.split("valid").to(self.config.get("job.device"))
-            )
+            ) = self.triple_classification_sampler.sample(self.dataset.split("valid"))
 
         # let the model add some hooks, if it wants to do so
         self.model.prepare_job(self)
@@ -179,7 +162,6 @@ class TripleClassificationJob(EvaluationJob):
         )
         p_tune_unique = p_tune.unique()
         tune_scores = self.model.score_spo(s_tune, p_tune, o_tune)
-        rel_tune_scores = {r: tune_scores[(p_tune == r)] for r in p_tune_unique}
 
         # Get scores and scores per relation for the corrupted test data
         s_eval, p_eval, o_eval = (
