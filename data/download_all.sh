@@ -201,3 +201,22 @@ else
     echo wikidata5m already prepared
 fi
 
+
+# wn11
+if [ ! -d "$BASEDIR/wn11" ]; then
+  echo Downloading wikidata5m
+  cd $BASEDIR
+  curl -O https://s3-eu-west-1.amazonaws.com/ampligraph/datasets/wordnet11.zip
+  unzip wn11.zip
+  mv wordnet11/wordnet11 wn11
+  rm -r wordnet11/
+  mv wn11/dev.txt wn11/valid.txt
+else
+    echo wikidata5m already present
+fi
+if [ ! -f "$BASEDIR/wn11/dataset.yaml" ]; then
+  python preprocess.py wikidata5m
+else
+    echo wikidata5m already prepared
+fi
+
