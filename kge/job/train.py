@@ -271,22 +271,9 @@ class TrainingJob(Job):
         checkpoint.update(train_checkpoint)
         return checkpoint
 
-    def load(self, checkpoint: Dict, model: Optional[KgeModel] = None) -> str:
-        """Load job state from specified file.
-
-        Returns job id of the job that created the checkpoint."""
+    def _load(self, checkpoint: Dict) -> str:
         if checkpoint["type"] != "train":
             raise ValueError("Training can only be continued on trained checkpoints")
-        if model is not None:
-            self.model = model
-        else:
-            if "model" in checkpoint:
-                # new format
-                self.model.load(checkpoint["model"])
-            else:
-                # old format (deprecated, will eventually be removed)
-                self.model.load_state_dict(checkpoint["model_state_dict"])
-
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         if "lr_scheduler_state_dict" in checkpoint:
             # new format
@@ -299,11 +286,10 @@ class TrainingJob(Job):
             event="job_resumed", epoch=self.epoch, checkpoint_file=checkpoint["file"],
         )
         self.config.log(
-            "Resumed from {} of job {}".format(
+            "Resuming training from {} of job {}".format(
                 checkpoint["file"], self.resumed_from_job_id
             )
         )
-        return checkpoint.get("job_id")
 
     def run_epoch(self) -> Dict[str, Any]:
         "Runs an epoch and returns a trace entry."

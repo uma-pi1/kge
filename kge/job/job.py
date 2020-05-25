@@ -118,12 +118,17 @@ class Job:
                 config.load_config(new_config)
             dataset = Dataset.create_from(checkpoint, config, dataset)
         job = Job.create(config, dataset, parent_job, model)
-        job.config.log("Loading checkpoint from {}...".format(checkpoint["file"]))
-        job.load(checkpoint, model)
+        job._load(checkpoint)
+        job.config.log("Loaded checkpoint from {}...".format(checkpoint["file"]))
         return job
 
-    def load(self, checkpoint: Dict, model):
-        """Job type specific operations when loaded from checkpoint"""
+    def _load(self, checkpoint: Dict):
+        """Job type specific operations when created from checkpoint.
+
+        Called during `create_from`. Assumes that config, dataset, and model have
+        already been loaded from the specified checkpoint.
+
+        """
         pass
 
     def run(self):

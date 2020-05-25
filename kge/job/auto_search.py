@@ -42,7 +42,7 @@ class AutoSearchJob(SearchJob):
             filename,
         )
 
-    def load(self, checkpoint, model=None):
+    def _load(self, checkpoint):
         self.resumed_from_job_id = checkpoint.get("job_id")
         self.parameters = checkpoint["parameters"]
         self.results = checkpoint["results"]
@@ -50,7 +50,7 @@ class AutoSearchJob(SearchJob):
             event="job_resumed", checkpoint_file=checkpoint["file"]
         )
         self.config.log(
-            "Resumed from {} of job {}".format(
+            "Resuming search from {} of job {}".format(
                 checkpoint["file"], self.resumed_from_job_id
             )
         )

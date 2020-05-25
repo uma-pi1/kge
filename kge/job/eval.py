@@ -87,7 +87,7 @@ class EvaluationJob(Job):
         """ Compute evaluation metrics, output results to trace file """
         raise NotImplementedError
 
-    def load(self, checkpoint: Dict, model: Optional[KgeModel] = None):
+    def _load(self, checkpoint: Dict):
         if checkpoint["type"] not in ["train", "package"]:
             raise ValueError("Can only evaluate train and package checkpoints.")
         self.resumed_from_job_id = checkpoint.get("job_id")
