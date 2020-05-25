@@ -71,7 +71,7 @@ class Dataset(Configurable):
 
     ## LOADING ##########################################################################
 
-    def assert_available(self, key):
+    def ensure_available(self, key):
         """Checks if key can be loaded"""
         if self.folder is None or not os.path.exists(self.folder):
             raise IOError(
@@ -108,24 +108,26 @@ class Dataset(Configurable):
     @staticmethod
     def create_from(
         checkpoint: Dict,
-        config: Config,
+        config: Config = None,
         dataset: Optional[Dataset] = None,
         preload_data=False,
     ) -> Dataset:
         """Creates dataset based on a checkpoint.
 
         If a dataset is provided, only (!) its meta data will be updated with the values
-        from the checkpoint.
+        from the checkpoint. No further checks are performed.
 
         Args:
             checkpoint: loaded checkpoint
-            config: config created from checkpoint
+            config: config (should match the one of checkpoint if set)
             dataset: dataset to update
             preload_data: preload data
 
         Returns: created/updated dataset
 
         """
+        if config is None:
+            config = Config.create_from(checkpoint)
         if dataset is None:
             dataset = Dataset.load(config, preload_data)
         if "dataset" in checkpoint:
@@ -140,7 +142,7 @@ class Dataset(Configurable):
         return dataset
 
     def save_to(self, checkpoint: Dict, meta_keys: Optional[List[str]] = None) -> Dict:
-        """Adds specified meta data to a checkpoint"""
+        """Adds meta data to a checkpoint"""
         dataset_checkpoint = {
             "num_entities": self.num_entities(),
             "num_relations": self.num_relations(),
@@ -180,7 +182,7 @@ class Dataset(Configurable):
     def load_triples(self, key: str) -> Tensor:
         "Load or return the triples with the specified key."
         if key not in self._triples:
-            self.assert_available(key)
+            self.ensure_available(key)
             filename = self.config.get(f"dataset.files.{key}.filename")
             filetype = self.config.get(f"dataset.files.{key}.type")
             if filetype != "triples":
@@ -268,7 +270,7 @@ class Dataset(Configurable):
 
         """
         if key not in self._meta:
-            self.assert_available(key)
+            self.ensure_available(key)
             filename = self.config.get(f"dataset.files.{key}.filename")
             filetype = self.config.get(f"dataset.files.{key}.type")
             if (maptype and filetype != maptype) or (
