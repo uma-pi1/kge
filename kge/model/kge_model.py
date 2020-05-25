@@ -394,7 +394,7 @@ class KgeModel(KgeBase):
         checkpoint: Dict,
         dataset: Optional[Dataset] = None,
         use_tmp_log_folder=True,
-        overwrite_config: Config = None,
+        new_config: Config = None,
     ) -> "KgeModel":
         """Loads a model from a checkpoint file of a training job or a packaged model.
 
@@ -406,7 +406,7 @@ class KgeModel(KgeBase):
         appended to) in the checkpoint's folder.
 
         """
-        config = Config.create_from(checkpoint, overwrite_config)
+        config = Config.create_from(checkpoint, new_config)
 
         if use_tmp_log_folder:
             import tempfile

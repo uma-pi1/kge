@@ -85,7 +85,7 @@ class Job:
     def create_from(
         cls,
         checkpoint: Dict,
-        overwrite_config: Config = None,
+        new_config: Config = None,
         dataset: Dataset = None,
         parent_job=None,
     ) -> Job:
@@ -93,7 +93,7 @@ class Job:
         Creates a Job based on a checkpoint
         Args:
             checkpoint: loaded checkpoint
-            overwrite_config: optional config object - overwrites options of config
+            new_config: optional config object - overwrites options of config
                               stored in checkpoint
             dataset: dataset object
             parent_job: parent job (e.g. search job)
@@ -107,12 +107,12 @@ class Job:
         # search jobs don't have a model
         if "model" in checkpoint and checkpoint["model"] is not None:
             model = KgeModel.create_from(
-                checkpoint, overwrite_config=overwrite_config, dataset=dataset
+                checkpoint, new_config=new_config, dataset=dataset
             )
             config = model.config
             dataset = model.dataset
         else:
-            config = Config.create_from(checkpoint, overwrite_config)
+            config = Config.create_from(checkpoint, new_config)
             dataset = Dataset.create_from(checkpoint, config, dataset)
         job = Job.create(config, dataset, parent_job, model)
         job.config.log("Loading checkpoint from {}...".format(checkpoint["file"]))

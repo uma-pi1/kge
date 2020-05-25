@@ -277,7 +277,7 @@ def main():
                         checkpoint_file, config.get("job.device")
                     )
                     job = Job.create_from(
-                        checkpoint, overwrite_config=config, dataset=dataset
+                        checkpoint, new_config=config, dataset=dataset
                     )
                 else:
                     job = Job.create(config, dataset)

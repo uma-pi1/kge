@@ -139,7 +139,7 @@ def _run_train_job(sicnk, device=None):
             )
             job = Job.create_from(
                 checkpoint=checkpoint,
-                overwrite_config=train_job_config,
+                new_config=train_job_config,
                 dataset=search_job.dataset,
                 parent_job=search_job,
             )

@@ -439,25 +439,38 @@ class Config:
 
     @staticmethod
     def create_from(
-        checkpoint: Dict, overwrite_config: Optional[Config] = None
+        checkpoint: Dict, new_config: Optional[Union[Config,Dict]] = None
     ) -> Config:
         """
         Create a config from a checkpoint and update all deprecated keys.
         Overwrite options in checkpoint config with a new config.
         Args:
             checkpoint: loaded checkpoint
-            overwrite_config: new config with options to overwrite
+            new_config: new config with options to overwritten
 
         Returns: Config object
 
         """
         config = Config()  # round trip to handle deprecated configs
         if "config" in checkpoint and checkpoint["config"] is not None:
-            config.load_options(checkpoint["config"].options)
+            config.load_options(checkpoint["config"].clone().options)
         if "folder" in checkpoint and checkpoint["folder"] is not None:
             config.folder = checkpoint["folder"]
-        if overwrite_config is not None:
-            config.load_options(overwrite_config.options)
+        if new_config is not None:
+            if isinstance(new_config, Config):
+                config.load_options(new_config.options)
+            else:
+                config.set_all(new_config)
+        return config
+
+    @staticmethod
+    def from_options(options: Dict[str, Any] = {}, **more_options) -> Config:
+        """Convert given options or kwargs to a Config object.
+
+        Does not perform any checks for correctness."""
+        config = Config(load_default=False)
+        config.set_all(options, create=True)
+        config.set_all(more_options, create=True)
         return config
 
     def checkpoint_file(self, cpt_id: Union[str, int]) -> str:

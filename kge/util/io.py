@@ -38,6 +38,8 @@ def load_checkpoint(checkpoint_file: str, device="cpu"):
             "Specified checkpoint file {} does not exist.".format(checkpoint_file)
         )
     checkpoint = torch.load(checkpoint_file, map_location=device)
+    if device is not None and "config" in checkpoint:
+        checkpoint["config"].set("job.device", device)
     checkpoint["file"] = checkpoint_file
     checkpoint["folder"] = os.path.dirname(checkpoint_file)
     return checkpoint
