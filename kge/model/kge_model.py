@@ -426,19 +426,24 @@ class KgeModel(KgeBase):
         job.post_epoch_trace_hooks.append(append_num_parameter)
 
     def penalty(self, **kwargs) -> List[Tensor]:
+        # Note: If the subject and object embedder are identical, embeddings may be
+        # penalized twice. This is intended (and necessary, e.g., if the penalty is
+        # weighted).
         if "batch" in kwargs and "triples" in kwargs["batch"]:
-            kwargs["batch"]["triples"] = kwargs["batch"]["triples"].to(
-                self.config.get("job.device")
+            triples = kwargs["batch"]["triples"].to(self.config.get("job.device"))
+            return (
+                super().penalty(**kwargs)
+                + self.get_s_embedder().penalty(indexes=triples[:, S], **kwargs)
+                + self.get_p_embedder().penalty(indexes=triples[:, P], **kwargs)
+                + self.get_o_embedder().penalty(indexes=triples[:, O], **kwargs)
             )
-        return (
-            # Note: If the subject and object embedder are identical, embeddings may be
-            # penalized twice. This is intended (and necessary, e.g., if the penalty is
-            # weighted).
-            super().penalty(**kwargs)
-            + self.get_s_embedder().penalty(slot=S, **kwargs)
-            + self.get_p_embedder().penalty(slot=P, **kwargs)
-            + self.get_o_embedder().penalty(slot=O, **kwargs)
-        )
+        else:
+            return (
+                super().penalty(**kwargs)
+                + self.get_s_embedder().penalty(**kwargs)
+                + self.get_p_embedder().penalty(**kwargs)
+                + self.get_o_embedder().penalty(**kwargs)
+            )
 
     def get_s_embedder(self) -> KgeEmbedder:
         return self._entity_embedder
