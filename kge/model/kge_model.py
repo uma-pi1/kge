@@ -385,7 +385,7 @@ class KgeModel(KgeBase):
 
         # create dataset and model
         if not isinstance(dataset, Dataset):
-            dataset = Dataset.load(config)
+            dataset = Dataset.create(config)
         model = KgeModel.create(config, dataset)
         return model
 

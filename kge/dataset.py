@@ -33,7 +33,7 @@ class Dataset(Configurable):
     def __init__(self, config, folder=None):
         """Constructor for internal use.
 
-        To load a dataset, use `Dataset.load()`."""
+        To load a dataset, use `Dataset.create()`."""
         super().__init__(config, "dataset")
 
         #: directory in which dataset is stored
@@ -84,7 +84,7 @@ class Dataset(Configurable):
             raise IOError("File {} for key {} could not be found".format(os.path.join(self.folder, filename), key))
 
     @staticmethod
-    def load(config: Config, preload_data=True):
+    def create(config: Config, preload_data=True):
         """Loads a dataset.
 
         If preload_data is set, loads entity and relation maps as well as all splits.
@@ -129,7 +129,7 @@ class Dataset(Configurable):
         if config is None:
             config = Config.create_from(checkpoint)
         if dataset is None:
-            dataset = Dataset.load(config, preload_data)
+            dataset = Dataset.create(config, preload_data)
         if "dataset" in checkpoint:
             dataset_checkpoint = checkpoint["dataset"]
             if (

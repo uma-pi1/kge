@@ -62,10 +62,11 @@ class Job:
     def create(
         config: Config, dataset: Optional[Dataset] = None, parent_job=None, model=None
     ):
+        "Create a new job."
         from kge.job import TrainingJob, EvaluationJob, SearchJob
 
         if dataset is None:
-            dataset = Dataset.load(config)
+            dataset = Dataset.create(config)
 
         job_type = config.get("job.type")
         if job_type == "train":
