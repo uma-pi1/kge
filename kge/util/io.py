@@ -4,9 +4,10 @@ from kge import Config
 from kge.misc import is_number
 
 
-def get_correct_checkpoint_file(config: Config, checkpoint_argument: str = "default"):
+def get_checkpoint_file(config: Config, checkpoint_argument: str = "default"):
     """
     Gets the path to a checkpoint file based on a config.
+
     Args:
         config: config specifying the folder
         checkpoint_argument: Which checkpoint to use: 'default', 'last', 'best',
@@ -19,7 +20,7 @@ def get_correct_checkpoint_file(config: Config, checkpoint_argument: str = "defa
         if config.get("job.type") in ["eval", "valid"]:
             checkpoint_file = config.checkpoint_file("best")
         else:
-            last_epoch = config.last_checkpoint()
+            last_epoch = config.last_checkpoint_number()
             if last_epoch is None:
                 checkpoint_file = None
             else:

@@ -10,7 +10,7 @@ from kge import Config
 from kge.job import Job
 from kge.misc import get_git_revision_short_hash, kge_base_dir, is_number
 from kge.util.dump import add_dump_parsers, dump
-from kge.util.io import get_correct_checkpoint_file, load_checkpoint
+from kge.util.io import get_checkpoint_file, load_checkpoint
 from kge.util.package import package_model, add_package_parser
 
 
@@ -239,7 +239,7 @@ def main():
 
         # determine checkpoint to resume (if any)
         if hasattr(args, "checkpoint"):
-            checkpoint_file = get_correct_checkpoint_file(config, args.checkpoint)
+            checkpoint_file = get_checkpoint_file(config, args.checkpoint)
 
         # disable processing of outdated cached dataset files globally
         Dataset._abort_when_cache_outdated = args.abort_when_cache_outdated

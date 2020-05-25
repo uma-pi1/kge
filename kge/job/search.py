@@ -3,7 +3,7 @@ import os
 import concurrent.futures
 from kge.job import Job, Trace
 from kge.config import _process_deprecated_options
-from kge.util.io import get_correct_checkpoint_file, load_checkpoint
+from kge.util.io import get_checkpoint_file, load_checkpoint
 
 
 class SearchJob(Job):
@@ -132,7 +132,7 @@ def _run_train_job(sicnk, device=None):
                 train_job_config.get("job.device"),
             )
         )
-        checkpoint_file = get_correct_checkpoint_file(train_job_config)
+        checkpoint_file = get_checkpoint_file(train_job_config)
         if checkpoint_file is not None:
             checkpoint = load_checkpoint(
                 checkpoint_file, train_job_config.get("job.device")

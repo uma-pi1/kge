@@ -483,8 +483,8 @@ class Config:
         else:
             return os.path.join(self.folder, "checkpoint_{}.pt".format(cpt_id))
 
-    def last_checkpoint(self) -> Optional[int]:
-        "Return epoch number of latest checkpoint"
+    def last_checkpoint_number(self) -> Optional[int]:
+        "Return number (epoch) of latest checkpoint"
         # stupid implementation, but works
         tried_epoch = 0
         found_epoch = 0
@@ -498,13 +498,13 @@ class Config:
             return None
 
     @staticmethod
-    def get_best_or_last_checkpoint(path: str) -> str:
+    def best_or_last_checkpoint_file(path: str) -> str:
         """Return best (if present) or last checkpoint path for a given folder path."""
         config = Config(folder=path, load_default=False)
         checkpoint_file = config.checkpoint_file("best")
         if os.path.isfile(checkpoint_file):
             return checkpoint_file
-        cpt_epoch = config.last_checkpoint()
+        cpt_epoch = config.last_checkpoint_number()
         if cpt_epoch:
             return config.checkpoint_file(cpt_epoch)
         else:

@@ -85,7 +85,7 @@ def _dump_checkpoint(args):
     if os.path.isfile(args.source):
         checkpoint_file = args.source
     else:
-        checkpoint_file = Config.get_best_or_last_checkpoint(args.source)
+        checkpoint_file = Config.best_or_last_checkpoint_file(args.source)
 
     # Load the checkpoint and strip some fieleds
     checkpoint = torch.load(checkpoint_file, map_location="cpu")
@@ -316,7 +316,7 @@ def _dump_trace(args):
     else:
         # determine job_id and epoch from last/best checkpoint automatically
         if args.checkpoint:
-            checkpoint_path = Config.get_best_or_last_checkpoint(args.source)
+            checkpoint_path = Config.best_or_last_checkpoint_file(args.source)
         folder_path = args.source
     if not checkpoint_path and truncate_flag:
         sys.exit(
