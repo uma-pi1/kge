@@ -8,6 +8,7 @@ import os
 import kge
 from kge import Config, Configurable, Dataset
 from kge.misc import filename_in_module
+from kge.util import load_checkpoint
 from typing import Any, Dict, List, Optional, Union
 
 from typing import TYPE_CHECKING
@@ -306,12 +307,12 @@ class KgeModel(KgeBase):
 
     @staticmethod
     def create(
-        config: Config, dataset: Dataset, configuration_key: str = None
+        config: Config, dataset: Dataset, configuration_key: Optional[str] = None
     ) -> "KgeModel":
         """Factory method for model creation."""
 
         try:
-            if configuration_key:
+            if configuration_key is not None:
                 model_name = config.get(configuration_key + ".type")
             else:
                 model_name = config.get("model")
@@ -335,7 +336,7 @@ class KgeModel(KgeBase):
     @staticmethod
     def create_default(
         model: Optional[str] = None,
-        dataset: Optional[Union[Dataset,str]] = None,
+        dataset: Optional[Union[Dataset, str]] = None,
         options: Dict[str, Any] = {},
         folder: Optional[str] = None,
     ) -> "KgeModel":
@@ -380,10 +381,13 @@ class KgeModel(KgeBase):
         return model
 
     @staticmethod
-    def load_from_checkpoint(
-        filename: str, dataset=None, use_tmp_log_folder=True, device="cpu"
+    def create_from(
+        checkpoint: Dict,
+        dataset: Optional[Dataset] = None,
+        use_tmp_log_folder=True,
+        overwrite_config: Config = None,
     ) -> "KgeModel":
-        """Loads a model from a checkpoint file of a training job.
+        """Loads a model from a checkpoint file of a training job or a packaged model.
 
         If dataset is specified, associates this dataset with the model. Otherwise uses
         the dataset used to train the model.
@@ -393,23 +397,17 @@ class KgeModel(KgeBase):
         appended to) in the checkpoint's folder.
 
         """
+        config = Config.create_from(checkpoint, overwrite_config)
 
-        checkpoint = torch.load(filename, map_location=device)
-
-        original_config = checkpoint["config"]
-        config = Config()  # round trip to handle deprecated configs
-        config.load_options(original_config.options)
-        config.set("job.device", device)
         if use_tmp_log_folder:
             import tempfile
 
             config.log_folder = tempfile.mkdtemp(prefix="kge-")
         else:
-            config.log_folder = os.path.dirname(filename)
-            if not config.log_folder:
+            config.log_folder = checkpoint["folder"]
+            if not config.log_folder or not os.path.exists(config.log_folder):
                 config.log_folder = "."
-        if dataset is None:
-            dataset = Dataset.load(config, preload_data=False)
+        dataset = Dataset.create_from(checkpoint, config, dataset, preload_data=False)
         model = KgeModel.create(config, dataset)
         model.load(checkpoint["model"])
         model.eval()

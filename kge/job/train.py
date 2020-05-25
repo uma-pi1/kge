@@ -15,7 +15,7 @@ from kge.job import Job
 from kge.model import KgeModel
 
 from kge.util import KgeLoss, KgeOptimizer, KgeSampler, KgeLRScheduler
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 import kge.job.util
 
 SLOTS = [0, 1, 2]
@@ -51,12 +51,15 @@ class TrainingJob(Job):
     """
 
     def __init__(
-        self, config: Config, dataset: Dataset, parent_job: Job = None
+        self, config: Config, dataset: Dataset, parent_job: Job = None, model=None
     ) -> None:
         from kge.job import EvaluationJob
 
         super().__init__(config, dataset, parent_job)
-        self.model: KgeModel = KgeModel.create(config, dataset)
+        if model is None:
+            self.model: KgeModel = KgeModel.create(config, dataset)
+        else:
+            self.model: KgeModel = model
         self.optimizer = KgeOptimizer.create(config, self.model)
         self.kge_lr_scheduler = KgeLRScheduler(config, self.optimizer)
         self.loss = KgeLoss.create(config)
@@ -64,6 +67,11 @@ class TrainingJob(Job):
         self.batch_size: int = config.get("train.batch_size")
         self.device: str = self.config.get("job.device")
         self.train_split = config.get("train.split")
+
+        self.config.check("train.trace_level", ["batch", "epoch"])
+        self.trace_batch: bool = self.config.get("train.trace_level") == "batch"
+        self.epoch: int = 0
+        self.valid_trace: List[Dict[str, Any]] = []
         valid_conf = config.clone()
         valid_conf.set("job.type", "eval")
         if self.config.get("valid.split") != "":
@@ -72,12 +80,7 @@ class TrainingJob(Job):
         self.valid_job = EvaluationJob.create(
             valid_conf, dataset, parent_job=self, model=self.model
         )
-        self.config.check("train.trace_level", ["batch", "epoch"])
-        self.trace_batch: bool = self.config.get("train.trace_level") == "batch"
-        self.epoch: int = 0
-        self.valid_trace: List[Dict[str, Any]] = []
         self.is_prepared = False
-        self.model.train()
 
         # attributes filled in by implementing classes
         self.loader = None
@@ -112,17 +115,19 @@ class TrainingJob(Job):
             for f in Job.job_created_hooks:
                 f(self)
 
+        self.model.train()
+
     @staticmethod
     def create(
-        config: Config, dataset: Dataset, parent_job: Job = None
+        config: Config, dataset: Dataset, parent_job: Job = None, model=None
     ) -> "TrainingJob":
         """Factory method to create a training job."""
         if config.get("train.type") == "KvsAll":
-            return TrainingJobKvsAll(config, dataset, parent_job)
+            return TrainingJobKvsAll(config, dataset, parent_job, model=model)
         elif config.get("train.type") == "negative_sampling":
-            return TrainingJobNegativeSampling(config, dataset, parent_job)
+            return TrainingJobNegativeSampling(config, dataset, parent_job, model=model)
         elif config.get("train.type") == "1vsAll":
-            return TrainingJob1vsAll(config, dataset, parent_job)
+            return TrainingJob1vsAll(config, dataset, parent_job, model=model)
         else:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError("train.type")
@@ -246,32 +251,42 @@ class TrainingJob(Job):
     def save(self, filename) -> None:
         """Save current state to specified file"""
         self.config.log("Saving checkpoint to {}...".format(filename))
+        checkpoint = self.save_to({})
         torch.save(
-            {
-                "type": "train",
-                "config": self.config,
-                "epoch": self.epoch,
-                "valid_trace": self.valid_trace,
-                "model": self.model.save(),
-                "optimizer_state_dict": self.optimizer.state_dict(),
-                "lr_scheduler_state_dict": self.kge_lr_scheduler.state_dict(),
-                "job_id": self.job_id,
-            },
-            filename,
+            checkpoint, filename,
         )
 
-    def load(self, filename: str) -> str:
+    def save_to(self, checkpoint: Dict) -> Dict:
+        """Adds trainjob specific information to the checkpoint"""
+        train_checkpoint = {
+            "type": "train",
+            "epoch": self.epoch,
+            "valid_trace": self.valid_trace,
+            "model": self.model.save(),
+            "optimizer_state_dict": self.optimizer.state_dict(),
+            "lr_scheduler_state_dict": self.kge_lr_scheduler.state_dict(),
+            "job_id": self.job_id,
+        }
+        train_checkpoint = self.config.save_to(train_checkpoint)
+        checkpoint.update(train_checkpoint)
+        return checkpoint
+
+    def load(self, checkpoint: Dict, model: Optional[KgeModel] = None) -> str:
         """Load job state from specified file.
 
         Returns job id of the job that created the checkpoint."""
-        self.config.log("Loading checkpoint from {}...".format(filename))
-        checkpoint = torch.load(filename, map_location="cpu")
-        if "model" in checkpoint:
-            # new format
-            self.model.load(checkpoint["model"])
+        if checkpoint["type"] != "train":
+            raise ValueError("Training can only be continued on trained checkpoints")
+        if model is not None:
+            self.model = model
         else:
-            # old format (deprecated, will eventually be removed)
-            self.model.load_state_dict(checkpoint["model_state_dict"])
+            if "model" in checkpoint:
+                # new format
+                self.model.load(checkpoint["model"])
+            else:
+                # old format (deprecated, will eventually be removed)
+                self.model.load_state_dict(checkpoint["model_state_dict"])
+
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         if "lr_scheduler_state_dict" in checkpoint:
             # new format
@@ -279,26 +294,16 @@ class TrainingJob(Job):
         self.epoch = checkpoint["epoch"]
         self.valid_trace = checkpoint["valid_trace"]
         self.model.train()
+        self.resumed_from_job_id = checkpoint.get("job_id")
+        self.trace(
+            event="job_resumed", epoch=self.epoch, checkpoint_file=checkpoint["file"],
+        )
+        self.config.log(
+            "Resumed from {} of job {}".format(
+                checkpoint["file"], self.resumed_from_job_id
+            )
+        )
         return checkpoint.get("job_id")
-
-    def resume(self, checkpoint_file: str = None) -> None:
-        if checkpoint_file is None:
-            last_checkpoint = self.config.last_checkpoint()
-            if last_checkpoint is not None:
-                checkpoint_file = self.config.checkpoint_file(last_checkpoint)
-
-        if checkpoint_file is not None:
-            self.resumed_from_job_id = self.load(checkpoint_file)
-            self.trace(
-                event="job_resumed", epoch=self.epoch, checkpoint_file=checkpoint_file
-            )
-            self.config.log(
-                "Resumed from {} of job {}".format(
-                    checkpoint_file, self.resumed_from_job_id
-                )
-            )
-        else:
-            self.config.log("No checkpoint found, starting from scratch...")
 
     def run_epoch(self) -> Dict[str, Any]:
         "Runs an epoch and returns a trace entry."
@@ -514,8 +519,8 @@ class TrainingJobKvsAll(TrainingJob):
     - Example: a query + its labels, e.g., (John,marriedTo), [Jane]
     """
 
-    def __init__(self, config, dataset, parent_job=None):
-        super().__init__(config, dataset, parent_job)
+    def __init__(self, config, dataset, parent_job=None, model=None):
+        super().__init__(config, dataset, parent_job, model=model)
         self.label_smoothing = config.check_range(
             "KvsAll.label_smoothing", float("-inf"), 1.0, max_inclusive=False
         )
@@ -777,8 +782,8 @@ class TrainingJobKvsAll(TrainingJob):
 
 
 class TrainingJobNegativeSampling(TrainingJob):
-    def __init__(self, config, dataset, parent_job=None):
-        super().__init__(config, dataset, parent_job)
+    def __init__(self, config, dataset, parent_job=None, model=None):
+        super().__init__(config, dataset, parent_job, model=model)
         self._sampler = KgeSampler.create(config, "negative_sampling", dataset)
         self.is_prepared = False
         self._implementation = self.config.check(
@@ -1027,8 +1032,8 @@ class TrainingJobNegativeSampling(TrainingJob):
 class TrainingJob1vsAll(TrainingJob):
     """Samples SPO pairs and queries sp_ and _po, treating all other entities as negative."""
 
-    def __init__(self, config, dataset, parent_job=None):
-        super().__init__(config, dataset, parent_job)
+    def __init__(self, config, dataset, parent_job=None, model=None):
+        super().__init__(config, dataset, parent_job, model=model)
         self.is_prepared = False
         config.log("Initializing spo training job...")
         self.type_str = "1vsAll"

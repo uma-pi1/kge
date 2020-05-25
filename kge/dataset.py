@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import csv
 import os
 import sys
@@ -69,6 +71,18 @@ class Dataset(Configurable):
 
     ## LOADING ##########################################################################
 
+    def assert_available(self, key):
+        """Checks if key can be loaded"""
+        if self.folder is None or not os.path.exists(self.folder):
+            raise IOError(
+                "Dataset {} not found".format(self.config.get("dataset.name"))
+            )
+        filename = self.config.get(f"dataset.files.{key}.filename")
+        if filename is None:
+            raise IOError("Filename for key {} not specified in config".format(key))
+        if not os.path.exists(os.path.join(self.folder, filename)):
+            raise IOError("File {} for key {} could not be found".format(os.path.join(self.folder, filename), key))
+
     @staticmethod
     def load(config: Config, preload_data=True):
         """Loads a dataset.
@@ -90,6 +104,53 @@ class Dataset(Configurable):
             for split in ["train", "valid", "test"]:
                 dataset.split(split)
         return dataset
+
+    @staticmethod
+    def create_from(
+        checkpoint: Dict,
+        config: Config,
+        dataset: Optional[Dataset] = None,
+        preload_data=False,
+    ) -> Dataset:
+        """
+        Creates dataset based on a checkpoint.
+        If a dataset is provided it will be updated
+        Args:
+            checkpoint: loaded checkpoint
+            config: config created from checkpoint
+            dataset: dataset to update
+            preload_data: preload data
+
+        Returns: created/updated dataset
+
+        """
+        if dataset is None:
+            dataset = Dataset.load(config, preload_data)
+        if "dataset" in checkpoint:
+            dataset_checkpoint = checkpoint["dataset"]
+            if (
+                "dataset.meta" in dataset_checkpoint
+                and dataset_checkpoint["meta"] is not None
+            ):
+                dataset._meta.update(dataset_checkpoint["meta"])
+            dataset._num_entities = dataset_checkpoint["num_entities"]
+            dataset._num_relations = dataset_checkpoint["num_relations"]
+        return dataset
+
+    def save_to(self, checkpoint: Dict, meta_keys: Optional[List[str]] = None) -> Dict:
+        """Adds specified meta data to a checkpoint"""
+        dataset_checkpoint = {
+            "num_entities": self.num_entities(),
+            "num_relations": self.num_relations(),
+        }
+        checkpoint["dataset"] = dataset_checkpoint
+        if meta_keys is None:
+            return checkpoint
+        meta_checkpoint = {}
+        for key in meta_keys:
+            meta_checkpoint[key] = self.map_indexes(None, key)
+        checkpoint["dataset"]["meta"] = dataset_checkpoint
+        return checkpoint
 
     @staticmethod
     def _to_valid_filename(s):
@@ -117,6 +178,7 @@ class Dataset(Configurable):
     def load_triples(self, key: str) -> Tensor:
         "Load or return the triples with the specified key."
         if key not in self._triples:
+            self.assert_available(key)
             filename = self.config.get(f"dataset.files.{key}.filename")
             filetype = self.config.get(f"dataset.files.{key}.type")
             if filetype != "triples":
@@ -204,6 +266,7 @@ class Dataset(Configurable):
 
         """
         if key not in self._meta:
+            self.assert_available(key)
             filename = self.config.get(f"dataset.files.{key}.filename")
             filetype = self.config.get(f"dataset.files.{key}.type")
             if (maptype and filetype != maptype) or (

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import collections
 import copy
 import datetime
@@ -129,6 +131,13 @@ class Config:
             )
         else:
             return self.get(self.get_first_present_key(*keys))
+
+    def exists(self, key: str, remove_plusplusplus=True) -> bool:
+        try:
+            self.get(key, remove_plusplusplus)
+            return True
+        except KeyError:
+            return False
 
     Overwrite = Enum("Overwrite", "Yes No Error")
 
@@ -336,6 +345,11 @@ class Config:
         with open(filename, "w+") as file:
             file.write(yaml.dump(self.options))
 
+    def save_to(self, checkpoint: Dict) -> Dict:
+        """Adds the config file to a checkpoint"""
+        checkpoint["config"] = self
+        return checkpoint
+
     @staticmethod
     def flatten(options: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a dictionary of flattened configuration options."""
@@ -422,6 +436,29 @@ class Config:
             self.save(os.path.join(self.folder, "config.yaml"))
             return True
         return False
+
+    @staticmethod
+    def create_from(
+        checkpoint: Dict, overwrite_config: Optional[Config] = None
+    ) -> Config:
+        """
+        Create a config from a checkpoint and update all deprecated keys.
+        Overwrite options in checkpoint config with a new config.
+        Args:
+            checkpoint: loaded checkpoint
+            overwrite_config: new config with options to overwrite
+
+        Returns: Config object
+
+        """
+        config = Config()  # round trip to handle deprecated configs
+        if "config" in checkpoint and checkpoint["config"] is not None:
+            config.load_options(checkpoint["config"].options)
+        if "folder" in checkpoint and checkpoint["folder"] is not None:
+            config.folder = checkpoint["folder"]
+        if overwrite_config is not None:
+            config.load_options(overwrite_config.options)
+        return config
 
     def checkpoint_file(self, cpt_id: Union[str, int]) -> str:
         "Return path of checkpoint file for given checkpoint id"
