@@ -73,9 +73,14 @@ class TrainingJob(Job):
         self.trace_batch: bool = self.config.get("train.trace_level") == "batch"
         self.epoch: int = 0
         self.is_prepared = False
-        self.model.train()
 
         if config.get("job.type") == "train":
+
+            self.model.train()
+
+            self.optimizer = KgeOptimizer.create(config, self.model)
+            self.kge_lr_scheduler = KgeLRScheduler(config, self.optimizer)
+
             valid_conf = config.clone()
             valid_conf.set("job.type", "eval")
             if self.config.get("valid.split") != "":
@@ -320,7 +325,8 @@ class TrainingJob(Job):
                 f(self)
 
             # process batch (preprocessing + forward pass + backward pass on loss)
-            self.optimizer.zero_grad()
+            if not forward_only:
+                self.optimizer.zero_grad()
             batch_result: TrainingJob._ProcessBatchResult = self._process_batch(
                 batch_index, batch, forward_only
             )
@@ -454,7 +460,6 @@ class TrainingJob(Job):
             split=self.train_split,
             batches=len(self.loader),
             size=self.num_examples,
-            lr=[group["lr"] for group in self.optimizer.param_groups],
             avg_loss=sum_loss / self.num_examples,
             avg_penalty=sum_penalty / len(self.loader),
             avg_penalties={k: p / len(self.loader) for k, p in sum_penalties.items()},
@@ -467,6 +472,10 @@ class TrainingJob(Job):
             other_time=other_time,
             event="epoch_completed",
         )
+        if not forward_only:
+            trace_entry.update(
+                lr=[group["lr"] for group in self.optimizer.param_groups],
+            )
         for f in self.post_epoch_trace_hooks:
             f(self, trace_entry)
         trace_entry = self.trace(
@@ -636,7 +645,7 @@ class TrainingJobKvsAll(TrainingJob):
             num_ones = 0
             for example_index in batch:
                 start = 0
-                for query_type_index, query_type in enumerate(self.query_types):
+                for query_type in self.query_types:
                     end = self.query_end_index[query_type]
                     if example_index < end:
                         example_index -= start

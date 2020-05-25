@@ -150,7 +150,12 @@ class KgeSampler(Configurable):
         cols = [[P, O], [S, O], [S, P]][slot]
         pairs = positive_triples[:, cols]
         for i in range(positive_triples.size(0)):
-            positives = index.get((pairs[i][0].item(), pairs[i][1].item())).numpy()
+            pair = (pairs[i][0].item(), pairs[i][1].item())
+            positives = (
+                index.get(pair).numpy()
+                if pair in index
+                else torch.IntTensor([]).numpy()
+            )
             # indices of samples that have to be sampled again
             resample_idx = where_in(negative_samples[i].numpy(), positives)
             # number of new samples needed
@@ -231,9 +236,7 @@ class KgeUniformSampler(KgeSampler):
         # contain its positive, drop that positive. For all other rows, drop a random
         # position.
         shared_samples_index = {s: j for j, s in enumerate(shared_samples)}
-        replacement = np.random.choice(
-            num_distinct + 1, batch_size, replace=True
-        )
+        replacement = np.random.choice(num_distinct + 1, batch_size, replace=True)
         drop = torch.tensor(
             [
                 shared_samples_index.get(s, replacement[i])
@@ -279,13 +282,18 @@ class KgeUniformSampler(KgeSampler):
         positives_index = numba.typed.Dict()
         for i in range(batch_size):
             pair = (pairs[i][0], pairs[i][1])
-            positives_index[pair] = index.get(pair).numpy()
+            positives_index[pair] = (
+                index.get(pair).numpy()
+                if pair in index
+                else torch.IntTensor([]).numpy()
+            )
         negative_samples = negative_samples.numpy()
         KgeUniformSampler._filter_and_resample_numba(
             negative_samples, pairs, positives_index, batch_size, int(voc_size),
         )
         return torch.tensor(negative_samples, dtype=torch.int64)
 
+    @staticmethod
     @numba.njit
     def _filter_and_resample_numba(
         negative_samples, pairs, positives_index, batch_size, voc_size
