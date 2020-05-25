@@ -112,9 +112,11 @@ class Dataset(Configurable):
         dataset: Optional[Dataset] = None,
         preload_data=False,
     ) -> Dataset:
-        """
-        Creates dataset based on a checkpoint.
-        If a dataset is provided it will be updated
+        """Creates dataset based on a checkpoint.
+
+        If a dataset is provided, only (!) its meta data will be updated with the values
+        from the checkpoint.
+
         Args:
             checkpoint: loaded checkpoint
             config: config created from checkpoint
