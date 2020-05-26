@@ -2,6 +2,7 @@ import itertools
 import os
 import math
 import time
+import sys
 from collections import defaultdict
 
 from dataclasses import dataclass
@@ -403,7 +404,7 @@ class TrainingJob(Job):
                 for f in self.post_batch_trace_hooks:
                     f(self, batch_trace)
                 self.trace(**batch_trace, event="batch_completed")
-            print(
+            self.config.print(
                 (
                     "\r"  # go back
                     + "{}  batch{: "
@@ -435,7 +436,7 @@ class TrainingJob(Job):
 
         # all done; now trace and log
         epoch_time += time.time()
-        print("\033[2K\r", end="", flush=True)  # clear line and go back
+        self.config.print("\033[2K\r", end="", flush=True)  # clear line and go back
 
         other_time = (
             epoch_time - prepare_time - forward_time - backward_time - optimizer_time

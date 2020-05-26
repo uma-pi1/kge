@@ -397,8 +397,13 @@ class Config:
                 if self.log_prefix:
                     line = self.log_prefix + line
                 if echo:
-                    print(line)
+                    self.print(line)
                 file.write(str(datetime.datetime.now()) + " " + line + "\n")
+
+    def print(self, *args, **kwargs):
+        "Prints the given message unless console output is disabled"
+        if not self.exists("verbose") or self.get("verbose"):
+            print(*args, **kwargs)
 
     def trace(
         self, echo=False, echo_prefix="", echo_flow=False, log=False, **kwargs
@@ -423,7 +428,7 @@ class Config:
                 for line in msg.splitlines():
                     if echo_prefix:
                         line = echo_prefix + line
-                        print(line)
+                        self.print(line)
         with open(self.tracefile(), "a") as file:
             file.write(line + "\n")
         return kwargs

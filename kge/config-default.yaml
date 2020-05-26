@@ -1,3 +1,6 @@
+# Whether to output progress information to the console
+verbose: True
+
 # Job-level configuration options.
 job:
   # Type of job to run. Possible values are "train", "eval", and "search". See
