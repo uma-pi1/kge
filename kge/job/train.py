@@ -349,7 +349,7 @@ class TrainingJob(Job):
             if not self.is_forward_only:
                 self.optimizer.zero_grad()
             batch_result: TrainingJob._ProcessBatchResult = self._process_batch(
-                batch_index, batch, self.is_forward_only
+                batch_index, batch
             )
             sum_loss += batch_result.avg_loss * batch_result.size
 
@@ -583,6 +583,10 @@ class TrainingJobKvsAll(TrainingJob):
                     )
                 )
 
+        self.label_splits = set(self.config.get("KvsAll.label_splits")) | set(
+            [self.train_split]
+        )
+
         self.queries = None
         self.labels = None
         self.label_offsets = None
@@ -628,7 +632,10 @@ class TrainingJobKvsAll(TrainingJob):
                 if query_type == "sp_"
                 else ("so_to_p" if query_type == "s_o" else "po_to_s")
             )
-            index = self.dataset.index(f"{self.train_split}_{index_type}")
+            split_combi_str = "_".join(sorted(self.label_splits))
+            label_index = self.dataset.index(f"{split_combi_str}_{index_type}")
+            query_index = self.dataset.index(f"{self.train_split}_{index_type}")
+            index = {k: v for k, v in label_index.items() if k in query_index}
             self.num_examples += len(index)
             self.query_end_index[query_type] = self.num_examples
 

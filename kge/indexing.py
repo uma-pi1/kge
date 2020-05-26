@@ -2,6 +2,7 @@ import torch
 from collections import defaultdict, OrderedDict
 import numba
 import numpy as np
+from kge.misc import powerset, merge_dicts_of_1dim_torch_tensors
 
 
 def _group_by(keys, values) -> dict:
@@ -222,6 +223,15 @@ def _invert_ids(dataset, obj: str):
     dataset.config.log(f"Indexed {len(inv)} {obj} ids", prefix="  ")
 
 
+def merge_KvsAll_indexes(dataset, split, key):
+    value = dict([("sp", "o"), ("po", "s"), ("so", "p")])[key]
+    split_combi_str = "_".join(sorted(split))
+    index_name = f"{split_combi_str}_{key}_to_{value}"
+    indexes = [dataset.index(f"{_split}_{key}_to_{value}") for _split in split]
+    dataset._indexes[index_name] = merge_dicts_of_1dim_torch_tensors(indexes)
+    return dataset._indexes[index_name]
+
+
 def create_default_index_functions(dataset: "Dataset"):
     for split in dataset.files_of_type("triples"):
         for key, value in [("sp", "o"), ("po", "s"), ("so", "p")]:
@@ -229,6 +239,15 @@ def create_default_index_functions(dataset: "Dataset"):
             dataset.index_functions[f"{split}_{key}_to_{value}"] = IndexWrapper(
                 index_KvsAll, split=split, key=key
             )
+    # create all combinations of splits of length 2 and 3
+    for split_combi in powerset(dataset.files_of_type("triples"), [2, 3]):
+        for key, value in [("sp", "o"), ("po", "s"), ("so", "p")]:
+            split_combi_str = "_".join(sorted(split_combi))
+            index_name = f"{split_combi_str}_{key}_to_{value}"
+            dataset.index_functions[index_name] = IndexWrapper(
+                merge_KvsAll_indexes, split=split_combi, key=key
+            )
+
     dataset.index_functions["relation_types"] = index_relation_types
     dataset.index_functions["relations_per_type"] = index_relation_types
     dataset.index_functions["frequency_percentiles"] = index_frequency_percentiles

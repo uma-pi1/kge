@@ -122,7 +122,7 @@ class EvaluationJob(Job):
             "Evaluating on "
             + self.eval_split
             + " data (epoch {})...".format(self.epoch),
-            echo=self.verbose
+            echo=self.verbose,
         )
 
         trace_entry = self._run()
@@ -140,12 +140,16 @@ class EvaluationJob(Job):
             f(self, trace_entry)
 
         # write out trace
-        trace_entry = self.trace(**trace_entry, echo=self.verbose, echo_prefix="  ", log=True)
+        trace_entry = self.trace(
+            **trace_entry, echo=self.verbose, echo_prefix="  ", log=True
+        )
 
         # reset model and return metrics
         if was_training:
             self.model.train()
-        self.config.log("Finished evaluating on " + self.eval_split + " split.", echo=self.verbose)
+        self.config.log(
+            "Finished evaluating on " + self.eval_split + " split.", echo=self.verbose
+        )
 
         for f in self.post_valid_hooks:
             f(self, trace_entry)
@@ -209,11 +213,25 @@ class TrainingLossEvaluationJob(EvaluationJob):
 
         train_job_on_eval_split_config = config.clone()
         train_job_on_eval_split_config.set("train.split", self.eval_split)
-        train_job_on_eval_split_config.set("negative_sampling.filtering.split", self.config.get("train.split"))
-        self._train_job = TrainingJob.create(
-            config=train_job_on_eval_split_config, parent_job=self, dataset=dataset, initialize_for_forward_only=True,
+        train_job_on_eval_split_config.set(
+            "negative_sampling.filtering.splits",
+            [self.config.get("train.split"), self.eval_split] + ["valid"]
+            if self.eval_split == "test"
+            else [],
         )
-
+        train_job_on_eval_split_config.set(
+            "KvsAll.label_splits",
+            [self.config.get("train.split"), self.eval_split] + ["valid"]
+            if self.eval_split == "test"
+            else [],
+        )
+        self._train_job = TrainingJob.create(
+            config=train_job_on_eval_split_config,
+            parent_job=self,
+            dataset=dataset,
+            initialize_for_forward_only=True,
+        )
+        self._train_job.model = model
         self._train_job_verbose = False
 
         if self.__class__ == TrainingLossEvaluationJob:
@@ -228,9 +246,7 @@ class TrainingLossEvaluationJob(EvaluationJob):
         self.epoch = self.parent_job.epoch
         epoch_time += time.time()
 
-        train_trace_entry = self._train_job.run_epoch(
-            verbose=self._train_job_verbose
-        )
+        train_trace_entry = self._train_job.run_epoch(verbose=self._train_job_verbose)
         # compute trace
         trace_entry = dict(
             type="training_loss",

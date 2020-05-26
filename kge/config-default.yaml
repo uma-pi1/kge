@@ -235,6 +235,10 @@ KvsAll:
     s_o: False
     _po: True
 
+  # Dataset splits from which the labels for a query are taken from. Default: If
+  # nothing is specified, then the train split is used.
+  label_splits: []
+
 # Options for negative sampling training (train.type=="negative_sampling")
 negative_sampling:
   # Negative sampler to use
@@ -264,7 +268,7 @@ negative_sampling:
     p: False       # as above
     o: False       # as above
 
-    split: ''      # split containing the positives; default is train.split
+    splits: []     # splits containing the positives; default is train.split
 
     # Implementation to use for filtering.
     # standard: use slow generic implementation, available for all samplers
