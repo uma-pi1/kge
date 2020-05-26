@@ -1,10 +1,13 @@
+from __future__ import annotations
+
 from kge import Config, Dataset
+from kge.util import load_checkpoint
 import uuid
 
 from kge.misc import get_git_revision_short_hash
 import os
 import socket
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 
 def _trace_job_creation(job: "Job"):
@@ -55,35 +58,81 @@ class Job:
             for f in Job.job_created_hooks:
                 f(self)
 
-    def resume(self, checkpoint_file: str = None):
-        """Load job state from last or specified checkpoint.
-
-        Restores all relevant state to resume a previous job. To run the restored job,
-        use :func:`run`.
-
-        Should set `resumed_from_job` to the job ID of the previous job.
-
-        """
-        raise NotImplementedError
-
-    def run(self):
-        raise NotImplementedError
-
-    def create(config: Config, dataset: Dataset, parent_job: "Job" = None) -> "Job":
-        """Creates a job for a given configuration."""
-
+    @staticmethod
+    def create(
+        config: Config, dataset: Optional[Dataset] = None, parent_job=None, model=None
+    ):
+        "Create a new job."
         from kge.job import TrainingJob, EvaluationJob, SearchJob
 
-        if config.get("job.type") == "train":
-            job = TrainingJob.create(config, dataset, parent_job)
-        elif config.get("job.type") == "search":
-            job = SearchJob.create(config, dataset, parent_job)
-        elif config.get("job.type") == "eval":
-            job = EvaluationJob.create(config, dataset, parent_job)
+        if dataset is None:
+            dataset = Dataset.create(config)
+
+        job_type = config.get("job.type")
+        if job_type == "train":
+            return TrainingJob.create(
+                config, dataset, parent_job=parent_job, model=model
+            )
+        elif job_type == "search":
+            return SearchJob.create(config, dataset, parent_job=parent_job)
+        elif job_type == "eval":
+            return EvaluationJob.create(
+                config, dataset, parent_job=parent_job, model=model
+            )
         else:
             raise ValueError("unknown job type")
 
+    @classmethod
+    def create_from(
+        cls,
+        checkpoint: Dict,
+        new_config: Config = None,
+        dataset: Dataset = None,
+        parent_job=None,
+    ) -> Job:
+        """
+        Creates a Job based on a checkpoint
+        Args:
+            checkpoint: loaded checkpoint
+            new_config: optional config object - overwrites options of config
+                              stored in checkpoint
+            dataset: dataset object
+            parent_job: parent job (e.g. search job)
+
+        Returns: Job based on checkpoint
+
+        """
+        from kge.model import KgeModel
+
+        model: KgeModel = None
+        # search jobs don't have a model
+        if "model" in checkpoint and checkpoint["model"] is not None:
+            model = KgeModel.create_from(
+                checkpoint, new_config=new_config, dataset=dataset
+            )
+            config = model.config
+            dataset = model.dataset
+        else:
+            config = Config.create_from(checkpoint)
+            if new_config:
+                config.load_config(new_config)
+            dataset = Dataset.create_from(checkpoint, config, dataset)
+        job = Job.create(config, dataset, parent_job, model)
+        job._load(checkpoint)
+        job.config.log("Loaded checkpoint from {}...".format(checkpoint["file"]))
         return job
+
+    def _load(self, checkpoint: Dict):
+        """Job type specific operations when created from checkpoint.
+
+        Called during `create_from`. Assumes that config, dataset, and model have
+        already been loaded from the specified checkpoint.
+
+        """
+        pass
+
+    def run(self):
+        raise NotImplementedError
 
     def trace(self, **kwargs) -> Dict[str, Any]:
         """Write a set of key-value pairs to the trace file and automatically append

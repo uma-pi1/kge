@@ -94,7 +94,7 @@ class AxSearchJob(AutoSearchJob):
             num_generated = len(self.parameters)
             if num_generated > 0:
                 num_sobol_generated = min(
-                    self.ax_client.generation_strategy._curr.num_arms, num_generated
+                    self.ax_client.generation_strategy._curr.num_trials, num_generated
                 )
                 for i in range(num_sobol_generated):
                     generator_run = self.ax_client.generation_strategy.gen(
@@ -104,7 +104,7 @@ class AxSearchJob(AutoSearchJob):
                 self.config.log(
                     "Skipped {} of {} Sobol trials due to prior data.".format(
                         num_sobol_generated,
-                        self.ax_client.generation_strategy._curr.num_arms,
+                        self.ax_client.generation_strategy._curr.num_trials,
                     )
                 )
 

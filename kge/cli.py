@@ -10,6 +10,8 @@ from kge import Config
 from kge.job import Job
 from kge.misc import get_git_revision_short_hash, kge_base_dir, is_number
 from kge.util.dump import add_dump_parsers, dump
+from kge.util.io import get_checkpoint_file, load_checkpoint
+from kge.util.package import package_model, add_package_parser
 
 
 def argparse_bool_type(v):
@@ -130,6 +132,7 @@ def create_parser(config, additional_args=[]):
             default="default",
         )
     add_dump_parsers(subparsers)
+    add_package_parser(subparsers)
     return parser
 
 
@@ -161,6 +164,11 @@ def main():
     # dump command
     if args.command == "dump":
         dump(args)
+        exit()
+
+    # package command
+    if args.command == "package":
+        package_model(args)
         exit()
 
     # start command
@@ -231,16 +239,7 @@ def main():
 
         # determine checkpoint to resume (if any)
         if hasattr(args, "checkpoint"):
-            if args.checkpoint == "default":
-                if config.get("job.type") in ["eval", "valid"]:
-                    checkpoint_file = config.checkpoint_file("best")
-                else:
-                    checkpoint_file = None  # means last
-            elif is_number(args.checkpoint, int) or args.checkpoint == "best":
-                checkpoint_file = config.checkpoint_file(args.checkpoint)
-            else:
-                # otherwise, treat it as a filename
-                checkpoint_file = args.checkpoint
+            checkpoint_file = get_checkpoint_file(config, args.checkpoint)
 
         # disable processing of outdated cached dataset files globally
         Dataset._abort_when_cache_outdated = args.abort_when_cache_outdated
@@ -269,17 +268,30 @@ def main():
             config.log("Job created successfully.")
         else:
             # load data
-            dataset = Dataset.load(config)
+            dataset = Dataset.create(config)
 
             # let's go
-            job = Job.create(config, dataset)
             if args.command == "resume":
-                job.resume(checkpoint_file)
+                if checkpoint_file is not None:
+                    checkpoint = load_checkpoint(
+                        checkpoint_file, config.get("job.device")
+                    )
+                    job = Job.create_from(
+                        checkpoint, new_config=config, dataset=dataset
+                    )
+                else:
+                    job = Job.create(config, dataset)
+                    job.config.log(
+                        "No checkpoint found or specified, starting from scratch..."
+                    )
+            else:
+                job = Job.create(config, dataset)
             job.run()
     except BaseException as e:
         tb = traceback.format_exc()
         config.log(tb, echo=False)
         raise e from None
+
 
 if __name__ == "__main__":
     main()

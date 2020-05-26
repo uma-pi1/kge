@@ -32,10 +32,6 @@ class ManualSearchJob(SearchJob):
             for f in Job.job_created_hooks:
                 f(self)
 
-    def resume(self, checkpoint_file=None):
-        # no need to do anything here; run code automatically resumes
-        pass
-
     def run(self):
         # read search configurations and expand them to full configs
         search_configs = copy.deepcopy(self.config.get("manual_search.configurations"))

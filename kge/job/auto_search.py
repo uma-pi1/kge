@@ -30,13 +30,6 @@ class AutoSearchJob(SearchJob):
             for f in Job.job_created_hooks:
                 f(self)
 
-    def load(self, filename):
-        self.config.log("Loading checkpoint from {}...".format(filename))
-        checkpoint = torch.load(filename, map_location="cpu")
-        self.parameters = checkpoint["parameters"]
-        self.results = checkpoint["results"]
-        return checkpoint.get("job_id")
-
     def save(self, filename):
         self.config.log("Saving checkpoint to {}...".format(filename))
         torch.save(
@@ -49,24 +42,18 @@ class AutoSearchJob(SearchJob):
             filename,
         )
 
-    def resume(self, checkpoint_file=None):
-        if checkpoint_file is None:
-            last_checkpoint = self.config.last_checkpoint()
-            if last_checkpoint is not None:
-                checkpoint_file = self.config.checkpoint_file(last_checkpoint)
-
-        if checkpoint_file is not None:
-            self.resumed_from_job_id = self.load(checkpoint_file)
-            self.trace(
-                event="job_resumed", checkpoint_file=checkpoint_file
+    def _load(self, checkpoint):
+        self.resumed_from_job_id = checkpoint.get("job_id")
+        self.parameters = checkpoint["parameters"]
+        self.results = checkpoint["results"]
+        self.trace(
+            event="job_resumed", checkpoint_file=checkpoint["file"]
+        )
+        self.config.log(
+            "Resuming search from {} of job {}".format(
+                checkpoint["file"], self.resumed_from_job_id
             )
-            self.config.log(
-                "Resumed from {} of job {}".format(
-                    checkpoint_file, self.resumed_from_job_id
-                )
-            )
-        else:
-            self.config.log("No checkpoint found, starting from scratch...")
+        )
 
     # -- Abstract methods --------------------------------------------------------------
 

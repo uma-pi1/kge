@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import collections
 import copy
 import datetime
@@ -129,6 +131,13 @@ class Config:
             )
         else:
             return self.get(self.get_first_present_key(*keys))
+
+    def exists(self, key: str, remove_plusplusplus=True) -> bool:
+        try:
+            self.get(key, remove_plusplusplus)
+            return True
+        except KeyError:
+            return False
 
     Overwrite = Enum("Overwrite", "Yes No Error")
 
@@ -298,12 +307,13 @@ class Config:
         """
         with open(filename, "r") as file:
             new_options = yaml.load(file, Loader=yaml.SafeLoader)
-        self.load_options(
-            new_options,
-            create=create,
-            overwrite=overwrite,
-            allow_deprecated=allow_deprecated,
-        )
+        if new_options is not None:
+            self.load_options(
+                new_options,
+                create=create,
+                overwrite=overwrite,
+                allow_deprecated=allow_deprecated,
+            )
 
     def load_options(
         self, new_options, create=False, overwrite=Overwrite.Yes, allow_deprecated=True
@@ -331,10 +341,21 @@ class Config:
         # now set all options
         self.set_all(new_options, create, overwrite)
 
+    def load_config(
+        self, config, create=False, overwrite=Overwrite.Yes, allow_deprecated=True
+    ):
+        "Like `load`, but loads from a Config object."
+        self.load_options(config.options, create, overwrite, allow_deprecated)
+
     def save(self, filename):
         """Save this configuration to the given file"""
         with open(filename, "w+") as file:
             file.write(yaml.dump(self.options))
+
+    def save_to(self, checkpoint: Dict) -> Dict:
+        """Adds the config file to a checkpoint"""
+        checkpoint["config"] = self
+        return checkpoint
 
     @staticmethod
     def flatten(options: Dict[str, Any]) -> Dict[str, Any]:
@@ -423,6 +444,26 @@ class Config:
             return True
         return False
 
+    @staticmethod
+    def create_from(checkpoint: Dict) -> Config:
+        """Create a config from a checkpoint."""
+        config = Config()  # round trip to handle deprecated configs
+        if "config" in checkpoint and checkpoint["config"] is not None:
+            config.load_config(checkpoint["config"].clone())
+        if "folder" in checkpoint and checkpoint["folder"] is not None:
+            config.folder = checkpoint["folder"]
+        return config
+
+    @staticmethod
+    def from_options(options: Dict[str, Any] = {}, **more_options) -> Config:
+        """Convert given options or kwargs to a Config object.
+
+        Does not perform any checks for correctness."""
+        config = Config(load_default=False)
+        config.set_all(options, create=True)
+        config.set_all(more_options, create=True)
+        return config
+
     def checkpoint_file(self, cpt_id: Union[str, int]) -> str:
         "Return path of checkpoint file for given checkpoint id"
         from kge.misc import is_number
@@ -432,8 +473,8 @@ class Config:
         else:
             return os.path.join(self.folder, "checkpoint_{}.pt".format(cpt_id))
 
-    def last_checkpoint(self) -> Optional[int]:
-        "Return epoch number of latest checkpoint"
+    def last_checkpoint_number(self) -> Optional[int]:
+        "Return number (epoch) of latest checkpoint"
         # stupid implementation, but works
         tried_epoch = 0
         found_epoch = 0
@@ -447,13 +488,13 @@ class Config:
             return None
 
     @staticmethod
-    def get_best_or_last_checkpoint(path: str) -> str:
+    def best_or_last_checkpoint_file(path: str) -> str:
         """Return best (if present) or last checkpoint path for a given folder path."""
         config = Config(folder=path, load_default=False)
         checkpoint_file = config.checkpoint_file("best")
         if os.path.isfile(checkpoint_file):
             return checkpoint_file
-        cpt_epoch = config.last_checkpoint()
+        cpt_epoch = config.last_checkpoint_number()
         if cpt_epoch:
             return config.checkpoint_file(cpt_epoch)
         else:
