@@ -659,6 +659,17 @@ def _process_deprecated_options(options: Dict[str, Any]):
             return True
         return False
 
+    # deletes a key, raises error if it does not have the specified value
+    def delete_key_with_value(key, value):
+        if key in options:
+            if options[key] == value:
+                print(f"Warning: key {key} is deprecated and has been removed."
+                      " Ignoring key since it has default value.",
+                      file=sys.stderr,)
+                del options[key]
+            else:
+                raise ValueError(f"key {key} is deprecated and has been removed.")
+
     # renames a set of keys matching a regular expression
     def rename_keys_re(key_regex, replacement):
         renamed_keys = set()
@@ -679,6 +690,9 @@ def _process_deprecated_options(options: Dict[str, Any]):
                 if rename_value(key, old_value, new_value):
                     renamed_keys.add(key)
         return renamed_keys
+
+    # 26.5.2020
+    delete_key_with_value("ax_search.fixed_parameters", [])
 
     # 18.03.2020
     rename_value("train.lr_scheduler", "ConstantLRScheduler", "")

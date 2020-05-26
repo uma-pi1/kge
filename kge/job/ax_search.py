@@ -42,32 +42,18 @@ class AxSearchJob(AutoSearchJob):
                         enforce_num_trials=True,
                         model_kwargs={"seed": self.config.get("ax_search.sobol_seed")},
                     ),
-                    GenerationStep(
-                        model=Models.GPEI,
-                        num_trials=-1,
-                        max_parallelism=3,
-                        model_gen_kwargs={
-                            "fixed_features": ObservationFeatures(
-                                parameters={
-                                    kv["name"]: kv["value"]
-                                    for kv in self.config.get(
-                                        "ax_search.fixed_parameters"
-                                    )
-                                }
-                            )
-                        },
-                    ),
+                    GenerationStep(model=Models.GPEI, num_trials=-1, max_parallelism=3),
                 ],
             )
             # END: from /ax/service/utils/dispatch.py
 
             self.ax_client = AxClient(generation_strategy=generation_strategy)
-            choose_generation_strategy_kwargs=dict()
+            choose_generation_strategy_kwargs = dict()
         else:
             self.ax_client = AxClient()
             # set random_seed that will be used by auto created sobol search from ax
             # note that here the argument is called "random_seed" not "seed"
-            choose_generation_strategy_kwargs={
+            choose_generation_strategy_kwargs = {
                 "random_seed": self.config.get("ax_search.sobol_seed")
             }
         self.ax_client.create_experiment(
