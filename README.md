@@ -326,7 +326,7 @@ subject-relations pairs: ('Dominican Republic', 'has form of government', ?) and
 
 ```python
 import torch
-import kge.model import KgeModel
+from kge.model import KgeModel
 from kge.util.io import load_checkpoint 
 
 # download link for this checkpoint given under results above
@@ -348,7 +348,7 @@ print(model.dataset.entity_strings(o))
 # tensor([8399, 8855])
 # ['Dominican Republic'        'Mighty Morphin Power Rangers']
 # ['has form of government'    'is tv show with actor']
-# ['Republic'                  'Wendee Lee']
+# ['Republic'                  'Johnny Yong Bosch']
 ```
 
 For other scoring functions (score_sp, score_po, score_so, score_spo), see [KgeModel](kge/model/kge_model.py#L455).
