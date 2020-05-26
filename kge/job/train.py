@@ -53,7 +53,12 @@ class TrainingJob(Job):
     """
 
     def __init__(
-        self, config: Config, dataset: Dataset, parent_job: Job = None, model=None
+        self,
+        config: Config,
+        dataset: Dataset,
+        parent_job: Job = None,
+        model = None,
+        initialize_for_forward_only=False,
     ) -> None:
         from kge.job import EvaluationJob
 
@@ -73,8 +78,9 @@ class TrainingJob(Job):
         self.trace_batch: bool = self.config.get("train.trace_level") == "batch"
         self.epoch: int = 0
         self.is_prepared = False
+        self.is_forward_only = initialize_for_forward_only
 
-        if config.get("job.type") == "train":
+        if not initialize_for_forward_only:
 
             self.model.train()
 
@@ -128,21 +134,36 @@ class TrainingJob(Job):
 
     @staticmethod
     def create(
-        config: Config, dataset: Dataset, parent_job: Job = None, model=None
+        config: Config,
+        dataset: Dataset,
+        parent_job: Job = None,
+        model = None,
+        initialize_for_forward_only=False,
     ) -> "TrainingJob":
         """Factory method to create a training job."""
         if config.get("train.type") == "KvsAll":
-            return TrainingJobKvsAll(config, dataset, parent_job, model=model)
+            return TrainingJobKvsAll(
+                config, dataset, parent_job, model, initialize_for_forward_only,
+            )
         elif config.get("train.type") == "negative_sampling":
-            return TrainingJobNegativeSampling(config, dataset, parent_job, model=model)
+            return TrainingJobNegativeSampling(
+                config, dataset, parent_job, model, initialize_for_forward_only,
+            )
         elif config.get("train.type") == "1vsAll":
-            return TrainingJob1vsAll(config, dataset, parent_job, model=model)
+            return TrainingJob1vsAll(
+                config, dataset, parent_job, model, initialize_for_forward_only,
+            )
         else:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError("train.type")
 
     def run(self) -> None:
         """Start/resume the training job and run to completion."""
+        if self.is_forward_only:
+            raise Exception(
+                f"{self.__class__.__name__} was initialized for forward only. You can only call run_epoch()"
+            )
+
         self.config.log("Starting training...")
         checkpoint_every = self.config.get("train.checkpoint.every")
         checkpoint_keep = self.config.get("train.checkpoint.keep")
@@ -300,7 +321,7 @@ class TrainingJob(Job):
             )
         )
 
-    def run_epoch(self, verbose: bool= True, forward_only: bool = False) -> Dict[str, Any]:
+    def run_epoch(self, verbose: bool = True) -> Dict[str, Any]:
         "Runs an epoch and returns a trace entry."
 
         # prepare the job is not done already
@@ -325,10 +346,10 @@ class TrainingJob(Job):
                 f(self)
 
             # process batch (preprocessing + forward pass + backward pass on loss)
-            if not forward_only:
+            if not self.is_forward_only:
                 self.optimizer.zero_grad()
             batch_result: TrainingJob._ProcessBatchResult = self._process_batch(
-                batch_index, batch, forward_only
+                batch_index, batch, self.is_forward_only
             )
             sum_loss += batch_result.avg_loss * batch_result.size
 
@@ -346,7 +367,7 @@ class TrainingJob(Job):
             batch_backward_time = batch_result.backward_time - time.time()
             penalty = 0.0
             for index, (penalty_key, penalty_value_torch) in enumerate(penalties_torch):
-                if not forward_only:
+                if not self.is_forward_only:
                     penalty_value_torch.backward()
                 penalty += penalty_value_torch.item()
                 sum_penalties[penalty_key] += penalty_value_torch.item()
@@ -388,7 +409,7 @@ class TrainingJob(Job):
 
             # update parameters
             batch_optimizer_time = 0
-            if not forward_only:
+            if not self.is_forward_only:
                 batch_optimizer_time = -time.time()
                 self.optimizer.step()
                 batch_optimizer_time += time.time()
@@ -472,7 +493,7 @@ class TrainingJob(Job):
             other_time=other_time,
             event="epoch_completed",
         )
-        if not forward_only:
+        if not self.is_forward_only:
             trace_entry.update(
                 lr=[group["lr"] for group in self.optimizer.param_groups],
             )
@@ -506,7 +527,7 @@ class TrainingJob(Job):
         backward_time: float
 
     def _process_batch(
-        self, batch_index: int, batch, forward_only: bool
+        self, batch_index: int, batch
     ) -> "TrainingJob._ProcessBatchResult":
         "Run forward and backward pass on batch and return results."
         raise NotImplementedError
@@ -523,8 +544,10 @@ class TrainingJobKvsAll(TrainingJob):
     - Example: a query + its labels, e.g., (John,marriedTo), [Jane]
     """
 
-    def __init__(self, config, dataset, parent_job=None, model=None):
-        super().__init__(config, dataset, parent_job, model=model)
+    def __init__(
+            self, config, dataset, parent_job=None, model=None, initialize_for_forward_only=False
+    ):
+        super().__init__(config, dataset, parent_job, model, initialize_for_forward_only)
         self.label_smoothing = config.check_range(
             "KvsAll.label_smoothing", float("-inf"), 1.0, max_inclusive=False
         )
@@ -710,9 +733,7 @@ class TrainingJobKvsAll(TrainingJob):
 
         return collate
 
-    def _process_batch(
-        self, batch_index, batch, forward_only: bool
-    ) -> TrainingJob._ProcessBatchResult:
+    def _process_batch(self, batch_index, batch) -> TrainingJob._ProcessBatchResult:
         # prepare
         prepare_time = -time.time()
         queries_batch = batch["queries"].to(self.device)
@@ -783,7 +804,7 @@ class TrainingJobKvsAll(TrainingJob):
                 loss_value_total = loss_value.item()
                 forward_time += time.time()
                 backward_time -= time.time()
-                if not forward_only:
+                if not self.is_forward_only:
                     loss_value.backward()
                 backward_time += time.time()
 
@@ -794,8 +815,10 @@ class TrainingJobKvsAll(TrainingJob):
 
 
 class TrainingJobNegativeSampling(TrainingJob):
-    def __init__(self, config, dataset, parent_job=None, model=None):
-        super().__init__(config, dataset, parent_job, model=model)
+    def __init__(
+            self, config, dataset, parent_job=None, model=None, initialize_for_forward_only=False
+    ):
+        super().__init__(config, dataset, parent_job, model, initialize_for_forward_only)
         self._sampler = KgeSampler.create(config, "negative_sampling", dataset)
         self._implementation = self.config.check(
             "negative_sampling.implementation", ["triple", "all", "batch", "auto"],
@@ -856,9 +879,7 @@ class TrainingJobNegativeSampling(TrainingJob):
 
         return collate
 
-    def _process_batch(
-        self, batch_index, batch, forward_only: bool
-    ) -> TrainingJob._ProcessBatchResult:
+    def _process_batch(self, batch_index, batch) -> TrainingJob._ProcessBatchResult:
         # prepare
         prepare_time = -time.time()
         batch_triples = batch["triples"].to(self.device)
@@ -1028,7 +1049,7 @@ class TrainingJobNegativeSampling(TrainingJob):
 
                 # backward pass for this chunk
                 backward_time -= time.time()
-                if not forward_only:
+                if not self.is_forward_only:
                     loss_value_torch.backward()
                 backward_time += time.time()
 
@@ -1041,8 +1062,10 @@ class TrainingJobNegativeSampling(TrainingJob):
 class TrainingJob1vsAll(TrainingJob):
     """Samples SPO pairs and queries sp_ and _po, treating all other entities as negative."""
 
-    def __init__(self, config, dataset, parent_job=None, model=None):
-        super().__init__(config, dataset, parent_job, model=model)
+    def __init__(
+            self, config, dataset, parent_job=None, model=None, initialize_for_forward_only=False
+    ):
+        super().__init__(config, dataset, parent_job, model, initialize_for_forward_only)
         config.log("Initializing spo training job...")
         self.type_str = "1vsAll"
 
@@ -1066,9 +1089,7 @@ class TrainingJob1vsAll(TrainingJob):
             pin_memory=self.config.get("train.pin_memory"),
         )
 
-    def _process_batch(
-        self, batch_index, batch, forward_only: bool
-    ) -> TrainingJob._ProcessBatchResult:
+    def _process_batch(self, batch_index, batch) -> TrainingJob._ProcessBatchResult:
         # prepare
         prepare_time = -time.time()
         triples = batch["triples"].to(self.device)
@@ -1082,7 +1103,7 @@ class TrainingJob1vsAll(TrainingJob):
         loss_value = loss_value_sp.item()
         forward_time += time.time()
         backward_time = -time.time()
-        if not forward_only:
+        if not self.is_forward_only:
             loss_value_sp.backward()
         backward_time += time.time()
 
@@ -1093,7 +1114,7 @@ class TrainingJob1vsAll(TrainingJob):
         loss_value += loss_value_po.item()
         forward_time += time.time()
         backward_time -= time.time()
-        if not forward_only:
+        if not self.is_forward_only:
             loss_value_po.backward()
         backward_time += time.time()
 

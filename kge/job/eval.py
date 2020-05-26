@@ -211,7 +211,7 @@ class TrainingLossEvaluationJob(EvaluationJob):
         train_job_on_eval_split_config.set("train.split", self.eval_split)
         train_job_on_eval_split_config.set("negative_sampling.filtering.split", self.config.get("train.split"))
         self._train_job = TrainingJob.create(
-            config=train_job_on_eval_split_config, parent_job=self, dataset=dataset
+            config=train_job_on_eval_split_config, parent_job=self, dataset=dataset, initialize_for_forward_only=True,
         )
 
         self._train_job_verbose = False
@@ -229,7 +229,7 @@ class TrainingLossEvaluationJob(EvaluationJob):
         epoch_time += time.time()
 
         train_trace_entry = self._train_job.run_epoch(
-            verbose=self._train_job_verbose, forward_only=True
+            verbose=self._train_job_verbose
         )
         # compute trace
         trace_entry = dict(
