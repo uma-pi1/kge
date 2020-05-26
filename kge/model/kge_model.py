@@ -72,12 +72,19 @@ class KgeBase(torch.nn.Module, Configurable):
         "Loads state from a saved data structure"
         # handle deprecated keys
         state_dict = OrderedDict()
+        bad_keys = ["_entity_embedder.embeddings.weight", "_relation_embedder.embeddings.weight",
+        "_base_model._entity_embedder.embeddings.weight", "_base_model._relation_embedder.embeddings.weight"]
+        good_keys = ["_entity_embedder._embeddings.weight", "_relation_embedder._embeddings.weight",
+        "_base_model._entity_embedder._embeddings.weight", "_base_model._relation_embedder._embeddings.weight"]
+
         for k,v in savepoint[0].items():
-            if k == "_entity_embedder.embeddings.weight":
-                k = "_entity_embedder._embeddings.weight"
-            if k == "_relation_embedder.embeddings.weight":
-                k = "_relation_embedder._embeddings.weight"
-            state_dict[k] = v
+            if k in bad_keys:
+                for i, bk in enumerate(bad_keys):
+                    if k == bk:
+                        state_dict[good_keys[i]] = savepoint[0][bk]
+            else:
+                state_dict[k] = v
+
         self.load_state_dict(state_dict)
         self.meta = savepoint[1]
 
