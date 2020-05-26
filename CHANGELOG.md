@@ -3,6 +3,7 @@
 - [dfd0aac](https://github.com/uma-pi1/kge/commit/dfd0aace1a77d6b7f04f414bdc8ea748a9d0d2f2): Added squared error loss (thanks Nzteb)
 - PR [#104](https://github.com/uma-pi1/kge/pull/104): Fix incorrect relation type measurement (thanks STayinloves)
 - PR [#101](https://github.com/uma-pi1/kge/pull/101): Revise embedder penalty API (thanks Nzteb)
+- PR [#94] (https://github.com/uma-pi1/kge/pull/94): Support for packaged models (thanks AdrianKS)
 - Improved seeding of workers when a fixed NumPy seed is used
 - Various smaller improvements and bug fixes
 
