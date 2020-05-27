@@ -6,6 +6,7 @@ from kge.config import _process_deprecated_options
 from kge.job import SearchJob, Job
 import kge.job.search
 import copy
+import gc
 
 # TODO handle "max_epochs" in some sensible way
 
@@ -100,6 +101,7 @@ class AutoSearchJob(SearchJob):
         # let's go
         trial_no = 0
         while trial_no < self.num_trials:
+            gc.collect()
             self.config.log(
                 "Registering trial {}/{}...".format(trial_no, self.num_trials - 1)
             )
