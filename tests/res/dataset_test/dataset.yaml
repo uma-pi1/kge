@@ -4,13 +4,13 @@ dataset:
   files.relation_ids.filename: relation_ids.del
   files.relation_ids.type: map
   files.test.filename: test.del
-  files.test.size: 1
+  files.test.size: 2
   files.test.type: triples
   files.train.filename: train.del
-  files.train.size: 4565
+  files.train.size: 4
   files.train.type: triples
   files.valid.filename: valid.del
-  files.valid.size: 1
+  files.valid.size: 2
   files.valid.type: triples
   name: dataset_test
   num_entities: 4
