@@ -7,6 +7,7 @@
 - PR [#94](https://github.com/uma-pi1/kge/pull/94): Support for packaged models (thanks AdrianKS)
 - Improved seeding of workers when a fixed NumPy seed is used
 - Various smaller improvements and bug fixes
+- Added more mappings from entity IDs to names for Freebase datasets (in entity_strings.del file)
 
 #### Apr 2020
 
