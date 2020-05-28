@@ -330,6 +330,22 @@ eval:
   # Type of evaluation (entity_ranking only at the moment)
   type: entity_ranking
 
+  # How to handle cases ties between the correct answer and other answers, e.g.,
+  #  Query: (s, p, ?).
+  #  Answers and score: a:10, b:10, c:10, d:11, e:9
+  #  Correct: 'a'.
+  #
+  # Possible options are:
+  # - worst_rank:        Use the highest rank of all answers that have the same
+  #                      score as the correct answer. In example: 4.
+  # - best_rank:         Use the lowest rank of all answers that have the same
+  #                      score as the correct answer (competition scoring). In
+  #                      example: 2. DO NOT USE THIS OPTION, it leads to
+  #                      misleading evaluation results.
+  # - rounded_mean_rank: Average between worst and best rank, rounded up
+  #                      (rounded fractional ranking). In example: 3.
+  tie_handling: rounded_mean_rank
+
   # Compute Hits@K for these choices of K
   hits_at_k_s: [1, 3, 10, 50, 100, 200, 300, 400, 500, 1000]
 
@@ -358,7 +374,6 @@ eval:
 
   # Other options
   pin_memory: False
-
 
 # Configuration options for model validation/selection during training. Applied
 # in addition to the options set under "eval" above.
