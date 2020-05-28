@@ -330,22 +330,21 @@ eval:
   # Type of evaluation (entity_ranking only at the moment)
   type: entity_ranking
 
-  entity_ranking:
-      # How to handle cases where the correct query answer has the same score as one or
-      # multiple wrong query answers. For example: Query: (s, p, ?). (Filtered) Answers:
-      # ['a': score 10, 'b': score 10, 'c': score 10, 'd': score 11, 'e': score 9].
-      # Correct query answer: 'a'. Possible options are:
-      # - rounded_mean_rank: Calculate the rounded mean rank. The final rank is
-      #                      calculated as 1 + #scores_higher +
-      #                      round_down(#answers_with_same_score / 2). In the example,
-      #                      the final rank for correct answer (s, p,'a') is
-      #                      1 + 1 + round_down(3 / 2) = 3.
-      # - best_rank:         Assign the lowest rank for the correct answer. The final
-      #                      rank for answer (s, p, 'a') is 2. We do not recommend to
-      #                      use this option, it leads to misleading results.
-      # - worst_rank:        Assign the highest rank for the correct answer. The final
-      #                      rank for answer (s, p, 'a') is 4.
-      tie_handling: rounded_mean_rank
+  # How to handle cases where the correct query answer has the same score as one or
+  # multiple wrong query answers. For example: Query: (s, p, ?). (Filtered) Answers:
+  # ['a': score 10, 'b': score 10, 'c': score 10, 'd': score 11, 'e': score 9].
+  # Correct query answer: 'a'. Possible options are:
+  # - rounded_mean_rank: Calculate the rounded mean rank. The final rank is
+  #                      calculated as 1 + #scores_higher +
+  #                      round_down(#answers_with_same_score / 2). In the example,
+  #                      the final rank for correct answer (s, p,'a') is
+  #                      1 + 1 + round_down(3 / 2) = 3.
+  # - best_rank:         Assign the lowest rank for the correct answer. The final
+  #                      rank for answer (s, p, 'a') is 2. DO NOT USE THIS OPTION, it
+  #                      leads to misleading results.
+  # - worst_rank:        Assign the highest rank for the correct answer. The final
+  #                      rank for answer (s, p, 'a') is 4.
+  tie_handling: rounded_mean_rank
 
   # Compute Hits@K for these choices of K
   hits_at_k_s: [1, 3, 10, 50, 100, 200, 300, 400, 500, 1000]
