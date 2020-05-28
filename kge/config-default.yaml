@@ -330,20 +330,20 @@ eval:
   # Type of evaluation (entity_ranking only at the moment)
   type: entity_ranking
 
-  # How to handle cases where the correct query answer has the same score as one or
-  # multiple wrong query answers. For example: Query: (s, p, ?). (Filtered) Answers:
-  # ['a': score 10, 'b': score 10, 'c': score 10, 'd': score 11, 'e': score 9].
-  # Correct query answer: 'a'. Possible options are:
-  # - rounded_mean_rank: Calculate the rounded mean rank. The final rank is
-  #                      calculated as 1 + #scores_higher +
-  #                      round_down(#answers_with_same_score / 2). In the example,
-  #                      the final rank for correct answer (s, p,'a') is
-  #                      1 + 1 + round_down(3 / 2) = 3.
-  # - best_rank:         Assign the lowest rank for the correct answer. The final
-  #                      rank for answer (s, p, 'a') is 2. DO NOT USE THIS OPTION, it
-  #                      leads to misleading results.
-  # - worst_rank:        Assign the highest rank for the correct answer. The final
-  #                      rank for answer (s, p, 'a') is 4.
+  # How to handle cases ties between the correct answer and other answers, e.g.,
+  #  Query: (s, p, ?).
+  #  Answers and score: a:10, b:10, c:10, d:11, e:9
+  #  Correct: 'a'.
+  #
+  # Possible options are:
+  # - worst_rank:        Use the highest rank of all answers that have the same
+  #                      score as the correct answer. In example: 4.
+  # - best_rank:         Use the lowest rank of all answers that have the same
+  #                      score as the correct answer (competition scoring). In
+  #                      example: 2. DO NOT USE THIS OPTION, it leads to
+  #                      misleading evaluation results.
+  # - rounded_mean_rank: Average between worst and best rank, rounded up
+  #                      (rounded fractional ranking). In example: 3.
   tie_handling: rounded_mean_rank
 
   # Compute Hits@K for these choices of K
