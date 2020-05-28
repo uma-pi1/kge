@@ -330,7 +330,7 @@ eval:
   # Type of evaluation (entity_ranking only at the moment)
   type: entity_ranking
 
-  # How to handle cases ties between the correct answer and other answers, e.g.,
+  # How to handle cases with ties between the correct answer and other answers, e.g.,
   #  Query: (s, p, ?).
   #  Answers and score: a:10, b:10, c:10, d:11, e:9
   #  Correct: 'a'.
@@ -340,8 +340,9 @@ eval:
   #                      score as the correct answer. In example: 4.
   # - best_rank:         Use the lowest rank of all answers that have the same
   #                      score as the correct answer (competition scoring). In
-  #                      example: 2. DO NOT USE THIS OPTION, it leads to
-  #                      misleading evaluation results.
+  #                      example: 2. 
+  #                      DO NOT USE THIS OPTION, it leads to misleading evaluation 
+  #                      results. See https://arxiv.org/pdf/1911.03903.pdf
   # - rounded_mean_rank: Average between worst and best rank, rounded up
   #                      (rounded fractional ranking). In example: 3.
   tie_handling: rounded_mean_rank
