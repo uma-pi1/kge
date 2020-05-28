@@ -8,13 +8,14 @@ from kge.misc import kge_base_dir
 class TestDataset(unittest.TestCase):
     def setUp(self) -> None:
         self.dataset_name = "dataset_test"
+        self.dataset_folder = os.path.join(kge_base_dir(), "data", self.dataset_name)
         self.config = Config()
+        self.config.folder = None
+        self.config.set("verbose", False)
         self.config.set("model", "complex")
         self.config._import("complex")
         self.config.set("dataset.name", self.dataset_name)
         self.config.set("job.device", "cpu")
-        self.config.folder = "."
-        self.dataset_folder = os.path.join(kge_base_dir(), "data", self.dataset_name)
         self.splits = ["train", "valid", "test"]
         self.remove_pickle_files()
 
@@ -43,8 +44,12 @@ class TestDataset(unittest.TestCase):
             po_s_filename = f"index-{split}_po_to_s.pckl"
             dataset.index(sp_o_indexname)
             dataset.index(po_s_indexname)
-            self.assertTrue(os.path.isfile(os.path.join(self.dataset_folder, sp_o_filename)))
-            self.assertTrue(os.path.isfile(os.path.join(self.dataset_folder, po_s_filename)))
+            self.assertTrue(
+                os.path.isfile(os.path.join(self.dataset_folder, sp_o_filename))
+            )
+            self.assertTrue(
+                os.path.isfile(os.path.join(self.dataset_folder, po_s_filename))
+            )
 
     def test_data_pickle_correctness(self):
         # this will create new pickle files for train, valid, test
@@ -53,26 +58,32 @@ class TestDataset(unittest.TestCase):
         # create new dataset which loads the triples from stored pckl files
         dataset_load_by_pickle = Dataset.create(config=self.config, preload_data=True)
         for split in self.splits:
-            self.assertTrue(torch.all(torch.eq(dataset_load_by_pickle.split(split), dataset.split(split))))
+            self.assertTrue(
+                torch.all(
+                    torch.eq(dataset_load_by_pickle.split(split), dataset.split(split))
+                )
+            )
 
     def test_index_pickle_correctness(self):
-        # this will create new pickle files for train, valid, test
-        dataset = Dataset.create(config=self.config, preload_data=True)
-        dataset_indexes = []
-        for split in self.splits:
-            sp_o_indexname = f"{split}_sp_to_o"
-            po_s_indexname = f"{split}_po_to_s"
-            dataset_indexes.append(dataset.index(sp_o_indexname))
-            dataset_indexes.append(dataset.index(po_s_indexname))
+        def _create_dataset_and_indexes():
+            data = Dataset.create(config=self.config, preload_data=True)
+            indexes = []
+            for split in self.splits:
+                sp_o_indexname = f"{split}_sp_to_o"
+                po_s_indexname = f"{split}_po_to_s"
+                indexes.append(data.index(sp_o_indexname))
+                indexes.append(data.index(po_s_indexname))
+                return data, indexes
 
-        # create new dataset which loads the triples from stored pckl files
-        dataset_load_by_pickle = Dataset.create(config=self.config, preload_data=True)
-        dataset_indexes_by_pickle = []
-        for split in self.splits:
-            sp_o_indexname = f"{split}_sp_to_o"
-            po_s_indexname = f"{split}_po_to_s"
-            dataset_indexes_by_pickle.append(dataset_load_by_pickle.index(sp_o_indexname))
-            dataset_indexes_by_pickle.append(dataset_load_by_pickle.index(po_s_indexname))
+        # this will create new pickle files for train, valid, test
+        dataset, dataset_indexes = _create_dataset_and_indexes()
+
+        # create new dataset. This will load the triples from stored pickle files
+        # from previous dataset creation
+        (
+            dataset_load_by_pickle,
+            dataset_indexes_by_pickle,
+        ) = _create_dataset_and_indexes()
 
         for index, index_by_pickle in zip(dataset_indexes, dataset_indexes_by_pickle):
             # assert keys equal
@@ -82,4 +93,3 @@ class TestDataset(unittest.TestCase):
             # assert values equal
             for value, value_by_pickle in zip(index.values(), index_by_pickle.values()):
                 self.assertEqual(value, value_by_pickle)
-
