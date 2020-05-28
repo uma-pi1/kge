@@ -359,6 +359,17 @@ eval:
   # Other options
   pin_memory: False
 
+entity_ranking:
+  # How to handle cases where the correct query answer has the same score as one or
+  # multiple wrong query answers, for example: Query: (s,p,?).  (Filtered) Answers:
+  # ['a': score 10, 'b': score 10, 'c': score 10, 'd': score 11]. Correct query
+  # answer: 'a'. Possible options are:
+  # - rounded_mean_rank: Calculate the rounded mean rank. The final rank is calculated
+  #                      as 1 + #scores_higher + #answers_with_same_score // 2,
+  #                      where "//" denotes the floor-division. In the example, the
+  #                      final rank for correct answer (s,p,'a') is 1 + 1 + 3 // 2 = 3.
+  tie_handling: rounded_mean_rank
+
 
 # Configuration options for model validation/selection during training. Applied
 # in addition to the options set under "eval" above.

@@ -13,6 +13,7 @@ class EntityRankingJob(EvaluationJob):
 
     def __init__(self, config: Config, dataset: Dataset, parent_job, model):
         super().__init__(config, dataset, parent_job, model)
+        self.config.check("entity_ranking.tie_handling", ["rounded_mean_rank"])
         self.is_prepared = False
 
         if self.__class__ == EntityRankingJob:
