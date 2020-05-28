@@ -8,7 +8,7 @@ from kge.misc import kge_base_dir
 class TestDataset(unittest.TestCase):
     def setUp(self) -> None:
         self.dataset_name = "dataset_test"
-        self.dataset_folder = os.path.join(kge_base_dir(), "data", self.dataset_name)
+        self.dataset_folder = os.path.join(kge_base_dir(), "tests", "data", self.dataset_name)
         self.config = Config()
         self.config.folder = None
         self.config.set("verbose", False)
@@ -30,13 +30,13 @@ class TestDataset(unittest.TestCase):
 
     def test_store_data_pickle(self):
         # this will create new pickle files for train, valid, test
-        dataset = Dataset.create(config=self.config, preload_data=True)
+        dataset = Dataset.create(config=self.config, folder=self.dataset_folder, preload_data=True)
         cache_filenames = ["train.del-t.pckl", "valid.del-t.pckl", "test.del-t.pckl"]
         for filename in cache_filenames:
             self.assertTrue(os.path.isfile(os.path.join(self.dataset_folder, filename)))
 
     def test_store_index_pickle(self):
-        dataset = Dataset.create(config=self.config, preload_data=True)
+        dataset = Dataset.create(config=self.config, folder=self.dataset_folder, preload_data=True)
         for split in self.splits:
             sp_o_indexname = f"{split}_sp_to_o"
             sp_o_filename = f"index-{split}_sp_to_o.pckl"
@@ -53,10 +53,10 @@ class TestDataset(unittest.TestCase):
 
     def test_data_pickle_correctness(self):
         # this will create new pickle files for train, valid, test
-        dataset = Dataset.create(config=self.config, preload_data=True)
+        dataset = Dataset.create(config=self.config, folder=self.dataset_folder, preload_data=True)
 
         # create new dataset which loads the triples from stored pckl files
-        dataset_load_by_pickle = Dataset.create(config=self.config, preload_data=True)
+        dataset_load_by_pickle = Dataset.create(config=self.config, folder=self.dataset_folder, preload_data=True)
         for split in self.splits:
             self.assertTrue(
                 torch.all(
@@ -66,7 +66,7 @@ class TestDataset(unittest.TestCase):
 
     def test_index_pickle_correctness(self):
         def _create_dataset_and_indexes():
-            data = Dataset.create(config=self.config, preload_data=True)
+            data = Dataset.create(config=self.config, folder=self.dataset_folder, preload_data=True)
             indexes = []
             for split in self.splits:
                 sp_o_indexname = f"{split}_sp_to_o"
