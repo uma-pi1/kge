@@ -14,8 +14,10 @@ class EntityRankingJob(EvaluationJob):
     def __init__(self, config: Config, dataset: Dataset, parent_job, model):
         super().__init__(config, dataset, parent_job, model)
         self.config.check(
-            "entity_ranking.tie_handling", ["rounded_mean_rank", "top", "bottom"]
+            "eval.entity_ranking.tie_handling",
+            ["rounded_mean_rank", "best_rank", "worst_rank"],
         )
+        self.tie_handling = self.config.get("eval.entity_ranking.tie_handling")
         self.is_prepared = False
 
         if self.__class__ == EntityRankingJob:
@@ -46,18 +48,6 @@ class EntityRankingJob(EvaluationJob):
             num_workers=self.config.get("eval.num_workers"),
             pin_memory=self.config.get("eval.pin_memory"),
         )
-
-        # assign a tie breaker
-        tie_handling = self.config.get("entity_ranking.tie_handling")
-        if tie_handling == "rounded_mean_rank":
-            self.tie_breaker = lambda num_ties: num_ties // 2
-        elif tie_handling == "top":
-            self.tie_breaker = lambda num_ties: 0
-        elif tie_handling == "bottom":
-            self.tie_breaker = lambda num_ties: num_ties - 1
-        else:
-            raise NotImplementedError
-
         # let the model add some hooks, if it wants to do so
         self.model.prepare_job(self)
         self.is_prepared = True
@@ -553,8 +543,15 @@ num_ties for each true score.
         :return: batch_size x 1 tensor of ranks
 
         """
-        ranks = rank + self.tie_breaker(num_ties)
-        return ranks
+
+        if self.tie_handling == "rounded_mean_rank":
+            return rank + num_ties // 2
+        elif self.tie_handling == "best_rank":
+            return rank
+        elif self.tie_handling == "worst_rank":
+            return rank + num_ties - 1
+        else:
+            raise NotImplementedError
 
     def _compute_metrics(self, rank_hist, suffix=""):
         """Computes desired matrix from rank histogram"""
