@@ -1,3 +1,6 @@
+# Whether to output progress information to the console
+verbose: True
+
 # Job-level configuration options.
 job:
   # Type of job to run. Possible values are "train", "eval", and "search". See
@@ -342,8 +345,8 @@ eval:
   # Metrics are always computed over the entire evaluation data. Optionally,
   # certain more specific metrics can be computed in addition.
   metrics_per:
+    head_and_tail: False          # head, tail; also applied to relation_type below
     relation_type: False          # 1-to-1, 1-to-N, N-to-1, N-to-N
-    head_and_tail: False          # head, tail
     argument_frequency: False     # 25%, 50%, 75%, top quantiles per argument
 
   # Amount of tracing information being written. When set to "example", traces

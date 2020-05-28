@@ -1,11 +1,13 @@
 #### May 2020
 
+- [1d26e63](https://github.com/uma-pi1/kge/commit/1d26e63b65380e2c13db2ecb3986e69f404efdc2): Add head/tail evaluation per relation type 
 - [dfd0aac](https://github.com/uma-pi1/kge/commit/dfd0aace1a77d6b7f04f414bdc8ea748a9d0d2f2): Added squared error loss (thanks Nzteb)
 - PR [#104](https://github.com/uma-pi1/kge/pull/104): Fix incorrect relation type measurement (thanks STayinloves)
 - PR [#101](https://github.com/uma-pi1/kge/pull/101): Revise embedder penalty API (thanks Nzteb)
 - PR [#94](https://github.com/uma-pi1/kge/pull/94): Support for packaged models (thanks AdrianKS)
 - Improved seeding of workers when a fixed NumPy seed is used
 - Various smaller improvements and bug fixes
+- Added more mappings from entity IDs to names for Freebase datasets (in entity_strings.del file)
 
 #### Apr 2020
 

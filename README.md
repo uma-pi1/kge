@@ -326,7 +326,7 @@ subject-relations pairs: ('Dominican Republic', 'has form of government', ?) and
 
 ```python
 import torch
-import kge.model import KgeModel
+from kge.model import KgeModel
 from kge.util.io import load_checkpoint 
 
 # download link for this checkpoint given under results above
@@ -348,7 +348,7 @@ print(model.dataset.entity_strings(o))
 # tensor([8399, 8855])
 # ['Dominican Republic'        'Mighty Morphin Power Rangers']
 # ['has form of government'    'is tv show with actor']
-# ['Republic'                  'Wendee Lee']
+# ['Republic'                  'Johnny Yong Bosch']
 ```
 
 For other scoring functions (score_sp, score_po, score_so, score_spo), see [KgeModel](kge/model/kge_model.py#L455).
@@ -373,7 +373,7 @@ The [examples](examples) folder contains some configuration files as examples of
 
 We welcome contributions to expand the list of supported models! Please see [CONTRIBUTING](CONTRIBUTING.md) for details and feel free to initially open an issue.
 
-## Adding a new model
+## Adding a new model or embedder
 
 To add a new model to LibKGE, extend the
 [KgeModel](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L243)
@@ -385,8 +385,11 @@ to score triples given their embeddings.
 
 The model implementation should be stored under
 `<kge-home>/kge/model/<model-name>.py`, its configuration options under
-`<kge-home>/kge/model/<model-name>.yaml`.
+`<kge-home>/kge/model/<model-name>.yaml` and its import has to be added to `<kge-home>/kge/model/__init__.py`.
 
+The embdedder implementation should be stored under
+`<kge-home>/kge/model/embedder/<embedder-name>.py`, its configuration options under
+`<kge-home>/kge/model/embedder/<embedder-name>.yaml` and its import has to be added to `<kge-home>/kge/model/__init__.py`.
 
 ## Known issues
 

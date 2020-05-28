@@ -88,15 +88,11 @@ class EntityRankingJob(EvaluationJob):
         num_entities = self.dataset.num_entities()
 
         # we also filter with test data if requested
-        filter_with_test = (
-            "test" not in self.filter_splits and self.filter_with_test
-        )
+        filter_with_test = "test" not in self.filter_splits and self.filter_with_test
 
         # which rankings to compute (DO NOT REORDER; code assumes the order given here)
         rankings = (
-            ["_raw", "_filt", "_filt_test"]
-            if filter_with_test
-            else ["_raw", "_filt"]
+            ["_raw", "_filt", "_filt_test"] if filter_with_test else ["_raw", "_filt"]
         )
 
         # dictionary that maps entry of rankings to a sparse tensor containing the
@@ -327,7 +323,7 @@ class EntityRankingJob(EvaluationJob):
                     type="entity_ranking",
                     scope="batch",
                     split=self.eval_split,
-                    filter_splits = self.filter_splits,
+                    filter_splits=self.filter_splits,
                     epoch=self.epoch,
                     batch=batch_number,
                     size=len(batch),
@@ -336,7 +332,7 @@ class EntityRankingJob(EvaluationJob):
                 )
 
             # output batch information to console
-            print(
+            self.config.print(
                 (
                     "\r"  # go back
                     + "{}  batch:{: "
@@ -375,7 +371,7 @@ class EntityRankingJob(EvaluationJob):
                 merge_hist(hists_filt_test, batch_hists_filt_test)
 
         # we are done; compute final metrics
-        print("\033[2K\r", end="", flush=True)  # clear line and go back
+        self.config.print("\033[2K\r", end="", flush=True)  # clear line and go back
         for key, hist in hists.items():
             name = "_" + key if key != "all" else ""
             metrics.update(self._compute_metrics(hists[key], suffix=name))

@@ -176,16 +176,21 @@ def main():
         # use toy config file if no config given
         if args.config is None:
             args.config = kge_base_dir() + "/" + "examples/toy-complex-train.yaml"
-            print("WARNING: No configuration specified; using " + args.config)
+            print(
+                "WARNING: No configuration specified; using " + args.config,
+                file=sys.stderr,
+            )
 
-        print("Loading configuration {}...".format(args.config))
+        if args.verbose != False:
+            print("Loading configuration {}...".format(args.config))
         config.load(args.config)
 
     # resume command
     if args.command == "resume":
         if os.path.isdir(args.config) and os.path.isfile(args.config + "/config.yaml"):
             args.config += "/config.yaml"
-        print("Resuming from configuration {}...".format(args.config))
+        if args.verbose != False:
+            print("Resuming from configuration {}...".format(args.config))
         config.load(args.config)
         config.folder = os.path.dirname(args.config)
         if not config.folder:
