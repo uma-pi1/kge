@@ -45,6 +45,12 @@ class EntityRankingJob(EvaluationJob):
             pin_memory=self.config.get("eval.pin_memory"),
         )
 
+        # assign a tie breaker
+        if self.config.get("entity_ranking.tie_handling") == "rounded_mean_rank":
+            self.tie_breaker = lambda num_ties: num_ties // 2
+        else:
+            raise NotImplementedError
+
         # let the model add some hooks, if it wants to do so
         self.model.prepare_job(self)
         self.is_prepared = True
@@ -528,8 +534,7 @@ num_ties for each true score.
         num_ties = torch.sum(scores == true_scores.view(-1, 1), dim=1, dtype=torch.long)
         return rank, num_ties
 
-    @staticmethod
-    def _get_ranks(rank: torch.Tensor, num_ties: torch.Tensor) -> torch.Tensor:
+    def _get_ranks(self, rank: torch.Tensor, num_ties: torch.Tensor) -> torch.Tensor:
         """Calculates the final rank from (minimum) rank and number of ties.
 
         :param rank: batch_size x 1 tensor with number of scores greater than the one of
@@ -541,7 +546,7 @@ num_ties for each true score.
         :return: batch_size x 1 tensor of ranks
 
         """
-        ranks = rank + num_ties // 2
+        ranks = rank + self.tie_breaker(num_ties)
         return ranks
 
     def _compute_metrics(self, rank_hist, suffix=""):
