@@ -1,3 +1,5 @@
+import torch
+from itertools import chain, combinations
 from typing import List
 
 from torch import nn as nn
@@ -6,6 +8,7 @@ from path import Path
 import inspect
 import subprocess
 
+
 def is_number(s, number_type):
     """ Returns True is string is a number. """
     try:
@@ -13,6 +16,33 @@ def is_number(s, number_type):
         return True
     except ValueError:
         return False
+
+
+def merge_dicts_of_1dim_torch_tensors(keys_from_dols, values_from_dols=None):
+    if values_from_dols is None:
+        values_from_dols = keys_from_dols
+    keys = set(chain.from_iterable([d.keys() for d in keys_from_dols]))
+    no = torch.tensor([]).int()
+    return dict(
+        (
+            k,
+            torch.cat([d.get(k, no) for d in values_from_dols]).sort()[0],
+        )
+        for k in keys
+    )
+
+
+def powerset(iterable, filter_lens=None):
+    s = list(iterable)
+    return list(
+        map(
+            sorted,
+            filter(
+                lambda l: len(l) in filter_lens if filter_lens else True,
+                chain.from_iterable(combinations(s, r) for r in range(len(s) + 1)),
+            ),
+        )
+    )
 
 
 # from https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script
@@ -69,6 +99,7 @@ def which(program):
 
 def kge_base_dir():
     import kge
+
     return os.path.abspath(filename_in_module(kge, ".."))
 
 

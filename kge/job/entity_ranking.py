@@ -1,9 +1,10 @@
 import math
 import time
+from typing import Dict, Any
 
 import torch
 import kge.job
-from kge.job import EvaluationJob, Job
+from kge.job import EvaluationJob, Job, TrainingJob
 from kge import Config, Dataset
 from collections import defaultdict
 
@@ -13,17 +14,22 @@ class EntityRankingJob(EvaluationJob):
 
     def __init__(self, config: Config, dataset: Dataset, parent_job, model):
         super().__init__(config, dataset, parent_job, model)
-        self.is_prepared = False
 
         if self.__class__ == EntityRankingJob:
             for f in Job.job_created_hooks:
                 f(self)
 
+        max_k = min(
+            self.dataset.num_entities(), max(self.config.get("eval.hits_at_k_s"))
+        )
+        self.hits_at_k_s = list(
+            filter(lambda x: x <= max_k, self.config.get("eval.hits_at_k_s"))
+        )
+        self.filter_with_test = config.get("eval.filter_with_test")
+
+
     def _prepare(self):
         """Construct all indexes needed to run."""
-
-        if self.is_prepared:
-            return
 
         # create data and precompute indexes
         self.triples = self.dataset.split(self.config.get("eval.split"))
@@ -75,16 +81,8 @@ class EntityRankingJob(EvaluationJob):
         return batch, label_coords, test_label_coords
 
     @torch.no_grad()
-    def run(self) -> dict:
-        self._prepare()
+    def _run(self) -> Dict[str, Any]:
 
-        was_training = self.model.training
-        self.model.eval()
-        self.config.log(
-            "Evaluating on "
-            + self.eval_split
-            + " data (epoch {})...".format(self.epoch)
-        )
         num_entities = self.dataset.num_entities()
 
         # we also filter with test data if requested
@@ -399,28 +397,6 @@ class EntityRankingJob(EvaluationJob):
             event="eval_completed",
             **metrics,
         )
-        for f in self.post_epoch_trace_hooks:
-            f(self, trace_entry)
-
-        # if validation metric is not present, try to compute it
-        metric_name = self.config.get("valid.metric")
-        if metric_name not in trace_entry:
-            trace_entry[metric_name] = eval(
-                self.config.get("valid.metric_expr"),
-                None,
-                dict(config=self.config, **trace_entry),
-            )
-
-        # write out trace
-        trace_entry = self.trace(**trace_entry, echo=True, echo_prefix="  ", log=True)
-
-        # reset model and return metrics
-        if was_training:
-            self.model.train()
-        self.config.log("Finished evaluating on " + self.eval_split + " split.")
-
-        for f in self.post_valid_hooks:
-            f(self, trace_entry)
 
         return trace_entry
 

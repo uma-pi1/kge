@@ -3,7 +3,7 @@ from kge.indexing import where_in
 
 import random
 import torch
-from typing import Optional
+from typing import Optional, List
 import numpy as np
 import numba
 
@@ -29,9 +29,9 @@ class KgeSampler(Configurable):
                 "Without replacement sampling is only supported when "
                 "shared negative sampling is enabled."
             )
-        self.filtering_split = config.get("negative_sampling.filtering.split")
-        if self.filtering_split == "":
-            self.filtering_split = config.get("train.split")
+        self.filtering_splits: List[str] = config.get("negative_sampling.filtering.splits")
+        if len(self.filtering_splits) == 0:
+            self.filtering_splits.append(config.get("train.split"))
         for slot in SLOTS:
             slot_str = SLOT_STR[slot]
             self.num_samples[slot] = self.get_option(f"num_samples.{slot_str}")
@@ -43,7 +43,10 @@ class KgeSampler(Configurable):
             # otherwise every worker would create every index again and again
             if self.filter_positives[slot]:
                 pair = ["po", "so", "sp"][slot]
-                dataset.index(f"{self.filtering_split}_{pair}_to_{slot_str}")
+                for filtering_split in self.filtering_splits:
+                    dataset.index(f"{filtering_split}_{pair}_to_{slot_str}")
+                filtering_splits_str = '_'.join(sorted(self.filtering_splits))
+                dataset.index(f"{filtering_splits_str}_{pair}_to_{slot_str}")
         if any(self.filter_positives):
             if self.shared:
                 raise ValueError(
@@ -144,13 +147,19 @@ class KgeSampler(Configurable):
         """Filter and resample indices until only negatives have been created. """
         pair_str = ["po", "so", "sp"][slot]
         # holding the positive indices for the respective pair
-        index = self.dataset.index(
-            f"{self.filtering_split}_{pair_str}_to_{SLOT_STR[slot]}"
-        )
         cols = [[P, O], [S, O], [S, P]][slot]
         pairs = positive_triples[:, cols]
+        split_combi_str = "_".join(sorted(self.filtering_splits))
+        index = self.dataset.index(
+            f"{split_combi_str}_{pair_str}_to_{SLOT_STR[slot]}"
+        )
         for i in range(positive_triples.size(0)):
-            positives = index.get((pairs[i][0].item(), pairs[i][1].item())).numpy()
+            pair = (pairs[i][0].item(), pairs[i][1].item())
+            positives = (
+                index.get(pair).numpy()
+                if pair in index
+                else torch.IntTensor([]).numpy()
+            )
             # indices of samples that have to be sampled again
             resample_idx = where_in(negative_samples[i].numpy(), positives)
             # number of new samples needed
@@ -231,9 +240,7 @@ class KgeUniformSampler(KgeSampler):
         # contain its positive, drop that positive. For all other rows, drop a random
         # position.
         shared_samples_index = {s: j for j, s in enumerate(shared_samples)}
-        replacement = np.random.choice(
-            num_distinct + 1, batch_size, replace=True
-        )
+        replacement = np.random.choice(num_distinct + 1, batch_size, replace=True)
         drop = torch.tensor(
             [
                 shared_samples_index.get(s, replacement[i])
@@ -265,8 +272,9 @@ class KgeUniformSampler(KgeSampler):
     ):
         pair_str = ["po", "so", "sp"][slot]
         # holding the positive indices for the respective pair
+        split_combi_str = "_".join(sorted(self.filtering_splits))
         index = self.dataset.index(
-            f"{self.filtering_split}_{pair_str}_to_{SLOT_STR[slot]}"
+            f"{split_combi_str}_{pair_str}_to_{SLOT_STR[slot]}"
         )
         cols = [[P, O], [S, O], [S, P]][slot]
         pairs = positive_triples[:, cols].numpy()
@@ -279,13 +287,18 @@ class KgeUniformSampler(KgeSampler):
         positives_index = numba.typed.Dict()
         for i in range(batch_size):
             pair = (pairs[i][0], pairs[i][1])
-            positives_index[pair] = index.get(pair).numpy()
+            positives_index[pair] = (
+                index.get(pair).numpy()
+                if pair in index
+                else torch.IntTensor([]).numpy()
+            )
         negative_samples = negative_samples.numpy()
         KgeUniformSampler._filter_and_resample_numba(
             negative_samples, pairs, positives_index, batch_size, int(voc_size),
         )
         return torch.tensor(negative_samples, dtype=torch.int64)
 
+    @staticmethod
     @numba.njit
     def _filter_and_resample_numba(
         negative_samples, pairs, positives_index, batch_size, voc_size
