@@ -13,7 +13,9 @@ class EntityRankingJob(EvaluationJob):
 
     def __init__(self, config: Config, dataset: Dataset, parent_job, model):
         super().__init__(config, dataset, parent_job, model)
-        self.config.check("entity_ranking.tie_handling", ["rounded_mean_rank"])
+        self.config.check(
+            "entity_ranking.tie_handling", ["rounded_mean_rank", "top", "bottom"]
+        )
         self.is_prepared = False
 
         if self.__class__ == EntityRankingJob:
@@ -46,8 +48,13 @@ class EntityRankingJob(EvaluationJob):
         )
 
         # assign a tie breaker
-        if self.config.get("entity_ranking.tie_handling") == "rounded_mean_rank":
+        tie_handling = self.config.get("entity_ranking.tie_handling")
+        if tie_handling == "rounded_mean_rank":
             self.tie_breaker = lambda num_ties: num_ties // 2
+        elif tie_handling == "top":
+            self.tie_breaker = lambda num_ties: 0
+        elif tie_handling == "bottom":
+            self.tie_breaker = lambda num_ties: num_ties - 1
         else:
             raise NotImplementedError
 
