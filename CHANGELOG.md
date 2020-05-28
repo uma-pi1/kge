@@ -1,5 +1,6 @@
 #### May 2020
 
+- PR [#110](https://github.com/uma-pi1/kge/pull/110): Support for different tie-breaking methods in evaluation
 - [1d26e63](https://github.com/uma-pi1/kge/commit/1d26e63b65380e2c13db2ecb3986e69f404efdc2): Add head/tail evaluation per relation type 
 - [dfd0aac](https://github.com/uma-pi1/kge/commit/dfd0aace1a77d6b7f04f414bdc8ea748a9d0d2f2): Added squared error loss (thanks Nzteb)
 - PR [#104](https://github.com/uma-pi1/kge/pull/104): Fix incorrect relation type measurement (thanks STayinloves)
