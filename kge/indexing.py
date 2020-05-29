@@ -120,10 +120,7 @@ def index_relation_types(dataset):
     """
     create dictionary mapping from {1-N, M-1, 1-1, M-N} -> set of relations
     """
-    if (
-        "relation_types" not in dataset._indexes
-        or "relations_per_type" not in dataset._indexes
-    ):
+    if ("relation_types" not in dataset._indexes):
         relation_types = _get_relation_types(dataset)
         dataset._indexes["relation_types"] = relation_types
 
