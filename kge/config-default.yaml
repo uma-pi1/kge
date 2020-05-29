@@ -1,3 +1,5 @@
+# config-default.yaml: LibKGE's default configuration options
+
 # Whether to output progress information to the console
 verbose: True
 
@@ -164,7 +166,8 @@ train:
   # Batch size used for training.
   batch_size: 100
 
-  # Number of workers used to construct batches. Leave at 0 for default.
+  # Number of workers used to construct batches. Leave at 0 for default (no
+  # separate workers). On Windows, only 0 is supported.
   num_workers: 0
 
   # Optimizer used for training.
@@ -370,7 +373,8 @@ eval:
   # the rank of the correct answer for each example.
   trace_level: epoch            # example, batch, epoch
 
-  # Number of workers used to construct batches. Leave at 0 for default.
+  # Number of workers used to construct batches. Leave at 0 for default (no
+  # separate workers). On Windows, only 0 is supported.
   num_workers: 0
 
   # Other options
