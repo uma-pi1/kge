@@ -44,18 +44,15 @@ class TestDataset(unittest.TestCase):
         dataset = Dataset.create(
             config=self.config, folder=self.dataset_folder, preload_data=True
         )
-        for split in dataset._triples.keys():
-            sp_o_indexname = f"{split}_sp_to_o"
-            sp_o_filename = f"index-{split}_sp_to_o.pckl"
-            po_s_indexname = f"{split}_po_to_s"
-            po_s_filename = f"index-{split}_po_to_s.pckl"
-            dataset.index(sp_o_indexname)
-            dataset.index(po_s_indexname)
-            self.assertTrue(
-                os.path.isfile(os.path.join(self.dataset_folder, sp_o_filename))
+        for index_key in dataset.index_functions.keys():
+            dataset.index(index_key)
+            pickle_filename = os.path.join(
+                self.dataset_folder,
+                Dataset._to_valid_filename(f"index-{index_key}.pckl"),
             )
             self.assertTrue(
-                os.path.isfile(os.path.join(self.dataset_folder, po_s_filename))
+                os.path.isfile(os.path.join(self.dataset_folder, pickle_filename)),
+                msg=pickle_filename,
             )
 
     def test_data_pickle_correctness(self):
