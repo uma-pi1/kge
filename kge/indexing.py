@@ -99,9 +99,9 @@ def _get_relation_types(dataset,):
         (dataset.index("train_po_to_s"), 0),
     ]:
         for prefix, labels in index.items():
-            relation_stats[prefix[p], 0 + p * 2] = (
-                relation_stats[prefix[p], 0 + p * 2] + len(labels)
-            )
+            relation_stats[prefix[p], 0 + p * 2] = relation_stats[
+                prefix[p], 0 + p * 2
+            ] + len(labels)
             relation_stats[prefix[p], 1 + p * 2] = (
                 relation_stats[prefix[p], 1 + p * 2] + 1.0
             )
@@ -125,10 +125,18 @@ def index_relation_types(dataset):
         or "relations_per_type" not in dataset._indexes
     ):
         relation_types = _get_relation_types(dataset)
-        relations_per_type = {}
-        for k, v in relation_types.items():
-            relations_per_type.setdefault(v, set()).add(k)
         dataset._indexes["relation_types"] = relation_types
+
+
+def index_relations_per_type(dataset):
+    if "relations_per_type" not in dataset._indexes:
+        if not "relaption_types" in dataset._indexes:
+            index_relation_types(dataset)
+
+        relations_per_type = {}
+        for k, v in dataset._indexes["relation_types"].items():
+            relations_per_type.setdefault(v, set()).add(k)
+
         dataset._indexes["relations_per_type"] = relations_per_type
 
     for k, v in dataset._indexes["relations_per_type"].items():
@@ -230,7 +238,7 @@ def create_default_index_functions(dataset: "Dataset"):
                 index_KvsAll, split=split, key=key
             )
     dataset.index_functions["relation_types"] = index_relation_types
-    dataset.index_functions["relations_per_type"] = index_relation_types
+    dataset.index_functions["relations_per_type"] = index_relations_per_type
     dataset.index_functions["frequency_percentiles"] = index_frequency_percentiles
 
     for obj in ["entity", "relation"]:
