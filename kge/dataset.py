@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import os
 import sys
+import uuid
 
 import torch
 from torch import Tensor
@@ -404,7 +405,7 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
     @staticmethod
     def _pickle_dump_atomic(data, pickle_filename):
         # first write to temporary file
-        tmpfile = pickle_filename + ".tmp"
+        tmpfile = pickle_filename + str(uuid.uuid4()) + ".tmp"
         with open(tmpfile, "wb") as f:
             pickle.dump(data, f)
 
