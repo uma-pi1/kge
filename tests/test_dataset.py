@@ -94,18 +94,25 @@ class TestDataset(unittest.TestCase):
         ) = _create_dataset_and_indexes()
 
         for index, index_by_pickle in zip(dataset_indexes, dataset_indexes_by_pickle):
-            # assert keys equal
-            if isinstance(index, dict):
-                for key, key_by_pickle in zip(index.keys(), index_by_pickle.keys()):
-                    self.assertEqual(key, key_by_pickle)
+            self.assertEqualTorch(index, index_by_pickle)
 
-                values = zip(index.values(), index_by_pickle.values())
+    def assertEqualTorch(self, first, second, msg=None):
+        """Compares first and second using ==, except for PyTorch tensors,
+        where `torch.eq` is used."""
+
+        # TODO factor out to utility class
+        self.assertEqual(type(first), type(second), msg=msg)
+        if isinstance(first, dict):
+            self.assertEqual(len(first), len(second), msg=msg)
+            for key in first.keys():
+                self.assertTrue(key in second, msg=msg)
+                self.assertEqualTorch(first[key], second[key], msg=msg)
+        elif isinstance(first, list):
+            self.assertEqual(len(first), len(second), msg=msg)
+            for i in range(len(first)):
+                self.assertEqualTorch(first[i], second[i], msg=msg)
+        else:
+            if type(first) is torch.Tensor:
+                self.assertTrue(torch.all(torch.eq(first, second)), msg=msg)
             else:
-                values = [(index, index_by_pickle)]
-
-            # assert values equal
-            for value, value_by_pickle in values:
-                if type(value) is torch.Tensor:
-                    self.assertTrue(torch.all(torch.eq(value, value_by_pickle)))
-                else:
-                    self.assertEqual(value, value_by_pickle)
+                self.assertEqual(first, second, msg=msg)
