@@ -85,7 +85,7 @@ class Dataset(Configurable):
             raise IOError("File {} for key {} could not be found".format(os.path.join(self.folder, filename), key))
 
     @staticmethod
-    def create(config: Config, preload_data=True):
+    def create(config: Config, preload_data: bool = True, folder: Optional[str] = None):
         """Loads a dataset.
 
         If preload_data is set, loads entity and relation maps as well as all splits.
@@ -93,7 +93,8 @@ class Dataset(Configurable):
 
         """
         name = config.get("dataset.name")
-        folder = os.path.join(kge_base_dir(), "data", name)
+        if folder is None:
+            folder = os.path.join(kge_base_dir(), "data", name)
         if os.path.isfile(os.path.join(folder, "dataset.yaml")):
             config.log("Loading configuration of dataset " + name + "...")
             config.load(os.path.join(folder, "dataset.yaml"))
