@@ -95,11 +95,16 @@ class TestDataset(unittest.TestCase):
 
         for index, index_by_pickle in zip(dataset_indexes, dataset_indexes_by_pickle):
             # assert keys equal
-            for key, key_by_pickle in zip(index.keys(), index_by_pickle.keys()):
-                self.assertEqual(key, key_by_pickle)
+            if isinstance(index, dict):
+                for key, key_by_pickle in zip(index.keys(), index_by_pickle.keys()):
+                    self.assertEqual(key, key_by_pickle)
+
+                values = zip(index.values(), index_by_pickle.values())
+            else:
+                values = [(index, index_by_pickle)]
 
             # assert values equal
-            for value, value_by_pickle in zip(index.values(), index_by_pickle.values()):
+            for value, value_by_pickle in values:
                 if type(value) is torch.Tensor:
                     self.assertTrue(torch.all(torch.eq(value, value_by_pickle)))
                 else:
