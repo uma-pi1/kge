@@ -330,7 +330,7 @@ eval:
   # mean_reciprocal_rank_filtered_with_test.
   filter_with_test: True
 
-  # Type of evaluation (entity_ranking only at the moment)
+  # Type of evaluation (entity_ranking, triple_classification)
   type: entity_ranking
 
   # How to handle cases with ties between the correct answer and other answers, e.g.,
@@ -422,6 +422,14 @@ valid:
 
 
 ## EVALUATION ##################################################################
+
+triple_classification:
+  random_seed: False
+  # How to obtain negative triple labels. Possible values are:
+  # - corruption: Create negatives by randomly corrupting existing triples (positives)
+  # - data      : Obtain negative labels from the dataset. This assumes the data set
+  #               contains the splits 'valid_negatives' and 'test_negatives'
+  negatives_from: corruption
 
 
 ## HYPERPARAMETER SEARCH #######################################################

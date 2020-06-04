@@ -1,6 +1,6 @@
 job.type: train
-dataset.name: toy
-model: distmult
+dataset.name: wn11
+model: complex
 train:
   optimizer: Adagrad
   optimizer_args:
@@ -11,8 +11,11 @@ lookup_embedder.dim: 100
 lookup_embedder.initialize: xavier_uniform_
 eval:
   type: triple_classification
-  metrics_per.relation: False
-  triple_classification_random_seed: False
+triple_classification.random_seed: False
+triple_classification.negatives_from: data
+
+
 valid.metric: accuracy
+valid.every: 1
 
 

@@ -20,7 +20,12 @@ class TripleClassificationSampler(Configurable):
         self.o_entities = None
         uni_sampler_config = config.clone()
         # uni_sampler_config.set("negative_sampling.num_samples.s", self.get_option("num_samples.s"))
+        # TODO this is redundant as uniform.sample() is called with "num_samples" here in self.sample()
         uni_sampler_config.set("negative_sampling.num_samples.s", 1)
+        # TODO maybe changing the API of KGEsampler.sample() to also accept a param "filter"
+        #  as it is the case already with "num_samples"
+        #  then we would not rely here on configuration options which actually
+        #  belong to a training job
         uni_sampler_config.set("negative_sampling.filtering.s", True)
         # uni_sampler_config.set("negative_sampling.num_samples.o", self.get_option("num_samples.o"))
         uni_sampler_config.set("negative_sampling.num_samples.o", 1)
@@ -31,6 +36,7 @@ class TripleClassificationSampler(Configurable):
 
     def _prepare(self,):
         train_data = self.dataset.split("train")
+        #TODO probably outdated as it refers to out-commented code
         self.s_entities = train_data[:, S].unique().tolist()
         self.o_entities = train_data[:, O].unique().tolist()
         self._is_prepared = True
@@ -105,6 +111,20 @@ class TripleClassificationJob(EvaluationJob):
         self.triple_classification_sampler = TripleClassificationSampler(
             config, "triple_classification", dataset
         )
+        self.config.check(
+            "triple_classification.negatives_from", ["corruption", "data"]
+        )
+        self.negatives_from = self.config.get("triple_classification.negatives_from")
+        if self.negatives_from == "data":
+            try:
+                self.config.get("dataset.files.valid_negatives.type")
+                self.config.get("dataset.files.test_negatives.type")
+            except:
+                raise KeyError(
+                    "No splits test/valid_negatives found for the dataset. "
+                    "Provide a dataset with splits valid_negatives and test_negatives "
+                    "or run triple classification with negatives_from=corruption"
+                )
 
     def _prepare(self):
         """Prepare the corrupted validation and test data.
@@ -121,7 +141,8 @@ class TripleClassificationJob(EvaluationJob):
 
         self.config.log("Generate data with corrupted and true triples...")
 
-        if self.eval_split == "test":
+        # TODO maybe should be generalized to allow for other splits as valid_wo_unseen
+        if self.eval_split == "test" and self.negatives_from == "corruption":
             (
                 self.tune_data,
                 self.tune_labels,
@@ -130,7 +151,25 @@ class TripleClassificationJob(EvaluationJob):
                 self.eval_data,
                 self.eval_labels,
             ) = self.triple_classification_sampler.sample(self.dataset.split("test"))
-        else:
+
+        elif self.eval_split == "test" and self.negatives_from == "data":
+            positives_valid = self.dataset.split("valid")
+            negatives_valid = self.dataset.split("valid_negatives")
+            self.tune_data = torch.cat((positives_valid, negatives_valid)).to(self.device)
+            self.tune_labels = torch.cat(
+                (torch.ones(positives_valid.size(0), torch.zeros(negatives_valid.size(0))))
+            ).to(self.device)
+
+            positives_test = self.dataset.split("test")
+            negatives_test = self.dataset.split("test_negatives")
+            self.tune_data = torch.cat((positives_test, negatives_test)).to(
+                self.device)
+            self.tune_labels = torch.cat(
+                (torch.ones(positives_test.size(0),
+                            torch.zeros(negatives_test.size(0))))
+            ).to(self.device)
+
+        elif self.eval_split == "valid" and self.negatives_from == "corruption":
             (
                 self.tune_data,
                 self.tune_labels,
@@ -139,6 +178,17 @@ class TripleClassificationJob(EvaluationJob):
                 self.eval_data,
                 self.eval_labels,
             ) = self.triple_classification_sampler.sample(self.dataset.split("valid"))
+
+        elif self.eval_split == "valid" and self.negatives_from == "data":
+            positives = self.dataset.split("valid")
+            negatives = self.dataset.split("valid_negatives")
+            self.tune_data = torch.cat((positives, negatives)).to(self.device)
+            self.tune_labels = torch.cat(
+                (torch.ones(positives.size(0)), torch.zeros(negatives.size(0)))
+            ).to(self.device)
+
+            self.eval_data = self.tune_data
+            self.eval_labels = self.tune_labels
 
         # let the model add some hooks, if it wants to do so
         self.model.prepare_job(self)
