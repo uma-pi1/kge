@@ -279,7 +279,7 @@ class KgeUniformSampler(KgeSampler):
         positives_index = numba.typed.Dict()
         for i in range(batch_size):
             pair = (pairs[i][0], pairs[i][1])
-            positives_index[pair] = index.get(pair).numpy()
+            positives_index[pair] = np.array(index.get(pair), dtype=np.int32)
         negative_samples = negative_samples.numpy()
         KgeUniformSampler._filter_and_resample_numba(
             negative_samples, pairs, positives_index, batch_size, int(voc_size),
