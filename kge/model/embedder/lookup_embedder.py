@@ -30,7 +30,7 @@ class LookupEmbedder(KgeEmbedder):
             self.dim = round_to_points(round_embedder_dim_to, self.dim)
 
         # setup embedder
-        self.embeddings = torch.nn.Embedding(
+        self._embeddings = torch.nn.Embedding(
             self.vocab_size, self.dim, sparse=self.sparse
         )
 
@@ -46,7 +46,7 @@ class LookupEmbedder(KgeEmbedder):
             init_args["a"] = init_args["b"] * -1
             self.set_option("initialize_args.a", init_args["a"], log=True)
 
-        self.initialize(self.embeddings.weight.data, init_, init_args)
+        self.initialize(self._embeddings.weight.data, init_, init_args)
 
         # TODO handling negative dropout because using it with ax searches for now
         dropout = self.get_option("dropout")
@@ -65,14 +65,14 @@ class LookupEmbedder(KgeEmbedder):
 
             def normalize_embeddings(job):
                 if self.normalize_with_grad:
-                    self.embeddings.weight = torch.nn.functional.normalize(
-                        self.embeddings.weight, p=self.normalize_p, dim=-1
+                    self._embeddings.weight = torch.nn.functional.normalize(
+                        self._embeddings.weight, p=self.normalize_p, dim=-1
                     )
                 else:
                     with torch.no_grad():
-                        self.embeddings.weight = torch.nn.Parameter(
+                        self._embeddings.weight = torch.nn.Parameter(
                             torch.nn.functional.normalize(
-                                self.embeddings.weight, p=self.normalize_p, dim=-1
+                                self._embeddings.weight, p=self.normalize_p, dim=-1
                             )
                         )
 
@@ -83,7 +83,7 @@ class LookupEmbedder(KgeEmbedder):
         _, dataset_intersect_ind, checkpoint_intersect_ind = np.intersect1d(
             dataset_ids, packaged_model["ids"], return_indices=True
         )
-        self.embeddings.weight[
+        self._embeddings.weight[
             torch.from_numpy(dataset_intersect_ind)
             .to(self.config.get("job.device"))
             .long()
@@ -93,16 +93,23 @@ class LookupEmbedder(KgeEmbedder):
             self.config.get("job.device")
         )
 
-    def _embed(self, embeddings: Tensor) -> Tensor:
+    def embed(self, indexes: Tensor) -> Tensor:
+        return self._postprocess(self._embeddings(indexes.long()))
+
+    def embed_all(self) -> Tensor:
+        return self._postprocess(self._embeddings_all())
+
+    def _postprocess(self, embeddings: Tensor) -> Tensor:
         if self.dropout.p > 0:
             embeddings = self.dropout(embeddings)
         return embeddings
 
-    def embed(self, indexes: Tensor) -> Tensor:
-        return self._embed(self.embeddings(indexes.long()))
-
-    def embed_all(self) -> Tensor:
-        return self._embed(self.embeddings.weight)
+    def _embeddings_all(self) -> Tensor:
+        return self._embeddings(
+            torch.arange(
+                self.vocab_size, dtype=torch.long, device=self._embeddings.weight.device
+            )
+        )
 
     def _get_regularize_weight(self) -> Tensor:
         return self.get_option("regularize_weight")
@@ -121,21 +128,19 @@ class LookupEmbedder(KgeEmbedder):
             regularize_weight = self._get_regularize_weight()
             if not self.get_option("regularize_args.weighted"):
                 # unweighted Lp regularization
-                parameters = self.embeddings.weight
-                if p % 2 == 1:
-                    parameters = torch.abs(parameters)
+                parameters = self._embeddings_all()
                 result += [
                     (
                         f"{self.configuration_key}.L{p}_penalty",
-                        (regularize_weight / p * (parameters ** p)).sum(),
+                        (regularize_weight / p * parameters.norm(p=p) ** p).sum(),
                     )
                 ]
             else:
                 # weighted Lp regularization
-                unique_ids, counts = torch.unique(
-                    kwargs["batch"]["triples"][:, kwargs["slot"]], return_counts=True
+                unique_indexes, counts = torch.unique(
+                    kwargs["indexes"], return_counts=True
                 )
-                parameters = self.embeddings(unique_ids)
+                parameters = self._embeddings(unique_indexes)
                 if p % 2 == 1:
                     parameters = torch.abs(parameters)
                 result += [
@@ -146,13 +151,13 @@ class LookupEmbedder(KgeEmbedder):
                             / p
                             * (parameters ** p * counts.float().view(-1, 1))
                         ).sum()
-                        # In contrast to unweighted Lp regulariztion, rescaling by number of
-                        # triples is necessary here so that penalty term is correct in
-                        # expectation
-                        / len(kwargs["batch"]["triples"]),
+                        # In contrast to unweighted Lp regularization, rescaling by
+                        # number of triples/indexes is necessary here so that penalty
+                        # term is correct in expectation
+                        / len(kwargs["indexes"]),
                     )
                 ]
-        else:  # unknown regularziation
+        else:  # unknown regularization
             raise ValueError(f"Invalid value regularize={self.regularize}")
 
         return result

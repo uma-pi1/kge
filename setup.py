@@ -14,7 +14,8 @@ setup(
         "pandas",
         "argparse",
         "path",
-        "ax-platform>=0.1.10",
+        # please check correct behaviour when updating ax platform version!!
+        "ax-platform==0.1.10",
         "sqlalchemy",
         "torchviz",
         "dataclasses",

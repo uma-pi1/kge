@@ -1,3 +1,15 @@
+#### May 2020
+
+- PR [#110](https://github.com/uma-pi1/kge/pull/110): Support for different tie-breaking methods in evaluation (thanks Nzteb)
+- [1d26e63](https://github.com/uma-pi1/kge/commit/1d26e63b65380e2c13db2ecb3986e69f404efdc2): Add head/tail evaluation per relation type 
+- [dfd0aac](https://github.com/uma-pi1/kge/commit/dfd0aace1a77d6b7f04f414bdc8ea748a9d0d2f2): Added squared error loss (thanks Nzteb)
+- PR [#104](https://github.com/uma-pi1/kge/pull/104): Fix incorrect relation type measurement (thanks STayinloves)
+- PR [#101](https://github.com/uma-pi1/kge/pull/101): Revise embedder penalty API (thanks Nzteb)
+- PR [#94](https://github.com/uma-pi1/kge/pull/94): Support for packaged models (thanks AdrianKS)
+- Improved seeding of workers when a fixed NumPy seed is used
+- Various smaller improvements and bug fixes
+- Added more mappings from entity IDs to names for Freebase datasets (in entity_strings.del file)
+
 #### Apr 2020
 
 - Improved shared negative sampling (WOR sampling, exclude positive triples from negative sample)
@@ -5,7 +17,7 @@
 
 #### Mar 2020
 
-- [cf64dd2](https://github.com/uma-pi1/kge/commit/cf64dd2fcc4c5961bda2d9142ea1b08d41c16ba2) Fast dataset/index loading via cached pickle files
+- [cf64dd2](https://github.com/uma-pi1/kge/commit/cf64dd2fcc4c5961bda2d9142ea1b08d41c16ba2): Fast dataset/index loading via cached pickle files
 - [4bc86b1](https://github.com/uma-pi1/kge/commit/4bc86b18e5cfe0a4a596dd25fbdc8dde59dcafe9): Add support for chunking a batch when training with negative sampling
 - [14dc926](https://github.com/uma-pi1/kge/commit/14dc9268b2e24f7db36dc95ae47e5e975016955b): Add ability to dump configs in various ways
 - PR [#64](https://github.com/uma-pi1/kge/pull/64): Initial support for frequency-based negative sampling (thanks AdrianKS)

@@ -8,8 +8,9 @@ below](#other-kge-frameworks).
 
 The key goal of LibKGE is to foster *reproducible research* into (as well as
 meaningful comparisons between) KGE models and training methods. As we argue in
-our [ICLR 2020 paper](https://github.com/uma-pi1/kge-iclr20), the choice of
-training strategy and hyperparameters are very influential on model performance,
+our [ICLR 2020 paper](https://github.com/uma-pi1/kge-iclr20)
+(see [video](https://iclr.cc/virtual_2020/poster_BkxSmlBFvr.html)), the choice
+of training strategy and hyperparameters are very influential on model performance,
 often more so than the model class itself. LibKGE aims to provide *clean
 implementations* of training, hyperparameter optimization, and evaluation
 strategies that can be used with any model. Every potential knob or heuristic
@@ -27,8 +28,8 @@ alternative to KGE.
 1. [Features](#features)
 2. [Results and pretrained models](#results-and-pretrained-models)
 3. [Quick start](#quick-start)
-4. [Using LibKGE](#using-libkge) 
-5. [Currently supported KGE models](#currently-supported-kge-models) 
+4. [Using LibKGE](#using-libkge)
+5. [Currently supported KGE models](#currently-supported-kge-models)
 6. [Adding a new model](#adding-a-new-model)
 7. [Known issues](#known-issues)
 8. [Changelog](CHANGELOG.md)
@@ -119,8 +120,8 @@ LibKGE supports large datasets such as Wikidata5M (4.8M entities). The result
 given below was found by automatic hyperparameter search similar to the one used
 for the smaller datasets above, but with some values fixed (training with shared
 negative sampling, embedding dimension: 128, batch size: 1024, optimizer:
-Adagrad, regularization: weighted). We ran 30 pseudo-random configurations for 
-20 epochs, and then reran the configuration that performed best on validation 
+Adagrad, regularization: weighted). We ran 30 pseudo-random configurations for
+20 epochs, and then reran the configuration that performed best on validation
 data for 200 epochs.
 
 |                                                             |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                    Config file |                                                                            Pretrained model |
@@ -325,10 +326,12 @@ subject-relations pairs: ('Dominican Republic', 'has form of government', ?) and
 
 ```python
 import torch
-import kge.model
+from kge.model import KgeModel
+from kge.util.io import load_checkpoint 
 
 # download link for this checkpoint given under results above
-model = kge.model.KgeModel.load_from('fb15k-237-rescal.pt')
+checkpoint = load_checkpoint('fb15k-237-rescal.pt')
+model = KgeModel.create_from(checkpoint)
 
 s = torch.Tensor([0, 2,]).long()             # subject indexes
 p = torch.Tensor([0, 1,]).long()             # relation indexes
@@ -345,7 +348,7 @@ print(model.dataset.entity_strings(o))
 # tensor([8399, 8855])
 # ['Dominican Republic'        'Mighty Morphin Power Rangers']
 # ['has form of government'    'is tv show with actor']
-# ['Republic'                  'Wendee Lee']
+# ['Republic'                  'Johnny Yong Bosch']
 ```
 
 For other scoring functions (score_sp, score_po, score_so, score_spo), see [KgeModel](kge/model/kge_model.py#L455).
@@ -370,7 +373,7 @@ The [examples](examples) folder contains some configuration files as examples of
 
 We welcome contributions to expand the list of supported models! Please see [CONTRIBUTING](CONTRIBUTING.md) for details and feel free to initially open an issue.
 
-## Adding a new model
+## Adding a new model or embedder
 
 To add a new model to LibKGE, extend the
 [KgeModel](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L243)
@@ -382,8 +385,11 @@ to score triples given their embeddings.
 
 The model implementation should be stored under
 `<kge-home>/kge/model/<model-name>.py`, its configuration options under
-`<kge-home>/kge/model/<model-name>.yaml`.
+`<kge-home>/kge/model/<model-name>.yaml` and its import has to be added to `<kge-home>/kge/model/__init__.py`.
 
+The embdedder implementation should be stored under
+`<kge-home>/kge/model/embedder/<embedder-name>.py`, its configuration options under
+`<kge-home>/kge/model/embedder/<embedder-name>.yaml` and its import has to be added to `<kge-home>/kge/model/__init__.py`.
 
 ## Known issues
 
@@ -413,7 +419,7 @@ If you use LibKGE, please cite the following publication:
 ```
 @inproceedings{
   ruffinelli2020you,
-  title={You {\{}CAN{\}} Teach an Old Dog New Tricks! On Training Knowledge Graph Embeddings},
+  title={You {CAN} Teach an Old Dog New Tricks! On Training Knowledge Graph Embeddings},
   author={Daniel Ruffinelli and Samuel Broscheit and Rainer Gemulla},
   booktitle={International Conference on Learning Representations},
   year={2020},

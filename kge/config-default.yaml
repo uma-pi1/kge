@@ -1,3 +1,8 @@
+# config-default.yaml: LibKGE's default configuration options
+
+# Whether to output progress information to the console
+verbose: True
+
 # Job-level configuration options.
 job:
   # Type of job to run. Possible values are "train", "eval", and "search". See
@@ -5,7 +10,7 @@ job:
   type: train
 
   # Main device to use for this job (e.g., 'cpu', 'cuda', 'cuda:0')
-  device: 'cuda'  
+  device: 'cuda'
 
 # The seeds of the PRNGs can be set manually for (increased) reproducability.
 # Use -1 to use default seed.
@@ -133,6 +138,10 @@ train:
   # true label. Computed once for each positive and once for each negative
   # triple in the batch. See loss_arg for parameters.
   #
+  # Squared error (se, all training types): Calculate squared error between
+  # the score of a triple and its true value (0, 1). Computed once for each
+  # positive and once for each negative triple in the batch.
+  #
   # Generally, the loss values are averaged over the batch elements (e.g.,
   # positive triple for 1vsAll and negative_sampling, sp- or po-pair for
   # KvsAll). If multiple loss values arise for each batch element (e.g., when
@@ -157,7 +166,8 @@ train:
   # Batch size used for training.
   batch_size: 100
 
-  # Number of workers used to construct batches. Leave at 0 for default.
+  # Number of workers used to construct batches. Leave at 0 for default (no
+  # separate workers). On Windows, only 0 is supported.
   num_workers: 0
 
   # Optimizer used for training.
@@ -326,6 +336,23 @@ eval:
   # Type of evaluation (entity_ranking only at the moment)
   type: entity_ranking
 
+  # How to handle cases with ties between the correct answer and other answers, e.g.,
+  #  Query: (s, p, ?).
+  #  Answers and score: a:10, b:10, c:10, d:11, e:9
+  #  Correct: 'a'.
+  #
+  # Possible options are:
+  # - worst_rank:        Use the highest rank of all answers that have the same
+  #                      score as the correct answer. In example: 4.
+  # - best_rank:         Use the lowest rank of all answers that have the same
+  #                      score as the correct answer (competition scoring). In
+  #                      example: 2. 
+  #                      DO NOT USE THIS OPTION, it leads to misleading evaluation 
+  #                      results. See https://arxiv.org/pdf/1911.03903.pdf
+  # - rounded_mean_rank: Average between worst and best rank, rounded up
+  #                      (rounded fractional ranking). In example: 3.
+  tie_handling: rounded_mean_rank
+
   # Compute Hits@K for these choices of K
   hits_at_k_s: [1, 3, 10, 50, 100, 200, 300, 400, 500, 1000]
 
@@ -341,20 +368,20 @@ eval:
   # Metrics are always computed over the entire evaluation data. Optionally,
   # certain more specific metrics can be computed in addition.
   metrics_per:
+    head_and_tail: False          # head, tail; also applied to relation_type below
     relation_type: False          # 1-to-1, 1-to-N, N-to-1, N-to-N
-    head_and_tail: False          # head, tail
     argument_frequency: False     # 25%, 50%, 75%, top quantiles per argument
 
   # Amount of tracing information being written. When set to "example", traces
   # the rank of the correct answer for each example.
   trace_level: epoch            # example, batch, epoch
 
-  # Number of workers used to construct batches. Leave at 0 for default.
+  # Number of workers used to construct batches. Leave at 0 for default (no
+  # separate workers). On Windows, only 0 is supported.
   num_workers: 0
 
   # Other options
   pin_memory: False
-
 
 # Configuration options for model validation/selection during training. Applied
 # in addition to the options set under "eval" above.
@@ -459,34 +486,14 @@ ax_search:
   # If equal or larger than num_trials, only Sobal trials will be run.
   num_sobol_trials: -1
 
+  # Random seed for generating the sobol sequence. Has to be fixed for each
+  # experiment, or else resuming the sobol sequence is inconsistent.
+  sobol_seed: 0
+
   # Search space definition passed to ax. See create_experiment in
   # https://ax.dev/api/service.html#module-ax.service.ax_client
   parameters: []
   parameter_constraints: []
-
-  # 'fixed_parameters' is a dictionary of parameters and the values these
-  # parameters should be fixed to for *generating* trials during BO. The purpose
-  # of 'fixed_parameters' is to initialize a search (f.ex. with Sobol) and then
-  # fix a range or choice parameter when generating new trials with BO to a
-  # certain value. The names and values should correspond with the definitions
-  # in 'ax_search.parameters'.
-  # Attention: there is a name clash with regards to the meaning of 'fixed' in Ax
-  # and Botorch! The difference to 'ax_search.parameters#type = fixed' is, that
-  # those are filtered out for fitting a BO model, while the parameters for
-  # 'fixed_parameters' are not. This setting is used in /botorch/gen.py
-  #
-  # Example:
-  #
-  #  parameters:
-  #    - name: rescal.entity_embedder.dim
-  #      type: choice
-  #      values: [100, 200]
-  #
-  #  fixed_parameters:
-  #    - name: rescal.entity_embedder.dim
-  #      value: 100
-
-  fixed_parameters: []
 
 
 ## USER PARAMETERS #####################################################################

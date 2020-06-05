@@ -3,6 +3,7 @@ import os
 import concurrent.futures
 from kge.job import Job, Trace
 from kge.config import _process_deprecated_options
+from kge.util.io import get_checkpoint_file, load_checkpoint
 
 
 class SearchJob(Job):
@@ -41,6 +42,7 @@ class SearchJob(Job):
             for f in Job.job_created_hooks:
                 f(self)
 
+    @staticmethod
     def create(config, dataset, parent_job=None):
         """Factory method to create a search job."""
 
@@ -130,8 +132,23 @@ def _run_train_job(sicnk, device=None):
                 train_job_config.get("job.device"),
             )
         )
-        job = Job.create(train_job_config, search_job.dataset, parent_job=search_job)
-        job.resume()
+        checkpoint_file = get_checkpoint_file(train_job_config)
+        if checkpoint_file is not None:
+            checkpoint = load_checkpoint(
+                checkpoint_file, train_job_config.get("job.device")
+            )
+            job = Job.create_from(
+                checkpoint=checkpoint,
+                new_config=train_job_config,
+                dataset=search_job.dataset,
+                parent_job=search_job,
+            )
+        else:
+            job = Job.create(
+                config=train_job_config,
+                dataset=search_job.dataset,
+                parent_job=search_job,
+            )
 
         # process the trace entries to far (in case of a resumed job)
         metric_name = search_job.config.get("valid.metric")

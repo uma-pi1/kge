@@ -83,54 +83,62 @@ def index_KvsAll_to_torch(index):
     return keys, values, offsets
 
 
-def _get_relation_types(dataset,):
-    """
-    Classify relations into 1-N, M-1, 1-1, M-N
-
-    Bordes, Antoine, et al.
-    "Translating embeddings for modeling multi-relational data."
-    Advances in neural information processing systems. 2013.
-
-    :return: dictionary mapping from int -> {1-N, M-1, 1-1, M-N}
-    """
-    relation_stats = torch.zeros((dataset.num_relations(), 6))
-    for index, p in [
-        (dataset.index("train_sp_to_o"), 1),
-        (dataset.index("train_po_to_s"), 0),
-    ]:
-        for prefix, labels in index.items():
-            relation_stats[prefix[p], 0 + p * 2] = labels.float().sum()
-            relation_stats[prefix[p], 1 + p * 2] = (
-                relation_stats[prefix[p], 1 + p * 2] + 1.0
-            )
-    relation_stats[:, 4] = (relation_stats[:, 0] / relation_stats[:, 1]) > 1.5
-    relation_stats[:, 5] = (relation_stats[:, 2] / relation_stats[:, 3]) > 1.5
-    result = dict()
-    for i, relation in enumerate(dataset.relation_ids()):
-        result[i] = "{}-{}".format(
-            "1" if relation_stats[i, 4].item() == 0 else "M",
-            "1" if relation_stats[i, 5].item() == 0 else "N",
-        )
-    return result
-
-
 def index_relation_types(dataset):
-    """
-    create dictionary mapping from {1-N, M-1, 1-1, M-N} -> set of relations
-    """
-    if (
-        "relation_types" not in dataset._indexes
-        or "relations_per_type" not in dataset._indexes
-    ):
-        relation_types = _get_relation_types(dataset)
-        relations_per_type = {}
-        for k, v in relation_types.items():
-            relations_per_type.setdefault(v, set()).add(k)
-        dataset._indexes["relation_types"] = relation_types
-        dataset._indexes["relations_per_type"] = relations_per_type
+    """Classify relations into 1-N, M-1, 1-1, M-N.
 
-    for k, v in dataset._indexes["relations_per_type"].items():
-        dataset.config.log("{} relations of type {}".format(len(v), k), prefix="  ")
+    According to Bordes et al. "Translating embeddings for modeling multi-relational
+    data.", NIPS13.
+
+    Adds index `relation_types` with list that maps relation index to ("1-N", "M-1",
+    "1-1", "M-N").
+
+    """
+    if "relation_types" not in dataset._indexes:
+        # 2nd dim: num_s, num_distinct_po, num_o, num_distinct_so, is_M, is_N
+        relation_stats = torch.zeros((dataset.num_relations(), 6))
+        for index, p in [
+            (dataset.index("train_sp_to_o"), 1),
+            (dataset.index("train_po_to_s"), 0),
+        ]:
+            for prefix, labels in index.items():
+                relation_stats[prefix[p], 0 + p * 2] = relation_stats[
+                    prefix[p], 0 + p * 2
+                ] + len(labels)
+                relation_stats[prefix[p], 1 + p * 2] = (
+                    relation_stats[prefix[p], 1 + p * 2] + 1.0
+                )
+        relation_stats[:, 4] = (relation_stats[:, 0] / relation_stats[:, 1]) > 1.5
+        relation_stats[:, 5] = (relation_stats[:, 2] / relation_stats[:, 3]) > 1.5
+        relation_types = []
+        for i in range(dataset.num_relations()):
+            relation_types.append(
+                "{}-{}".format(
+                    "1" if relation_stats[i, 4].item() == 0 else "M",
+                    "1" if relation_stats[i, 5].item() == 0 else "N",
+                )
+            )
+
+        dataset._indexes["relation_types"] = relation_types
+
+    return dataset._indexes["relation_types"]
+
+
+def index_relations_per_type(dataset):
+    if "relations_per_type" not in dataset._indexes:
+        relations_per_type = {}
+        for i, k in enumerate(dataset.index("relation_types")):
+            relations_per_type.setdefault(k, set()).add(i)
+        dataset._indexes["relations_per_type"] = relations_per_type
+    else:
+        relations_per_type = dataset._indexes["relations_per_type"]
+
+    dataset.config.log("Loaded relation index")
+    for k, relations in relations_per_type.items():
+        dataset.config.log(
+            "{} relations of type {}".format(len(relations), k), prefix="  "
+        )
+
+    return relations_per_type
 
 
 def index_frequency_percentiles(dataset, recompute=False):
@@ -228,7 +236,7 @@ def create_default_index_functions(dataset: "Dataset"):
                 index_KvsAll, split=split, key=key
             )
     dataset.index_functions["relation_types"] = index_relation_types
-    dataset.index_functions["relations_per_type"] = index_relation_types
+    dataset.index_functions["relations_per_type"] = index_relations_per_type
     dataset.index_functions["frequency_percentiles"] = index_frequency_percentiles
 
     for obj in ["entity", "relation"]:

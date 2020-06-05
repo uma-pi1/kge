@@ -122,7 +122,7 @@ class KgeSampler(Configurable):
     def _sample(self, positive_triples: torch.Tensor, slot: int, num_samples: int):
         """Sample negative examples."""
         raise NotImplementedError(
-            "The selected sampler does not support shared negative samples."
+            "The selected sampler is not implemented."
         )
 
     def _sample_shared(
@@ -134,7 +134,9 @@ class KgeSampler(Configurable):
         to the amount possible.
 
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "The selected sampler does not support shared negative samples."
+        )
 
     def _filter_and_resample(
         self, negative_samples: torch.Tensor, slot: int, positive_triples: torch.Tensor

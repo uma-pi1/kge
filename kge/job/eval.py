@@ -1,6 +1,10 @@
 import torch
 
+from kge import Config, Dataset
 from kge.job import Job
+from kge.model import KgeModel
+
+from typing import Dict, Union, Optional
 
 
 class EvaluationJob(Job):
@@ -49,11 +53,12 @@ class EvaluationJob(Job):
         #: Signature: job, trace_entry
         self.post_valid_hooks = []
 
+        #: Whether to create additional histograms for head and tail slot
+        self.head_and_tail = config.get("eval.metrics_per.head_and_tail")
+
         #: Hooks after computing the ranks for each batch entry.
         #: Signature: job, trace_entry
         self.hist_hooks = [hist_all]
-        if config.get("eval.metrics_per.head_and_tail"):
-            self.hist_hooks.append(hist_per_head_and_tail)
         if config.get("eval.metrics_per.relation_type"):
             self.hist_hooks.append(hist_per_relation_type)
         if config.get("eval.metrics_per.argument_frequency"):
@@ -83,19 +88,48 @@ class EvaluationJob(Job):
         """ Compute evaluation metrics, output results to trace file """
         raise NotImplementedError
 
-    def resume(self, checkpoint_file=None):
-        """Load model state from last or specified checkpoint."""
-        # load model
-        from kge.job import TrainingJob
-
-        training_job = TrainingJob.create(self.config, self.dataset)
-        training_job.resume(checkpoint_file)
-        self.model = training_job.model
-        self.epoch = training_job.epoch
-        self.resumed_from_job_id = training_job.resumed_from_job_id
+    def _load(self, checkpoint: Dict):
+        if checkpoint["type"] not in ["train", "package"]:
+            raise ValueError("Can only evaluate train and package checkpoints.")
+        self.resumed_from_job_id = checkpoint.get("job_id")
+        self.epoch = checkpoint["epoch"]
         self.trace(
-            event="job_resumed", epoch=self.epoch, checkpoint_file=checkpoint_file
+            event="job_resumed", epoch=self.epoch, checkpoint_file=checkpoint["file"]
         )
+
+    @classmethod
+    def create_from(
+        cls,
+        checkpoint: Dict,
+        new_config: Config = None,
+        dataset: Dataset = None,
+        parent_job=None,
+        eval_split: Optional[str] = None,
+    ) -> Job:
+        """
+        Creates a Job based on a checkpoint
+        Args:
+            checkpoint: loaded checkpoint
+            new_config: optional config object - overwrites options of config
+                              stored in checkpoint
+            dataset: dataset object
+            parent_job: parent job (e.g. search job)
+            eval_split: 'valid' or 'test'.
+                        Defines the split to evaluate on.
+                        Overwrites split defined in new_config or config of
+                        checkpoint.
+
+        Returns: Evaluation-Job based on checkpoint
+
+        """
+        if new_config is None:
+            new_config = Config(load_default=False)
+        if not new_config.exists("job.type") or new_config.get("job.type") != "eval":
+            new_config.set("job.type", "eval", create=True)
+        if eval_split is not None:
+            new_config.set("eval.split", eval_split, create=True)
+
+        return super().create_from(checkpoint, new_config, dataset, parent_job)
 
 
 # HISTOGRAM COMPUTATION ###############################################################
@@ -120,35 +154,45 @@ def hist_all(hists, s, p, o, s_ranks, o_ranks, job, **kwargs):
 
     """
     __initialize_hist(hists, "all", job)
+    if job.head_and_tail:
+        __initialize_hist(hists, "head", job)
+        __initialize_hist(hists, "tail", job)
+        hist_head = hists["head"]
+        hist_tail = hists["tail"]
+
     hist = hists["all"]
     for r in o_ranks:
         hist[r] += 1
+        if job.head_and_tail:
+            hist_tail[r] += 1
     for r in s_ranks:
         hist[r] += 1
-
-
-def hist_per_head_and_tail(hists, s, p, o, s_ranks, o_ranks, job, **kwargs):
-    __initialize_hist(hists, "head", job)
-    hist = hists["head"]
-    for r in s_ranks:
-        hist[r] += 1
-
-    __initialize_hist(hists, "tail", job)
-    hist = hists["tail"]
-    for r in o_ranks:
-        hist[r] += 1
+        if job.head_and_tail:
+            hist_head[r] += 1
 
 
 def hist_per_relation_type(hists, s, p, o, s_ranks, o_ranks, job, **kwargs):
     for rel_type, rels in job.dataset.index("relations_per_type").items():
         __initialize_hist(hists, rel_type, job)
+        hist = hists[rel_type]
+        if job.head_and_tail:
+            __initialize_hist(hists, f"{rel_type}_head", job)
+            __initialize_hist(hists, f"{rel_type}_tail", job)
+            hist_head = hists[f"{rel_type}_head"]
+            hist_tail = hists[f"{rel_type}_tail"]
+
         mask = [_p in rels for _p in p.tolist()]
         for r, m in zip(o_ranks, mask):
             if m:
                 hists[rel_type][r] += 1
+                if job.head_and_tail:
+                    hist_tail[r] += 1
+
         for r, m in zip(s_ranks, mask):
             if m:
                 hists[rel_type][r] += 1
+                if job.head_and_tail:
+                    hist_head[r] += 1
 
 
 def hist_per_frequency_percentile(hists, s, p, o, s_ranks, o_ranks, job, **kwargs):

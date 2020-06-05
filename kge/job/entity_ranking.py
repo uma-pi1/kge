@@ -13,6 +13,11 @@ class EntityRankingJob(EvaluationJob):
 
     def __init__(self, config: Config, dataset: Dataset, parent_job, model):
         super().__init__(config, dataset, parent_job, model)
+        self.config.check(
+            "eval.tie_handling",
+            ["rounded_mean_rank", "best_rank", "worst_rank"],
+        )
+        self.tie_handling = self.config.get("eval.tie_handling")
         self.is_prepared = False
 
         if self.__class__ == EntityRankingJob:
@@ -43,7 +48,6 @@ class EntityRankingJob(EvaluationJob):
             num_workers=self.config.get("eval.num_workers"),
             pin_memory=self.config.get("eval.pin_memory"),
         )
-
         # let the model add some hooks, if it wants to do so
         self.model.prepare_job(self)
         self.is_prepared = True
@@ -88,15 +92,11 @@ class EntityRankingJob(EvaluationJob):
         num_entities = self.dataset.num_entities()
 
         # we also filter with test data if requested
-        filter_with_test = (
-            "test" not in self.filter_splits and self.filter_with_test
-        )
+        filter_with_test = "test" not in self.filter_splits and self.filter_with_test
 
         # which rankings to compute (DO NOT REORDER; code assumes the order given here)
         rankings = (
-            ["_raw", "_filt", "_filt_test"]
-            if filter_with_test
-            else ["_raw", "_filt"]
+            ["_raw", "_filt", "_filt_test"] if filter_with_test else ["_raw", "_filt"]
         )
 
         # dictionary that maps entry of rankings to a sparse tensor containing the
@@ -327,7 +327,7 @@ class EntityRankingJob(EvaluationJob):
                     type="entity_ranking",
                     scope="batch",
                     split=self.eval_split,
-                    filter_splits = self.filter_splits,
+                    filter_splits=self.filter_splits,
                     epoch=self.epoch,
                     batch=batch_number,
                     size=len(batch),
@@ -336,7 +336,7 @@ class EntityRankingJob(EvaluationJob):
                 )
 
             # output batch information to console
-            print(
+            self.config.print(
                 (
                     "\r"  # go back
                     + "{}  batch:{: "
@@ -375,7 +375,7 @@ class EntityRankingJob(EvaluationJob):
                 merge_hist(hists_filt_test, batch_hists_filt_test)
 
         # we are done; compute final metrics
-        print("\033[2K\r", end="", flush=True)  # clear line and go back
+        self.config.print("\033[2K\r", end="", flush=True)  # clear line and go back
         for key, hist in hists.items():
             name = "_" + key if key != "all" else ""
             metrics.update(self._compute_metrics(hists[key], suffix=name))
@@ -531,8 +531,7 @@ num_ties for each true score.
         num_ties = torch.sum(scores == true_scores.view(-1, 1), dim=1, dtype=torch.long)
         return rank, num_ties
 
-    @staticmethod
-    def _get_ranks(rank: torch.Tensor, num_ties: torch.Tensor) -> torch.Tensor:
+    def _get_ranks(self, rank: torch.Tensor, num_ties: torch.Tensor) -> torch.Tensor:
         """Calculates the final rank from (minimum) rank and number of ties.
 
         :param rank: batch_size x 1 tensor with number of scores greater than the one of
@@ -544,8 +543,15 @@ num_ties for each true score.
         :return: batch_size x 1 tensor of ranks
 
         """
-        ranks = rank + num_ties // 2
-        return ranks
+
+        if self.tie_handling == "rounded_mean_rank":
+            return rank + num_ties // 2
+        elif self.tie_handling == "best_rank":
+            return rank
+        elif self.tie_handling == "worst_rank":
+            return rank + num_ties - 1
+        else:
+            raise NotImplementedError
 
     def _compute_metrics(self, rank_hist, suffix=""):
         """Computes desired matrix from rank histogram"""

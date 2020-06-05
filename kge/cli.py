@@ -2,6 +2,7 @@
 import datetime
 import argparse
 import os
+import sys
 import traceback
 import yaml
 
@@ -10,6 +11,7 @@ from kge import Config
 from kge.job import Job
 from kge.misc import get_git_revision_short_hash, kge_base_dir, is_number
 from kge.util.dump import add_dump_parsers, dump
+from kge.util.io import get_checkpoint_file, load_checkpoint
 from kge.util.package import package_model, add_package_parser
 
 
@@ -167,7 +169,7 @@ def main():
 
     # package command
     if args.command == "package":
-        package_model(args.checkpoint)
+        package_model(args)
         exit()
 
     # start command
@@ -175,16 +177,21 @@ def main():
         # use toy config file if no config given
         if args.config is None:
             args.config = kge_base_dir() + "/" + "examples/toy-complex-train.yaml"
-            print("WARNING: No configuration specified; using " + args.config)
+            print(
+                "WARNING: No configuration specified; using " + args.config,
+                file=sys.stderr,
+            )
 
-        print("Loading configuration {}...".format(args.config))
+        if args.verbose != False:
+            print("Loading configuration {}...".format(args.config))
         config.load(args.config)
 
     # resume command
     if args.command == "resume":
         if os.path.isdir(args.config) and os.path.isfile(args.config + "/config.yaml"):
             args.config += "/config.yaml"
-        print("Resuming from configuration {}...".format(args.config))
+        if args.verbose != False:
+            print("Resuming from configuration {}...".format(args.config))
         config.load(args.config)
         config.folder = os.path.dirname(args.config)
         if not config.folder:
@@ -238,16 +245,7 @@ def main():
 
         # determine checkpoint to resume (if any)
         if hasattr(args, "checkpoint"):
-            if args.checkpoint == "default":
-                if config.get("job.type") in ["eval", "valid"]:
-                    checkpoint_file = config.checkpoint_file("best")
-                else:
-                    checkpoint_file = None  # means last
-            elif is_number(args.checkpoint, int) or args.checkpoint == "best":
-                checkpoint_file = config.checkpoint_file(args.checkpoint)
-            else:
-                # otherwise, treat it as a filename
-                checkpoint_file = args.checkpoint
+            checkpoint_file = get_checkpoint_file(config, args.checkpoint)
 
         # disable processing of outdated cached dataset files globally
         Dataset._abort_when_cache_outdated = args.abort_when_cache_outdated
@@ -276,17 +274,30 @@ def main():
             config.log("Job created successfully.")
         else:
             # load data
-            dataset = Dataset.load(config)
+            dataset = Dataset.create(config)
 
             # let's go
-            job = Job.create(config, dataset)
             if args.command == "resume":
-                job.resume(checkpoint_file)
+                if checkpoint_file is not None:
+                    checkpoint = load_checkpoint(
+                        checkpoint_file, config.get("job.device")
+                    )
+                    job = Job.create_from(
+                        checkpoint, new_config=config, dataset=dataset
+                    )
+                else:
+                    job = Job.create(config, dataset)
+                    job.config.log(
+                        "No checkpoint found or specified, starting from scratch..."
+                    )
+            else:
+                job = Job.create(config, dataset)
             job.run()
     except BaseException as e:
         tb = traceback.format_exc()
         config.log(tb, echo=False)
         raise e from None
+
 
 if __name__ == "__main__":
     main()

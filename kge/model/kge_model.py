@@ -1,5 +1,6 @@
 import importlib
 import tempfile
+from collections import OrderedDict
 
 from torch import Tensor
 import torch.nn
@@ -8,6 +9,7 @@ import os
 import kge
 from kge import Config, Configurable, Dataset
 from kge.misc import filename_in_module
+from kge.util import load_checkpoint
 from typing import Any, Dict, List, Optional, Union
 
 from typing import TYPE_CHECKING
@@ -69,7 +71,22 @@ class KgeBase(torch.nn.Module, Configurable):
 
     def load(self, savepoint):
         "Loads state from a saved data structure"
-        self.load_state_dict(savepoint[0])
+        # handle deprecated keys
+        state_dict = OrderedDict()
+        bad_keys = ["_entity_embedder.embeddings.weight", "_relation_embedder.embeddings.weight",
+        "_base_model._entity_embedder.embeddings.weight", "_base_model._relation_embedder.embeddings.weight"]
+        good_keys = ["_entity_embedder._embeddings.weight", "_relation_embedder._embeddings.weight",
+        "_base_model._entity_embedder._embeddings.weight", "_base_model._relation_embedder._embeddings.weight"]
+
+        for k,v in savepoint[0].items():
+            if k in bad_keys:
+                for i, bk in enumerate(bad_keys):
+                    if k == bk:
+                        state_dict[good_keys[i]] = savepoint[0][bk]
+            else:
+                state_dict[k] = v
+
+        self.load_state_dict(state_dict)
         self.meta = savepoint[1]
 
     def init_pretrained(self, packaged_model: Dict):
@@ -312,12 +329,12 @@ class KgeModel(KgeBase):
 
     @staticmethod
     def create(
-        config: Config, dataset: Dataset, configuration_key: str = None
+        config: Config, dataset: Dataset, configuration_key: Optional[str] = None
     ) -> "KgeModel":
         """Factory method for model creation."""
 
         try:
-            if configuration_key:
+            if configuration_key is not None:
                 model_name = config.get(configuration_key + ".type")
             else:
                 model_name = config.get("model")
@@ -341,7 +358,7 @@ class KgeModel(KgeBase):
     @staticmethod
     def create_default(
         model: Optional[str] = None,
-        dataset: Optional[Union[Dataset,str]] = None,
+        dataset: Optional[Union[Dataset, str]] = None,
         options: Dict[str, Any] = {},
         folder: Optional[str] = None,
     ) -> "KgeModel":
@@ -381,13 +398,16 @@ class KgeModel(KgeBase):
 
         # create dataset and model
         if not isinstance(dataset, Dataset):
-            dataset = Dataset.load(config)
+            dataset = Dataset.create(config)
         model = KgeModel.create(config, dataset)
         return model
 
     @staticmethod
-    def load_from(
-        filename: str, dataset=None, use_tmp_log_folder=True, device="cpu"
+    def create_from(
+        checkpoint: Dict,
+        dataset: Optional[Dataset] = None,
+        use_tmp_log_folder=True,
+        new_config: Config = None,
     ) -> "KgeModel":
         """Loads a model from a checkpoint file of a training job or a packaged model.
 
@@ -399,30 +419,19 @@ class KgeModel(KgeBase):
         appended to) in the checkpoint's folder.
 
         """
+        config = Config.create_from(checkpoint)
+        if new_config:
+            config.load_config(new_config)
 
-        checkpoint = torch.load(filename, map_location=device)
-
-        original_config = checkpoint["config"]
-        config = Config()  # round trip to handle deprecated configs
-        config.load_options(original_config.options)
-        config.set("job.device", device)
         if use_tmp_log_folder:
             import tempfile
 
             config.log_folder = tempfile.mkdtemp(prefix="kge-")
         else:
-            config.log_folder = os.path.dirname(filename)
-            if not config.log_folder:
+            config.log_folder = checkpoint["folder"]
+            if not config.log_folder or not os.path.exists(config.log_folder):
                 config.log_folder = "."
-        if dataset is None:
-            if checkpoint["type"] == "package":
-                dataset = Dataset(config)
-                dataset._meta["entity_ids"] = checkpoint["entity_ids"]
-                dataset._meta["relation_ids"] = checkpoint["relation_ids"]
-                dataset._meta["entity_strings"] = checkpoint["entity_strings"]
-                dataset._meta["relation_strings"] = checkpoint["relation_strings"]
-            else:
-                dataset = Dataset.load(config, preload_data=False)
+        dataset = Dataset.create_from(checkpoint, config, dataset, preload_data=False)
         model = KgeModel.create(config, dataset)
         model.load(checkpoint["model"])
         model.eval()
@@ -464,19 +473,24 @@ class KgeModel(KgeBase):
         job.post_epoch_trace_hooks.append(append_num_parameter)
 
     def penalty(self, **kwargs) -> List[Tensor]:
+        # Note: If the subject and object embedder are identical, embeddings may be
+        # penalized twice. This is intended (and necessary, e.g., if the penalty is
+        # weighted).
         if "batch" in kwargs and "triples" in kwargs["batch"]:
-            kwargs["batch"]["triples"] = kwargs["batch"]["triples"].to(
-                self.config.get("job.device")
+            triples = kwargs["batch"]["triples"].to(self.config.get("job.device"))
+            return (
+                super().penalty(**kwargs)
+                + self.get_s_embedder().penalty(indexes=triples[:, S], **kwargs)
+                + self.get_p_embedder().penalty(indexes=triples[:, P], **kwargs)
+                + self.get_o_embedder().penalty(indexes=triples[:, O], **kwargs)
             )
-        return (
-            # Note: If the subject and object embedder are identical, embeddings may be
-            # penalized twice. This is intended (and necessary, e.g., if the penalty is
-            # weighted).
-            super().penalty(**kwargs)
-            + self.get_s_embedder().penalty(slot=S, **kwargs)
-            + self.get_p_embedder().penalty(slot=P, **kwargs)
-            + self.get_o_embedder().penalty(slot=O, **kwargs)
-        )
+        else:
+            return (
+                super().penalty(**kwargs)
+                + self.get_s_embedder().penalty(**kwargs)
+                + self.get_p_embedder().penalty(**kwargs)
+                + self.get_o_embedder().penalty(**kwargs)
+            )
 
     def get_s_embedder(self) -> KgeEmbedder:
         return self._entity_embedder
