@@ -2,7 +2,7 @@ import torch
 from collections import defaultdict, OrderedDict
 import numba
 import numpy as np
-from typing import Dict, List
+from typing import Dict, List, Iterator, Tuple
 
 
 def _group_by(keys, values) -> dict:
@@ -300,6 +300,11 @@ class KvsAllIndexDict:
         for value in self.index.values():
             values.append(self.data_sorted[value[0]:value[1], self.value_column])
         return values
+
+    def items(self) -> Iterator[Tuple[Tuple[int, int], torch.Tensor]]:
+        keys = self.keys()
+        values = self.values()
+        return zip(keys, values)
 
     @staticmethod
     def sort_data_by_keys(triples: torch.Tensor, key_cols: List, value_column: int) -> torch.Tensor:
