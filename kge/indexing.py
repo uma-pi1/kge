@@ -54,9 +54,6 @@ def index_KvsAll(dataset: "Dataset", split: str, key: str):
     if not dataset._indexes.get(name):
         triples = dataset.split(split)
         dataset._indexes[name] = KvsAllIndexDict(triples, key_cols, value_column, list)
-        #dataset._indexes[name] = _group_by(
-        #    triples[:, key_cols], triples[:, value_column]
-        #)
 
     dataset.config.log(
         "{} distinct {} pairs in {}".format(len(dataset._indexes[name]), key, split),
@@ -275,11 +272,10 @@ class KvsAllIndexDict:
         """
         self.key_cols = key_cols
         self.value_column = value_column
-        self.data_sorted = self.sort_data_by_keys(triples.type(torch.int32), key_cols, value_column)
+        self.data_sorted = self.sort_data_by_keys(triples, key_cols, value_column)
         self.index = self.construct_index()
 
         self.default_factory = default_factory
-        #self.data_sorted = self.data_sorted.numpy()
 
     def __getitem__(self, key, default_return_value=None):
         try:
@@ -332,7 +328,7 @@ class KvsAllIndexDict:
         Returns:
             dictionary
         """
-        data = self.data_sorted.numpy()[:, self.key_cols]
+        data = self.data_sorted[:, self.key_cols]
         unique_keys, index = np.unique(data, axis=0, return_index=True)
         result = dict()
         for i, key in enumerate(unique_keys):
