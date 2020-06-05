@@ -73,12 +73,20 @@ class KgeBase(torch.nn.Module, Configurable):
         "Loads state from a saved data structure"
         # handle deprecated keys
         state_dict = OrderedDict()
-        bad_keys = ["_entity_embedder.embeddings.weight", "_relation_embedder.embeddings.weight",
-        "_base_model._entity_embedder.embeddings.weight", "_base_model._relation_embedder.embeddings.weight"]
-        good_keys = ["_entity_embedder._embeddings.weight", "_relation_embedder._embeddings.weight",
-        "_base_model._entity_embedder._embeddings.weight", "_base_model._relation_embedder._embeddings.weight"]
+        bad_keys = [
+            "_entity_embedder.embeddings.weight",
+            "_relation_embedder.embeddings.weight",
+            "_base_model._entity_embedder.embeddings.weight",
+            "_base_model._relation_embedder.embeddings.weight",
+        ]
+        good_keys = [
+            "_entity_embedder._embeddings.weight",
+            "_relation_embedder._embeddings.weight",
+            "_base_model._entity_embedder._embeddings.weight",
+            "_base_model._relation_embedder._embeddings.weight",
+        ]
 
-        for k,v in savepoint[0].items():
+        for k, v in savepoint[0].items():
             if k in bad_keys:
                 for i, bk in enumerate(bad_keys):
                     if k == bk:
@@ -440,27 +448,29 @@ class KgeModel(KgeBase):
     def init_pretrained(self, packaged_model: Dict):
         entity_package = {
             "model": dict(
-                        [
-                            (k.split("_entity_embedder.")[1], v)
-                            for k, v in packaged_model["model"][0].items()
-                            if k.startswith("_entity_embedder")
-                        ]
-                    ),
-            "ids": packaged_model["entity_ids"]
+                [
+                    (k.split("_entity_embedder.")[1], v)
+                    for k, v in packaged_model["model"][0].items()
+                    if k.startswith("_entity_embedder")
+                ]
+            ),
+            "ids": packaged_model["dataset"]["meta"]["entity_ids"],
         }
 
         relation_package = {
             "model": dict(
-                        [
-                            (k.split("_relation_embedder.")[1], v)
-                            for k, v in packaged_model["model"][0].items()
-                            if k.startswith("_relation_embedder")
-                        ]
-                    ),
-            "ids": packaged_model["relation_ids"]
+                [
+                    (k.split("_relation_embedder.")[1], v)
+                    for k, v in packaged_model["model"][0].items()
+                    if k.startswith("_relation_embedder")
+                ]
+            ),
+            "ids": packaged_model["dataset"]["meta"]["relation_ids"],
         }
         self._entity_embedder.init_pretrained(entity_package, self.dataset.entity_ids())
-        self._relation_embedder.init_pretrained(relation_package, self.dataset.relation_ids())
+        self._relation_embedder.init_pretrained(
+            relation_package, self.dataset.relation_ids()
+        )
 
     def prepare_job(self, job: "Job", **kwargs):
         super().prepare_job(job, **kwargs)

@@ -87,7 +87,7 @@ class LookupEmbedder(KgeEmbedder):
             torch.from_numpy(dataset_intersect_ind)
             .to(self.config.get("job.device"))
             .long()
-        ] = packaged_model["model"]["embeddings.weight"][
+        ] = packaged_model["model"]["_embeddings.weight"][
             torch.from_numpy(checkpoint_intersect_ind).long()
         ].to(
             self.config.get("job.device")

@@ -16,6 +16,7 @@ from kge.job import Job
 from kge.model import KgeModel
 
 from kge.util import KgeLoss, KgeOptimizer, KgeSampler, KgeLRScheduler
+from kge.util.io import load_checkpoint
 from typing import Any, Callable, Dict, List, Optional, Union
 import kge.job.util
 
@@ -65,8 +66,10 @@ class TrainingJob(Job):
         self.kge_lr_scheduler = KgeLRScheduler(config, self.optimizer)
         self.loss = KgeLoss.create(config)
         if self.config.get("train.init_pretrained"):
-            packaged_model = torch.load(self.config.get("train.init_pretrained"),
-                                        map_location="cpu")
+            self.config.log(
+                f"Initializing with embeddings stored in {self.config.get('train.init_pretrained')}"
+            )
+            packaged_model = load_checkpoint(self.config.get("train.init_pretrained"))
             self.model.init_pretrained(packaged_model)
         self.abort_on_nan: bool = config.get("train.abort_on_nan")
         self.batch_size: int = config.get("train.batch_size")
