@@ -2,6 +2,7 @@ import torch
 from collections import defaultdict, OrderedDict
 import numba
 import numpy as np
+from typing import Dict, List
 
 
 def _group_by(keys, values) -> dict:
@@ -52,9 +53,10 @@ def index_KvsAll(dataset: "Dataset", split: str, key: str):
     name = split + "_" + key + "_to_" + value
     if not dataset._indexes.get(name):
         triples = dataset.split(split)
-        dataset._indexes[name] = _group_by(
-            triples[:, key_cols], triples[:, value_column]
-        )
+        dataset._indexes[name] = KvsAllIndexDict(triples, key_cols, value_column, list)
+        #dataset._indexes[name] = _group_by(
+        #    triples[:, key_cols], triples[:, value_column]
+        #)
 
     dataset.config.log(
         "{} distinct {} pairs in {}".format(len(dataset._indexes[name]), key, split),
@@ -259,3 +261,85 @@ def where_in(x, y, not_in=False):
     # setting njit(parallel=True) slows down the function
     list_y = set(y)
     return np.where(np.array([i in list_y for i in x]) != not_in)[0]
+
+
+class KvsAllIndexDict:
+    def __init__(self, triples: torch.Tensor, key_cols: List, value_column: int, default_factory: type):
+        """
+        Construct KvsAllIndexDict
+        Args:
+            triples: data
+            key_cols: column indicators of data, giving the keys of the dictionary
+            value_column: column indicator of data, giving the values of the dictionary
+            default_factory: default return type
+        """
+        self.key_cols = key_cols
+        self.value_column = value_column
+        self.data_sorted = self.sort_data_by_keys(triples.type(torch.int32), key_cols, value_column)
+        self.index = self.construct_index()
+
+        self.default_factory = default_factory
+        #self.data_sorted = self.data_sorted.numpy()
+
+    def __getitem__(self, key, default_return_value=None):
+        try:
+            key_range = self.index[key]
+            return self.data_sorted[key_range[0]:key_range[1], self.value_column]
+        except KeyError:
+            if default_return_value is None:
+                return self.default_factory()
+            return default_return_value
+
+    def __len__(self):
+        return len(self.index)
+
+    def get(self, key, default_return_value=None):
+        return self.__getitem__(key, default_return_value)
+
+    def keys(self):
+        return self.index.keys()
+
+    def values(self) -> List:
+        values = []
+        for value in self.index.values():
+            values.append(self.data_sorted[value[0]:value[1], self.value_column])
+        return values
+
+    @staticmethod
+    def sort_data_by_keys(triples: torch.Tensor, key_cols: List, value_column: int) -> torch.Tensor:
+        """
+        Sorts data column by column
+        Args:
+            triples: data to sort
+            key_cols: keys to sort by
+            value_column: value column
+
+        Returns:
+            sorted data
+        """
+        # using numpy, since torch has no stable sort
+        data = triples.numpy()
+        data_sorted = data[np.argsort(data[:, value_column])]
+        for key in key_cols[::-1]:
+            data_sorted = data_sorted[np.argsort(data_sorted[:, key], kind="stable")]
+        return torch.from_numpy(data_sorted)
+
+    def construct_index(self) -> Dict:
+        """
+        Constructs a dictionary:
+            key: tuple
+            value: range indicating where to find key-tuple in data_sorted_by_key
+        Returns:
+            dictionary
+        """
+        data = self.data_sorted.numpy()[:, self.key_cols]
+        unique_keys, index = np.unique(data, axis=0, return_index=True)
+        result = dict()
+        for i, key in enumerate(unique_keys):
+            start = index[i]
+            if i+1 == len(index):
+                end = len(data)
+            else:
+                end = index[i+1]
+            result[(key[0], key[1])] = (start, end)
+        return result
