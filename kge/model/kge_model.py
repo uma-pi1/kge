@@ -72,8 +72,8 @@ class KgeBase(torch.nn.Module, Configurable):
         self.load_state_dict(savepoint[0])
         self.meta = savepoint[1]
 
-    def init_pretrained(self, packaged_model, entity_ids, relation_ids):
-        raise NotImplementedError
+    def init_pretrained(self, packaged_model: Dict):
+        raise NotImplementedError()
 
 
 class RelationalScorer(KgeBase):
@@ -204,6 +204,9 @@ class KgeEmbedder(KgeBase):
                 )
 
         self.dim: int = self.get_option("dim")
+
+    def init_pretrained(self, packaged_model: Dict, dataset_ids: List):
+        raise NotImplementedError()
 
     @staticmethod
     def create(
@@ -425,7 +428,7 @@ class KgeModel(KgeBase):
         model.eval()
         return model
 
-    def init_pretrained(self, packaged_model, entity_ids, relation_ids):
+    def init_pretrained(self, packaged_model: Dict):
         entity_package = {
             "model": dict(
                         [
@@ -447,8 +450,8 @@ class KgeModel(KgeBase):
                     ),
             "ids": packaged_model["relation_ids"]
         }
-        self._entity_embedder.init_pretrained(entity_package, entity_ids)
-        self._relation_embedder.init_pretrained(relation_package, relation_ids)
+        self._entity_embedder.init_pretrained(entity_package, self.dataset.entity_ids())
+        self._relation_embedder.init_pretrained(relation_package, self.dataset.relation_ids())
 
     def prepare_job(self, job: "Job", **kwargs):
         super().prepare_job(job, **kwargs)

@@ -8,7 +8,7 @@ from kge.job import Job
 from kge.model import KgeEmbedder
 from kge.misc import round_to_points
 
-from typing import List
+from typing import List, Dict
 
 
 class LookupEmbedder(KgeEmbedder):
@@ -79,9 +79,9 @@ class LookupEmbedder(KgeEmbedder):
             job.pre_batch_hooks.append(normalize_embeddings)
 
     @torch.no_grad()
-    def init_pretrained(self, packaged_model, ids):
+    def init_pretrained(self, packaged_model: Dict, dataset_ids: List):
         _, dataset_intersect_ind, checkpoint_intersect_ind = np.intersect1d(
-            ids, packaged_model["ids"], return_indices=True
+            dataset_ids, packaged_model["ids"], return_indices=True
         )
         self.embeddings.weight[
             torch.from_numpy(dataset_intersect_ind)
