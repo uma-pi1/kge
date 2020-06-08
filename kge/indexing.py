@@ -5,6 +5,111 @@ import numpy as np
 from typing import Dict, List, Iterator, Tuple
 
 
+class KvsAllIndexDict:
+    def __init__(self, triples: torch.Tensor, key_cols: List, value_column: int,
+                 default_factory: type):
+        """
+        Construct KvsAllIndexDict
+        Args:
+            triples: data
+            key_cols: column indicators of data, giving the keys of the dictionary
+            value_column: column indicator of data, giving the values of the dictionary
+            default_factory: default return type
+        """
+        self.key_cols = key_cols
+        self.value_column = value_column
+        self.data_sorted = self.sort_data_by_keys(triples, key_cols, value_column)
+        self.index, self.offset = self.construct_index()
+
+        self.default_factory = default_factory
+
+    def __getitem__(self, key, default_return_value=None):
+        try:
+            key_range = self.index[key]
+            return self.data_sorted[key_range[0]:key_range[1], self.value_column]
+        except KeyError:
+            if default_return_value is None:
+                return self.default_factory()
+            return default_return_value
+
+    def __len__(self):
+        return len(self.index)
+
+    def get(self, key, default_return_value=None):
+        return self.__getitem__(key, default_return_value)
+
+    def keys(self):
+        return self.index.keys()
+
+    def values(self):
+        values = []
+        for value in self.index.values():
+            values.append(self.data_sorted[value[0]:value[1], self.value_column])
+        return values
+
+    def items(self) -> Iterator[Tuple[Tuple[int, int], torch.Tensor]]:
+        keys = self.keys()
+        values = self.values()
+        return zip(keys, values)
+
+    @staticmethod
+    def sort_data_by_keys(triples: torch.Tensor, key_cols: List,
+                          value_column: int) -> torch.Tensor:
+        """
+        Sorts data column by column
+        Args:
+            triples: data to sort
+            key_cols: keys to sort by
+            value_column: value column
+
+        Returns:
+            sorted data
+        """
+        # using numpy, since torch has no stable sort
+        data = triples.numpy()
+        data_sorted = data[np.argsort(data[:, value_column])]
+        for key in key_cols[::-1]:
+            data_sorted = data_sorted[np.argsort(data_sorted[:, key], kind="stable")]
+        return torch.from_numpy(data_sorted)
+
+    def construct_index(self) -> Tuple[Dict, torch.Tensor]:
+        """
+        Constructs a dictionary:
+            key: tuple
+            value: range indicating where to find key-tuple in data_sorted_by_key
+        Returns:
+            dictionary
+        """
+        data = self.data_sorted[:, self.key_cols]
+        unique_keys, offset = np.unique(data, axis=0, return_index=True)
+        offset = np.append(offset, len(data))
+        result = dict()
+        for i, key in enumerate(unique_keys):
+            start = offset[i]
+            if i + 1 == len(offset):
+                break
+            end = offset[i + 1]
+            result[(key[0], key[1])] = (start, end)
+        offset = torch.from_numpy(offset)
+        return result, offset
+
+    def index_tensors(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Construct key, value and offset pytorch Tensors.
+
+        Returns an nx2 keys tensor (rows = keys), an offset vector
+        (row = starting offset in values for corresponding key),
+        a values vector (entries correspond to values of original
+        index)
+
+        Afterwards, it holds:
+            index[keys[i]] = values[offsets[i]:offsets[i+1]]
+        """
+        keys = torch.tensor(list(self.keys()), dtype=torch.int)
+        values = self.data_sorted[:, self.value_column]
+        offsets = self.offset
+        return keys, values, offsets
+
+
 def _group_by(keys, values) -> dict:
     """Group values by keys.
 
@@ -61,25 +166,6 @@ def index_KvsAll(dataset: "Dataset", split: str, key: str):
     )
 
     return dataset._indexes.get(name)
-
-
-def index_KvsAll_to_torch(index):
-    """Convert `index_KvsAll` indexes to pytorch tensors.
-
-    Returns an nx2 keys tensor (rows = keys), an offset vector
-    (row = starting offset in values for corresponding key),
-    a values vector (entries correspond to values of original
-    index)
-
-    Afterwards, it holds:
-        index[keys[i]] = values[offsets[i]:offsets[i+1]]
-    """
-    keys = torch.tensor(list(index.keys()), dtype=torch.int)
-    values = torch.cat(list(index.values()))
-    offsets = torch.cumsum(
-        torch.tensor([0] + list(map(len, index.values())), dtype=torch.int), 0
-    )
-    return keys, values, offsets
 
 
 def index_relation_types(dataset):
@@ -258,89 +344,3 @@ def where_in(x, y, not_in=False):
     # setting njit(parallel=True) slows down the function
     list_y = set(y)
     return np.where(np.array([i in list_y for i in x]) != not_in)[0]
-
-
-class KvsAllIndexDict:
-    def __init__(self, triples: torch.Tensor, key_cols: List, value_column: int, default_factory: type):
-        """
-        Construct KvsAllIndexDict
-        Args:
-            triples: data
-            key_cols: column indicators of data, giving the keys of the dictionary
-            value_column: column indicator of data, giving the values of the dictionary
-            default_factory: default return type
-        """
-        self.key_cols = key_cols
-        self.value_column = value_column
-        self.data_sorted = self.sort_data_by_keys(triples, key_cols, value_column)
-        self.index = self.construct_index()
-
-        self.default_factory = default_factory
-
-    def __getitem__(self, key, default_return_value=None):
-        try:
-            key_range = self.index[key]
-            return self.data_sorted[key_range[0]:key_range[1], self.value_column]
-        except KeyError:
-            if default_return_value is None:
-                return self.default_factory()
-            return default_return_value
-
-    def __len__(self):
-        return len(self.index)
-
-    def get(self, key, default_return_value=None):
-        return self.__getitem__(key, default_return_value)
-
-    def keys(self):
-        return self.index.keys()
-
-    def values(self) -> List:
-        values = []
-        for value in self.index.values():
-            values.append(self.data_sorted[value[0]:value[1], self.value_column])
-        return values
-
-    def items(self) -> Iterator[Tuple[Tuple[int, int], torch.Tensor]]:
-        keys = self.keys()
-        values = self.values()
-        return zip(keys, values)
-
-    @staticmethod
-    def sort_data_by_keys(triples: torch.Tensor, key_cols: List, value_column: int) -> torch.Tensor:
-        """
-        Sorts data column by column
-        Args:
-            triples: data to sort
-            key_cols: keys to sort by
-            value_column: value column
-
-        Returns:
-            sorted data
-        """
-        # using numpy, since torch has no stable sort
-        data = triples.numpy()
-        data_sorted = data[np.argsort(data[:, value_column])]
-        for key in key_cols[::-1]:
-            data_sorted = data_sorted[np.argsort(data_sorted[:, key], kind="stable")]
-        return torch.from_numpy(data_sorted)
-
-    def construct_index(self) -> Dict:
-        """
-        Constructs a dictionary:
-            key: tuple
-            value: range indicating where to find key-tuple in data_sorted_by_key
-        Returns:
-            dictionary
-        """
-        data = self.data_sorted[:, self.key_cols]
-        unique_keys, index = np.unique(data, axis=0, return_index=True)
-        result = dict()
-        for i, key in enumerate(unique_keys):
-            start = index[i]
-            if i+1 == len(index):
-                end = len(data)
-            else:
-                end = index[i+1]
-            result[(key[0], key[1])] = (start, end)
-        return result
