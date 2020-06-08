@@ -551,8 +551,6 @@ class TrainingJobKvsAll(TrainingJob):
                 f(self)
 
     def _prepare(self):
-        from kge.indexing import index_KvsAll_to_torch
-
         # determine enabled query types
         self.query_types = [
             key
@@ -592,7 +590,7 @@ class TrainingJobKvsAll(TrainingJob):
                 self.queries[query_type],
                 self.labels[query_type],
                 self.label_offsets[query_type],
-            ) = index_KvsAll_to_torch(index)
+            ) = index.index_tensors()
 
         # create dataloader
         self.loader = torch.utils.data.DataLoader(
