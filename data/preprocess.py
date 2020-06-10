@@ -7,7 +7,7 @@ contains one SPO triple per line, separated by tabs.
 
 During preprocessing, each distinct entity name and each distinct distinct relation name
 is assigned an index (dense). The index-to-object mapping is stored in files
-"entity_map.del" and "relation_map.del", resp. The triples (as indexes) are stored in
+"entity_ids.del" and "relation_ids.del", resp. The triples (as indexes) are stored in
 files "train.del", "valid.del", and "test.del". Metadata information is stored in a file
 "dataset.yaml".
 
@@ -19,6 +19,7 @@ import os.path
 import numpy as np
 from collections import OrderedDict
 
+
 def store_map(symbol_map, filename):
     with open(filename, "w") as f:
         for symbol, index in symbol_map.items():
@@ -29,14 +30,31 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("folder", type=str)
     parser.add_argument("--order_sop", action="store_true")
+    parser.add_argument("--triple_class", action="store_true")
     args = parser.parse_args()
 
     print(f"Preprocessing {args.folder}...")
     raw_split_files = {"train": "train.txt", "valid": "valid.txt", "test": "test.txt"}
     split_files = {"train": "train.del", "valid": "valid.del", "test": "test.del"}
-    string_files = {"entity_strings": "entity_strings.del", "relation_strings": "relation_strings.del"}
-    split_files_without_unseen = {"train_sample": "train_sample.del", "valid_without_unseen": "valid_without_unseen.del", 
-            "test_without_unseen": "test_without_unseen.del"}
+
+    string_files = {
+        "entity_strings": "entity_strings.del",
+        "relation_strings": "relation_strings.del",
+    }
+    split_files_without_unseen = {
+        "train_sample": "train_sample.del",
+        "valid_without_unseen": "valid_without_unseen.del",
+        "test_without_unseen": "test_without_unseen.del",
+    }
+
+    if args.triple_class:
+        split_files_negatives = {
+            "valid_negatives": "valid_negatives.del",
+            "test_negatives": "test_negatives.del"}
+        split_files_negatives_without_unseen = {
+            "valid_negatives_without_unseen": "valid_negatives_without_unseen.del",
+            "test_negatives_without_unseen": "test_negatives_without_unseen.del"}
+
     split_sizes = {}
 
     if args.order_sop:
@@ -73,7 +91,7 @@ if __name__ == "__main__":
             if "train" in split:
                 entities_in_train = entities.copy()
                 relations_in_train = relations.copy()
-    
+
     print(f"{len(relations)} distinct relations")
     print(f"{len(entities)} distinct entities")
     print("Writing relation and entity map...")
@@ -87,17 +105,61 @@ if __name__ == "__main__":
     for split, filename in split_files.items():
         if split in ["valid", "test"]:
             split_without_unseen = split + "_without_unseen"
-            f_wo_unseen = open(os.path.join(args.folder, 
-                                split_files_without_unseen[split_without_unseen]), "w")
+            f_wo_unseen = open(
+                os.path.join(
+                    args.folder, split_files_without_unseen[split_without_unseen]
+                ),
+                "w",
+            )
+            if args.triple_class:
+                split_negatives_wo_unseen = f"{split}_negatives_without_unseen"
+                f_negatives_wo_unseen = open(
+                    os.path.join(
+                        args.folder,
+                        split_files_negatives_without_unseen[split_negatives_wo_unseen]
+                    ),
+                    "w"
+                )
         else:
             split_without_unseen = split + "_sample"
-            f_tr_sample = open(os.path.join(args.folder, 
-                                split_files_without_unseen[split_without_unseen]), "w")
-            train_sample = np.random.choice(split_sizes["train"], split_sizes["valid"], False)
+            f_tr_sample = open(
+                os.path.join(
+                    args.folder, split_files_without_unseen[split_without_unseen]
+                ),
+                "w",
+            )
+            train_sample = np.random.choice(
+                split_sizes["train"], split_sizes["valid"], False
+            )
         with open(os.path.join(args.folder, filename), "w") as f:
-            size_unseen = 0
+            if args.triple_class and split in ["valid", "test"]:
+                split_negatives = f"{split}_negatives"
+                f_negatives = open(
+                    os.path.join(
+                        args.folder,
+                        split_files_negatives[split_negatives],
+                    ),
+                    "w",
+                )
+
+            if args.triple_class:
+                size_negatives = 0
+                size_negatives_unseen = 0
+                # positives; valid and test sizes have to be recalculated
+                size_positives = 0
+                size_positives_unseen = 0
+            else:
+                size_positives_unseen = 0
             for n, t in enumerate(raw[split]):
-                f.write(
+                if args.triple_class and split in ["valid", "test"] and int(t[3]) == -1:
+                    file_wrapper = f_negatives
+                    size_negatives += 1
+                elif args.triple_class and split in ["valid", "test"]:
+                    size_positives += 1
+                    file_wrapper = f
+                else:
+                    file_wrapper = f
+                file_wrapper.write(
                     str(entities[t[S]])
                     + "\t"
                     + str(relations[t[P]])
@@ -114,10 +176,22 @@ if __name__ == "__main__":
                         + str(entities[t[O]])
                         + "\n"
                     )
-                    size_unseen += 1
-                elif split in ["valid", "test"] and t[S] in entities_in_train and \
-                    t[O] in entities_in_train and t[P] in relations_in_train:
-                    f_wo_unseen.write(
+                    size_positives_unseen += 1
+                elif (
+                    split in ["valid", "test"]
+                    and t[S] in entities_in_train
+                    and t[O] in entities_in_train
+                    and t[P] in relations_in_train
+                ):
+
+                    if args.triple_class and int(t[3]) == -1:
+                        file_wrapper = f_negatives_wo_unseen
+                        size_negatives_unseen += 1
+                    else:
+                        file_wrapper = f_wo_unseen
+                        size_positives_unseen += 1
+
+                    file_wrapper.write(
                         str(entities[t[S]])
                         + "\t"
                         + str(relations[t[P]])
@@ -125,17 +199,18 @@ if __name__ == "__main__":
                         + str(entities[t[O]])
                         + "\n"
                     )
-                    size_unseen += 1
-            without_unseen_sizes[split_without_unseen] = size_unseen
+            if args.triple_class and split in ["valid", "test"]:
+                without_unseen_sizes[split_negatives_wo_unseen] = size_negatives_unseen
+                split_sizes[split] = size_positives
+                split_sizes[split_negatives] = size_negatives
+            without_unseen_sizes[split_without_unseen] = size_positives_unseen
 
     # write config
     print("Writing dataset.yaml...")
     dataset_config = dict(
-        name=args.folder,
-        num_entities=len(entities),
-        num_relations=len(relations),
+        name=args.folder, num_entities=len(entities), num_relations=len(relations),
     )
-    for obj in [ "entity", "relation" ]:
+    for obj in ["entity", "relation"]:
         dataset_config[f"files.{obj}_ids.filename"] = f"{obj}_ids.del"
         dataset_config[f"files.{obj}_ids.type"] = "map"
     for split in split_files.keys():
@@ -143,9 +218,26 @@ if __name__ == "__main__":
         dataset_config[f"files.{split}.type"] = "triples"
         dataset_config[f"files.{split}.size"] = split_sizes.get(split)
     for split in split_files_without_unseen.keys():
-        dataset_config[f"files.{split}.filename"] = split_files_without_unseen.get(split)
+        dataset_config[f"files.{split}.filename"] = split_files_without_unseen.get(
+            split
+        )
         dataset_config[f"files.{split}.type"] = "triples"
         dataset_config[f"files.{split}.size"] = without_unseen_sizes.get(split)
+    if args.triple_class:
+        for split in split_files_negatives.keys():
+            dataset_config[f"files.{split}.filename"] = split_files_negatives.get(split)
+            dataset_config[f"files.{split}.type"] = "triples"
+            dataset_config[f"files.{split}.size"] = split_sizes[split]
+
+        for split in split_files_negatives_without_unseen.keys():
+            dataset_config[f"files.{split}.filename"] = split_files_negatives_without_unseen.get(
+                split)
+            dataset_config[f"files.{split}.type"] = "triples"
+            dataset_config[f"files.{split}.size"] = without_unseen_sizes[
+               split]
+
+
+
     for string in string_files.keys():
         if os.path.exists(os.path.join(args.folder, string_files[string])):
             dataset_config[f"files.{string}.filename"] = string_files.get(string)

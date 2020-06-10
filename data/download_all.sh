@@ -201,3 +201,28 @@ else
     echo wikidata5m already prepared
 fi
 
+
+# wn11
+if [ ! -d "$BASEDIR/wn11" ]; then
+  echo Downloading wn11
+  cd $BASEDIR
+  # TODO this also creates a __MACOSX folder on non-mac in the zip
+  # TODO download file from mannheim server
+  curl -O https://s3-eu-west-1.amazonaws.com/ampligraph/datasets/wordnet11.zip
+  unzip wordnet11.zip
+  if [ -d "__MACOSX" ]; then
+    rm -r __MACOSX
+  fi
+  mv wordnet11 wn11
+  mv wn11/dev.txt wn11/valid.txt
+else
+    echo wn11 already present
+fi
+
+if [ ! -f "$BASEDIR/wn11/dataset.yaml" ]; then
+  python preprocess.py wn11 --triple_class
+else
+    echo wn11 already prepared
+fi
+
+
