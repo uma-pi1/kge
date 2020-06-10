@@ -1,3 +1,7 @@
+#### June 2020
+
+- PR [#113](https://github.com/uma-pi1/kge/pull/113): Reduce memory consumption and loading times of large datasets
+
 #### May 2020
 
 - PR [#110](https://github.com/uma-pi1/kge/pull/110): Support for different tie-breaking methods in evaluation (thanks Nzteb)
