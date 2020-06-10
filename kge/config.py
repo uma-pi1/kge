@@ -668,9 +668,11 @@ def _process_deprecated_options(options: Dict[str, Any]):
     def delete_key_with_value(key, value):
         if key in options:
             if options[key] == value:
-                print(f"Warning: key {key} is deprecated and has been removed."
-                      " Ignoring key since it has default value.",
-                      file=sys.stderr,)
+                print(
+                    f"Warning: key {key} is deprecated and has been removed."
+                    " Ignoring key since it has default value.",
+                    file=sys.stderr,
+                )
                 del options[key]
             else:
                 raise ValueError(f"key {key} is deprecated and has been removed.")
@@ -696,6 +698,14 @@ def _process_deprecated_options(options: Dict[str, Any]):
                     renamed_keys.add(key)
         return renamed_keys
 
+    # 10.6.2020
+    rename_key("eval.filter_splits", "entity_ranking.filter_splits")
+    rename_key("eval.filter_with_test", "entity_ranking.filter_with_test")
+    rename_key("eval.tie_handling", "entity_ranking.tie_handling")
+    rename_key("eval.hits_at_k_s", "entity_ranking.hits_at_k_s")
+    rename_key("eval.chunk_size", "entity_ranking.chunk_size")
+    rename_keys_re("^eval\.metrics_per\.", "entity_ranking.metrics_per")
+
     # 26.5.2020
     delete_key_with_value("ax_search.fixed_parameters", [])
 
@@ -704,7 +714,7 @@ def _process_deprecated_options(options: Dict[str, Any]):
 
     # 16.03.2020
     rename_key("eval.data", "eval.split")
-    rename_key("valid.filter_with_test", "eval.filter_with_test")
+    rename_key("valid.filter_with_test", "entity_ranking.filter_with_test")
 
     # 26.02.2020
     rename_value("negative_sampling.implementation", "spo", "triple")
@@ -764,9 +774,14 @@ def _process_deprecated_options(options: Dict[str, Any]):
     rename_keys_re(r"^inverse_relations_model\.", "reciprocal_relations_model.")
 
     # 30.9.2019
-    rename_key("eval.metrics_per_relation_type", "eval.metrics_per.relation_type")
-    rename_key("eval.metrics_per_head_and_tail", "eval.metrics_per.head_and_tail")
     rename_key(
-        "eval.metric_per_argument_frequency_perc", "eval.metrics_per.argument_frequency"
+        "eval.metrics_per_relation_type", "entity_ranking.metrics_per.relation_type"
+    )
+    rename_key(
+        "eval.metrics_per_head_and_tail", "entity_ranking.metrics_per.head_and_tail"
+    )
+    rename_key(
+        "eval.metric_per_argument_frequency_perc",
+        "entity_ranking.metrics_per.argument_frequency",
     )
     return options

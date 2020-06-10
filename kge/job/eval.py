@@ -17,10 +17,10 @@ class EvaluationJob(Job):
         self.batch_size = config.get("eval.batch_size")
         self.device = self.config.get("job.device")
         max_k = min(
-            self.dataset.num_entities(), max(self.config.get("eval.hits_at_k_s"))
+            self.dataset.num_entities(), max(self.config.get("entity_ranking.hits_at_k_s"))
         )
         self.hits_at_k_s = list(
-            filter(lambda x: x <= max_k, self.config.get("eval.hits_at_k_s"))
+            filter(lambda x: x <= max_k, self.config.get("entity_ranking.hits_at_k_s"))
         )
         self.config.check("train.trace_level", ["example", "batch", "epoch"])
         self.trace_examples = self.config.get("eval.trace_level") == "example"
@@ -28,10 +28,10 @@ class EvaluationJob(Job):
             self.trace_examples or self.config.get("train.trace_level") == "batch"
         )
         self.eval_split = self.config.get("eval.split")
-        self.filter_splits = self.config.get("eval.filter_splits")
+        self.filter_splits = self.config.get("entity_ranking.filter_splits")
         if self.eval_split not in self.filter_splits:
             self.filter_splits.append(self.eval_split)
-        self.filter_with_test = config.get("eval.filter_with_test")
+        self.filter_with_test = config.get("entity_ranking.filter_with_test")
         self.epoch = -1
 
         #: Hooks run after training for an epoch.
@@ -54,14 +54,14 @@ class EvaluationJob(Job):
         self.post_valid_hooks = []
 
         #: Whether to create additional histograms for head and tail slot
-        self.head_and_tail = config.get("eval.metrics_per.head_and_tail")
+        self.head_and_tail = config.get("entity_ranking.metrics_per.head_and_tail")
 
         #: Hooks after computing the ranks for each batch entry.
         #: Signature: job, trace_entry
         self.hist_hooks = [hist_all]
-        if config.get("eval.metrics_per.relation_type"):
+        if config.get("entity_ranking.metrics_per.relation_type"):
             self.hist_hooks.append(hist_per_relation_type)
-        if config.get("eval.metrics_per.argument_frequency"):
+        if config.get("entity_ranking.metrics_per.argument_frequency"):
             self.hist_hooks.append(hist_per_frequency_percentile)
 
         # all done, run job_created_hooks if necessary

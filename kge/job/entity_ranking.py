@@ -14,10 +14,10 @@ class EntityRankingJob(EvaluationJob):
     def __init__(self, config: Config, dataset: Dataset, parent_job, model):
         super().__init__(config, dataset, parent_job, model)
         self.config.check(
-            "eval.tie_handling",
+            "entity_ranking.tie_handling",
             ["rounded_mean_rank", "best_rank", "worst_rank"],
         )
-        self.tie_handling = self.config.get("eval.tie_handling")
+        self.tie_handling = self.config.get("entity_ranking.tie_handling")
         self.is_prepared = False
 
         if self.__class__ == EntityRankingJob:
@@ -153,8 +153,8 @@ class EntityRankingJob(EvaluationJob):
 
             # calculate scores in chunks to not have the complete score matrix in memory
             # a chunk here represents a range of entity_values to score against
-            if self.config.get("eval.chunk_size") > -1:
-                chunk_size = self.config.get("eval.chunk_size")
+            if self.config.get("entity_ranking.chunk_size") > -1:
+                chunk_size = self.config.get("entity_ranking.chunk_size")
             else:
                 chunk_size = self.dataset.num_entities()
 
