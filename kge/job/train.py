@@ -585,12 +585,10 @@ class TrainingJobKvsAll(TrainingJob):
             self.num_examples += len(index)
             self.query_end_index.append(self.num_examples)
 
-            # Convert indexes to pytorch tensors (as described above).
-            (
-                self.queries[query_type],
-                self.labels[query_type],
-                self.label_offsets[query_type],
-            ) = index.index_tensors()
+            # Extract PyTorch indexes from KvsAll index
+            self.queries[query_type] = index._keys
+            self.labels[query_type] = index._values
+            self.label_offsets[query_type] = index._values_offset
 
         # create dataloader
         self.loader = torch.utils.data.DataLoader(

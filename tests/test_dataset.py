@@ -3,7 +3,7 @@ import os
 import torch
 from tests.util import create_config, get_dataset_folder
 from kge import Dataset
-from kge.indexing import KvsAllIndexDict
+from kge.indexing import KvsAllIndex
 
 
 class TestDataset(unittest.TestCase):
@@ -112,7 +112,7 @@ class TestDataset(unittest.TestCase):
             self.assertEqual(len(first), len(second), msg=msg)
             for i in range(len(first)):
                 self.assertEqualTorch(first[i], second[i], msg=msg)
-        elif isinstance(first, KvsAllIndexDict):
+        elif isinstance(first, KvsAllIndex):
             first_attributes = [a for a in dir(first) if not a.startswith("__")]
             second_attributes = [a for a in dir(second) if not a.startswith("__")]
             for first_attribute, second_attribute in zip(

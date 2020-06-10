@@ -5,131 +5,97 @@ import numpy as np
 from typing import Dict, List, Iterator, Tuple
 
 
-class KvsAllIndexDict:
-    def __init__(self, triples: torch.Tensor, key_cols: List, value_col: int,
-                 default_factory: type):
+class KvsAllIndex:
+    """Construct an index from keys (e.g., sp) to all its values (o).
+
+    Keys are tuples, values are PyTorch tensors.
+
+    Internally stores list of unique keys, list of values, and starting offset of each
+    key in values in PyTorch tensors. Access by key is enabled using an index on top of
+    these tensors. The tensors can also be used directly (e.g., in KvsAll training)
+
+    """
+
+    def __init__(
+        self,
+        triples: torch.Tensor,
+        key_cols: List,
+        value_col: int,
+        default_factory: type,
+    ):
         """
-        Construct KvsAllIndexDict
         Args:
             triples: data
-            key_cols: column indicators of data, giving the keys of the dictionary
-            value_column: column indicator of data, giving the values of the dictionary
+            key_cols: the two columns used as keys
+            value_col: column used as value
             default_factory: default return type
         """
         self.key_cols = key_cols
         self.value_col = value_col
-        triples_sorted = self.sort_triples_by_keys(triples, key_cols, value_col)
-        self.index_values = triples_sorted[:, self.value_col]
-        self.index, self.offsets = self.construct_index(triples_sorted, self.key_cols)
+
+        # sort triples, extract unique keys, all values, and starting offset of each key
+        triples_sorted = KvsAllIndex.sort_triples_by_keys(triples, key_cols, value_col)
+        keys, values_offset = np.unique(
+            triples_sorted[:, key_cols], axis=0, return_index=True
+        )
+        values_offset = np.append(values_offset, len(triples_sorted))
+
+        # create disctionary from key (as a tuple) to key index
+        self._index_of_key = dict()
+        for key_index, key in enumerate(keys):
+            self._index_of_key[tuple(key)] = key_index
+
+        # convert data structures to pytorch and keep them
+        self._keys = torch.from_numpy(keys)
+        self._values_offset = torch.from_numpy(values_offset)
+        self._values = triples_sorted[
+            :, self.value_col
+        ].clone()  # to drop reference to triples_sorted
 
         self.default_factory = default_factory
 
-    def __getitem__(self, key, default_return_value=None):
+    def __getitem__(self, key, default_return_value=None) -> torch.Tensor:
         try:
-            start, end = self.index[key]
-            return self.index_values[start:end]
+            key_index = self._index_of_key[key]
+            return self._values_of(key_index)
         except KeyError:
             if default_return_value is None:
                 return self.default_factory()
             return default_return_value
 
-    def __len__(self):
-        return len(self.index)
+    def _values_of(self, key_index) -> torch.Tensor:
+        start = self._values_offset[key_index]
+        end = self._values_offset[key_index + 1]
+        return self._values[start:end]
 
-    def get(self, key, default_return_value=None):
+    def __len__(self):
+        return len(self._keys)
+
+    def get(self, key, default_return_value=None) -> torch.Tensor:
         return self.__getitem__(key, default_return_value)
 
-    def keys(self):
-        return self.index.keys()
+    def keys(self) -> Iterator[Tuple[int, int]]:
+        return self._index_of_key.keys()
 
-    def values(self):
-        values = []
-        for start, end in self.index.values():
-            values.append(self.index_values[start:end])
-        return values
+    def values(self) -> Iterator[torch.Tensor]:
+        return [self._values_of(key_index) for key_index in self._index_of_key.values()]
 
     def items(self) -> Iterator[Tuple[Tuple[int, int], torch.Tensor]]:
-        keys = self.keys()
-        values = self.values()
-        return zip(keys, values)
+        return zip(self.keys(), self.values())
 
     @staticmethod
-    def sort_triples_by_keys(triples: torch.Tensor, key_cols: List,
-                          value_column: int) -> torch.Tensor:
-        """
-        Sorts triples column by column
-        Args:
-            triples: data to sort
-            key_cols: keys to sort by
-            value_column: value column
-
-        Returns:
-            sorted triples
-        """
+    def sort_triples_by_keys(
+        triples: torch.Tensor, key_cols: List, value_col: int
+    ) -> torch.Tensor:
+        """Sorts triples by key_cols, then value_col."""
         # using numpy, since torch has no stable sort
         triples = triples.numpy()
-        triples_sorted = triples[np.argsort(triples[:, value_column])]
+        triples_sorted = triples[np.argsort(triples[:, value_col])]
         for key in key_cols[::-1]:
-            triples_sorted = triples_sorted[np.argsort(triples_sorted[:, key], kind="stable")]
+            triples_sorted = triples_sorted[
+                np.argsort(triples_sorted[:, key], kind="stable")
+            ]
         return torch.from_numpy(triples_sorted)
-
-    @staticmethod
-    def construct_index(triples_sorted, key_cols) -> Tuple[Dict, torch.Tensor]:
-        """
-        Constructs a dictionary:
-            key: tuple
-            value: range indicating where to find key-tuple in data_sorted_by_key
-        Args:
-            triples_sorted: triples sorted by keys
-            key_cols: column indexes to construct the index on
-        Returns:
-            dictionary
-        """
-        keys = triples_sorted[:, key_cols]
-        unique_keys, offsets = np.unique(keys, axis=0, return_index=True)
-        offsets = np.append(offsets, len(keys))
-        result = OrderedDict()
-        for i, key in enumerate(unique_keys):
-            start = offsets[i]
-            if i + 1 == len(offsets):
-                break
-            end = offsets[i + 1]
-            result[(key[0], key[1])] = (start, end)
-        offsets = torch.from_numpy(offsets)
-        return result, offsets
-
-    def index_tensors(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Construct key, value and offset pytorch Tensors.
-
-        Returns an nx2 keys tensor (rows = keys), an offset vector
-        (row = starting offset in values for corresponding key),
-        a values vector (entries correspond to values of original
-        index)
-
-        Afterwards, it holds:
-            index[keys[i]] = values[offsets[i]:offsets[i+1]]
-        """
-        keys = torch.tensor(list(self.keys()), dtype=torch.int)
-        values = self.index_values
-        offsets = self.offsets
-        return keys, values, offsets
-
-
-def _group_by(keys, values) -> dict:
-    """Group values by keys.
-
-    :param keys: list of keys
-    :param values: list of values
-    A key value pair i is defined by (key_list[i], value_list[i]).
-    :return: OrderedDict where key value pairs have been grouped by key.
-
-     """
-    result = defaultdict(list)
-    for key, value in zip(keys.tolist(), values.tolist()):
-        result[tuple(key)].append(value)
-    for key, value in result.items():
-        result[key] = torch.IntTensor(sorted(value))
-    return OrderedDict(result)
 
 
 def index_KvsAll(dataset: "Dataset", split: str, key: str):
@@ -147,15 +113,15 @@ def index_KvsAll(dataset: "Dataset", split: str, key: str):
     value = None
     if key == "sp":
         key_cols = [0, 1]
-        value_column = 2
+        value_col = 2
         value = "o"
     elif key == "po":
         key_cols = [1, 2]
-        value_column = 0
+        value_col = 0
         value = "s"
     elif key == "so":
         key_cols = [0, 2]
-        value_column = 1
+        value_col = 1
         value = "p"
     else:
         raise ValueError()
@@ -163,7 +129,7 @@ def index_KvsAll(dataset: "Dataset", split: str, key: str):
     name = split + "_" + key + "_to_" + value
     if not dataset._indexes.get(name):
         triples = dataset.split(split)
-        dataset._indexes[name] = KvsAllIndexDict(triples, key_cols, value_column, list)
+        dataset._indexes[name] = KvsAllIndex(triples, key_cols, value_col, list)
 
     dataset.config.log(
         "{} distinct {} pairs in {}".format(len(dataset._indexes[name]), key, split),
