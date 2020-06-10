@@ -38,7 +38,7 @@ class ReciprocalRelationsModel(KgeModel):
         self._base_model.prepare_job(job, **kwargs)
 
     def penalty(self, **kwargs):
-        return super().penalty(**kwargs) + self._base_model.penalty(**kwargs)
+        return self._base_model.penalty(**kwargs)
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         if direction == "o":
