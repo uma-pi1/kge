@@ -155,7 +155,7 @@ class Dataset(Configurable):
         meta_checkpoint = {}
         for key in meta_keys:
             meta_checkpoint[key] = self.map_indexes(None, key)
-        checkpoint["dataset"]["meta"] = dataset_checkpoint
+        checkpoint["dataset"]["meta"] = meta_checkpoint
         return checkpoint
 
     @staticmethod

@@ -506,6 +506,8 @@ class TrainingJobKvsAll(TrainingJob):
     - Example: a query + its labels, e.g., (John,marriedTo), [Jane]
     """
 
+    from kge.indexing import KvsAllIndex
+
     def __init__(self, config, dataset, parent_job=None, model=None):
         super().__init__(config, dataset, parent_job, model=model)
         self.label_smoothing = config.check_range(
@@ -558,20 +560,12 @@ class TrainingJobKvsAll(TrainingJob):
             if enabled
         ]
 
-        #' for each query type: list of queries
-        self.queries = {}
-
-        #' for each query type: list of all labels (concatenated across queries)
-        self.labels = {}
-
-        #' for each query type: list of starting offset of labels in self.labels. The
-        #' labels for the i-th query of query_type are in labels[query_type] in range
-        #' label_offsets[query_type][i]:label_offsets[query_type][i+1]
-        self.label_offsets = {}
+        # corresponding indexes
+        self.query_indexes: List[KvsAllIndex] = []
 
         #' for each query type (ordered as in self.query_types), index right after last
-        #' example of that type in the list of all examples
-        self.query_end_index = []
+        #' example of that type in the list of all examples (over all query types)
+        self.query_last_example = []
 
         # construct relevant data structures
         self.num_examples = 0
@@ -582,15 +576,9 @@ class TrainingJobKvsAll(TrainingJob):
                 else ("so_to_p" if query_type == "s_o" else "po_to_s")
             )
             index = self.dataset.index(f"{self.train_split}_{index_type}")
+            self.query_indexes.append(index)
             self.num_examples += len(index)
-            self.query_end_index.append(self.num_examples)
-
-            # Convert indexes to pytorch tensors (as described above).
-            (
-                self.queries[query_type],
-                self.labels[query_type],
-                self.label_offsets[query_type],
-            ) = index.index_tensors()
+            self.query_last_example.append(self.num_examples)
 
         # create dataloader
         self.loader = torch.utils.data.DataLoader(
@@ -621,12 +609,16 @@ class TrainingJobKvsAll(TrainingJob):
             num_ones = 0
             for example_index in batch:
                 start = 0
-                for query_type_index, query_type in enumerate(self.query_types):
-                    end = self.query_end_index[query_type_index]
+                for query_type_index in range(len(self.query_types)):
+                    end = self.query_last_example[query_type_index]
                     if example_index < end:
                         example_index -= start
-                        num_ones += self.label_offsets[query_type][example_index + 1]
-                        num_ones -= self.label_offsets[query_type][example_index]
+                        num_ones += self.query_indexes[query_type_index]._values_offset[
+                            example_index + 1
+                        ]
+                        num_ones -= self.query_indexes[query_type_index]._values_offset[
+                            example_index
+                        ]
                         break
                     start = end
 
@@ -639,13 +631,15 @@ class TrainingJobKvsAll(TrainingJob):
             for batch_index, example_index in enumerate(batch):
                 start = 0
                 for query_type_index, query_type in enumerate(self.query_types):
-                    end = self.query_end_index[query_type_index]
+                    end = self.query_last_example[query_type_index]
                     if example_index < end:
                         example_index -= start
                         query_type_indexes_batch[batch_index] = query_type_index
-                        queries = self.queries[query_type]
-                        label_offsets = self.label_offsets[query_type]
-                        labels = self.labels[query_type]
+                        queries = self.query_indexes[query_type_index]._keys
+                        label_offsets = self.query_indexes[
+                            query_type_index
+                        ]._values_offset
+                        labels = self.query_indexes[query_type_index]._values
                         if query_type == "sp_":
                             query_col_1, query_col_2, target_col = S, P, O
                         elif query_type == "s_o":

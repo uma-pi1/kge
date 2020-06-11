@@ -317,57 +317,11 @@ eval:
   # Split used for evaluation (specified under 'dataset.files').
   split: valid
 
-  # Splits used to filter for filtered metrics. The split using for evaluation
-  # (as set above) will be added automatically if not present.
-  filter_splits: [ 'train', 'valid' ]
-
-  # Whether test data should be used for filtering even if the current filter
-  # splits do not contain it (most notably: during validation). When this is set
-  # to True and "test" is not already a filter split, *additionally* produces
-  # "filtered_with_test" metrics (such as MRR or HITS@k). Apparently, many
-  # existing models have been trained with this set to True during model
-  # selection and using a metric such as
-  # mean_reciprocal_rank_filtered_with_test.
-  filter_with_test: True
-
   # Type of evaluation (entity_ranking only at the moment)
   type: entity_ranking
 
-  # How to handle cases with ties between the correct answer and other answers, e.g.,
-  #  Query: (s, p, ?).
-  #  Answers and score: a:10, b:10, c:10, d:11, e:9
-  #  Correct: 'a'.
-  #
-  # Possible options are:
-  # - worst_rank:        Use the highest rank of all answers that have the same
-  #                      score as the correct answer. In example: 4.
-  # - best_rank:         Use the lowest rank of all answers that have the same
-  #                      score as the correct answer (competition scoring). In
-  #                      example: 2. 
-  #                      DO NOT USE THIS OPTION, it leads to misleading evaluation 
-  #                      results. See https://arxiv.org/pdf/1911.03903.pdf
-  # - rounded_mean_rank: Average between worst and best rank, rounded up
-  #                      (rounded fractional ranking). In example: 3.
-  tie_handling: rounded_mean_rank
-
-  # Compute Hits@K for these choices of K
-  hits_at_k_s: [1, 3, 10, 50, 100, 200, 300, 400, 500, 1000]
-
   # Batch size used during evaluation
   batch_size: 100
-
-  # Perform evaluation in chunks of the specified size. When set, score against
-  # at most this many entities simultaneouly during prediction. This reduces
-  # memory consumption but may increase runtime. Useful when there are many
-  # entities and/or memory-intensive models are used.
-  chunk_size: -1                  # default: no chunking
-
-  # Metrics are always computed over the entire evaluation data. Optionally,
-  # certain more specific metrics can be computed in addition.
-  metrics_per:
-    head_and_tail: False          # head, tail; also applied to relation_type below
-    relation_type: False          # 1-to-1, 1-to-N, N-to-1, N-to-N
-    argument_frequency: False     # 25%, 50%, 75%, top quantiles per argument
 
   # Amount of tracing information being written. When set to "example", traces
   # the rank of the correct answer for each example.
@@ -419,6 +373,55 @@ valid:
   # Amount of tracing information being written. When set to "example", traces
   # the rank of the correct answer for each example.
   trace_level: epoch
+
+# specific configuration options for entity ranking
+entity_ranking:
+  # Splits used to filter for filtered metrics. The split using for evaluation
+  # (as set above) will be added automatically if not present.
+  filter_splits: [ 'train', 'valid' ]
+
+  # Whether test data should be used for filtering even if the current filter
+  # splits do not contain it (most notably: during validation). When this is set
+  # to True and "test" is not already a filter split, *additionally* produces
+  # "filtered_with_test" metrics (such as MRR or HITS@k). Apparently, many
+  # existing models have been trained with this set to True during model
+  # selection and using a metric such as
+  # mean_reciprocal_rank_filtered_with_test.
+  filter_with_test: True
+
+  # How to handle cases with ties between the correct answer and other answers, e.g.,
+  #  Query: (s, p, ?).
+  #  Answers and score: a:10, b:10, c:10, d:11, e:9
+  #  Correct: 'a'.
+  #
+  # Possible options are:
+  # - worst_rank:        Use the highest rank of all answers that have the same
+  #                      score as the correct answer. In example: 4.
+  # - best_rank:         Use the lowest rank of all answers that have the same
+  #                      score as the correct answer (competition scoring). In
+  #                      example: 2.
+  #                      DO NOT USE THIS OPTION, it leads to misleading evaluation
+  #                      results. See https://arxiv.org/pdf/1911.03903.pdf
+  # - rounded_mean_rank: Average between worst and best rank, rounded up
+  #                      (rounded fractional ranking). In example: 3.
+  tie_handling: rounded_mean_rank
+
+  # Compute Hits@K for these choices of K
+  hits_at_k_s: [1, 3, 10, 50, 100, 200, 300, 400, 500, 1000]
+
+  # Perform evaluation in chunks of the specified size. When set, score against
+  # at most this many entities simultaneouly during prediction. This reduces
+  # memory consumption but may increase runtime. Useful when there are many
+  # entities and/or memory-intensive models are used.
+  chunk_size: -1                  # default: no chunking
+
+  # Metrics are always computed over the entire evaluation data. Optionally,
+  # certain more specific metrics can be computed in addition.
+  metrics_per:
+    head_and_tail: False          # head, tail; also applied to relation_type below
+    relation_type: False          # 1-to-1, 1-to-N, N-to-1, N-to-N
+    argument_frequency: False     # 25%, 50%, 75%, top quantiles per argument
+
 
 
 ## EVALUATION ##################################################################

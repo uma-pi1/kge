@@ -128,6 +128,15 @@ data for 200 epochs.
 |-------------------------------------------------------------|------:|-------:|-------:|--------:|-----------------------------------------------------------------------------------------------:|--------------------------------------------------------------------------------------------:|
 | [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.301 |  0.245 |  0.331 |   0.397 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wikidata5m-complex.yaml) | [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wikidata5m-complex.pt) |
 
+#### Yago3-10 (YAGO)
+
+The result given below was found by the same search used for automatic Wikidata5M.
+
+
+|                                                             |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                    Config file |                                                                            Pretrained model |
+|-------------------------------------------------------------|------:|-------:|-------:|--------:|-----------------------------------------------------------------------------------------------:|--------------------------------------------------------------------------------------------:|
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.551 |  0.476 |  0.596 |   0.682 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/yago3-10-complex.yaml) | [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/yago3-10-complex.pt) |
+
 ## Quick start
 
 ```sh
@@ -327,7 +336,7 @@ subject-relations pairs: ('Dominican Republic', 'has form of government', ?) and
 ```python
 import torch
 from kge.model import KgeModel
-from kge.util.io import load_checkpoint 
+from kge.util.io import load_checkpoint
 
 # download link for this checkpoint given under results above
 checkpoint = load_checkpoint('fb15k-237-rescal.pt')
