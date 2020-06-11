@@ -704,7 +704,7 @@ def _process_deprecated_options(options: Dict[str, Any]):
     rename_key("eval.tie_handling", "entity_ranking.tie_handling")
     rename_key("eval.hits_at_k_s", "entity_ranking.hits_at_k_s")
     rename_key("eval.chunk_size", "entity_ranking.chunk_size")
-    rename_keys_re("^eval\.metrics_per\.", "entity_ranking.metrics_per")
+    rename_keys_re("^eval\.metrics_per\.", "entity_ranking.metrics_per.")
 
     # 26.5.2020
     delete_key_with_value("ax_search.fixed_parameters", [])
