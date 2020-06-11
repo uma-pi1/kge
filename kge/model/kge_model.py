@@ -97,9 +97,6 @@ class KgeBase(torch.nn.Module, Configurable):
         self.load_state_dict(state_dict)
         self.meta = savepoint[1]
 
-    def init_pretrained(self, packaged_model: Dict):
-        raise NotImplementedError()
-
 
 class RelationalScorer(KgeBase):
     r"""Base class for all relational scorers.
@@ -230,9 +227,6 @@ class KgeEmbedder(KgeBase):
 
         self.dim: int = self.get_option("dim")
 
-    def init_pretrained(self, packaged_model: Dict, dataset_ids: List):
-        raise NotImplementedError()
-
     @staticmethod
     def create(
         config: Config, dataset: Dataset, configuration_key: str, vocab_size: int
@@ -314,6 +308,33 @@ class KgeModel(KgeBase):
                 self.configuration_key + ".relation_embedder",
                 num_relations,
             )
+
+            # load pretrained embeddings
+            pretrained_entities_filename = self.get_option(
+                "entity_embedder.pretrain.model_filename"
+            )
+            pretrained_relations_filename = self.get_option(
+                "relation_embedder.pretrain.model_filename"
+            )
+            if pretrained_entities_filename != "":
+                self.config.log(
+                    f"Initializing entities with embeddings stored in "
+                    f"{pretrained_entities_filename}"
+                )
+                packaged_checkpoint = load_checkpoint(pretrained_entities_filename)
+                packaged_model = KgeModel.create_from(packaged_checkpoint)
+                entities_ensure_all = self.get_option("entity_embedder.pretrain.ensure_all")
+                self.init_entities_pretrained(packaged_model, entities_ensure_all)
+            if pretrained_relations_filename != "":
+                self.config.log(
+                    f"Initializing relations with embeddings stored in "
+                    f"{pretrained_relations_filename}"
+                )
+                if pretrained_entities_filename != pretrained_relations_filename:
+                    packaged_checkpoint = load_checkpoint(pretrained_relations_filename)
+                    packaged_model = KgeModel.create_from(packaged_checkpoint)
+                relations_ensure_all = self.get_option("entity_embedder.pretrain.ensure_all")
+                self.init_relations_pretrained(packaged_model, relations_ensure_all)
 
         #: Scorer
         self._scorer: RelationalScorer
@@ -440,36 +461,48 @@ class KgeModel(KgeBase):
             if not config.log_folder or not os.path.exists(config.log_folder):
                 config.log_folder = "."
         dataset = Dataset.create_from(checkpoint, config, dataset, preload_data=False)
+
+        # do not load pretrained embeddings on creation from checkpoint
+        entity_pretrain_filename = config.get_default(config.get("model") + ".entity_embedder.pretrain.model_filename")
+        relation_pretrain_filename = config.get_default(config.get("model") + ".relation_embedder.pretrain.model_filename")
+        config.set(config.get("model") + ".entity_embedder.pretrain.model_filename", "")
+        config.set(config.get("model") + ".relation_embedder.pretrain.model_filename", "")
+
         model = KgeModel.create(config, dataset)
+        config.set(config.get("model") + ".entity_embedder.pretrain.model_filename", entity_pretrain_filename)
+        config.set(config.get("model") + ".relation_embedder.pretrain.model_filename", relation_pretrain_filename)
         model.load(checkpoint["model"])
         model.eval()
         return model
 
-    def init_pretrained(self, packaged_model: Dict):
-        entity_package = {
-            "model": dict(
-                [
-                    (k.split("_entity_embedder.")[1], v)
-                    for k, v in packaged_model["model"][0].items()
-                    if k.startswith("_entity_embedder")
-                ]
-            ),
-            "ids": packaged_model["dataset"]["meta"]["entity_ids"],
-        }
+    def init_entities_pretrained(self, pretrained_model: "KgeModel", ensure_all=False):
+        """
+        Initializes entity embedder with pre-trained embeddings from a packaged model
+        Args:
+            pretrained_embedder: KgeModel containing pre-trained entity embeddings
+            ensure_all: ensure that all entities can be initialized with
+                        embeddings provided in the pre-trained model
+        """
+        self._entity_embedder.init_pretrained(
+            pretrained_model._entity_embedder._embeddings,
+            pretrained_model.dataset.entity_ids(),
+            self.dataset.entity_ids(),
+            ensure_all=ensure_all,
+        )
 
-        relation_package = {
-            "model": dict(
-                [
-                    (k.split("_relation_embedder.")[1], v)
-                    for k, v in packaged_model["model"][0].items()
-                    if k.startswith("_relation_embedder")
-                ]
-            ),
-            "ids": packaged_model["dataset"]["meta"]["relation_ids"],
-        }
-        self._entity_embedder.init_pretrained(entity_package, self.dataset.entity_ids())
+    def init_relations_pretrained(self, pretrained_model: "KgeModel", ensure_all=False):
+        """
+        Initializes relation embedder with pre-trained embeddings from a packaged model
+        Args:
+            pretrained_embedder: KgeModel containing pre-trained relation embeddings
+            ensure_all: ensure that all relations can be initialized with
+                        embeddings provided in the pre-trained model
+        """
         self._relation_embedder.init_pretrained(
-            relation_package, self.dataset.relation_ids()
+            pretrained_model._relation_embedder._embeddings,
+            pretrained_model.dataset.relation_ids(),
+            self.dataset.relation_ids(),
+            ensure_all=ensure_all,
         )
 
     def prepare_job(self, job: "Job", **kwargs):

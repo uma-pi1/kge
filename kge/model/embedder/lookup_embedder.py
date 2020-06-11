@@ -79,18 +79,45 @@ class LookupEmbedder(KgeEmbedder):
             job.pre_batch_hooks.append(normalize_embeddings)
 
     @torch.no_grad()
-    def init_pretrained(self, packaged_model: Dict, dataset_ids: List):
+    def init_pretrained(
+        self,
+        pretrained_embedder: torch.nn.Embedding,
+        ids_pretrained_model: List,
+        ids_new_model: List,
+        ensure_all: bool = False,
+    ) -> None:
+        """
+        Initialize embedding layer with pre-trained embeddings from another embedding
+        layer.
+        Maps embeddings based on the entity/relation ids provided
+        Args:
+            pretrained_embedder: Embedding layer with pre-trained embeddings
+            ids_pretrained_model: entity/relation ids corresponding to the embeddings
+                                  of the pre-trained embedding layer
+            ids_new_model: entity/relation ids corresponding to the embeddings of the
+                           model to be initialized
+            ensure_all: ensure that all entities/relations can be initialized with
+                        embeddings provided in the pre-trained model
+
+        Returns:
+            None
+        """
         _, dataset_intersect_ind, checkpoint_intersect_ind = np.intersect1d(
-            dataset_ids, packaged_model["ids"], return_indices=True
+            ids_new_model, ids_pretrained_model, return_indices=True
         )
+        if ensure_all and not len(dataset_intersect_ind) == len(ids_new_model):
+            raise IndexError(
+                "Not all embeddings could be initialized with the embeddings provided "
+                "in the pre-trained model"
+            )
         self._embeddings.weight[
             torch.from_numpy(dataset_intersect_ind)
-            .to(self.config.get("job.device"))
+            .to(self._embeddings.weight.device)
             .long()
-        ] = packaged_model["model"]["_embeddings.weight"][
+        ] = pretrained_embedder.weight[
             torch.from_numpy(checkpoint_intersect_ind).long()
         ].to(
-            self.config.get("job.device")
+            self._embeddings.weight.device
         )
 
     def embed(self, indexes: Tensor) -> Tensor:
