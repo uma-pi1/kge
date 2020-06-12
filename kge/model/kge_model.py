@@ -30,6 +30,16 @@ class KgeBase(torch.nn.Module, Configurable):
         torch.nn.Module.__init__(self)
         self.dataset = dataset
         self.meta: Dict[str, Any] = dict()  #: meta-data stored with this module
+        self.backward_compatible_keys = {
+            "_entity_embedder.embeddings.weight":
+                "_entity_embedder._embeddings.weight",
+            "_relation_embedder.embeddings.weight":
+                "_relation_embedder._embeddings.weight",
+            "_base_model._entity_embedder.embeddings.weight":
+                "_base_model._entity_embedder._embeddings.weight",
+            "_base_model._relation_embedder.embeddings.weight":
+                "_base_model._relation_embedder._embeddings.weight",
+        }
 
     def initialize(self, what: Tensor, initialize: str, initialize_args):
         try:
@@ -73,26 +83,9 @@ class KgeBase(torch.nn.Module, Configurable):
         "Loads state from a saved data structure"
         # handle deprecated keys
         state_dict = OrderedDict()
-        bad_keys = [
-            "_entity_embedder.embeddings.weight",
-            "_relation_embedder.embeddings.weight",
-            "_base_model._entity_embedder.embeddings.weight",
-            "_base_model._relation_embedder.embeddings.weight",
-        ]
-        good_keys = [
-            "_entity_embedder._embeddings.weight",
-            "_relation_embedder._embeddings.weight",
-            "_base_model._entity_embedder._embeddings.weight",
-            "_base_model._relation_embedder._embeddings.weight",
-        ]
 
         for k, v in savepoint[0].items():
-            if k in bad_keys:
-                for i, bk in enumerate(bad_keys):
-                    if k == bk:
-                        state_dict[good_keys[i]] = savepoint[0][bk]
-            else:
-                state_dict[k] = v
+            state_dict[self.backward_compatible_keys.get(k, k)] = v
 
         self.load_state_dict(state_dict)
         self.meta = savepoint[1]
@@ -323,7 +316,9 @@ class KgeModel(KgeBase):
                 )
                 packaged_checkpoint = load_checkpoint(pretrained_entities_filename)
                 packaged_model = KgeModel.create_from(packaged_checkpoint)
-                entities_ensure_all = self.get_option("entity_embedder.pretrain.ensure_all")
+                entities_ensure_all = self.get_option(
+                    "entity_embedder.pretrain.ensure_all"
+                )
                 self.init_entities_pretrained(packaged_model, entities_ensure_all)
             if pretrained_relations_filename != "":
                 self.config.log(
@@ -333,7 +328,9 @@ class KgeModel(KgeBase):
                 if pretrained_entities_filename != pretrained_relations_filename:
                     packaged_checkpoint = load_checkpoint(pretrained_relations_filename)
                     packaged_model = KgeModel.create_from(packaged_checkpoint)
-                relations_ensure_all = self.get_option("entity_embedder.pretrain.ensure_all")
+                relations_ensure_all = self.get_option(
+                    "entity_embedder.pretrain.ensure_all"
+                )
                 self.init_relations_pretrained(packaged_model, relations_ensure_all)
 
         #: Scorer
@@ -463,14 +460,26 @@ class KgeModel(KgeBase):
         dataset = Dataset.create_from(checkpoint, config, dataset, preload_data=False)
 
         # do not load pretrained embeddings on creation from checkpoint
-        entity_pretrain_filename = config.get_default(config.get("model") + ".entity_embedder.pretrain.model_filename")
-        relation_pretrain_filename = config.get_default(config.get("model") + ".relation_embedder.pretrain.model_filename")
+        entity_pretrain_filename = config.get_default(
+            config.get("model") + ".entity_embedder.pretrain.model_filename"
+        )
+        relation_pretrain_filename = config.get_default(
+            config.get("model") + ".relation_embedder.pretrain.model_filename"
+        )
         config.set(config.get("model") + ".entity_embedder.pretrain.model_filename", "")
-        config.set(config.get("model") + ".relation_embedder.pretrain.model_filename", "")
+        config.set(
+            config.get("model") + ".relation_embedder.pretrain.model_filename", ""
+        )
 
         model = KgeModel.create(config, dataset)
-        config.set(config.get("model") + ".entity_embedder.pretrain.model_filename", entity_pretrain_filename)
-        config.set(config.get("model") + ".relation_embedder.pretrain.model_filename", relation_pretrain_filename)
+        config.set(
+            config.get("model") + ".entity_embedder.pretrain.model_filename",
+            entity_pretrain_filename,
+        )
+        config.set(
+            config.get("model") + ".relation_embedder.pretrain.model_filename",
+            relation_pretrain_filename,
+        )
         model.load(checkpoint["model"])
         model.eval()
         return model
