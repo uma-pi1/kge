@@ -329,7 +329,7 @@ class KgeModel(KgeBase):
                     packaged_checkpoint = load_checkpoint(pretrained_relations_filename)
                     packaged_model = KgeModel.create_from(packaged_checkpoint)
                 relations_ensure_all = self.get_option(
-                    "entity_embedder.pretrain.ensure_all"
+                    "relation_embedder.pretrain.ensure_all"
                 )
                 self.init_relations_pretrained(packaged_model, relations_ensure_all)
 
