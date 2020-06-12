@@ -130,7 +130,7 @@ data for 200 epochs.
 
 #### Yago3-10 (YAGO)
 
-The result given below was found by the same search used for automatic Wikidata5M.
+The result given below was found by the same automatic hyperparameter search used for Wikidata5M. We reran the configuration that performed best on validation data for 400 epochs.
 
 
 |                                                             |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                    Config file |                                                                            Pretrained model |
