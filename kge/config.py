@@ -681,7 +681,7 @@ def _process_deprecated_options(options: Dict[str, Any]):
     def rename_keys_re(key_regex, replacement):
         renamed_keys = set()
         regex = re.compile(key_regex)
-        for old_key in options.keys():
+        for old_key in list(options.keys()):
             new_key = regex.sub(replacement, old_key)
             if old_key != new_key:
                 rename_key(old_key, new_key)
