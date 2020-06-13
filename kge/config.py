@@ -677,6 +677,17 @@ def _process_deprecated_options(options: Dict[str, Any]):
             else:
                 raise ValueError(f"key {key} is deprecated and has been removed.")
 
+    # deletes a key with a regular expression
+    def delete_key_re(key_regex):
+        regex = re.compile(key_regex)
+        for old_key in list(options.keys()):
+            if regex.match(old_key):
+                print(
+                    f"Warning: key {old_key} is deprecated and has been removed.",
+                    file=sys.stderr,
+                )
+                del options[old_key]
+
     # renames a set of keys matching a regular expression
     def rename_keys_re(key_regex, replacement):
         renamed_keys = set()
@@ -784,4 +795,8 @@ def _process_deprecated_options(options: Dict[str, Any]):
         "eval.metric_per_argument_frequency_perc",
         "entity_ranking.metrics_per.argument_frequency",
     )
+
+    # 13.6.2020
+    delete_key_re(".*normalize.with_grad")
+
     return options
