@@ -25,7 +25,6 @@ class LookupEmbedder(KgeEmbedder):
 
         # read config
         self.normalize_p = self.get_option("normalize.p")
-        self.normalize_with_grad = self.get_option("normalize.with_grad")
         self.regularize = self.check_option("regularize", ["", "lp"])
         self.sparse = self.get_option("sparse")
         self.config.check("train.trace_level", ["batch", "epoch"])
@@ -36,9 +35,18 @@ class LookupEmbedder(KgeEmbedder):
             self.dim = round_to_points(round_embedder_dim_to, self.dim)
 
         # setup embedder
-        self._embeddings = torch.nn.Embedding(
-            self.vocab_size, self.dim, sparse=self.sparse
-        )
+        if self.normalize_p > 0:
+            self._embeddings = torch.nn.Embedding(
+                self.vocab_size,
+                self.dim,
+                sparse=self.sparse,
+                norm_type=self.normalize_p,
+                max_norm=1.0,
+            )
+        else:
+            self._embeddings = torch.nn.Embedding(
+                self.vocab_size, self.dim, sparse=self.sparse
+            )
 
         if not init_for_load_only:
             # initialize weights
@@ -57,22 +65,6 @@ class LookupEmbedder(KgeEmbedder):
 
     def prepare_job(self, job: Job, **kwargs):
         super().prepare_job(job, **kwargs)
-        if self.normalize_p > 0:
-
-            def normalize_embeddings(job):
-                if self.normalize_with_grad:
-                    self._embeddings.weight = torch.nn.functional.normalize(
-                        self._embeddings.weight, p=self.normalize_p, dim=-1
-                    )
-                else:
-                    with torch.no_grad():
-                        self._embeddings.weight = torch.nn.Parameter(
-                            torch.nn.functional.normalize(
-                                self._embeddings.weight, p=self.normalize_p, dim=-1
-                            )
-                        )
-
-            job.pre_batch_hooks.append(normalize_embeddings)
 
     @torch.no_grad()
     def init_pretrained(self, pretrained_embedder: KgeEmbedder) -> None:
