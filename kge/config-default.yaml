@@ -201,10 +201,6 @@ train:
     # Keep this many most recent additional checkpoints.
     keep: 3
 
-  # Initialize model with pretrained embeddings from a packaged model.
-  # Path to the packaged model
-  init_pretrained: ''
-
   # When set, LibKGE automatically corrects certain invalid configuration
   # options. Each such change is logged. When not set and the configuration is
   # invalid, LibKGE raises an error.
