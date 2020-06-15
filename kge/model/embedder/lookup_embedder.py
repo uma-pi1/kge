@@ -27,19 +27,12 @@ class LookupEmbedder(KgeEmbedder):
         if len(round_embedder_dim_to) > 0:
             self.dim = round_to_points(round_embedder_dim_to, self.dim)
 
-        # setup embedder
-        if self.normalize_p > 0:
-            self._embeddings = torch.nn.Embedding(
-                self.vocab_size,
-                self.dim,
-                sparse=self.sparse,
-                norm_type=self.normalize_p,
-                max_norm=1.0,
-            )
-        else:
-            self._embeddings = torch.nn.Embedding(
-                self.vocab_size, self.dim, sparse=self.sparse
-            )
+        self._embeddings = torch.nn.Embedding(
+            self.vocab_size,
+            self.dim,
+            sparse=self.sparse,
+            norm_type=self.normalize_p if self.normalize_p > 0 else None,
+        )
 
         # initialize weights
         init_ = self.get_option("initialize")
