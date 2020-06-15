@@ -38,7 +38,6 @@ class LookupEmbedder(KgeEmbedder):
             self.vocab_size,
             self.dim,
             sparse=self.sparse,
-            norm_type=self.normalize_p if self.normalize_p > 0 else None,
         )
 
         if not init_for_load_only:
@@ -58,6 +57,17 @@ class LookupEmbedder(KgeEmbedder):
 
     def prepare_job(self, job: Job, **kwargs):
         super().prepare_job(job, **kwargs)
+        if self.normalize_p > 0:
+            def normalize_embeddings(job : "TrainingJob", trace_entry: Dict[str,str]=None):
+                with torch.no_grad():
+                    self._embeddings.weight.data =\
+                        torch.nn.functional.normalize(
+                            self._embeddings.weight.data, p=self.normalize_p, dim=-1
+                        )
+            # normalize before starting a batch
+            job.pre_batch_hooks.append(normalize_embeddings)
+            # normalize after an epoch (before validation and checkpoint is saved)
+            job.post_epoch_hooks.append(normalize_embeddings)
 
     @torch.no_grad()
     def init_pretrained(self, pretrained_embedder: KgeEmbedder) -> None:
