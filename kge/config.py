@@ -678,15 +678,22 @@ def _process_deprecated_options(options: Dict[str, Any]):
                 raise ValueError(f"key {key} is deprecated and has been removed.")
 
     # deletes a key with a regular expression
-    def delete_key_re(key_regex):
+    def delete_key_re_with_default_value(key_regex, value):
         regex = re.compile(key_regex)
         for old_key in list(options.keys()):
             if regex.match(old_key):
-                print(
-                    f"Warning: key {old_key} is deprecated and has been removed.",
-                    file=sys.stderr,
-                )
-                del options[old_key]
+                if options[old_key] == value:
+                    print(
+                        f"Warning: key {old_key} is deprecated and has been removed."
+                        " Ignoring key since it has default value.",
+                        file=sys.stderr,
+                    )
+                    del options[old_key]
+                else:
+                    raise ValueError(
+                        f"key {old_key} with value {value} is deprecated and is not "
+                        f"supported any more."
+                    )
 
     # renames a set of keys matching a regular expression
     def rename_keys_re(key_regex, replacement):
@@ -797,6 +804,6 @@ def _process_deprecated_options(options: Dict[str, Any]):
     )
 
     # 13.6.2020
-    delete_key_re(".*normalize.with_grad")
+    delete_key_re_with_default_value(".*normalize.with_grad", False)
 
     return options
