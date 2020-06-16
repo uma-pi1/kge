@@ -7,10 +7,9 @@ relational_tucker3:
     +++: +++
   relation_embedder:
     type: tucker3_relation_embedder
-    # relation embedding size is projected to 
-    # entity_embedder.dim^2 defaults for 
-    # base_embedder.dim comes from 
-    # kge/model/embedder/tucker3_relation_embedder.yaml
     base_embedder:
+      # Specify the desired relation embedding size here. The RT3 model projects the relation
+      # embedding of the specified size to size entity_embedder.dim^2. 
+      # NOTE: Must be manually set to a value greater than 0.
       dim: -1 
     +++: +++
