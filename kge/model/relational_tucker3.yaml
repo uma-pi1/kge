@@ -3,13 +3,20 @@ import: [lookup_embedder, tucker3_relation_embedder]
 relational_tucker3:
   class_name: RelationalTucker3
   entity_embedder:
+    # Specify the desired entity embedding size using subkey "dim".
     type: lookup_embedder
     +++: +++
   relation_embedder:
+    # See tucker3_relation_embedder.yaml for relation embedder options and
+    # defaults.
     type: tucker3_relation_embedder
     base_embedder:
-      # Specify the desired relation embedding size here. The RT3 model projects the relation
-      # embedding of the specified size to size entity_embedder.dim^2. 
-      # NOTE: Must be manually set to a value greater than 0.
-      dim: -1 
+      # Specify the desired relation embedding size here using subkey "dim". The
+      # T3 embedder projects the relation embedding from the size specified here
+      # to the required size automatically.
+      +++: +++
+
+    # Keep this at -1 (it's not the relation embedding size). Set automatically
+    # to entity_embedder.dim^2.
+    dim: -1
     +++: +++
