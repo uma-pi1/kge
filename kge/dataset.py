@@ -4,7 +4,7 @@ import csv
 import os
 import sys
 import uuid
-from multiprocessing import Lock
+from torch.multiprocessing import Lock
 
 import torch
 from torch import Tensor
