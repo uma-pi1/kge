@@ -29,11 +29,11 @@ class Dataset(Configurable):
 
     """
 
+    # create a lock to ensure exclusive access for some operations
+    _lock = Lock()
+
     #: whether to about when an outdated cached dataset or index file is found
     _abort_when_cache_outdated = False
-
-    # create a multiprocessing lock to ensure atomic access to self._load_map
-    lock = Lock()
 
     def __init__(self, config, folder=None):
         """Constructor for internal use.
@@ -213,45 +213,45 @@ class Dataset(Configurable):
         ignore_duplicates=False,
         use_pickle=False,
     ) -> Union[List, Dict]:
-        with Dataset.lock:
-            if use_pickle:
-                # check if there is a pickled, up-to-date version of the file
-                pickle_suffix = Dataset._to_valid_filename(
-                    f"-{as_list}-{delimiter}-{ignore_duplicates}.pckl"
-                )
-                pickle_filename = filename + pickle_suffix
+        if use_pickle:
+            # check if there is a pickled, up-to-date version of the file
+            pickle_suffix = Dataset._to_valid_filename(
+                f"-{as_list}-{delimiter}-{ignore_duplicates}.pckl"
+            )
+            pickle_filename = filename + pickle_suffix
+            with Dataset._lock:
                 result = Dataset._pickle_load_if_uptodate(None, pickle_filename, filename)
-                if result is not None:
-                    return result
+            if result is not None:
+                return result
 
-            n = 0
-            dictionary = {}
-            warned_overrides = False
-            duplicates = 0
-            with open(filename, "r") as file:
-                for line in file:
-                    key, value = line.split(delimiter, maxsplit=1)
-                    value = value.rstrip("\n")
-                    if as_list:
-                        key = int(key)
-                        n = max(n, key + 1)
-                    if key in dictionary:
-                        duplicates += 1
-                        if not ignore_duplicates:
-                            raise KeyError(f"{filename} contains duplicated keys")
-                    else:
-                        dictionary[key] = value
-            if as_list:
-                array = [None] * n
-                for index, value in dictionary.items():
-                    array[index] = value
-                result = (array, duplicates)
-            else:
-                result = (dictionary, duplicates)
+        n = 0
+        dictionary = {}
+        warned_overrides = False
+        duplicates = 0
+        with open(filename, "r") as file:
+            for line in file:
+                key, value = line.split(delimiter, maxsplit=1)
+                value = value.rstrip("\n")
+                if as_list:
+                    key = int(key)
+                    n = max(n, key + 1)
+                if key in dictionary:
+                    duplicates += 1
+                    if not ignore_duplicates:
+                        raise KeyError(f"{filename} contains duplicated keys")
+                else:
+                    dictionary[key] = value
+        if as_list:
+            array = [None] * n
+            for index, value in dictionary.items():
+                array[index] = value
+            result = (array, duplicates)
+        else:
+            result = (dictionary, duplicates)
 
-            if use_pickle:
-                Dataset._pickle_dump_atomic(result, pickle_filename)
-            return result
+        if use_pickle:
+            Dataset._pickle_dump_atomic(result, pickle_filename)
+        return result
 
     def load_map(
         self,
@@ -415,8 +415,9 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
         with open(tmpfile, "wb") as f:
             pickle.dump(data, f)
 
-        # then do an atomic replace
-        os.replace(tmpfile, pickle_filename)
+        with Dataset._lock:
+            # then do an atomic replace
+            os.replace(tmpfile, pickle_filename)
 
     ## ACCESS ###########################################################################
 
