@@ -219,8 +219,7 @@ class Dataset(Configurable):
                 f"-{as_list}-{delimiter}-{ignore_duplicates}.pckl"
             )
             pickle_filename = filename + pickle_suffix
-            with Dataset._lock:
-                result = Dataset._pickle_load_if_uptodate(None, pickle_filename, filename)
+            result = Dataset._pickle_load_if_uptodate(None, pickle_filename, filename)
             if result is not None:
                 return result
 
@@ -250,7 +249,11 @@ class Dataset(Configurable):
             result = (dictionary, duplicates)
 
         if use_pickle:
-            Dataset._pickle_dump_atomic(result, pickle_filename)
+            with Dataset._lock:
+                if os.path.getmtime(pickle_filename) > Dataset._get_newest_mtime(
+                        None, filename
+                ):
+                    Dataset._pickle_dump_atomic(result, pickle_filename)
         return result
 
     def load_map(
@@ -415,9 +418,8 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
         with open(tmpfile, "wb") as f:
             pickle.dump(data, f)
 
-        with Dataset._lock:
-            # then do an atomic replace
-            os.replace(tmpfile, pickle_filename)
+        # then do an atomic replace
+        os.replace(tmpfile, pickle_filename)
 
     ## ACCESS ###########################################################################
 
