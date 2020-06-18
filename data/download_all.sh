@@ -17,7 +17,7 @@ else
     echo toy already present
 fi
 if [ ! -f "$BASEDIR/toy/dataset.yaml" ]; then
-        python preprocess.py toy
+        python preprocess/preprocess_default.py toy
 else
     echo toy already prepared
 fi
@@ -47,7 +47,7 @@ else
     echo fb15k already present
 fi
 if [ ! -f "$BASEDIR/fb15k/dataset.yaml" ]; then
-    python preprocess.py fb15k
+    python preprocess/preprocess_default.py fb15k
 else
     echo fb15k already prepared
 fi
@@ -62,7 +62,7 @@ else
     echo fb15k-237 already present
 fi
 if [ ! -f "$BASEDIR/fb15k-237/dataset.yaml" ]; then
-  python preprocess.py fb15k-237
+  python preprocess/preprocess_default.py fb15k-237
 else
     echo fb15k-237 already prepared
 fi
@@ -91,7 +91,7 @@ else
     echo wn18 already present
 fi
 if [ ! -f "$BASEDIR/wn18/dataset.yaml" ]; then
-  python preprocess.py wn18
+  python preprocess/preprocess_default.py wn18
 else
     echo wn18 already prepared
 fi
@@ -106,7 +106,7 @@ else
     echo wnrr already present
 fi
 if [ ! -f "$BASEDIR/wnrr/dataset.yaml" ]; then
-  python preprocess.py wnrr
+  python preprocess/preprocess_default.py wnrr
 else
     echo wnrr already prepared
 fi
@@ -122,7 +122,7 @@ else
     echo dbpedia50 already present
 fi
 if [ ! -f "$BASEDIR/dbpedia50/dataset.yaml" ]; then
-  python preprocess.py dbpedia50
+  python preprocess/preprocess_default.py dbpedia50
 else
     echo dbpedia50 already prepared
 fi
@@ -137,7 +137,7 @@ else
     echo dbpedia500 already present
 fi
 if [ ! -f "$BASEDIR/dbpedia500/dataset.yaml" ]; then
-  python preprocess.py dbpedia500 --order_sop
+  python preprocess/preprocess_default.py dbpedia500 --order_sop
 else
     echo dbpedia500 already prepared
 fi
@@ -166,7 +166,7 @@ else
     echo db100k already present
 fi
 if [ ! -f "$BASEDIR/db100k/dataset.yaml" ]; then
-  python preprocess.py db100k
+  python preprocess/preprocess_default.py db100k
 else
     echo db100k already prepared
 fi
@@ -181,7 +181,7 @@ else
     echo yago3-10 already present
 fi
 if [ ! -f "$BASEDIR/yago3-10/dataset.yaml" ]; then
-  python preprocess.py yago3-10
+  python preprocess/preprocess_default.py yago3-10
 else
     echo yago3-10 already prepared
 fi
@@ -196,7 +196,7 @@ else
     echo wikidata5m already present
 fi
 if [ ! -f "$BASEDIR/wikidata5m/dataset.yaml" ]; then
-  python preprocess.py wikidata5m
+  python preprocess/preprocess_default.py wikidata5m
 else
     echo wikidata5m already prepared
 fi
@@ -211,7 +211,7 @@ else
     echo kinship already present
 fi
 if [ ! -f "$BASEDIR/kinship/dataset.yaml" ]; then
-  python preprocess.py kinship
+  python preprocess/preprocess_default.py kinship
 else
     echo kinship already prepared
 fi
@@ -226,7 +226,7 @@ else
     echo nations already present
 fi
 if [ ! -f "$BASEDIR/nations/dataset.yaml" ]; then
-  python preprocess.py nations
+  python preprocess/preprocess_default.py nations
 else
     echo nations already prepared
 fi
@@ -241,7 +241,25 @@ else
     echo umls already present
 fi
 if [ ! -f "$BASEDIR/umls/dataset.yaml" ]; then
-  python preprocess.py umls
+  python preprocess/preprocess_default.py umls
 else
     echo umls already prepared
 fi
+
+# wn11
+if [ ! -d "$BASEDIR/wn11" ]; then
+  echo Downloading wn11
+  cd $BASEDIR
+  curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/wn11.tar.gz
+  tar xvf wn11.tar.gz
+  mv wn11/dev.txt wn11/valid.txt
+else
+    echo wn11 already present
+fi
+
+if [ ! -f "$BASEDIR/wn11/dataset.yaml" ]; then
+  python preprocess/preprocess_wn11.py wn11
+else
+    echo wn11 already prepared
+fi
+
