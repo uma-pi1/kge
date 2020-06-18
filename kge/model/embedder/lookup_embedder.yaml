@@ -33,9 +33,11 @@ lookup_embedder:
   # Initialize the model with embeddings stored in a packaged model
   pretrain:
       # path to packaged model containing entity/relation embeddings
+      # leave empty to not pretrain
       model_filename: "" 
       # ensure that all entities/relations  can be initialized  with embeddings of 
       #  the packaged model
+      #  if false initialize other embeddings normally
       ensure_all: False
  
   # Dropout used for the embeddings.

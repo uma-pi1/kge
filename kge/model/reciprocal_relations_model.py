@@ -13,7 +13,13 @@ class ReciprocalRelationsModel(KgeModel):
 
     """
 
-    def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
+    def __init__(
+        self,
+        config: Config,
+        dataset: Dataset,
+        configuration_key=None,
+        init_for_load_only=False,
+    ):
         self._init_configuration(config, configuration_key)
 
         # Initialize base model
@@ -26,7 +32,11 @@ class ReciprocalRelationsModel(KgeModel):
 
         # Initialize this model
         super().__init__(
-            config, dataset, base_model.get_scorer(), initialize_embedders=False
+            config,
+            dataset,
+            base_model.get_scorer(),
+            initialize_embedders=False,
+            init_for_load_only=init_for_load_only,
         )
         self._base_model = base_model
         # TODO change entity_embedder assignment to sub and obj embedders when support

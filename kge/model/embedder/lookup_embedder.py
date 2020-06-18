@@ -79,43 +79,44 @@ class LookupEmbedder(KgeEmbedder):
             job.pre_batch_hooks.append(normalize_embeddings)
 
     @torch.no_grad()
-    def init_pretrained(
-        self,
-        pretrained_embedder: torch.nn.Embedding,
-        ids_pretrained_model: List,
-        ids_new_model: List,
-        ensure_all: bool = False,
-    ) -> None:
+    def init_pretrained(self, pretrained_embedder: "LookupEmbedder") -> None:
         """
-        Initialize embedding layer with pre-trained embeddings from another embedding
-        layer.
-        Maps embeddings based on the entity/relation ids provided
+        Initialize embedding layer with pre-trained embeddings from another embedder.
+        Maps embeddings based on the entity/relation ids.
         Args:
-            pretrained_embedder: Embedding layer with pre-trained embeddings
-            ids_pretrained_model: entity/relation ids corresponding to the embeddings
-                                  of the pre-trained embedding layer
-            ids_new_model: entity/relation ids corresponding to the embeddings of the
-                           model to be initialized
-            ensure_all: ensure that all entities/relations can be initialized with
-                        embeddings provided in the pre-trained model
+            pretrained_embedder: LookupEmbedder with pre-trained embeddings
 
         Returns:
             None
         """
-        _, dataset_intersect_ind, checkpoint_intersect_ind = np.intersect1d(
-            ids_new_model, ids_pretrained_model, return_indices=True
+        if "entity_embedder" in self.configuration_key:
+            self_ids = self.dataset.entity_ids()
+            pretrained_ids = pretrained_embedder.dataset.entity_ids()
+        elif "relation_embedder" in self.configuration_key:
+            self_ids = self.dataset.relation_ids()
+            pretrained_ids = pretrained_embedder.dataset.relation_ids()
+        else:
+            raise ValueError(
+                "Can only initialize entity or relation embedder with"
+                " pretrained embeddings"
+            )
+
+        _, self_intersect_ind, pretrained_intersect_ind = np.intersect1d(
+            self_ids, pretrained_ids, return_indices=True
         )
-        if ensure_all and not len(dataset_intersect_ind) == len(ids_new_model):
+        if self.get_option("pretrain.ensure_all") and not len(
+            self_intersect_ind
+        ) == len(self_ids):
             raise IndexError(
                 "Not all embeddings could be initialized with the embeddings provided "
                 "in the pre-trained model"
             )
         self._embeddings.weight[
-            torch.from_numpy(dataset_intersect_ind)
+            torch.from_numpy(self_intersect_ind)
             .to(self._embeddings.weight.device)
             .long()
-        ] = pretrained_embedder.weight[
-            torch.from_numpy(checkpoint_intersect_ind).long()
+        ] = pretrained_embedder._embeddings.weight[
+            torch.from_numpy(pretrained_intersect_ind).long()
         ].to(
             self._embeddings.weight.device
         )
