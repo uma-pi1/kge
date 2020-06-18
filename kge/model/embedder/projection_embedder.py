@@ -25,18 +25,7 @@ class ProjectionEmbedder(KgeEmbedder):
         self.dropout = self.get_option("dropout")
         self.regularize = self.check_option("regularize", ["", "lp"])
         self.projection = torch.nn.Linear(self.base_embedder.dim, self.dim, bias=False)
-
-        init_ = self.get_option("initialize")
-        try:
-            init_args = self.get_option("initialize_args." + init_)
-        except KeyError:
-            init_args = self.get_option("initialize_args")
-            
-        self.initialize(
-            self.projection.weight.data,
-            init_,
-            init_args
-        )
+        self._init_embeddings(self.projection.weight.data)
 
     def _embed(self, embeddings):
         embeddings = self.projection(embeddings)
