@@ -222,18 +222,18 @@ class KgeEmbedder(KgeBase):
     def _init_embeddings(self, data: Tensor):
         """Initialize embeddings with provided configuration."""
         initialize = self.get_option("initialize")
-        initialize_args_key = "initialize_args"
 
         try:
-            initialize_args = self.get_option(
-                initialize_args_key + "." + initialize)
+            initialize_args_key = "initialize_args." + initialize
+            initialize_args = self.get_option(initialize_args_key)
         except KeyError:
+            initialize_args_key = "initialize_args"
             initialize_args = self.get_option(initialize_args_key)
 
         # Automatically set arg a (lower bound) for uniform_ if not given
         if initialize == "uniform_" and "a" not in initialize_args:
             initialize_args["a"] = initialize_args["b"] * -1
-            self.set_option(initialize_args_key, initialize_args["a"], log=True)
+            self.set_option(initialize_args_key + ".a", initialize_args["a"], log=True)
 
         self.initialize(data, initialize, initialize_args)
 
