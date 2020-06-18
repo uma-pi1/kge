@@ -9,6 +9,11 @@ from collections import OrderedDict
 
 from util import store_map
 from util import process_raw_split_files
+from util import write_triple
+from util import process_split
+from util import process_pos_neg_split
+from util import write_obj_meta
+from util import write_split_meta
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -19,7 +24,8 @@ if __name__ == "__main__":
     raw_split_files = {"train": "train.txt", "valid": "valid.txt", "test": "test.txt"}
     raw_split_sizes = {}
 
-    # create mappings from the keys of raw_split_files to derived split types
+    # define all split types that are derived from the raw split files
+    # the key of the dicts refers to the raw split
 
     splits_positives = {
         "train": {"file_key": "train", "file_name": "train.del"},
@@ -43,6 +49,7 @@ if __name__ == "__main__":
         "valid": {"file_key": "valid_negatives", "file_name": "valid_negatives.del"},
         "test": {"file_key": "test_negatives", "file_name": "test_negatives.del"},
     }
+
     splits_negatives_wo_unseen = {
         "valid": {
             "file_key": "valid_negatives_without_unseen",
@@ -53,6 +60,11 @@ if __name__ == "__main__":
             "file_name": "test_negatives_without_unseen.del",
         },
     }
+
+    splits_samples = {
+        "train": {"file_key": "train_sample", "file_name": "train_sample.del"}
+    }
+
     # read data and collect entities and relations
     (
         raw_split_sizes,
@@ -64,7 +76,6 @@ if __name__ == "__main__":
     ) = process_raw_split_files(raw_split_files, args.folder)
 
     split_sizes = {}
-    S, P, O = 0, 1, 2
 
     print(f"{len(relations)} distinct relations")
     print(f"{len(entities)} distinct entities")
@@ -75,116 +86,73 @@ if __name__ == "__main__":
 
     # write out triples using indexes
     print("Writing triples...")
-    for split in ["train", "valid", "test"]:
-        with open(
-            os.path.join(args.folder, splits_positives[split]["file_name"]), "w"
-        ) as f_pos, open(
-            os.path.join(args.folder, splits_positives_wo_unseen[split]["file_name"]),
-            "w",
-        ) as f_pos_wo_unseen:
-            # for valid and test additionally create split files with negative examples
-            if split in ["valid", "test"]:
-                f_neg = open(
-                    os.path.join(args.folder, splits_negatives[split]["file_name"]),
-                    "w",
-                )
-                f_neg_wo_unseen = open(
-                    os.path.join(
-                        args.folder, splits_negatives_wo_unseen[split]["file_name"]
-                    ),
-                    "w",
-                )
-            else:
-                # for train use f_pos_wo_unseen to create a sampled train split
-                train_sample = np.random.choice(
-                    raw_split_sizes[split], raw_split_sizes["valid"], False
-                )
-            # create sizes of the derived splits
-            size_negatives = 0
-            size_negatives_wo_unseen = 0
-            size_positives = 0
-            size_positives_wo_unseen = 0
-            for n, t in enumerate(raw[split]):
-                # write the ordinary split files
-                if split in ["valid", "test"] and int(t[3]) == -1:
-                    file_wrapper = f_neg
-                    size_negatives += 1
-                else:
-                    size_positives += 1
-                    file_wrapper = f_pos
-                file_wrapper.write(
-                    str(entities[t[S]])
-                    + "\t"
-                    + str(relations[t[P]])
-                    + "\t"
-                    + str(entities[t[O]])
-                    + "\n"
-                )
-                # write files w/o unseen and train sample
-                if split == "train" and n in train_sample:
-                    f_pos_wo_unseen.write(
-                        str(entities[t[S]])
-                        + "\t"
-                        + str(relations[t[P]])
-                        + "\t"
-                        + str(entities[t[O]])
-                        + "\n"
-                    )
-                    size_positives_wo_unseen += 1
-                elif (
-                    split in ["valid", "test"]
-                    and t[S] in entities_in_train
-                    and t[O] in entities_in_train
-                    and t[P] in relations_in_train
-                ):
 
-                    if int(t[3]) == -1:
-                        file_wrapper = f_neg_wo_unseen
-                        size_negatives_wo_unseen += 1
-                    else:
-                        file_wrapper = f_pos_wo_unseen
-                        size_positives_wo_unseen += 1
+    # process the training split
+    train_file = os.path.join(args.folder, splits_positives["train"]["file_name"])
 
-                    file_wrapper.write(
-                        str(entities[t[S]])
-                        + "\t"
-                        + str(relations[t[P]])
-                        + "\t"
-                        + str(entities[t[O]])
-                        + "\n"
-                    )
+    process_split(
+        entities,
+        relations,
+        file=train_file,
+        raw_split=raw["train"],
+        create_sample=True,
+        sample_file=splits_samples["train"]["file_name"],
+        sample_size=raw_split_sizes["valid"],
+    )
 
-                split_sizes[splits_positives[split]["file_key"]] = size_positives
-                split_sizes[
-                    splits_positives_wo_unseen[split]["file_key"]
-                ] = size_positives_wo_unseen
-                if split in ["valid", "test"]:
-                    split_sizes[
-                        splits_negatives_wo_unseen[split]["file_key"]
-                    ] = size_negatives_wo_unseen
-                    split_sizes[splits_negatives[split]["file_key"]] = size_negatives
+    split_sizes["train"] = raw_split_sizes["train"]
+    split_sizes[splits_samples["train"]["file_key"]] = raw_split_sizes["valid"]
+    # process the valid and test splits
+    for split in ["valid", "test"]:
+
+        (
+            pos_size,
+            filtered_pos_size,
+            neg_size,
+            filtered_neg_size,
+        ) = process_pos_neg_split(
+            entities,
+            relations,
+            pos_file=os.path.join(args.folder, splits_positives[split]["file_name"]),
+            neg_file=os.path.join(args.folder, splits_negatives[split]["file_name"]),
+            raw_split=raw[split],
+            create_filtered=True,
+            filtered_pos_file=os.path.join(
+                args.folder, splits_positives_wo_unseen[split]["file_name"]
+            ),
+            filtered_neg_file=os.path.join(
+                args.folder, splits_negatives_wo_unseen[split]["file_name"]
+            ),
+            filter_entities=entities_in_train,
+            filter_relations=relations_in_train,
+        )
+
+        split_sizes[splits_positives[split]["file_key"]] = pos_size
+        split_sizes[splits_negatives[split]["file_key"]] = neg_size
+        split_sizes[splits_positives_wo_unseen[split]["file_key"]] = filtered_pos_size
+        split_sizes[splits_negatives_wo_unseen[split]["file_key"]] = filtered_neg_size
 
     # write config
     print("Writing dataset.yaml...")
     dataset_config = dict(
         name=args.folder, num_entities=len(entities), num_relations=len(relations),
     )
-    for obj in ["entity", "relation"]:
-        dataset_config[f"files.{obj}_ids.filename"] = f"{obj}_ids.del"
-        dataset_config[f"files.{obj}_ids.type"] = "map"
 
-    for split_type in [
+    # update dataset config with relation/entity maps
+    write_obj_meta(dataset_config)
+
+    # update dataset config with the meta data of the splits
+    write_split_meta(
+        [
             splits_positives,
             splits_positives_wo_unseen,
             splits_negatives,
             splits_negatives_wo_unseen,
-        ]:
-        for raw_split, split_dict in split_type.items():
-            file_key = split_dict["file_key"]
-            file_name = split_dict["file_name"]
-            dataset_config[f"files.{file_key}.filename"] = file_name
-            dataset_config[f"files.{file_key}.type"] = "triples"
-            dataset_config[f"files.{file_key}.size"] = split_sizes[file_key]
+            splits_samples,
+        ],
+        dataset_config,
+        split_sizes,
+    )
 
     print(yaml.dump(dict(dataset=dataset_config)))
     with open(os.path.join(args.folder, "dataset.yaml"), "w+") as filename:
