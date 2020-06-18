@@ -19,7 +19,10 @@ import os.path
 import numpy as np
 
 from util import process_raw_split_files
+from util import process_split
 from util import store_map
+from util import write_obj_meta
+from util import write_split_meta
 
 
 if __name__ == "__main__":
@@ -30,20 +33,40 @@ if __name__ == "__main__":
 
     print(f"Preprocessing {args.folder}...")
     raw_split_files = {"train": "train.txt", "valid": "valid.txt", "test": "test.txt"}
-    split_files = {"train": "train.del", "valid": "valid.del", "test": "test.del"}
-    string_files = {"entity_strings": "entity_strings.del", "relation_strings": "relation_strings.del"}
-    split_files_without_unseen = {"train_sample": "train_sample.del", "valid_without_unseen": "valid_without_unseen.del", 
-            "test_without_unseen": "test_without_unseen.del"}
-    split_sizes = {}
 
-    if args.order_sop:
-        S, P, O = 0, 2, 1
-    else:
-        S, P, O = 0, 1, 2
+    # define all split types that are derived from the raw split files
+    # the key of the dicts refers to the raw split
+
+    splits = {
+        "train": {"file_key": "train", "file_name": "train.del"},
+        "valid": {"file_key": "valid", "file_name": "valid.del"},
+        "test": {"file_key": "test", "file_name": "test.del"},
+    }
+
+    splits_wo_unseen = {
+        "valid": {
+            "file_key": "valid_without_unseen",
+            "file_name": "valid_without_unseen.del",
+        },
+        "test": {
+            "file_key": "test_without_unseen",
+            "file_name": "test_without_unseen.del",
+        },
+    }
+
+    splits_samples = {
+        "train": {"file_key": "train_sample", "file_name": "train_sample.del"}
+    }
+
+    string_files = {
+        "entity_strings": "entity_strings.del",
+        "relation_strings": "relation_strings.del",
+    }
+    split_sizes = {}
 
     # read data and collect entities and relations
     (
-        split_sizes,
+        raw_split_sizes,
         raw,
         entities,
         relations,
@@ -60,73 +83,58 @@ if __name__ == "__main__":
 
     # write out triples using indexes
     print("Writing triples...")
-    without_unseen_sizes = {}
-    for split, filename in split_files.items():
-        if split in ["valid", "test"]:
-            split_without_unseen = split + "_without_unseen"
-            f_wo_unseen = open(os.path.join(args.folder, 
-                                split_files_without_unseen[split_without_unseen]), "w")
-        else:
-            split_without_unseen = split + "_sample"
-            f_tr_sample = open(os.path.join(args.folder, 
-                                split_files_without_unseen[split_without_unseen]), "w")
-            train_sample = np.random.choice(split_sizes["train"], split_sizes["valid"], False)
-        with open(os.path.join(args.folder, filename), "w") as f:
-            size_unseen = 0
-            for n, t in enumerate(raw[split]):
-                f.write(
-                    str(entities[t[S]])
-                    + "\t"
-                    + str(relations[t[P]])
-                    + "\t"
-                    + str(entities[t[O]])
-                    + "\n"
-                )
-                if split == "train" and n in train_sample:
-                    f_tr_sample.write(
-                        str(entities[t[S]])
-                        + "\t"
-                        + str(relations[t[P]])
-                        + "\t"
-                        + str(entities[t[O]])
-                        + "\n"
-                    )
-                    size_unseen += 1
-                elif split in ["valid", "test"] and t[S] in entities_in_train and \
-                    t[O] in entities_in_train and t[P] in relations_in_train:
-                    f_wo_unseen.write(
-                        str(entities[t[S]])
-                        + "\t"
-                        + str(relations[t[P]])
-                        + "\t"
-                        + str(entities[t[O]])
-                        + "\n"
-                    )
-                    size_unseen += 1
-            without_unseen_sizes[split_without_unseen] = size_unseen
+
+    # process train split
+    process_split(
+        entities,
+        relations,
+        file=os.path.join(args.folder, splits["train"]["file_name"]),
+        raw_split=raw["train"],
+        order_sop=args.order_sop,
+        create_sample=True,
+        sample_file=os.path.join(args.folder, splits_samples["train"]["file_name"]),
+        sample_size=raw_split_sizes["valid"],
+    )
+    split_sizes["train"] = raw_split_sizes["train"]
+    split_sizes[splits_samples["train"]["file_key"]] = raw_split_sizes["valid"]
+
+    # process valid and test splits
+    for split in ["valid", "test"]:
+        size_wo_unseen = process_split(
+            entities,
+            relations,
+            file=os.path.join(args.folder, splits[split]["file_name"]),
+            raw_split=raw[split],
+            order_sop=args.order_sop,
+            create_filtered=True,
+            filtered_file=os.path.join(
+                args.folder, splits_wo_unseen[split]["file_name"]
+            ),
+            filter_entities=entities_in_train,
+            filter_relations=relations_in_train,
+        )
+        split_sizes[splits_wo_unseen[split]["file_key"]] = size_wo_unseen
+        split_sizes[splits[split]["file_key"]] = raw_split_sizes[split]
 
     # write config
     print("Writing dataset.yaml...")
     dataset_config = dict(
-        name=args.folder,
-        num_entities=len(entities),
-        num_relations=len(relations),
+        name=args.folder, num_entities=len(entities), num_relations=len(relations),
     )
-    for obj in [ "entity", "relation" ]:
-        dataset_config[f"files.{obj}_ids.filename"] = f"{obj}_ids.del"
-        dataset_config[f"files.{obj}_ids.type"] = "map"
-    for split in split_files.keys():
-        dataset_config[f"files.{split}.filename"] = split_files.get(split)
-        dataset_config[f"files.{split}.type"] = "triples"
-        dataset_config[f"files.{split}.size"] = split_sizes.get(split)
-    for split in split_files_without_unseen.keys():
-        dataset_config[f"files.{split}.filename"] = split_files_without_unseen.get(split)
-        dataset_config[f"files.{split}.type"] = "triples"
-        dataset_config[f"files.{split}.size"] = without_unseen_sizes.get(split)
+
+    # update dataset config with relation/entity maps
+    write_obj_meta(dataset_config)
+
+    # update dataset config with the meta data of the derived splits
+    write_split_meta(
+        [splits, splits_wo_unseen, splits_samples], dataset_config, split_sizes,
+    )
+    # write entity mention files
     for string in string_files.keys():
         if os.path.exists(os.path.join(args.folder, string_files[string])):
             dataset_config[f"files.{string}.filename"] = string_files.get(string)
             dataset_config[f"files.{string}.type"] = "idmap"
+
     print(yaml.dump(dict(dataset=dataset_config)))
     with open(os.path.join(args.folder, "dataset.yaml"), "w+") as filename:
         filename.write(yaml.dump(dict(dataset=dataset_config)))
