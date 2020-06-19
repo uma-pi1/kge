@@ -1,5 +1,6 @@
 import copy
 import os
+import torch.multiprocessing
 import concurrent.futures
 from kge.job import Job, Trace
 from kge.config import _process_deprecated_options
@@ -31,7 +32,8 @@ class SearchJob(Job):
         self.ready_task_results = list()  #: set of results
         if self.num_workers > 1:
             self.process_pool = concurrent.futures.ProcessPoolExecutor(
-                max_workers=self.num_workers
+                max_workers=self.num_workers,
+                mp_context=torch.multiprocessing.get_context("spawn"),
             )
         else:
             self.process_pool = None  # marks that we run in single process
