@@ -34,25 +34,6 @@ class EvaluationJob(Job):
         self.filter_with_test = config.get("entity_ranking.filter_with_test")
         self.epoch = -1
 
-        #: Hooks run after training for an epoch.
-        #: Signature: job, trace_entry
-        self.post_epoch_hooks = []
-
-        #: Hooks run before starting a batch.
-        #: Signature: job
-        self.pre_batch_hooks = []
-
-        #: Hooks run before outputting the trace of a batch. Can modify trace entry.
-        #: Signature: job, trace_entry
-        self.post_batch_trace_hooks = []
-
-        #: Hooks run before outputting the trace of an epoch. Can modify trace entry.
-        #: Signature: job, trace_entry
-        self.post_epoch_trace_hooks = []
-
-        #: Signature: job, trace_entry
-        self.post_valid_hooks = []
-
         #: Whether to create additional histograms for head and tail slot
         self.head_and_tail = config.get("entity_ranking.metrics_per.head_and_tail")
 

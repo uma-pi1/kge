@@ -89,6 +89,11 @@ class TrainingJob(Job):
         self.num_examples = None
         self.type_str: Optional[str] = None
 
+
+        #: Hooks run after training
+        #: Signature: job, trace_entry
+        self.pre_train_hooks: List[Callable[[Job], Any]] = []
+
         #: Hooks run after training for an epoch.
         #: Signature: job, trace_entry
         self.post_epoch_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
@@ -96,6 +101,10 @@ class TrainingJob(Job):
         #: Hooks run before starting a batch.
         #: Signature: job
         self.pre_batch_hooks: List[Callable[[Job], Any]] = []
+
+        #: Hooks run after running a batch.
+        #: Signature: job
+        self.post_batch_hooks: List[Callable[[Job], Any]] = []
 
         #: Hooks run before outputting the trace of a batch. Can modify trace entry.
         #: Signature: job, trace_entry
@@ -110,8 +119,8 @@ class TrainingJob(Job):
         self.post_valid_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
 
         #: Hooks run after training
-        #: Signature: job, trace_entry
-        self.post_train_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
+        #: Signature: job
+        self.post_train_hooks: List[Callable[[Job], Any]] = []
 
         if self.__class__ == TrainingJob:
             for f in Job.job_created_hooks:
@@ -141,6 +150,16 @@ class TrainingJob(Job):
         checkpoint_keep = self.config.get("train.checkpoint.keep")
         metric_name = self.config.get("valid.metric")
         patience = self.config.get("valid.early_stopping.patience")
+
+        # prepare the job is not done already
+        if not self.is_prepared:
+            self._prepare()
+            self.model.prepare_job(self)  # let the model add some hooks
+            self.is_prepared = True
+
+        for f in self.pre_train_hooks:
+            f(self)
+
         while True:
             # checking for model improvement according to metric_name
             # and do early stopping and keep the best checkpoint
@@ -247,7 +266,7 @@ class TrainingJob(Job):
                         )
 
         for f in self.post_train_hooks:
-            f(self, trace_entry)
+            f(self)
         self.trace(event="train_completed")
 
     def save(self, filename) -> None:
@@ -344,6 +363,9 @@ class TrainingJob(Job):
             # abort on nan
             if self.abort_on_nan and math.isnan(cost_value):
                 raise FloatingPointError("Cost became nan, aborting training job")
+
+            for f in self.post_batch_hooks:
+                f(self)
 
             # TODO # visualize graph
             # if (

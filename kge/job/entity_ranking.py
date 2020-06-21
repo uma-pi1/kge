@@ -400,8 +400,6 @@ class EntityRankingJob(EvaluationJob):
             event="eval_completed",
             **metrics,
         )
-        for f in self.post_epoch_trace_hooks:
-            f(self, trace_entry)
 
         # if validation metric is not present, try to compute it
         metric_name = self.config.get("valid.metric")
@@ -419,9 +417,6 @@ class EntityRankingJob(EvaluationJob):
         if was_training:
             self.model.train()
         self.config.log("Finished evaluating on " + self.eval_split + " split.")
-
-        for f in self.post_valid_hooks:
-            f(self, trace_entry)
 
         return trace_entry
 
