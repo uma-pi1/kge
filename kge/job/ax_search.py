@@ -30,6 +30,7 @@ class AxSearchJob(AutoSearchJob):
         return state
 
     def _prepare(self):
+        super()._prepare()
         if self.num_sobol_trials > 0:
             # BEGIN: from /ax/service/utils/dispatch.py
             generation_strategy = GenerationStrategy(

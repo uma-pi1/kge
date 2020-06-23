@@ -469,6 +469,7 @@ class TrainingJob(Job):
         Guaranteed to be called exactly once before running the first epoch.
 
         """
+        super()._prepare()
         self.model.prepare_job(self)  # let the model add some hooks
 
     @dataclass

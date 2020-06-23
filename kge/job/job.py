@@ -64,8 +64,8 @@ class Job:
         self.pre_run_hooks: List[Callable[[Job], Any]] = []
 
         #: Hooks after running a job
-        #: Signature: job
-        self.post_run_hooks: List[Callable[[Job], Any]] = []
+        #: Signature: job, dict returned by the run method
+        self.post_run_hooks: List[Callable[[Job, Dict], Any]] = []
 
 
     @staticmethod
@@ -159,7 +159,7 @@ class Job:
         result = self._run()
 
         for f in self.post_run_hooks:
-            f(self)
+            f(self, result)
 
         return result
 

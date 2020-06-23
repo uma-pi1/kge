@@ -25,6 +25,7 @@ class EntityRankingJob(EvaluationJob):
                 f(self)
 
     def _prepare(self):
+        super()._prepare()
         """Construct all indexes needed to run."""
 
         # create data and precompute indexes
