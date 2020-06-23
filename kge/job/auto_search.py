@@ -58,10 +58,6 @@ class AutoSearchJob(SearchJob):
 
     # -- Abstract methods --------------------------------------------------------------
 
-    def init_search(self):
-        """Initialize to start a new search experiment."""
-        raise NotImplementedError
-
     def register_trial(self, parameters=None):
         """Start a new trial.
 
@@ -95,8 +91,7 @@ class AutoSearchJob(SearchJob):
 
     # -- Main --------------------------------------------------------------------------
 
-    def run(self):
-        self.init_search()
+    def _run(self):
 
         # let's go
         trial_no = 0

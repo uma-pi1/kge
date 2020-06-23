@@ -49,6 +49,7 @@ class Job:
         self.parent_job = parent_job
         self.resumed_from_job_id: Optional[str] = None
         self.trace_entry: Dict[str, Any] = {}
+        self._is_prepared = False
 
         # prepend log entries with the job id. Since we use random job IDs but
         # want short log entries, we only output the first 8 bytes here
@@ -57,6 +58,15 @@ class Job:
         if self.__class__ == Job:
             for f in Job.job_created_hooks:
                 f(self)
+
+        #: Hooks before running a job
+        #: Signature: job
+        self.pre_run_hooks: List[Callable[[Job], Any]] = []
+
+        #: Hooks after running a job
+        #: Signature: job
+        self.post_run_hooks: List[Callable[[Job], Any]] = []
+
 
     @staticmethod
     def create(
@@ -131,7 +141,29 @@ class Job:
         """
         pass
 
+    def _prepare(self):
+        pass
+
     def run(self):
+        """
+        Run the job: first prepare it run some pre run hooks, then execute the job
+        and run some post run hooks and return the result.
+        :return: Output of the job, if any.
+        """
+        if not self._is_prepared:
+            self._prepare()
+
+        for f in self.pre_run_hooks:
+            f(self)
+
+        result = self._run()
+
+        for f in self.post_run_hooks:
+            f(self)
+
+        return result
+
+    def _run(self):
         raise NotImplementedError
 
     def trace(self, **kwargs) -> Dict[str, Any]:

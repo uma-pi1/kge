@@ -29,7 +29,7 @@ class AxSearchJob(AutoSearchJob):
         del state["ax_client"]
         return state
 
-    def init_search(self):
+    def _prepare(self):
         if self.num_sobol_trials > 0:
             # BEGIN: from /ax/service/utils/dispatch.py
             generation_strategy = GenerationStrategy(
