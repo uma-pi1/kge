@@ -65,7 +65,7 @@ class EvaluationJob(Job):
         else:
             raise ValueError("eval.type")
 
-    def _run(self, job_trace : Dict[str, Any]):
+    def _run(self, job_trace : Dict[str, Any]) -> Dict[str, Any]:
         """ Compute evaluation metrics, output results to trace file """
         raise NotImplementedError
 

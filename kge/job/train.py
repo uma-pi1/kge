@@ -134,7 +134,7 @@ class TrainingJob(Job):
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError("train.type")
 
-    def _run(self, job_trace : Dict[str, Any]):
+    def _run(self, job_trace : Dict[str, Any]) -> Dict[str, Any]:
         """Start/resume the training job and run to completion."""
         self.config.log("Starting training...")
         checkpoint_every = self.config.get("train.checkpoint.every")

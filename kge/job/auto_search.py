@@ -91,7 +91,7 @@ class AutoSearchJob(SearchJob):
 
     # -- Main --------------------------------------------------------------------------
 
-    def _run(self, job_trace : Dict[str, Any]):
+    def _run(self, job_trace : Dict[str, Any]) -> Dict[str, Any]:
 
         # let's go
         trial_no = 0

@@ -172,7 +172,7 @@ class Job:
 
         return job_trace
 
-    def _run(self, job_trace : Dict[str, Any]):
+    def _run(self, job_trace : Dict[str, Any]) -> Dict[str, Any]:
         raise NotImplementedError
 
     def trace(self, **kwargs) -> Dict[str, Any]:

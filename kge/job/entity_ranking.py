@@ -78,7 +78,7 @@ class EntityRankingJob(EvaluationJob):
         return batch, label_coords, test_label_coords
 
     @torch.no_grad()
-    def _run(self, job_trace : Dict[str, Any]):
+    def _run(self, job_trace : Dict[str, Any]) -> Dict[str, Any]:
 
         was_training = self.model.training
         self.model.eval()
