@@ -19,7 +19,7 @@ class GridSearchJob(Job):
             for f in Job.job_created_hooks:
                 f(self)
 
-    def run(self):
+    def _run(self):
         # read grid search options range
         all_keys = []
         all_keys_short = []

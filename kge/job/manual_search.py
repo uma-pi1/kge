@@ -32,7 +32,7 @@ class ManualSearchJob(SearchJob):
             for f in Job.job_created_hooks:
                 f(self)
 
-    def run(self):
+    def _run(self):
         # read search configurations and expand them to full configs
         search_configs = copy.deepcopy(self.config.get("manual_search.configurations"))
         all_keys = set()

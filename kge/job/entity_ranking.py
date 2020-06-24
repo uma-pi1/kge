@@ -25,10 +25,8 @@ class EntityRankingJob(EvaluationJob):
                 f(self)
 
     def _prepare(self):
+        super()._prepare()
         """Construct all indexes needed to run."""
-
-        if self.is_prepared:
-            return
 
         # create data and precompute indexes
         self.triples = self.dataset.split(self.config.get("eval.split"))
@@ -79,8 +77,7 @@ class EntityRankingJob(EvaluationJob):
         return batch, label_coords, test_label_coords
 
     @torch.no_grad()
-    def run(self) -> dict:
-        self._prepare()
+    def _run(self) -> dict:
 
         was_training = self.model.training
         self.model.eval()
