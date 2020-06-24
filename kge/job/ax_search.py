@@ -1,13 +1,10 @@
 from math import ceil
 
 from ax import Models
-from ax.core import ObservationFeatures
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-
-from kge.job import AutoSearchJob, Job
-from kge import Config
 from ax.service.ax_client import AxClient
-from typing import List
+from kge import Config
+from kge.job import AutoSearchJob, Job
 
 
 class AxSearchJob(AutoSearchJob):
