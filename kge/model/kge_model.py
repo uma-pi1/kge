@@ -584,7 +584,7 @@ class KgeModel(KgeBase):
             self.config.log(f"num_parameters: {sum(map(lambda p: p.numel(), self.parameters()))}")
 
         if job.config.get("job.type") == "train":
-            job.pre_train_hooks.append(append_num_parameter)
+            job.pre_run_hooks.append(append_num_parameter)
 
     def penalty(self, **kwargs) -> List[Tensor]:
         # Note: If the subject and object embedder are identical, embeddings may be

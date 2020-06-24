@@ -89,11 +89,6 @@ class TrainingJob(Job):
         self.num_examples = None
         self.type_str: Optional[str] = None
 
-
-        #: Hooks run after training
-        #: Signature: job, trace_entry
-        self.pre_train_hooks: List[Callable[[Job], Any]] = []
-
         #: Hooks run after training for an epoch.
         #: Signature: job, trace_entry
         self.post_epoch_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
@@ -117,10 +112,6 @@ class TrainingJob(Job):
         #: Hooks run after a validation job.
         #: Signature: job, trace_entry
         self.post_valid_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
-
-        #: Hooks run after training
-        #: Signature: job
-        self.post_train_hooks: List[Callable[[Job], Any]] = []
 
         if self.__class__ == TrainingJob:
             for f in Job.job_created_hooks:
@@ -150,15 +141,6 @@ class TrainingJob(Job):
         checkpoint_keep = self.config.get("train.checkpoint.keep")
         metric_name = self.config.get("valid.metric")
         patience = self.config.get("valid.early_stopping.patience")
-
-        # prepare the job is not done already
-        if not self.is_prepared:
-            self._prepare()
-            self.model.prepare_job(self)  # let the model add some hooks
-            self.is_prepared = True
-
-        for f in self.pre_train_hooks:
-            f(self)
 
         while True:
             # checking for model improvement according to metric_name
@@ -211,7 +193,6 @@ class TrainingJob(Job):
             self.config.log("Finished epoch {}.".format(self.epoch))
 
             # update model metadata
-            self.model.meta["train_job_trace_entry"] = self.trace_entry
             self.model.meta["train_epoch"] = self.epoch
             self.model.meta["train_config"] = self.config
             self.model.meta["train_trace_entry"] = trace_entry
@@ -264,9 +245,6 @@ class TrainingJob(Job):
                                 self.config.checkpoint_file(delete_checkpoint_epoch)
                             )
                         )
-
-        for f in self.post_train_hooks:
-            f(self)
         self.trace(event="train_completed")
 
     def save(self, filename) -> None:

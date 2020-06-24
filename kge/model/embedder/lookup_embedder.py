@@ -72,8 +72,9 @@ class LookupEmbedder(KgeEmbedder):
                             )
                         )
 
+            job.pre_run_hooks.append(normalize_embeddings)
             if job.config.get("job.type") == "train":
-                job.pre_batch_hooks.append(normalize_embeddings)
+                job.post_batch_hooks.append(normalize_embeddings)
 
     @torch.no_grad()
     def init_pretrained(self, pretrained_embedder: KgeEmbedder) -> None:
