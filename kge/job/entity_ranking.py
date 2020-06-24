@@ -1,5 +1,6 @@
 import math
 import time
+from typing import Dict, Any
 
 import torch
 import kge.job
@@ -77,7 +78,7 @@ class EntityRankingJob(EvaluationJob):
         return batch, label_coords, test_label_coords
 
     @torch.no_grad()
-    def _run(self) -> dict:
+    def _run(self, job_trace : Dict[str, Any]):
 
         was_training = self.model.training
         self.model.eval()
@@ -388,9 +389,12 @@ class EntityRankingJob(EvaluationJob):
         epoch_time += time.time()
 
         # compute trace
-        trace_entry = dict(
-            type="entity_ranking",
-            scope="epoch",
+
+        job_trace = dict(
+            **job_trace,
+            echo=True,
+            echo_prefix="  ",
+            log=True,
             split=self.eval_split,
             filter_splits=self.filter_splits,
             epoch=self.epoch,
@@ -403,22 +407,20 @@ class EntityRankingJob(EvaluationJob):
 
         # if validation metric is not present, try to compute it
         metric_name = self.config.get("valid.metric")
-        if metric_name not in trace_entry:
-            trace_entry[metric_name] = eval(
+        if metric_name not in job_trace:
+            job_trace[metric_name] = eval(
                 self.config.get("valid.metric_expr"),
                 None,
-                dict(config=self.config, **trace_entry),
+                dict(config=self.config, **job_trace),
             )
-
-        # write out trace
-        trace_entry = self.trace(**trace_entry, echo=True, echo_prefix="  ", log=True)
 
         # reset model and return metrics
         if was_training:
             self.model.train()
         self.config.log("Finished evaluating on " + self.eval_split + " split.")
 
-        return trace_entry
+        return job_trace
+
 
     def _densify_chunk_of_labels(
         self, labels: torch.Tensor, chunk_start: int, chunk_end: int

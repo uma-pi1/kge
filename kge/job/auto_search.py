@@ -227,14 +227,17 @@ class AutoSearchJob(SearchJob):
                 )
             )
 
-            self.trace(
-                even="search_completed",
+        job_trace = dict(
+                **job_trace,
+                event="search_completed",
                 echo=True,
                 echo_prefix="  ",
                 log=True,
                 scope="search",
                 **self.results[best_trial_index]
             )
+
+        return job_trace
 
         # DISABLED FOR NOW SINCE IDENTICAL TO BEST TRIAL
         # output parameter estimates

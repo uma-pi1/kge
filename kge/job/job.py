@@ -48,7 +48,6 @@ class Job:
         self.job_id = str(uuid.uuid4())
         self.parent_job = parent_job
         self.resumed_from_job_id: Optional[str] = None
-        self.trace_entry: Dict[str, Any] = {}
         self._is_prepared = False
 
         # prepend log entries with the job id. Since we use random job IDs but
@@ -61,11 +60,11 @@ class Job:
 
         #: Hooks before running a job
         #: Signature: job
-        self.pre_run_hooks: List[Callable[[Job], Any]] = []
+        self.pre_run_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
 
         #: Hooks after running a job
         #: Signature: job, dict returned by the run method
-        self.post_run_hooks: List[Callable[[Job, Dict], Any]] = []
+        self.post_run_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
 
 
     @staticmethod
@@ -144,26 +143,33 @@ class Job:
     def _prepare(self):
         pass
 
-    def run(self):
+    def run(self) -> Dict[str, Any]:
         """
         Run the job: first prepare it run some pre run hooks, then execute the job
         and run some post run hooks and return the result.
-        :return: Output of the job, if any.
+        :return: trace of the job.
         """
+        job_trace = {
+            "type": self.config.get("job.type"),
+            "scope": "job",
+        }
+
         if not self._is_prepared:
             self._prepare()
 
         for f in self.pre_run_hooks:
-            f(self)
+            f(self, job_trace)
 
-        result = self._run()
+        job_trace = self._run(job_trace)
 
         for f in self.post_run_hooks:
-            f(self, result)
+            f(self, job_trace)
 
-        return result
+        self.trace(**job_trace)
 
-    def _run(self):
+        return job_trace
+
+    def _run(self, job_trace : Dict[str, Any]):
         raise NotImplementedError
 
     def trace(self, **kwargs) -> Dict[str, Any]:

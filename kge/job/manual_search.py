@@ -109,11 +109,15 @@ class ManualSearchJob(SearchJob):
             prefix="  ",
         )
         self.config.log("Best overall result:")
-        self.trace(
-            event="search_completed",
-            echo=True,
-            echo_prefix="  ",
-            log=True,
-            scope="search",
-            **overall_best
-        )
+
+        job_trace = dict(
+                **job_trace,
+                event="search_completed",
+                echo=True,
+                echo_prefix="  ",
+                log=True,
+                scope="search",
+                **overall_best
+            )
+
+        return job_trace
