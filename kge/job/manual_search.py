@@ -1,4 +1,6 @@
 import copy
+from typing import Any, Dict
+
 from kge import Config, Dataset
 from kge.job import SearchJob, Job
 import kge.job.search
@@ -32,7 +34,7 @@ class ManualSearchJob(SearchJob):
             for f in Job.job_created_hooks:
                 f(self)
 
-    def _run(self):
+    def _run(self, job_trace : Dict[str, Any]):
         # read search configurations and expand them to full configs
         search_configs = copy.deepcopy(self.config.get("manual_search.configurations"))
         all_keys = set()

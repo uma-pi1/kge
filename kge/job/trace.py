@@ -1,17 +1,8 @@
-import yaml
-import pandas as pd
 import re
-import os
-import torch
-import sys
-import csv
-from collections import OrderedDict
 import subprocess
-import time
 
-
-from kge.misc import kge_base_dir
-from kge.config import Config
+import pandas as pd
+import yaml
 
 
 class Trace:

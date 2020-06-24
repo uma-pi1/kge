@@ -1,4 +1,6 @@
 import os
+from typing import Any, Dict
+
 from kge.job import Job
 from kge import Config
 import itertools
@@ -19,7 +21,7 @@ class GridSearchJob(Job):
             for f in Job.job_created_hooks:
                 f(self)
 
-    def _run(self):
+    def _run(self, job_trace : Dict[str, Any]):
         # read grid search options range
         all_keys = []
         all_keys_short = []

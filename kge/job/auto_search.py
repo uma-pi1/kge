@@ -1,5 +1,5 @@
 import concurrent.futures
-from typing import List
+from typing import List, Any, Dict
 import torch
 from kge import Config
 from kge.config import _process_deprecated_options
@@ -91,7 +91,7 @@ class AutoSearchJob(SearchJob):
 
     # -- Main --------------------------------------------------------------------------
 
-    def _run(self):
+    def _run(self, job_trace : Dict[str, Any]):
 
         # let's go
         trial_no = 0

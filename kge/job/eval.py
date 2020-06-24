@@ -4,7 +4,7 @@ from kge import Config, Dataset
 from kge.job import Job
 from kge.model import KgeModel
 
-from typing import Dict, Union, Optional
+from typing import Dict, Union, Optional, Any
 
 
 class EvaluationJob(Job):
@@ -65,7 +65,7 @@ class EvaluationJob(Job):
         else:
             raise ValueError("eval.type")
 
-    def _run(self) -> dict:
+    def _run(self, job_trace : Dict[str, Any]):
         """ Compute evaluation metrics, output results to trace file """
         raise NotImplementedError
 
