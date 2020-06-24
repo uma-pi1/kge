@@ -149,9 +149,12 @@ class Job:
         and run some post run hooks and return the result.
         :return: trace of the job.
         """
+
+        job_type = self.config.get("job.type")
+
         job_trace = {
-            "type": self.config.get("job.type"),
-            "scope": "job",
+            "type": self.config.get(f"{job_type}.type"),
+            # "scope": "job",
         }
 
         if not self._is_prepared:
@@ -165,7 +168,7 @@ class Job:
         for f in self.post_run_hooks:
             f(self, job_trace)
 
-        self.trace(**job_trace)
+        job_trace = self.trace(**job_trace)
 
         return job_trace
 

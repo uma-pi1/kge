@@ -580,10 +580,10 @@ class KgeModel(KgeBase):
         self._entity_embedder.prepare_job(job, **kwargs)
         self._relation_embedder.prepare_job(job, **kwargs)
 
-        def append_num_parameter(job):
-            self.config.log(f"num_parameters: {sum(map(lambda p: p.numel(), self.parameters()))}")
+        def append_num_parameter(job, trace):
+            trace["num_parameters"] = sum(map(lambda p: p.numel(), self.parameters()))
 
-        if job.config.get("job.type") == "train":
+        if job.config.get("job.type") == "eval":
             job.pre_run_hooks.append(append_num_parameter)
 
     def penalty(self, **kwargs) -> List[Tensor]:
