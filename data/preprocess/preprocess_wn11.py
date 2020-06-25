@@ -68,7 +68,6 @@ if __name__ == "__main__":
         raw_split_files=raw_split_files,
         folder=args.folder,
         collect_objects_in=["train"],
-        order_sop=False
     )
 
     # update dataset config with derived splits
@@ -80,7 +79,7 @@ if __name__ == "__main__":
             splits_negatives_wo_unseen,
             splits_samples,
         ],
-        dataset.dataset_config,
+        dataset.config,
     )
 
     # process the training splits and write triples
@@ -109,11 +108,9 @@ if __name__ == "__main__":
             filtered_pos_key=splits_positives_wo_unseen[split]["file_key"],
             filtered_neg_file=splits_negatives_wo_unseen[split]["file_name"],
             filtered_neg_key=splits_negatives_wo_unseen[split]["file_key"],
-            filter_entities=dataset.entities_in_split["train"],
-            filter_relations=dataset.relations_in_split["train"],
+            filtered_include_ent=dataset.entities_in_split["train"],
+            filtered_include_rel=dataset.relations_in_split["train"],
         )
 
     # finally, write the dataset.yaml file
-    write_dataset_config(dataset.dataset_config, args.folder)
-
-
+    write_dataset_config(dataset.config, args.folder)
