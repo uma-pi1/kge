@@ -11,7 +11,7 @@ is assigned an index (dense). The index-to-object mapping is stored in files
 files "train.del", "valid.del", and "test.del". Additionally, the splits
 "train_sample.del" (a random subset of train) and "valid_without_unseen.del" and
 "test_without_unseen.del" are stored. The "test/valid_without_unseen.del" files are
-subset of "valid.del" and "test.del" resp. where all triples containing entities
+subsets of "valid.del" and "test.del" resp. where all triples containing entities
 or relations not existing in "train.del" have been filtered out.
 
 Metadata information is stored in a file "dataset.yaml".
@@ -70,7 +70,7 @@ if __name__ == "__main__":
         "relation_strings": "relation_strings.del",
     }
 
-    # read data and collect entities and relations
+    # read data and collect entities and relations; additionally processes metadata
     dataset: RawDataset = analyze_raw_splits(
         raw_split_files=raw_split_files,
         folder=args.folder,
@@ -80,7 +80,7 @@ if __name__ == "__main__":
 
     # update dataset config with derived splits
     write_split_meta(
-        [splits, splits_wo_unseen, splits_samples], dataset.dataset_config,
+        [splits, splits_wo_unseen, splits_samples], dataset.config,
     )
 
     # write out triples using indexes
@@ -108,15 +108,15 @@ if __name__ == "__main__":
             create_filtered=True,
             filtered_file=splits_wo_unseen[split]["file_name"],
             filtered_key=splits_wo_unseen[split]["file_key"],
-            filter_entities=dataset.entities_in_split["train"],
-            filter_relations=dataset.relations_in_split["train"],
+            filtered_include_ent=dataset.entities_in_split["train"],
+            filtered_include_rel=dataset.relations_in_split["train"],
         )
 
     # update config with entity string files
     for string in string_files.keys():
         if os.path.exists(os.path.join(args.folder, string_files[string])):
-            dataset.dataset_config[f"files.{string}.filename"] = string_files.get(string)
-            dataset.dataset_config[f"files.{string}.type"] = "idmap"
+            dataset.config[f"files.{string}.filename"] = string_files.get(string)
+            dataset.config[f"files.{string}.type"] = "idmap"
 
     # finally, write the dataset.yaml file
-    write_dataset_config(dataset.dataset_config, args.folder)
+    write_dataset_config(dataset.config, args.folder)

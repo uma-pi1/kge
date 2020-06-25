@@ -7,9 +7,23 @@ import yaml
 
 @dataclass
 class RawDataset:
-    """An analyzed dataset.
+    """A raw relational dataset.
 
-     Contains the raw data for every dataset split and various types of meta data.
+     Contains raw data for the splits of a dataset and various types of meta data. Is
+     created automatically in analyze_raw_splits().
+
+     Attributes:
+         raw_split_data (dict): Keys refer to raw splits and values are list of raw
+            triples (can be labeled) represented with entity/relations-ids.
+         raw_split_sizes (dict): Sizes of the raw splits.
+         all_entities (dict): Distinct entities over all splits. Keys refer to
+            raw entity-id's and values to the dense index.
+         all_relations (dict): See all entities.
+         entities_in_split (dict[dict]): A key refers to a raw split and values are
+            dicts containing a mapping similar to all_entities for the respective split.
+         relations_in_split (dict): See relations_in_split.
+         config (dict): Raw dictionary holding the dataset config options.
+         folder (str): Path to the dataset folder.
 
      """
     raw_split_data: Dict[str, List[List[str]]]
@@ -18,19 +32,29 @@ class RawDataset:
     all_relations: Dict[str, int]
     entities_in_split: Dict[str, Dict[str, int]]
     relations_in_split: Dict[str, Dict[str, int]]
-    dataset_config: Dict[str, str]
+    config: Dict[str, str]
     folder: str
 
 
 def analyze_raw_splits(
         raw_split_files: dict,
         folder: str,
-        #TODO better name
         collect_objects_in: List[str],
         order_sop: bool = False,
 
 ) -> RawDataset:
-    """Read a collection of raw split files and collect meta data."""
+    """Read a collection of raw split files and create metadata.
+
+    Args:
+        raw_split_files (dict): Keys refer to raw split names and values to filenames.
+            Files have to be tab-separated files of triples (can be labeled).
+        folder (str): Folder of the dataset containing the files.
+        collect_objects_in (list[str]): For every raw split in the list, additionally
+            collect relations + entities existing in this split.
+        order_sop (bool): True when the order in the raw triples is (S,O,P) instead of
+            (S,P,O).     
+    """
+
 
     if order_sop:
         S, P, O = 0, 2, 1
@@ -72,7 +96,7 @@ def analyze_raw_splits(
     print(f"{len(all_relations)} distinct relations")
     print(f"{len(all_entities)} distinct entities")
 
-    dataset_config = dict(
+    config = dict(
         name=folder, num_entities=len(all_entities), num_relations=len(all_relations),
     )
 
@@ -83,7 +107,7 @@ def analyze_raw_splits(
             all_relations=all_relations,
             entities_in_split=entities_in_split,
             relations_in_split=relations_in_split,
-            dataset_config=dataset_config,
+            config=config,
             folder=folder,
     )
 
@@ -95,13 +119,12 @@ def analyze_raw_splits(
 
 def process_obj_meta(dataset: RawDataset):
     """Write entity and relation maps and update config with respective keys."""
-
     print("Writing relation and entity map...")
     store_map(dataset.all_relations, path.join(dataset.folder, "relation_ids.del"))
     store_map(dataset.all_entities, path.join(dataset.folder, "entity_ids.del"))
     for obj in ["entity", "relation"]:
-        dataset.dataset_config[f"files.{obj}_ids.filename"] = f"{obj}_ids.del"
-        dataset.dataset_config[f"files.{obj}_ids.type"] = "map"
+        dataset.config[f"files.{obj}_ids.filename"] = f"{obj}_ids.del"
+        dataset.config[f"files.{obj}_ids.type"] = "map"
 
 
 def store_map(symbol_map: dict, filename: str):
@@ -112,6 +135,7 @@ def store_map(symbol_map: dict, filename: str):
 
 
 def write_triple(f, ent, rel, t, S, P, O):
+    """Write a triple to a file. """
     f.write(str(ent[t[S]]) + "\t" + str(rel[t[P]]) + "\t" + str(ent[t[O]]) + "\n")
 
 
@@ -128,12 +152,29 @@ def process_split(
         create_filtered: bool = False,
         filtered_file: str = None,
         filtered_key: str = None,
-        filter_entities: dict = None,
-        filter_relations: dict = None,
+        filtered_include_ent: Union[dict, list] = None,
+        filtered_include_rel: Union[dict, list] = None,
 ):
-    """From a raw split, write a split file with indexes.
+    """From a raw split, write a split file using indexes.
 
      Optionally, a filtered split file and a sample of the raw split can be created.
+     
+     Args:
+         split (str): Name of the raw split.
+         dataset (RawDataset): The RawDataset containing raw splits.
+         file_name (str): File name where the split is written to.
+         file_key (str): Key used in the dataset config.
+         order_sop (bool): True when the order of the triples in "dataset" is (S,O,P)
+         create_sample (bool): Write an additional random subset of the split.
+         sample_size (int): Size of the subset.
+         sample_file (str): Filename of the subset.
+         sample_key (str): Key used for the subset in the dataset config.
+         create_filtered(bool): Write an additional filtered version of the split.
+         filtered_file (str): Filename of the filtered split.
+         filtered_key (str): Key used in the dataset config for the filtered split.
+         filtered_include_ent : Dict or List. Triples containing these entities will be 
+         included in the filtered split.
+         filtered_include_rel: see filtered_include_ent.       
 
      """
     if order_sop:
@@ -151,7 +192,7 @@ def process_split(
         sample_f = open(path.join(dataset.folder, sample_file), "w")
 
     # the filtered split cosists of triples from the raw split where both entities
-    # and relation exist in filter_entities/filter_relation
+    # and relation exist in filtered_include_ent/filter_relation
     if create_filtered:
         filtered_size = 0
         filter_f = open(path.join(dataset.folder, filtered_file), "w")
@@ -164,31 +205,31 @@ def process_split(
             write_triple(f, entities, relations, t, S, P, O)
             if create_sample and n in sample:
                 write_triple(sample_f, entities, relations, t, S, P, O)
-            if create_filtered and t[S] in filter_entities \
-                               and t[O] in filter_entities \
-                               and t[P] in filter_relations:
+            if create_filtered and t[S] in filtered_include_ent \
+                               and t[O] in filtered_include_ent \
+                               and t[P] in filtered_include_rel:
                 write_triple(filter_f, entities, relations, t, S, P, O)
                 filtered_size += 1
 
     # write to config everything you have done
-    dataset.dataset_config[f"files.{file_key}.size"] = dataset.raw_split_sizes[split]
+    dataset.config[f"files.{file_key}.size"] = dataset.raw_split_sizes[split]
     if create_filtered:
-        dataset.dataset_config[f"files.{filtered_key}.size"] = filtered_size
+        dataset.config[f"files.{filtered_key}.size"] = filtered_size
     if create_sample:
-        dataset.dataset_config[f"files.{sample_key}.size"] = sample_size
+        dataset.config[f"files.{sample_key}.size"] = sample_size
 
 
 def process_pos_neg_split(
         split,
-        dataset,
+        dataset: RawDataset,
         pos_file: str,
         pos_key: str,
         neg_file: str,
         neg_key: str,
         order_sop: bool = False,
         create_filtered: bool = False,
-        filter_entities: dict = None,
-        filter_relations: dict = None,
+        filtered_include_ent: dict = None,
+        filtered_include_rel: dict = None,
         filtered_pos_file: str = None,
         filtered_pos_key: str = None,
         filtered_neg_file: str = None,
@@ -197,6 +238,8 @@ def process_pos_neg_split(
     """From a raw split containing labeled triples, write split files with indexes.
 
      Optionally, filtered split files can be created.
+
+     See process_split().
 
      """
     if order_sop:
@@ -209,7 +252,7 @@ def process_pos_neg_split(
     relations = dataset.all_relations
 
     # the filtered split cosists of triples from the raw split where both entities
-    # and relation exist in filter_entities/filter_relation
+    # and relation exist in filtered_include_ent/filter_relation
     if create_filtered:
         filter_pos_f = open(path.join(dataset.folder, filtered_pos_file), "w")
         filter_neg_f = open(path.join(dataset.folder, filtered_neg_file), "w")
@@ -231,9 +274,9 @@ def process_pos_neg_split(
                 filtered_file_wrapper = filter_pos_f
                 pos_size += 1
             write_triple(file_wrapper, entities, relations, t, S, P, O)
-            if create_filtered and t[S] in filter_entities \
-                               and t[O] in filter_entities \
-                               and t[P] in filter_relations:
+            if create_filtered and t[S] in filtered_include_ent \
+                               and t[O] in filtered_include_ent \
+                               and t[P] in filtered_include_rel:
 
                 if int(t[3]) == -1:
                     filtered_neg_size += 1
@@ -242,12 +285,12 @@ def process_pos_neg_split(
                 write_triple(filtered_file_wrapper, entities, relations, t, S, P, O)
 
         # update dataset config with everything you have done
-        dataset.dataset_config[f"files.{pos_key}.size"] = pos_size
-        dataset.dataset_config[f"files.{neg_key}.size"] = neg_size
+        dataset.config[f"files.{pos_key}.size"] = pos_size
+        dataset.config[f"files.{neg_key}.size"] = neg_size
 
         if create_filtered:
-            dataset.dataset_config[f"files.{filtered_pos_key}.size"] = filtered_pos_size
-            dataset.dataset_config[f"files.{filtered_neg_key}.size"] = filtered_neg_size
+            dataset.config[f"files.{filtered_pos_key}.size"] = filtered_pos_size
+            dataset.config[f"files.{filtered_neg_key}.size"] = filtered_neg_size
 
 
 def write_split_meta(split_types: list, config: dict):
