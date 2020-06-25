@@ -110,7 +110,13 @@ class ConvEScorer(RelationalScorer):
 class ConvE(KgeModel):
     r"""Implementation of the ConvE KGE model."""
 
-    def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
+    def __init__(
+        self,
+        config: Config,
+        dataset: Dataset,
+        configuration_key=None,
+        init_for_load_only=False,
+    ):
         self._init_configuration(config, configuration_key)
         # HACK to add bias terms to embeddings
         self.set_option(
@@ -120,10 +126,11 @@ class ConvE(KgeModel):
             "relation_embedder.dim", self.get_option("relation_embedder.dim") + 1
         )
         super().__init__(
-            config,
-            dataset,
-            ConvEScorer(config, dataset, self.configuration_key),
+            config=config,
+            dataset=dataset,
+            scorer=ConvEScorer(config, dataset, self.configuration_key),
             configuration_key=self.configuration_key,
+            init_for_load_only=init_for_load_only,
         )
         # UNDO hack
         self.set_option(

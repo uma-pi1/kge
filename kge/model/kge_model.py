@@ -4,13 +4,14 @@ from collections import OrderedDict
 
 from torch import Tensor
 import torch.nn
+import numpy as np
 import os
 
 import kge
 from kge import Config, Configurable, Dataset
 from kge.misc import filename_in_module
 from kge.util import load_checkpoint
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Tuple
 
 from typing import TYPE_CHECKING
 
@@ -30,6 +31,12 @@ class KgeBase(torch.nn.Module, Configurable):
         torch.nn.Module.__init__(self)
         self.dataset = dataset
         self.meta: Dict[str, Any] = dict()  #: meta-data stored with this module
+        self.backward_compatible_keys = {
+            "_entity_embedder.embeddings.weight": "_entity_embedder._embeddings.weight",
+            "_relation_embedder.embeddings.weight": "_relation_embedder._embeddings.weight",
+            "_base_model._entity_embedder.embeddings.weight": "_base_model._entity_embedder._embeddings.weight",
+            "_base_model._relation_embedder.embeddings.weight": "_base_model._relation_embedder._embeddings.weight",
+        }
 
     def initialize(self, what: Tensor, initialize: str, initialize_args):
         try:
@@ -73,18 +80,9 @@ class KgeBase(torch.nn.Module, Configurable):
         "Loads state from a saved data structure"
         # handle deprecated keys
         state_dict = OrderedDict()
-        bad_keys = ["_entity_embedder.embeddings.weight", "_relation_embedder.embeddings.weight",
-        "_base_model._entity_embedder.embeddings.weight", "_base_model._relation_embedder.embeddings.weight"]
-        good_keys = ["_entity_embedder._embeddings.weight", "_relation_embedder._embeddings.weight",
-        "_base_model._entity_embedder._embeddings.weight", "_base_model._relation_embedder._embeddings.weight"]
 
-        for k,v in savepoint[0].items():
-            if k in bad_keys:
-                for i, bk in enumerate(bad_keys):
-                    if k == bk:
-                        state_dict[good_keys[i]] = savepoint[0][bk]
-            else:
-                state_dict[k] = v
+        for k, v in savepoint[0].items():
+            state_dict[self.backward_compatible_keys.get(k, k)] = v
 
         self.load_state_dict(state_dict)
         self.meta = savepoint[1]
@@ -191,7 +189,13 @@ class KgeEmbedder(KgeBase):
 
     """
 
-    def __init__(self, config: Config, dataset: Dataset, configuration_key: str):
+    def __init__(
+        self,
+        config: Config,
+        dataset: Dataset,
+        configuration_key: str,
+        init_for_load_only=False,
+    ):
         super().__init__(config, dataset, configuration_key)
 
         #: location of the configuration options of this embedder
@@ -239,7 +243,11 @@ class KgeEmbedder(KgeBase):
 
     @staticmethod
     def create(
-        config: Config, dataset: Dataset, configuration_key: str, vocab_size: int
+        config: Config,
+        dataset: Dataset,
+        configuration_key: str,
+        vocab_size: int,
+        init_for_load_only=False,
     ) -> "KgeEmbedder":
         """Factory method for embedder creation."""
 
@@ -252,7 +260,11 @@ class KgeEmbedder(KgeBase):
 
         try:
             embedder = getattr(module, class_name)(
-                config, dataset, configuration_key, vocab_size
+                config,
+                dataset,
+                configuration_key,
+                vocab_size,
+                init_for_load_only=init_for_load_only,
             )
             return embedder
         except ImportError:
@@ -262,6 +274,58 @@ class KgeEmbedder(KgeBase):
                     class_name, embedder_type
                 )
             )
+
+    def _intersect_ids_with_pretrained_embedder(
+        self, pretrained_embedder: "KgeEmbedder"
+    ) -> Tuple[np.array, np.array]:
+        """
+        Intersect entity/relation ids of the embedder with embedderings of a pretrained
+        embedder.
+        Args:
+            pretrained_embedder: KgeEmbedder with pre-trained embeddings
+
+        Returns:
+            self_intersection_ind: index if the intersecting entities/relations
+                                   in this embedder
+            pretrained_intersection_ind: index of intersecting entities/relations
+                                         in the pretrained embedder
+        """
+        if "entity_embedder" in self.configuration_key:
+            self_ids = self.dataset.entity_ids()
+            pretrained_ids = pretrained_embedder.dataset.entity_ids()
+        elif "relation_embedder" in self.configuration_key:
+            self_ids = self.dataset.relation_ids()
+            pretrained_ids = pretrained_embedder.dataset.relation_ids()
+        else:
+            raise ValueError(
+                "Can only initialize entity or relation embedder with"
+                " pretrained embeddings"
+            )
+
+        _, self_intersect_ind, pretrained_intersect_ind = np.intersect1d(
+            self_ids, pretrained_ids, return_indices=True
+        )
+        if self.get_option("pretrain.ensure_all") and not len(
+            self_intersect_ind
+        ) == len(self_ids):
+            raise IndexError(
+                "Not all embeddings could be initialized with the embeddings provided "
+                "in the pre-trained model"
+            )
+        return self_intersect_ind, pretrained_intersect_ind
+
+    @torch.no_grad()
+    def init_pretrained(self, pretrained_embedder: "KgeEmbedder") -> None:
+        """
+        Initialize embedding layer with pre-trained embeddings from another embedder.
+        Maps embeddings based on the entity/relation ids.
+        Args:
+            pretrained_embedder: KgeEmbedder with pre-trained embeddings
+
+        Returns:
+            None
+        """
+        raise NotImplementedError
 
     def forward(self, indexes: Tensor) -> Tensor:
         return self.embed(indexes)
@@ -289,8 +353,9 @@ class KgeModel(KgeBase):
         config: Config,
         dataset: Dataset,
         scorer: Union[RelationalScorer, type],
-        initialize_embedders=True,
+        create_embedders=True,
         configuration_key=None,
+        init_for_load_only=False,
     ):
         super().__init__(config, dataset, configuration_key)
 
@@ -302,12 +367,13 @@ class KgeModel(KgeBase):
         #: Embedder used for relations
         self._relation_embedder: KgeEmbedder
 
-        if initialize_embedders:
+        if create_embedders:
             self._entity_embedder = KgeEmbedder.create(
                 config,
                 dataset,
                 self.configuration_key + ".entity_embedder",
                 dataset.num_entities(),
+                init_for_load_only=init_for_load_only,
             )
 
             #: Embedder used for relations
@@ -317,7 +383,55 @@ class KgeModel(KgeBase):
                 dataset,
                 self.configuration_key + ".relation_embedder",
                 num_relations,
+                init_for_load_only=init_for_load_only,
             )
+
+            if not init_for_load_only:
+                # load pretrained embeddings
+                pretrained_entities_filename = self.get_option(
+                    "entity_embedder.pretrain.model_filename"
+                )
+                pretrained_relations_filename = self.get_option(
+                    "relation_embedder.pretrain.model_filename"
+                )
+
+                def load_pretrained_model(
+                    pretrained_filename: str,
+                ) -> Optional[KgeModel]:
+                    if pretrained_filename != "":
+                        self.config.log(
+                            f"Initializing with embeddings stored in "
+                            f"{pretrained_filename}"
+                        )
+                        checkpoint = load_checkpoint(pretrained_filename)
+                        return KgeModel.create_from(checkpoint)
+                    return None
+
+                pretrained_entities_model = load_pretrained_model(
+                    pretrained_entities_filename
+                )
+                if pretrained_entities_filename == pretrained_relations_filename:
+                    pretrained_relations_model = pretrained_entities_model
+                else:
+                    pretrained_relations_model = load_pretrained_model(
+                        pretrained_relations_filename
+                    )
+                if pretrained_entities_model is not None:
+                    if (
+                        pretrained_entities_model.get_s_embedder()
+                        != pretrained_entities_model.get_o_embedder()
+                    ):
+                        raise ValueError(
+                            "Can only initialize with pre-trained models having "
+                            "identical subject and object embeddings."
+                        )
+                    self._entity_embedder.init_pretrained(
+                        pretrained_entities_model.get_s_embedder()
+                    )
+                if pretrained_relations_model is not None:
+                    self._relation_embedder.init_pretrained(
+                        pretrained_relations_model.get_p_embedder()
+                    )
 
         #: Scorer
         self._scorer: RelationalScorer
@@ -341,7 +455,10 @@ class KgeModel(KgeBase):
 
     @staticmethod
     def create(
-        config: Config, dataset: Dataset, configuration_key: Optional[str] = None
+        config: Config,
+        dataset: Dataset,
+        configuration_key: Optional[str] = None,
+        init_for_load_only=False,
     ) -> "KgeModel":
         """Factory method for model creation."""
 
@@ -356,7 +473,12 @@ class KgeModel(KgeBase):
             raise Exception("Can't find {}.type in config".format(configuration_key))
 
         try:
-            model = getattr(module, class_name)(config, dataset, configuration_key)
+            model = getattr(module, class_name)(
+                config=config,
+                dataset=dataset,
+                configuration_key=configuration_key,
+                init_for_load_only=init_for_load_only,
+            )
             model.to(config.get("job.device"))
             return model
         except ImportError:
@@ -444,7 +566,7 @@ class KgeModel(KgeBase):
             if not config.log_folder or not os.path.exists(config.log_folder):
                 config.log_folder = "."
         dataset = Dataset.create_from(checkpoint, config, dataset, preload_data=False)
-        model = KgeModel.create(config, dataset)
+        model = KgeModel.create(config, dataset, init_for_load_only=True)
         model.load(checkpoint["model"])
         model.eval()
         return model

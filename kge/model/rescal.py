@@ -56,13 +56,23 @@ class RescalScorer(RelationalScorer):
 class Rescal(KgeModel):
     r"""Implementation of the RÉSCAL KGE model."""
 
-    def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
+    def __init__(
+        self,
+        config: Config,
+        dataset: Dataset,
+        configuration_key=None,
+        init_for_load_only=False,
+    ):
         self._init_configuration(config, configuration_key)
         rescal_set_relation_embedder_dim(
             config, dataset, self.configuration_key + ".relation_embedder"
         )
         super().__init__(
-            config, dataset, RescalScorer, configuration_key=self.configuration_key
+            config=config,
+            dataset=dataset,
+            scorer=RescalScorer,
+            configuration_key=self.configuration_key,
+            init_for_load_only=init_for_load_only,
         )
 
 

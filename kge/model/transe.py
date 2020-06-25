@@ -27,7 +27,17 @@ class TransEScorer(RelationalScorer):
 class TransE(KgeModel):
     r"""Implementation of the TransE KGE model."""
 
-    def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
+    def __init__(
+        self,
+        config: Config,
+        dataset: Dataset,
+        configuration_key=None,
+        init_for_load_only=False,
+    ):
         super().__init__(
-            config, dataset, TransEScorer, configuration_key=configuration_key
+            config=config,
+            dataset=dataset,
+            scorer=TransEScorer,
+            configuration_key=configuration_key,
+            init_for_load_only=init_for_load_only,
         )

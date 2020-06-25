@@ -7,14 +7,21 @@ from kge.job import Job
 from kge.model import KgeEmbedder
 from kge.misc import round_to_points
 
-from typing import List
+from typing import List, Dict
 
 
 class LookupEmbedder(KgeEmbedder):
     def __init__(
-        self, config: Config, dataset: Dataset, configuration_key: str, vocab_size: int
+        self,
+        config: Config,
+        dataset: Dataset,
+        configuration_key: str,
+        vocab_size: int,
+        init_for_load_only=False,
     ):
-        super().__init__(config, dataset, configuration_key)
+        super().__init__(
+            config, dataset, configuration_key, init_for_load_only=init_for_load_only
+        )
 
         # read config
         self.normalize_p = self.get_option("normalize.p")
@@ -33,8 +40,9 @@ class LookupEmbedder(KgeEmbedder):
             self.vocab_size, self.dim, sparse=self.sparse
         )
 
-        # initialize weights
-        self._init_embeddings(self._embeddings.weight.data)
+        if not init_for_load_only:
+            # initialize weights
+            self._init_embeddings(self._embeddings.weight.data)
 
         # TODO handling negative dropout because using it with ax searches for now
         dropout = self.get_option("dropout")
@@ -65,6 +73,20 @@ class LookupEmbedder(KgeEmbedder):
                         )
 
             job.pre_batch_hooks.append(normalize_embeddings)
+
+    @torch.no_grad()
+    def init_pretrained(self, pretrained_embedder: KgeEmbedder) -> None:
+        (
+            self_intersect_ind,
+            pretrained_intersect_ind,
+        ) = self._intersect_ids_with_pretrained_embedder(pretrained_embedder)
+        self._embeddings.weight[
+            torch.from_numpy(self_intersect_ind)
+            .to(self._embeddings.weight.device)
+            .long()
+        ] = pretrained_embedder.embed(torch.from_numpy(pretrained_intersect_ind)).to(
+            self._embeddings.weight.device
+        )
 
     def embed(self, indexes: Tensor) -> Tensor:
         return self._postprocess(self._embeddings(indexes.long()))

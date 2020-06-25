@@ -16,6 +16,7 @@ from kge.job import Job
 from kge.model import KgeModel
 
 from kge.util import KgeLoss, KgeOptimizer, KgeSampler, KgeLRScheduler
+from kge.util.io import load_checkpoint
 from typing import Any, Callable, Dict, List, Optional, Union
 import kge.job.util
 

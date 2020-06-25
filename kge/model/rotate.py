@@ -66,7 +66,13 @@ class RotatEScorer(RelationalScorer):
 class RotatE(KgeModel):
     r"""Implementation of the RotatE KGE model."""
 
-    def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
+    def __init__(
+        self,
+        config: Config,
+        dataset: Dataset,
+        configuration_key=None,
+        init_for_load_only=False,
+    ):
         self._init_configuration(config, configuration_key)
         if self.get_option("entity_embedder.dim") % 2 != 0:
             raise ValueError(
@@ -80,7 +86,11 @@ class RotatE(KgeModel):
                 log=True,
             )
         super().__init__(
-            config, dataset, RotatEScorer, configuration_key=self.configuration_key
+            config=config,
+            dataset=dataset,
+            scorer=RotatEScorer,
+            configuration_key=self.configuration_key,
+            init_for_load_only=init_for_load_only,
         )
 
 

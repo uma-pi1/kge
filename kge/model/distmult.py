@@ -29,7 +29,17 @@ class DistMultScorer(RelationalScorer):
 class DistMult(KgeModel):
     r"""Implementation of the DistMult KGE model."""
 
-    def __init__(self, config: Config, dataset: Dataset, configuration_key=None):
+    def __init__(
+        self,
+        config: Config,
+        dataset: Dataset,
+        configuration_key=None,
+        init_for_load_only=False,
+    ):
         super().__init__(
-            config, dataset, DistMultScorer, configuration_key=configuration_key
+            config=config,
+            dataset=dataset,
+            scorer=DistMultScorer,
+            configuration_key=configuration_key,
+            init_for_load_only=init_for_load_only,
         )
