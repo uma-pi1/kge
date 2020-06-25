@@ -27,14 +27,17 @@ class ReciprocalRelationsModel(KgeModel):
         alt_dataset = dataset.shallow_copy()
         alt_dataset._num_relations = dataset.num_relations() * 2
         base_model = KgeModel.create(
-            config, alt_dataset, self.configuration_key + ".base_model"
+            config=config,
+            dataset=alt_dataset,
+            configuration_key=self.configuration_key + ".base_model",
+            init_for_load_only=init_for_load_only,
         )
 
         # Initialize this model
         super().__init__(
-            config,
-            dataset,
-            base_model.get_scorer(),
+            config=config,
+            dataset=dataset,
+            scorer=base_model.get_scorer(),
             initialize_embedders=False,
             init_for_load_only=init_for_load_only,
         )

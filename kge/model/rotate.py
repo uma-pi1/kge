@@ -86,9 +86,9 @@ class RotatE(KgeModel):
                 log=True,
             )
         super().__init__(
-            config,
-            dataset,
-            RotatEScorer,
+            config=config,
+            dataset=dataset,
+            scorer=RotatEScorer,
             configuration_key=self.configuration_key,
             init_for_load_only=init_for_load_only,
         )

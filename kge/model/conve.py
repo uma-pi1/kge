@@ -126,9 +126,9 @@ class ConvE(KgeModel):
             "relation_embedder.dim", self.get_option("relation_embedder.dim") + 1
         )
         super().__init__(
-            config,
-            dataset,
-            ConvEScorer(config, dataset, self.configuration_key),
+            config=config,
+            dataset=dataset,
+            scorer=ConvEScorer(config, dataset, self.configuration_key),
             configuration_key=self.configuration_key,
             init_for_load_only=init_for_load_only,
         )

@@ -54,9 +54,9 @@ class CP(KgeModel):
                 log=True,
             )
         super().__init__(
-            config,
-            dataset,
-            CPScorer,
+            config=config,
+            dataset=dataset,
+            scorer=CPScorer,
             configuration_key=self.configuration_key,
             init_for_load_only=init_for_load_only,
         )

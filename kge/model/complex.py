@@ -55,9 +55,9 @@ class ComplEx(KgeModel):
         init_for_load_only=False,
     ):
         super().__init__(
-            config,
-            dataset,
-            ComplExScorer,
+            config=config,
+            dataset=dataset,
+            scorer=ComplExScorer,
             configuration_key=configuration_key,
             init_for_load_only=init_for_load_only,
         )

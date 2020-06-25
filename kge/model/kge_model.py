@@ -466,7 +466,10 @@ class KgeModel(KgeBase):
 
         try:
             model = getattr(module, class_name)(
-                config, dataset, configuration_key, init_for_load_only
+                config=config,
+                dataset=dataset,
+                configuration_key=configuration_key,
+                init_for_load_only=init_for_load_only,
             )
             model.to(config.get("job.device"))
             return model

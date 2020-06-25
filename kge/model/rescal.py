@@ -68,9 +68,9 @@ class Rescal(KgeModel):
             config, dataset, self.configuration_key + ".relation_embedder"
         )
         super().__init__(
-            config,
-            dataset,
-            RescalScorer,
+            config=config,
+            dataset=dataset,
+            scorer=RescalScorer,
             configuration_key=self.configuration_key,
             init_for_load_only=init_for_load_only,
         )

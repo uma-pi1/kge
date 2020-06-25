@@ -51,9 +51,9 @@ class SimplE(KgeModel):
                 " (got {})".format(self.get_option("entity_embedder.dim"))
             )
         super().__init__(
-            config,
-            dataset,
-            SimplEScorer,
+            config=config,
+            dataset=dataset,
+            scorer=SimplEScorer,
             configuration_key=self.configuration_key,
             init_for_load_only=init_for_load_only,
         )
