@@ -1,6 +1,8 @@
 #### June 2020
 
+- PR [#112](https://github.com/uma-pi1/kge/pull/112): Initialize embeddings from a packaged model
 - PR [#113](https://github.com/uma-pi1/kge/pull/113): Reduce memory consumption and loading times of large datasets
+- Various smaller improvements and bug fixes
 
 #### May 2020
 
