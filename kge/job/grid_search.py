@@ -74,3 +74,5 @@ class GridSearchJob(Job):
             job.run()
         else:
             self.config.log("Skipping running of search job as requested by user...")
+
+        return job_trace
