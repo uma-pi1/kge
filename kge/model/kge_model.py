@@ -353,7 +353,7 @@ class KgeModel(KgeBase):
         config: Config,
         dataset: Dataset,
         scorer: Union[RelationalScorer, type],
-        initialize_embedders=True,
+        create_embedders=True,
         configuration_key=None,
         init_for_load_only=False,
     ):
@@ -367,7 +367,7 @@ class KgeModel(KgeBase):
         #: Embedder used for relations
         self._relation_embedder: KgeEmbedder
 
-        if initialize_embedders:
+        if create_embedders:
             self._entity_embedder = KgeEmbedder.create(
                 config,
                 dataset,

@@ -38,7 +38,7 @@ class ReciprocalRelationsModel(KgeModel):
             config=config,
             dataset=dataset,
             scorer=base_model.get_scorer(),
-            initialize_embedders=False,
+            create_embedders=False,
             init_for_load_only=init_for_load_only,
         )
         self._base_model = base_model
