@@ -7,7 +7,7 @@ def store_map(symbol_map: dict, filename: str):
             f.write(f"{index}\t{symbol}\n")
 
 
-def process_raw_split_files(raw_split_files: dict, folder: str,  order_sop: bool = False):
+def analyze_raw_splits(raw_split_files: dict, folder: str,  order_sop: bool = False):
     """Read a collection of raw split files and collect meta data."""
 
     if order_sop:

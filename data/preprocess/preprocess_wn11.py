@@ -8,7 +8,7 @@ import numpy as np
 from collections import OrderedDict
 
 from util import store_map
-from util import process_raw_split_files
+from util import analyze_raw_splits
 from util import write_triple
 from util import process_split
 from util import process_pos_neg_split
@@ -34,7 +34,6 @@ if __name__ == "__main__":
     }
 
     splits_positives_wo_unseen = {
-        "train": {"file_key": "train_sample", "file_name": "train_sample.del"},
         "valid": {
             "file_key": "valid_without_unseen",
             "file_name": "valid_without_unseen.del",
@@ -73,7 +72,7 @@ if __name__ == "__main__":
         relations,
         entities_in_train,
         relations_in_train,
-    ) = process_raw_split_files(raw_split_files, args.folder)
+    ) = analyze_raw_splits(raw_split_files, args.folder)
 
     split_sizes = {}
 
