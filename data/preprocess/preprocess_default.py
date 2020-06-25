@@ -5,11 +5,16 @@ Call as `preprocess.py --folder <name>`. The original dataset should be stored i
 subfolder `name` and have files "train.txt", "valid.txt", and "test.txt". Each file
 contains one SPO triple per line, separated by tabs.
 
-During preprocessing, each distinct entity name and each distinct distinct relation name
+During preprocessing, each distinct entity name and each distinct relation name
 is assigned an index (dense). The index-to-object mapping is stored in files
 "entity_ids.del" and "relation_ids.del", resp. The triples (as indexes) are stored in
-files "train.del", "valid.del", and "test.del". Metadata information is stored in a file
-"dataset.yaml".
+files "train.del", "valid.del", and "test.del". Additionally, the splits
+"train_sample.del" (a random subset of train) and "valid_without_unseen.del" and
+"test_without_unseen.del" are stored. The "test/valid_without_unseen.del" files are
+subset of "valid.del" and "test.del" resp. where all triples containing entities
+or relations not existing in "train.del" have been filtered out.
+
+Metadata information is stored in a file "dataset.yaml".
 
 """
 
@@ -21,8 +26,10 @@ import numpy as np
 from util import analyze_raw_splits
 from util import process_split
 from util import store_map
-from util import write_obj_meta
+from util import process_obj_meta
 from util import write_split_meta
+from util import RawDataset
+from util import write_dataset_config
 
 
 if __name__ == "__main__":
@@ -62,79 +69,54 @@ if __name__ == "__main__":
         "entity_strings": "entity_strings.del",
         "relation_strings": "relation_strings.del",
     }
-    split_sizes = {}
 
     # read data and collect entities and relations
-    (
-        raw_split_sizes,
-        raw,
-        entities,
-        relations,
-        entities_in_train,
-        relations_in_train,
-    ) = analyze_raw_splits(raw_split_files, args.folder, args.order_sop)
+    dataset: RawDataset = analyze_raw_splits(
+        raw_split_files=raw_split_files,
+        folder=args.folder,
+        collect_objects_in=["train"],
+        order_sop=args.order_sop
+    )
 
-    print(f"{len(relations)} distinct relations")
-    print(f"{len(entities)} distinct entities")
-    print("Writing relation and entity map...")
-    store_map(relations, os.path.join(args.folder, "relation_ids.del"))
-    store_map(entities, os.path.join(args.folder, "entity_ids.del"))
-    print("Done.")
+    # update dataset config with derived splits
+    write_split_meta(
+        [splits, splits_wo_unseen, splits_samples], dataset.dataset_config,
+    )
 
     # write out triples using indexes
-    print("Writing triples...")
-
-    # process train split
+    # process and write splits derived from train
     process_split(
-        entities,
-        relations,
-        file=os.path.join(args.folder, splits["train"]["file_name"]),
-        raw_split=raw["train"],
+        "train",
+        dataset,
+        file_name=splits["train"]["file_name"],
+        file_key=splits["train"]["file_key"],
         order_sop=args.order_sop,
         create_sample=True,
-        sample_file=os.path.join(args.folder, splits_samples["train"]["file_name"]),
-        sample_size=raw_split_sizes["valid"],
+        sample_size=dataset.raw_split_sizes["valid"],
+        sample_file=splits_samples["train"]["file_name"],
+        sample_key=splits_samples["train"]["file_key"],
     )
-    split_sizes["train"] = raw_split_sizes["train"]
-    split_sizes[splits_samples["train"]["file_key"]] = raw_split_sizes["valid"]
 
-    # process valid and test splits
+    # process and write splits derived from valid/test
     for split in ["valid", "test"]:
         size_wo_unseen = process_split(
-            entities,
-            relations,
-            file=os.path.join(args.folder, splits[split]["file_name"]),
-            raw_split=raw[split],
+            split,
+            dataset,
+            file_name=splits[split]["file_name"],
+            file_key=splits[split]["file_key"],
             order_sop=args.order_sop,
             create_filtered=True,
-            filtered_file=os.path.join(
-                args.folder, splits_wo_unseen[split]["file_name"]
-            ),
-            filter_entities=entities_in_train,
-            filter_relations=relations_in_train,
+            filtered_file=splits_wo_unseen[split]["file_name"],
+            filtered_key=splits_wo_unseen[split]["file_key"],
+            filter_entities=dataset.entities_in_split["train"],
+            filter_relations=dataset.relations_in_split["train"],
         )
-        split_sizes[splits_wo_unseen[split]["file_key"]] = size_wo_unseen
-        split_sizes[splits[split]["file_key"]] = raw_split_sizes[split]
 
-    # write config
-    print("Writing dataset.yaml...")
-    dataset_config = dict(
-        name=args.folder, num_entities=len(entities), num_relations=len(relations),
-    )
-
-    # update dataset config with relation/entity maps
-    write_obj_meta(dataset_config)
-
-    # update dataset config with the meta data of the derived splits
-    write_split_meta(
-        [splits, splits_wo_unseen, splits_samples], dataset_config, split_sizes,
-    )
-    # write entity mention files
+    # update config with entity string files
     for string in string_files.keys():
         if os.path.exists(os.path.join(args.folder, string_files[string])):
-            dataset_config[f"files.{string}.filename"] = string_files.get(string)
-            dataset_config[f"files.{string}.type"] = "idmap"
+            dataset.dataset_config[f"files.{string}.filename"] = string_files.get(string)
+            dataset.dataset_config[f"files.{string}.type"] = "idmap"
 
-    print(yaml.dump(dict(dataset=dataset_config)))
-    with open(os.path.join(args.folder, "dataset.yaml"), "w+") as filename:
-        filename.write(yaml.dump(dict(dataset=dataset_config)))
+    # finally, write the dataset.yaml file
+    write_dataset_config(dataset.dataset_config, args.folder)
