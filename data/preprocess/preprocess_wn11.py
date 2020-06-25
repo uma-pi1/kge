@@ -7,13 +7,12 @@ import os.path
 import numpy as np
 from collections import OrderedDict
 
-from util import store_map
 from util import analyze_raw_splits
-from util import write_triple
 from util import process_split
 from util import process_pos_neg_split
-from util import write_obj_meta
 from util import write_split_meta
+from util import RawDataset
+from util import write_dataset_config
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -64,83 +63,15 @@ if __name__ == "__main__":
         "train": {"file_key": "train_sample", "file_name": "train_sample.del"}
     }
 
-    # read data and collect entities and relations
-    (
-        raw_split_sizes,
-        raw,
-        entities,
-        relations,
-        entities_in_train,
-        relations_in_train,
-    ) = analyze_raw_splits(raw_split_files, args.folder)
-
-    split_sizes = {}
-
-    print(f"{len(relations)} distinct relations")
-    print(f"{len(entities)} distinct entities")
-    print("Writing relation and entity map...")
-    store_map(relations, os.path.join(args.folder, "relation_ids.del"))
-    store_map(entities, os.path.join(args.folder, "entity_ids.del"))
-    print("Done.")
-
-    # write out triples using indexes
-    print("Writing triples...")
-
-    # process the training split
-    train_file = os.path.join(args.folder, splits_positives["train"]["file_name"])
-
-    process_split(
-        entities,
-        relations,
-        file=train_file,
-        raw_split=raw["train"],
-        create_sample=True,
-        sample_file=splits_samples["train"]["file_name"],
-        sample_size=raw_split_sizes["valid"],
+    # read data and collect entities and relations; additionally processes metadata
+    dataset: RawDataset = analyze_raw_splits(
+        raw_split_files=raw_split_files,
+        folder=args.folder,
+        collect_objects_in=["train"],
+        order_sop=False
     )
 
-    split_sizes["train"] = raw_split_sizes["train"]
-    split_sizes[splits_samples["train"]["file_key"]] = raw_split_sizes["valid"]
-    # process the valid and test splits
-    for split in ["valid", "test"]:
-
-        (
-            pos_size,
-            filtered_pos_size,
-            neg_size,
-            filtered_neg_size,
-        ) = process_pos_neg_split(
-            entities,
-            relations,
-            pos_file=os.path.join(args.folder, splits_positives[split]["file_name"]),
-            neg_file=os.path.join(args.folder, splits_negatives[split]["file_name"]),
-            raw_split=raw[split],
-            create_filtered=True,
-            filtered_pos_file=os.path.join(
-                args.folder, splits_positives_wo_unseen[split]["file_name"]
-            ),
-            filtered_neg_file=os.path.join(
-                args.folder, splits_negatives_wo_unseen[split]["file_name"]
-            ),
-            filter_entities=entities_in_train,
-            filter_relations=relations_in_train,
-        )
-
-        split_sizes[splits_positives[split]["file_key"]] = pos_size
-        split_sizes[splits_negatives[split]["file_key"]] = neg_size
-        split_sizes[splits_positives_wo_unseen[split]["file_key"]] = filtered_pos_size
-        split_sizes[splits_negatives_wo_unseen[split]["file_key"]] = filtered_neg_size
-
-    # write config
-    print("Writing dataset.yaml...")
-    dataset_config = dict(
-        name=args.folder, num_entities=len(entities), num_relations=len(relations),
-    )
-
-    # update dataset config with relation/entity maps
-    write_obj_meta(dataset_config)
-
-    # update dataset config with the meta data of the splits
+    # update dataset config with derived splits
     write_split_meta(
         [
             splits_positives,
@@ -149,10 +80,40 @@ if __name__ == "__main__":
             splits_negatives_wo_unseen,
             splits_samples,
         ],
-        dataset_config,
-        split_sizes,
+        dataset.dataset_config,
     )
 
-    print(yaml.dump(dict(dataset=dataset_config)))
-    with open(os.path.join(args.folder, "dataset.yaml"), "w+") as filename:
-        filename.write(yaml.dump(dict(dataset=dataset_config)))
+    # process the training splits and write triples
+    process_split(
+        "train",
+        dataset,
+        file_name=splits_positives["train"]["file_name"],
+        file_key=splits_positives["train"]["file_key"],
+        create_sample=True,
+        sample_size=dataset.raw_split_sizes["valid"],
+        sample_file=splits_samples["train"]["file_name"],
+        sample_key=splits_samples["train"]["file_key"],
+    )
+
+    # process the valid/test splits and write triples
+    for split in ["valid", "test"]:
+        process_pos_neg_split(
+            split,
+            dataset,
+            pos_file=splits_positives[split]["file_name"],
+            pos_key=splits_positives[split]["file_key"],
+            neg_file=splits_negatives[split]["file_name"],
+            neg_key=splits_negatives[split]["file_key"],
+            create_filtered=True,
+            filtered_pos_file=splits_positives_wo_unseen[split]["file_name"],
+            filtered_pos_key=splits_positives_wo_unseen[split]["file_key"],
+            filtered_neg_file=splits_negatives_wo_unseen[split]["file_name"],
+            filtered_neg_key=splits_negatives_wo_unseen[split]["file_key"],
+            filter_entities=dataset.entities_in_split["train"],
+            filter_relations=dataset.relations_in_split["train"],
+        )
+
+    # finally, write the dataset.yaml file
+    write_dataset_config(dataset.dataset_config, args.folder)
+
+
