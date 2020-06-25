@@ -417,12 +417,20 @@ class KgeModel(KgeBase):
                         pretrained_relations_filename
                     )
                 if pretrained_entities_model is not None:
+                    if (
+                        pretrained_entities_model.get_s_embedder()
+                        != pretrained_entities_model.get_o_embedder()
+                    ):
+                        raise ValueError(
+                            "Can only initialize with pre-trained models having "
+                            "identical subject and object embeddings."
+                        )
                     self._entity_embedder.init_pretrained(
-                        pretrained_entities_model._entity_embedder
+                        pretrained_entities_model.get_s_embedder()
                     )
                 if pretrained_relations_model is not None:
                     self._relation_embedder.init_pretrained(
-                        pretrained_relations_model._relation_embedder
+                        pretrained_relations_model.get_p_embedder()
                     )
 
         #: Scorer
