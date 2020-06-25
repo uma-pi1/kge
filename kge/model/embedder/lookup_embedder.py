@@ -34,18 +34,7 @@ class LookupEmbedder(KgeEmbedder):
         )
 
         # initialize weights
-        init_ = self.get_option("initialize")
-        try:
-            init_args = self.get_option("initialize_args." + init_)
-        except KeyError:
-            init_args = self.get_option("initialize_args")
-
-        # Automatically set arg a (lower bound) for uniform_ if not given
-        if init_ == "uniform_" and "a" not in init_args:
-            init_args["a"] = init_args["b"] * -1
-            self.set_option("initialize_args.a", init_args["a"], log=True)
-
-        self.initialize(self._embeddings.weight.data, init_, init_args)
+        self._init_embeddings(self._embeddings.weight.data)
 
         # TODO handling negative dropout because using it with ax searches for now
         dropout = self.get_option("dropout")

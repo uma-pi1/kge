@@ -84,7 +84,7 @@ class EvaluationJob(Job):
         else:
             raise ValueError("eval.type")
 
-    def run(self) -> dict:
+    def _run(self) -> dict:
         """ Compute evaluation metrics, output results to trace file """
         raise NotImplementedError
 
