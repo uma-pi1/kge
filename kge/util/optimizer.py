@@ -13,11 +13,14 @@ class KgeOptimizer:
             optimizer = getattr(torch.optim, config.get("train.optimizer"))
             return optimizer(
                 [p for p in model.parameters() if p.requires_grad],
-                **config.get("train.optimizer_args")
+                **config.get("train.optimizer_args"),
             )
-        except:
+        except AttributeError:
             # perhaps TODO: try class with specified name -> extensibility
-            raise ValueError("train.optimizer")
+            raise ValueError(
+                f"Could not create optimizer {config.get('train.optimizer')}. "
+                f"Please specify an optimizer provided in torch.optim"
+            )
 
 
 class KgeLRScheduler(Configurable):
