@@ -18,7 +18,7 @@ import yaml
 import os.path
 import numpy as np
 
-from util import process_raw_split_files
+from util import analyze_raw_splits
 from util import process_split
 from util import store_map
 from util import write_obj_meta
@@ -72,7 +72,7 @@ if __name__ == "__main__":
         relations,
         entities_in_train,
         relations_in_train,
-    ) = process_raw_split_files(raw_split_files, args.folder, args.order_sop)
+    ) = analyze_raw_splits(raw_split_files, args.folder, args.order_sop)
 
     print(f"{len(relations)} distinct relations")
     print(f"{len(entities)} distinct entities")
