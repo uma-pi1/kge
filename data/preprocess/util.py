@@ -21,7 +21,7 @@ class RawDataset:
          all_relations (dict): See all entities.
          entities_in_split (dict[dict]): A key refers to a raw split and values are
             dicts containing a mapping similar to all_entities for the respective split.
-         relations_in_split (dict): See relations_in_split.
+         relations_in_split (dict): See entities_in_split.
          config (dict): Raw dictionary holding the dataset config options.
          folder (str): Path to the dataset folder.
 
