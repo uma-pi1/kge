@@ -388,12 +388,16 @@ class KgeModel(KgeBase):
 
             if not init_for_load_only:
                 # load pretrained embeddings
-                pretrained_entities_filename = self.get_option(
-                    "entity_embedder.pretrain.model_filename"
-                )
-                pretrained_relations_filename = self.get_option(
-                    "relation_embedder.pretrain.model_filename"
-                )
+                pretrained_entities_filename = ""
+                pretrained_relations_filename = ""
+                if self.has_option("entity_embedder.pretrain.model_filename"):
+                    pretrained_entities_filename = self.get_option(
+                        "entity_embedder.pretrain.model_filename"
+                    )
+                if self.has_option("relation_embedder.pretrain.model_filename"):
+                    pretrained_relations_filename = self.get_option(
+                        "relation_embedder.pretrain.model_filename"
+                    )
 
                 def load_pretrained_model(
                     pretrained_filename: str,
