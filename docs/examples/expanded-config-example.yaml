@@ -1,11 +1,15 @@
 KvsAll:
   label_smoothing: 0.0
+  query_types:
+    _po: true
+    s_o: false
+    sp_: true
 ax_search:
-  fixed_parameters: []
   num_sobol_trials: -1
   num_trials: 10
   parameter_constraints: []
   parameters: []
+  sobol_seed: 0
 complex:
   class_name: ComplEx
   entity_embedder:
@@ -39,13 +43,16 @@ dataset:
     valid:
       filename: valid.del
       type: triples
-  name: fb15k-237
+  name: toy
   num_entities: -1
   num_relations: -1
-eval:
-  batch_size: 100
+  pickle: true
+entity_ranking:
   chunk_size: -1
-  data: valid
+  filter_splits:
+  - train
+  - valid
+  filter_with_test: true
   hits_at_k_s:
   - 1
   - 3
@@ -61,9 +68,13 @@ eval:
     argument_frequency: false
     head_and_tail: false
     relation_type: false
+  tie_handling: rounded_mean_rank
+eval:
+  batch_size: 100
   num_workers: 0
   pin_memory: false
-  trace_level: example
+  split: valid
+  trace_level: epoch
   type: entity_ranking
 grid_search:
   parameters:
@@ -80,12 +91,16 @@ lookup_embedder:
   initialize: normal_
   initialize_args:
     +++: +++
+    normal_:
+      mean: 0.0
+      std: 0.1
   normalize:
     p: -1.0
     with_grad: false
   regularize: lp
   regularize_args:
     +++: +++
+    p: 2
     weighted: false
   regularize_weight: 8.0e-08
   round_dim_to: []
@@ -95,16 +110,23 @@ manual_search:
   run: true
 model: complex
 negative_sampling:
+  chunk_size: -1
   filtering:
+    implementation: fast_if_available
     o: false
     p: false
     s: false
-  implementation: spo
+    split: ''
+  frequency:
+    smoothing: 1
+  implementation: triple
   num_samples:
     o: -1
     p: 0
     s: 3
   sampling_type: uniform
+  shared: false
+  with_replacement: true
 random_seed:
   numpy: -1
   python: -1
@@ -115,16 +137,19 @@ search:
   on_error: abort
   type: ax
 train:
+  abort_on_nan: true
   auto_correct: false
   batch_size: 100
   checkpoint:
     every: 5
     keep: 3
-  loss: bce
-  loss_arg: 1.0
-  lr_scheduler: ConstantLRScheduler
+  loss: kl
+  loss_arg: .nan
+  lr_scheduler: ReduceLROnPlateau
   lr_scheduler_args:
     +++: +++
+    mode: max
+    patience: 4
   max_epochs: 20
   num_workers: 0
   optimizer: Adagrad
@@ -132,6 +157,7 @@ train:
     +++: +++
     lr: 0.2
   pin_memory: false
+  split: train
   trace_level: epoch
   type: KvsAll
   visualize_graph: false
@@ -144,7 +170,8 @@ valid:
       metric_value: 0.0
     patience: 5
   every: 5
-  filter_with_test: false
-  metric: mean_reciprocal_rank_filtered
+  metric: mean_reciprocal_rank_filtered_with_test
   metric_expr: float("nan")
+  split: valid
   trace_level: epoch
+verbose: true

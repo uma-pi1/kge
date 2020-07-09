@@ -11,7 +11,7 @@ fi
 if [ ! -d "$BASEDIR/toy" ]; then
     echo Downloading toy
     cd $BASEDIR
-    curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/toy.tar.gz
+    curl -O http://web.informatik.uni-mannheim.de/pi1/kge-datasets/toy.tar.gz
     tar xvf toy.tar.gz
 else
     echo toy already present
@@ -27,7 +27,7 @@ fi
 if [ ! -d "$BASEDIR/fb15k" ]; then
   echo Downloading fb15k
   cd $BASEDIR
-  curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/fb15k.tar.gz
+  curl -O http://web.informatik.uni-mannheim.de/pi1/kge-datasets/fb15k.tar.gz
   tar xvf fb15k.tar.gz
   cd fb15k
   case "$(uname -s)" in
@@ -56,7 +56,7 @@ fi
 if [ ! -d "$BASEDIR/fb15k-237" ]; then
   echo Downloading fb15k-237
   cd $BASEDIR
-  curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/fb15k-237.tar.gz
+  curl -O http://web.informatik.uni-mannheim.de/pi1/kge-datasets/fb15k-237.tar.gz
   tar xvf fb15k-237.tar.gz
 else
     echo fb15k-237 already present
@@ -71,7 +71,7 @@ fi
 if [ ! -d "$BASEDIR/wn18" ]; then
   echo Downloading wn18
   cd $BASEDIR
-  curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/wn18.tar.gz
+  curl -O http://web.informatik.uni-mannheim.de/pi1/kge-datasets/wn18.tar.gz
   tar xvf wn18.tar.gz
   cd wn18
   case "$(uname -s)" in
@@ -100,7 +100,7 @@ fi
 if [ ! -d "$BASEDIR/wnrr" ]; then
   echo Downloading wnrr
   cd $BASEDIR
-  curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/wnrr.tar.gz
+  curl -O http://web.informatik.uni-mannheim.de/pi1/kge-datasets/wnrr.tar.gz
   tar xvf wnrr.tar.gz
 else
     echo wnrr already present
@@ -116,7 +116,7 @@ fi
 if [ ! -d "$BASEDIR/dbpedia50" ]; then
   echo Downloading dbpedia50
   cd $BASEDIR
-  curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/dbpedia50.tar.gz
+  curl -O http://web.informatik.uni-mannheim.de/pi1/kge-datasets/dbpedia50.tar.gz
   tar xvf dbpedia50.tar.gz
 else
     echo dbpedia50 already present
@@ -131,7 +131,7 @@ fi
 if [ ! -d "$BASEDIR/dbpedia500" ]; then
   echo Downloading dbpedia500
   cd $BASEDIR
-  curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/dbpedia500.tar.gz
+  curl -O http://web.informatik.uni-mannheim.de/pi1/kge-datasets/dbpedia500.tar.gz
   tar xvf dbpedia500.tar.gz
 else
     echo dbpedia500 already present
@@ -146,7 +146,7 @@ fi
 if [ ! -d "$BASEDIR/db100k" ]; then
   echo Downloading db100k
   cd $BASEDIR
-  curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/db100k.tar.gz
+  curl -O http://web.informatik.uni-mannheim.de/pi1/kge-datasets/db100k.tar.gz
   tar xvf db100k.tar.gz
   cd db100k
   case "$(uname -s)" in
@@ -175,7 +175,7 @@ fi
 if [ ! -d "$BASEDIR/yago3-10" ]; then
   echo Downloading yago3-10
   cd $BASEDIR
-  curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/yago3-10.tar.gz
+  curl -O http://web.informatik.uni-mannheim.de/pi1/kge-datasets/yago3-10.tar.gz
   tar xvf yago3-10.tar.gz
 else
     echo yago3-10 already present
@@ -190,7 +190,7 @@ fi
 if [ ! -d "$BASEDIR/wikidata5m" ]; then
   echo Downloading wikidata5m
   cd $BASEDIR
-  curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/wikidata5m.tar.gz
+  curl -O http://web.informatik.uni-mannheim.de/pi1/kge-datasets/wikidata5m.tar.gz
   tar xvf wikidata5m.tar.gz
 else
     echo wikidata5m already present
@@ -201,3 +201,47 @@ else
     echo wikidata5m already prepared
 fi
 
+# kinship
+if [ ! -d "$BASEDIR/kinship" ]; then
+  echo Downloading kinship
+  cd $BASEDIR
+  curl -O http://web.informatik.uni-mannheim.de/pi1/kge-datasets/kinship.tar.gz
+  tar xvf kinship.tar.gz
+else
+    echo kinship already present
+fi
+if [ ! -f "$BASEDIR/kinship/dataset.yaml" ]; then
+  python preprocess.py kinship
+else
+    echo kinship already prepared
+fi
+
+# nations
+if [ ! -d "$BASEDIR/nations" ]; then
+  echo Downloading nations
+  cd $BASEDIR
+  curl -O http://web.informatik.uni-mannheim.de/pi1/kge-datasets/nations.tar.gz
+  tar xvf nations.tar.gz
+else
+    echo nations already present
+fi
+if [ ! -f "$BASEDIR/nations/dataset.yaml" ]; then
+  python preprocess.py nations
+else
+    echo nations already prepared
+fi
+
+# umls
+if [ ! -d "$BASEDIR/umls" ]; then
+  echo Downloading umls
+  cd $BASEDIR
+  curl -O http://web.informatik.uni-mannheim.de/pi1/kge-datasets/umls.tar.gz
+  tar xvf umls.tar.gz
+else
+    echo umls already present
+fi
+if [ ! -f "$BASEDIR/umls/dataset.yaml" ]; then
+  python preprocess.py umls
+else
+    echo umls already prepared
+fi
