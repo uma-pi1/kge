@@ -24,6 +24,7 @@ setup(
         # see http://numba.pydata.org/numba-doc/0.48.0/reference/pysupported.html
         "numba==0.48.0",
     ],
+    python_requires='>=3.7',  # ax 0.1.10 requires python 3.7
     zip_safe=False,
     entry_points={"console_scripts": ["kge = kge.cli:main",],},
 )
