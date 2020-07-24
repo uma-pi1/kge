@@ -29,6 +29,7 @@ from util import store_map
 from util import process_obj_meta
 from util import write_split_meta
 from util import RawDataset
+from util import RawSplit
 from util import write_dataset_config
 
 
@@ -39,48 +40,40 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print(f"Preprocessing {args.folder}...")
-    raw_split_files = {"train": "train.txt", "valid": "valid.txt", "test": "test.txt"}
 
-    # define all split types that are derived from the raw split files
-    # the key of the dicts refers to the raw split
+    raw_train = RawSplit(
+        key="train",
+        file="train.txt",
+        create_sample=True,
+        meta={"split_type": "train"}
+    )
 
-    splits = {
-        "train": {"file_key": "train", "file_name": "train.del"},
-        "valid": {"file_key": "valid", "file_name": "valid.del"},
-        "test": {"file_key": "test", "file_name": "test.del"},
-    }
-
-    splits_wo_unseen = {
-        "valid": {
-            "file_key": "valid_without_unseen",
-            "file_name": "valid_without_unseen.del",
-        },
-        "test": {
-            "file_key": "test_without_unseen",
-            "file_name": "test_without_unseen.del",
-        },
-    }
-
-    splits_samples = {
-        "train": {"file_key": "train_sample", "file_name": "train_sample.del"}
-    }
-
-    string_files = {
-        "entity_strings": "entity_strings.del",
-        "relation_strings": "relation_strings.del",
-    }
+    raw_valid = RawSplit(
+        key="valid",
+        file="valid.txt",
+        create_filtered=True,
+        filter_with=raw_train,
+        meta={"split_type": "valid"}
+    )
+    raw_test = RawSplit(
+        key="test",
+        file="test.txt",
+        create_filtered=True,
+        filter_with=raw_train,
+        meta={"split_type: test"}
+    )
 
     # read data and collect entities and relations; additionally processes metadata
     dataset: RawDataset = analyze_raw_splits(
-        raw_split_files=raw_split_files,
+        raw_splits=[raw_train, raw_valid, raw_test],
         folder=args.folder,
-        collect_objects_in=["train"],
         order_sop=args.order_sop
     )
 
+
     # update dataset config with derived splits
     write_split_meta(
-        [splits, splits_wo_unseen, splits_samples], dataset.config,
+        [raw_train, raw_valid, raw_test], dataset.config,
     )
 
     # write out triples using indexes
@@ -99,7 +92,7 @@ if __name__ == "__main__":
 
     # process and write splits derived from valid/test
     for split in ["valid", "test"]:
-        size_wo_unseen = process_split(
+        process_split(
             split,
             dataset,
             file_name=splits[split]["file_name"],
