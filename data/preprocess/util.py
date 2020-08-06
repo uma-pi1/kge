@@ -120,8 +120,10 @@ class RawSplit(RawSplitBase):
         self.derived_split_options["size"] = self.size
         if self.derived_filtered_split_key:
             self.filtered_split_options["size"] = filtered_size
+            filter_f.close()
         if self.derived_sample_split_key:
             self.sample_split_options["size"] = self.sample_size
+            sample_f.close()
 
     def update_config(self, config: Dict) -> Dict:
         """Update a dataset config with meta data of the derived splits."""
@@ -335,6 +337,8 @@ class PosNegRawSplit(RawSplitBase):
             if create_filtered:
                 self.filtered_split_pos_options["size"] = filtered_pos_size
                 self.filtered_split_neg_options["size"] = filtered_neg_size
+                filter_neg_f.close()
+                filter_pos_f.close()
 
     def update_config(self, config: Dict) -> Dict:
         """Update a dataset config with meta data of the derived splits."""
