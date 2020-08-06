@@ -1,0 +1,5 @@
+b	r1	a
+b	r1	c
+b	r1	d
+c	r1	d
+b	r2	d
