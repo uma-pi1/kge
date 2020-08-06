@@ -8,11 +8,11 @@ import numpy as np
 from collections import OrderedDict
 
 from util import analyze_raw_splits
-from util import process_split
-from util import process_pos_neg_split
-from util import write_split_meta
 from util import RawDataset
 from util import write_dataset_config
+from util import RawSplit
+from util import PosNegRawSplit
+from util import process_splits
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -20,97 +20,92 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print(f"Preprocessing {args.folder}...")
-    raw_split_files = {"train": "train.txt", "valid": "valid.txt", "test": "test.txt"}
-    raw_split_sizes = {}
 
-    # define all split types that are derived from the raw split files
-    # the key of the dicts refers to the raw split
-
-    splits_positives = {
-        "train": {"file_key": "train", "file_name": "train.del"},
-        "valid": {"file_key": "valid", "file_name": "valid.del"},
-        "test": {"file_key": "test", "file_name": "test.del"},
-    }
-
-    splits_positives_wo_unseen = {
-        "valid": {
-            "file_key": "valid_without_unseen",
-            "file_name": "valid_without_unseen.del",
+    raw_train = RawSplit(
+        file="train.txt",
+        collect_entities=True,
+        collect_relations=True,
+        derived_split_key="train",
+        derived_split_options={
+            "type": "triples",
+            "filename": "train.del",
+            "split_type": "train",
         },
-        "test": {
-            "file_key": "test_without_unseen",
-            "file_name": "test_without_unseen.del",
+        derived_sample_split_key="train_sample",
+        sample_split_options={
+            "type": "triples",
+            "filename": "train_sample.del",
+            "split_type": "train",
         },
-    }
+    )
 
-    splits_negatives = {
-        "valid": {"file_key": "valid_negatives", "file_name": "valid_negatives.del"},
-        "test": {"file_key": "test_negatives", "file_name": "test_negatives.del"},
-    }
-
-    splits_negatives_wo_unseen = {
-        "valid": {
-            "file_key": "valid_negatives_without_unseen",
-            "file_name": "valid_negatives_without_unseen.del",
+    raw_valid = PosNegRawSplit(
+        file="valid.txt",
+        derived_split_pos_key="valid",
+        derived_split_pos_options={
+            "type": "triples",
+            "filename": "valid.del",
+            "split_type": "valid",
         },
-        "test": {
-            "file_key": "test_negatives_without_unseen",
-            "file_name": "test_negatives_without_unseen.del",
+        derived_split_neg_key="valid_negative",
+        derived_split_neg_options={
+            "type": "triples",
+            "filename": "valid_negative.del",
+            "split_type": "valid",
         },
-    }
+        derived_split_filtered_pos_key="valid_without_unseen",
+        filtered_split_pos_options={
+            "type": "triples",
+            "filename": "valid_without_unseen.del",
+            "split_type": "valid",
+        },
+        derived_split_filtered_neg_key="valid_without_unseen_negative",
+        filtered_split_neg_options={
+            "type": "triples",
+            "filename": "valid_without_unseen_negative.del",
+            "split_type": "valid",
+        },
+        filter_with=raw_train,
+    )
 
-    splits_samples = {
-        "train": {"file_key": "train_sample", "file_name": "train_sample.del"}
-    }
+    raw_test = PosNegRawSplit(
+        file="test.txt",
+        derived_split_pos_key="test",
+        derived_split_pos_options={
+            "type": "triples",
+            "filename": "test.del",
+            "split_type": "test",
+        },
+        derived_split_neg_key="test_negative",
+        derived_split_neg_options={
+            "type": "triples",
+            "filename": "test_negative.del",
+            "split_type": "test",
+        },
+        derived_split_filtered_pos_key="test_without_unseen",
+        filtered_split_pos_options={
+            "type": "triples",
+            "filename": "test_without_unseen.del",
+            "split_type": "test",
+        },
+        derived_split_filtered_neg_key="test_without_unseen_negative",
+        filtered_split_neg_options={
+            "type": "triples",
+            "filename": "test_without_unseen_negative.del",
+            "split_type": "test",
+        },
+        filter_with=raw_train,
+    )
 
-    # read data and collect entities and relations; additionally processes metadata
+    # read data and collect entities and relations
     dataset: RawDataset = analyze_raw_splits(
-        raw_split_files=raw_split_files,
+        raw_splits=[raw_train, raw_valid, raw_test],
         folder=args.folder,
-        collect_objects_in=["train"],
     )
+    raw_train.sample_size = raw_valid.size
 
-    # update dataset config with derived splits
-    write_split_meta(
-        [
-            splits_positives,
-            splits_positives_wo_unseen,
-            splits_negatives,
-            splits_negatives_wo_unseen,
-            splits_samples,
-        ],
-        dataset.config,
-    )
-
-    # process the training splits and write triples
-    process_split(
-        "train",
-        dataset,
-        file_name=splits_positives["train"]["file_name"],
-        file_key=splits_positives["train"]["file_key"],
-        create_sample=True,
-        sample_size=dataset.raw_split_sizes["valid"],
-        sample_file=splits_samples["train"]["file_name"],
-        sample_key=splits_samples["train"]["file_key"],
-    )
-
-    # process the valid/test splits and write triples
-    for split in ["valid", "test"]:
-        process_pos_neg_split(
-            split,
-            dataset,
-            pos_file=splits_positives[split]["file_name"],
-            pos_key=splits_positives[split]["file_key"],
-            neg_file=splits_negatives[split]["file_name"],
-            neg_key=splits_negatives[split]["file_key"],
-            create_filtered=True,
-            filtered_pos_file=splits_positives_wo_unseen[split]["file_name"],
-            filtered_pos_key=splits_positives_wo_unseen[split]["file_key"],
-            filtered_neg_file=splits_negatives_wo_unseen[split]["file_name"],
-            filtered_neg_key=splits_negatives_wo_unseen[split]["file_key"],
-            filtered_include_ent=dataset.entities_in_split["train"],
-            filtered_include_rel=dataset.relations_in_split["train"],
-        )
+    # write all splits and collect meta data
+    process_splits(dataset)
 
     # finally, write the dataset.yaml file
     write_dataset_config(dataset.config, args.folder)

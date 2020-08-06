@@ -24,13 +24,11 @@ import os.path
 import numpy as np
 
 from util import analyze_raw_splits
-from util import process_split
 from util import store_map
-from util import process_obj_meta
-from util import write_split_meta
 from util import RawDataset
 from util import RawSplit
 from util import write_dataset_config
+from util import process_splits
 
 
 if __name__ == "__main__":
@@ -42,68 +40,73 @@ if __name__ == "__main__":
     print(f"Preprocessing {args.folder}...")
 
     raw_train = RawSplit(
-        key="train",
         file="train.txt",
-        create_sample=True,
-        meta={"split_type": "train"}
+        order_sop=args.order_sop,
+        collect_entities=True,
+        collect_relations=True,
+        derived_split_key="train",
+        derived_split_options={
+            "type": "triples",
+            "filename": "train.del",
+            "split_type": "train",
+        },
+        derived_sample_split_key="train_sample",
+        sample_split_options={
+            "type": "triples",
+            "filename": "train_sample.del",
+            "split_type": "train",
+        },
     )
-
     raw_valid = RawSplit(
-        key="valid",
         file="valid.txt",
-        create_filtered=True,
+        order_sop=args.order_sop,
+        derived_split_key="valid",
+        derived_split_options={
+            "type": "triples",
+            "filename": "valid.del",
+            "split_type": "valid",
+        },
+        derived_filtered_split_key="valid_without_unseen",
         filter_with=raw_train,
-        meta={"split_type": "valid"}
+        filtered_split_options={
+            "type": "triples",
+            "filename": "valid_without_unseen.del",
+            "split_type": "valid",
+        },
     )
     raw_test = RawSplit(
-        key="test",
         file="test.txt",
-        create_filtered=True,
+        order_sop=args.order_sop,
+        derived_split_key="test",
+        derived_split_options={
+            "type": "triples",
+            "filename": "test.del",
+            "split_type": "test",
+        },
+        derived_filtered_split_key="test_without_unseen",
         filter_with=raw_train,
-        meta={"split_type: test"}
+        filtered_split_options={
+            "type": "triples",
+            "filename": "test_without_unseen.del",
+            "split_type": "test",
+        },
     )
 
-    # read data and collect entities and relations; additionally processes metadata
+    string_files = {
+        "entity_strings": "entity_strings.del",
+        "relation_strings": "relation_strings.del",
+    }
+
+    # read data and collect entity and relation maps
     dataset: RawDataset = analyze_raw_splits(
         raw_splits=[raw_train, raw_valid, raw_test],
-        folder=args.folder,
-        order_sop=args.order_sop
-    )
-
-
-    # update dataset config with derived splits
-    write_split_meta(
-        [raw_train, raw_valid, raw_test], dataset.config,
-    )
-
-    # write out triples using indexes
-    # process and write splits derived from train
-    process_split(
-        "train",
-        dataset,
-        file_name=splits["train"]["file_name"],
-        file_key=splits["train"]["file_key"],
         order_sop=args.order_sop,
-        create_sample=True,
-        sample_size=dataset.raw_split_sizes["valid"],
-        sample_file=splits_samples["train"]["file_name"],
-        sample_key=splits_samples["train"]["file_key"],
+        folder=args.folder,
     )
+    raw_train.sample_size = raw_valid.size
 
-    # process and write splits derived from valid/test
-    for split in ["valid", "test"]:
-        process_split(
-            split,
-            dataset,
-            file_name=splits[split]["file_name"],
-            file_key=splits[split]["file_key"],
-            order_sop=args.order_sop,
-            create_filtered=True,
-            filtered_file=splits_wo_unseen[split]["file_name"],
-            filtered_key=splits_wo_unseen[split]["file_key"],
-            filtered_include_ent=dataset.entities_in_split["train"],
-            filtered_include_rel=dataset.relations_in_split["train"],
-        )
+    # write all splits and collect meta data
+    process_splits(dataset)
 
     # update config with entity string files
     for string in string_files.keys():
