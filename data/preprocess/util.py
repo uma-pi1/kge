@@ -13,13 +13,14 @@ class RawSplitBase:
 
     Attributes:
         file (str): File with tab-separated raw triples (can be labeled)
-        raw_data (list): List of triples encoded with raw ids.
-        size (str): Number of triples; determined during preprocessing.
         collect_entities (bool): If true, entities contained in this split will be
             collected during preprocessing.
-        collect_relations (bool): When true, relations contained in this split will be
+        collect_relations (bool): If true, relations contained in this split will be
             collected during preprocessing.
-        entities (dict): Entities contained in this split when collected. Keys refer to
+        raw_data (list): List of triples represented with raw ids; determined during
+            preprocessing
+        size (str): Number of triples; determined during preprocessing.
+        entities (dict): Entities contained in this split if collected. Keys refer to
             raw id's and values to a dense index assigned during pre-processing.
         relations (dict): See entities.
 
@@ -27,12 +28,14 @@ class RawSplitBase:
 
     # fields defined by user
     file: str
+    collect_entities: bool = False
+    collect_relations: bool = False
+
     # fields defined during pre-processing
     raw_data: List[str] = None
     order_sop: bool = False
     size: int = None
-    collect_entities: bool = False
-    collect_relations: bool = False
+
     entities: Dict = field(default_factory=dict)
     relations: Dict = field(default_factory=dict)
 
@@ -51,31 +54,28 @@ class RawSplit(RawSplitBase):
 
     Attributes:
         derived_split_key (str): The config key of the default split derived from
-            the raw split.
-        derived_split_options (dict): A dictionary with config options that will
+            this raw split.
+        derived_split_options (dict): A dictionary with config options to
             be added to the config entry of the derived default split.
-        derived_sample_split_key (str): When a key is given, an additional subsample
+        derived_sample_split_key (str): If a key is set, an additional subsample
             with config entry of this key will be derived from the raw split.
         sample_split_options (dict): Dict with options to be added to the config
             entry of the subsample split.
         sample_size (int): Size of the subsample split.
-        derived_filtered_split_key (str): When a key is given, an additional filtered
+        derived_filtered_split_key (str): If a key is set, an additional filtered
             split will be derived from the raw split.
         filter_with (RawSplit): A RawSplit, entities and relations from this split
             are used as filter for the filtered split.
-        filtered_split_options (str): See sample split options.
-
+        filtered_split_options (str): Dict with options to be added to the config
+            entry of the filtered split.
 
     """
-
     # fields defined by user
     derived_split_key: str = None
     derived_split_options: Dict = None
-
     derived_sample_split_key: str = None
     sample_size: int = None
     sample_split_options: Dict = None
-
     derived_filtered_split_key: str = None
     filter_with: RawSplitBase = None
     filtered_split_options: Dict = None
@@ -273,16 +273,12 @@ class PosNegRawSplit(RawSplitBase):
     # fields defined by user
     derived_split_pos_key: str = None
     derived_split_pos_options: Dict = None
-
     derived_split_neg_key: str = None
     derived_split_neg_options: Dict = None
-
     derived_split_filtered_pos_key: str = None
     filtered_split_pos_options: Dict = None
-
     derived_split_filtered_neg_key: str = None
     filtered_split_neg_options: Dict = None
-
     filter_with: RawSplitBase = None
 
     def write_splits(self, entities: dict, relations: dict, folder: str):
