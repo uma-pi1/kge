@@ -240,8 +240,9 @@ class KgeUniformSampler(KgeSampler):
 
         # determine number of distinct negative samples for each positive
         if self.with_replacement:
-            # Simple way to get the distribution of number of distinct values in the
-            # negative sample (WR sampling except the positive, hence the -1)
+            # Simple way to get a sample from the distribution of number of distinct
+            # values in the negative sample (WR sampling except the positive, hence the
+            # -1)
             num_unique = len(
                 np.unique(
                     np.random.choice(
@@ -259,21 +260,21 @@ class KgeUniformSampler(KgeSampler):
         # unique_samples = np.random.choice(
         #     self.vocabulary_size[slot], num_unique + 1, replace=False
         # )
-        unique_samples = torch.tensor(
-            random.sample(range(self.vocabulary_size[slot]), num_unique + 1)
-        )
+        unique_samples = random.sample(range(self.vocabulary_size[slot]), num_unique + 1)
 
         # For each row i (positive triple), select a sample to drop. For rows that
         # contain its positive, drop that positive. For all other rows, drop a random
-        # position.
-        unique_samples_index = {s: j for j, s in enumerate(unique_samples.numpy())}
-        random_replacement = np.random.choice(num_unique + 1, batch_size, replace=True)
-        drop_index = torch.tensor(
-            [
-                unique_samples_index.get(s, random_replacement[i])
-                for i, s in enumerate(positive_triples[:, slot].numpy())
-            ]
-        )
+        # position. Here we start with random position for each row:
+        drop_index = np.random.choice(num_unique + 1, batch_size, replace=True)
+        # and then update the ones that contain its positive in the negative samples
+        positives = positive_triples[:, slot].numpy()
+        unique_samples_index = {s: j for j, s in enumerate(unique_samples)}
+        for i, v in [
+            (i, unique_samples_index.get(positives[i]))
+            for i in range(batch_size)
+            if positives[i] in unique_samples_index
+        ]:
+            drop_index[i] = v
 
         # samples now contains num_unique WOR samples per triple and no positive. For
         # WOR, we are done (tensor will be []). For WR, upsample.
@@ -284,7 +285,7 @@ class KgeUniformSampler(KgeSampler):
         else:
             repeat_indexes = torch.empty(0)
 
-        return unique_samples, drop_index, repeat_indexes
+        return torch.tensor(unique_samples), torch.tensor(drop_index), repeat_indexes
 
     def _filter_and_resample_fast(
         self, negative_samples: torch.Tensor, slot: int, positive_triples: torch.Tensor
