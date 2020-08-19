@@ -1,3 +1,6 @@
+#### August 2020
+- PR [#112](https://github.com/uma-pi1/kge/pull/135): Faster negative sampling with shared samples
+
 #### June 2020
 
 - PR [#112](https://github.com/uma-pi1/kge/pull/112): Initialize embeddings from a packaged model
