@@ -773,6 +773,12 @@ class TrainingJobNegativeSampling(TrainingJob):
                 self._implementation = "batch"
         self._max_chunk_size = self.config.get("negative_sampling.chunk_size")
 
+        # For batch sampling, we have a more efficient implementation of shared negative
+        # sampling. This flag turns it on.
+        self._shared_raw_results = (
+            self._sampler.shared and self._implementation == "batch"
+        )
+
         config.log(
             "Initializing negative sampling training job with "
             "'{}' scoring function ...".format(self._implementation)
@@ -815,7 +821,11 @@ class TrainingJobNegativeSampling(TrainingJob):
 
             negative_samples = list()
             for slot in [S, P, O]:
-                negative_samples.append(self._sampler.sample(triples, slot))
+                negative_samples.append(
+                    self._sampler.sample(
+                        triples, slot, shared_raw_results=self._shared_raw_results
+                    )
+                )
             return {"triples": triples, "negative_samples": negative_samples}
 
         return collate
@@ -824,9 +834,20 @@ class TrainingJobNegativeSampling(TrainingJob):
         # prepare
         prepare_time = -time.time()
         batch_triples = batch["triples"].to(self.device)
-        batch_negative_samples = [
-            ns.to(self.device) for ns in batch["negative_samples"]
-        ]
+        if not self._shared_raw_results:
+            # negative samples directly available
+            batch_negative_samples = [
+                ns.to(self.device) for ns in batch["negative_samples"]
+            ]
+        else:
+            # negative samples only indirectly available; see Sampler#_sample_shared
+            unique_negative_samples = [
+                ns[0].to(self.device) for ns in batch["negative_samples"]
+            ]
+            batch_drop_index = [
+                ns[1].to(self.device) for ns in batch["negative_samples"]
+            ]
+            repeat_indexes = [ns[2].to(self.device) for ns in batch["negative_samples"]]
         batch_size = len(batch_triples)
         prepare_time += time.time()
 
@@ -843,9 +864,12 @@ class TrainingJobNegativeSampling(TrainingJob):
             # determine data used for this chunk
             chunk_start = max_chunk_size * chunk_number
             chunk_end = min(max_chunk_size * (chunk_number + 1), batch_size)
-            negative_samples = [
-                ns[chunk_start:chunk_end, :] for ns in batch_negative_samples
-            ]
+            if not self._shared_raw_results:
+                negative_samples = [
+                    ns[chunk_start:chunk_end, :] for ns in batch_negative_samples
+                ]
+            else:
+                drop_index = [ns[chunk_start:chunk_end] for ns in batch_drop_index]
             triples = batch_triples[chunk_start:chunk_end, :]
             chunk_size = chunk_end - chunk_start
 
@@ -933,18 +957,22 @@ class TrainingJobNegativeSampling(TrainingJob):
                     )
                     forward_time += time.time()
                 elif self._implementation == "batch":
-                    # Score against all targets contained in the chunk. Creates a score
-                    # matrix of size [chunk_size, unique_entities_in_slot] or
-                    # [chunk_size, unique_relations_in_slot]. All scores
-                    # relevant for positive and negative triples are contained in this
-                    # score matrix.
+                    # Score against all targets contained in the chunk.
                     forward_time -= time.time()
-                    unique_targets, column_indexes = torch.unique(
-                        torch.cat((triples[:, [slot]], negative_samples[slot]), 1).view(
-                            -1
-                        ),
-                        return_inverse=True,
-                    )
+                    if not self._shared_raw_results:
+                        # Creates a score matrix of size [chunk_size,
+                        # unique_entities_in_slot] or [chunk_size,
+                        # unique_relations_in_slot]. All scores relevant for positive
+                        # and negative triples are contained in this score matrix.
+                        unique_targets, column_indexes = torch.unique(
+                            torch.cat(
+                                (triples[:, [slot]], negative_samples[slot]), 1
+                            ).view(-1),
+                            return_inverse=True,
+                        )
+                    else:
+                        # else only score against the unique negatives
+                        unique_targets = unique_negative_samples[slot]
 
                     # compute scores for all unique targets for slot
                     if slot == S:
@@ -963,22 +991,50 @@ class TrainingJobNegativeSampling(TrainingJob):
                         raise NotImplementedError
                     forward_time += time.time()
 
-                    # determine indexes of relevant scores in scoring matrix
-                    prepare_time -= time.time()
-                    row_indexes = (
-                        torch.arange(chunk_size, device=self.device)
-                        .unsqueeze(1)
-                        .repeat(1, 1 + num_samples)
-                        .view(-1)
-                    )  # 000 111 222; each 1+num_negative times (here: 3)
-                    prepare_time += time.time()
+                    if not self._shared_raw_results:
+                        # determine indexes of relevant scores in scoring matrix
+                        prepare_time -= time.time()
+                        row_indexes = (
+                            torch.arange(chunk_size, device=self.device)
+                            .unsqueeze(1)
+                            .repeat(1, 1 + num_samples)
+                            .view(-1)
+                        )  # 000 111 222; each 1+num_negative times (here: 3)
+                        prepare_time += time.time()
 
-                    # now pick the scores we need
-                    forward_time -= time.time()
-                    scores = all_scores[row_indexes, column_indexes].view(
-                        chunk_size, -1
-                    )
-                    forward_time += time.time()
+                        # now pick the scores we need
+                        forward_time -= time.time()
+                        scores = all_scores[row_indexes, column_indexes].view(
+                            chunk_size, -1
+                        )
+                        forward_time += time.time()
+                    else:
+                        # create the complete scoring matrix
+                        scores = torch.empty(
+                            chunk_size, num_samples + 1, device=self.device
+                        )
+
+                        # fill in the unique negative scores. first column is left empty
+                        # to hold positive scores
+                        num_unique = len(unique_targets) - 1
+                        scores[:, 1 : (num_unique + 1)] = all_scores[:, :-1]
+                        drop_rows = torch.nonzero(
+                            drop_index[slot] != num_unique, as_tuple=False
+                        ).squeeze()
+                        scores[drop_rows, drop_index[slot][drop_rows] + 1] = all_scores[
+                            drop_rows, -1
+                        ]
+
+                        # repeat scores as needed for WR sampling
+                        if num_unique != num_samples:
+                            scores[:, (num_unique + 1) :] = all_scores[
+                                :, repeat_indexes[slot]
+                            ]
+
+                        # fill in positive scores
+                        scores[:, 0] = self.model.score_spo(
+                            triples[:, 0], triples[:, 1], triples[:, 2]
+                        )
 
                 # compute chunk loss (concluding the forward pass of the chunk)
                 forward_time -= time.time()
@@ -1027,7 +1083,6 @@ class TrainingJob1vsAll(TrainingJob):
             worker_init_fn=_generate_worker_init_fn(self.config),
             pin_memory=self.config.get("train.pin_memory"),
         )
-
 
     def _process_batch(self, batch_index, batch) -> TrainingJob._ProcessBatchResult:
         # prepare
