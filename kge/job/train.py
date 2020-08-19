@@ -1033,7 +1033,7 @@ class TrainingJobNegativeSampling(TrainingJob):
 
                         # fill in positive scores
                         scores[:, 0] = self.model.score_spo(
-                            triples[:, 0], triples[:, 1], triples[:, 2]
+                            triples[:, S], triples[:, P], triples[:, O]
                         )
 
                 # compute chunk loss (concluding the forward pass of the chunk)
