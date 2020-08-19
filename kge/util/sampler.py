@@ -276,8 +276,8 @@ class KgeUniformSampler(KgeSampler):
         ]:
             drop_index[i] = v
 
-        # samples now contains num_unique WOR samples per triple and no positive. For
-        # WOR, we are done (tensor will be []). For WR, upsample.
+        # For WOR, we are done (tensor will be []). For WR, we need to upsample. To do
+        # so, we compute the set of additional (repeated) sample indexes.
         if num_unique != num_samples:  # only happens with WR
             repeat_indexes = torch.tensor(
                 np.random.choice(num_unique, num_samples - num_unique, replace=True)
