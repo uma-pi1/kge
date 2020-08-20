@@ -23,6 +23,7 @@ class KgeSampler(Configurable):
         self.filter_positives = torch.zeros(3, dtype=torch.bool)
         self.vocabulary_size = torch.zeros(3, dtype=torch.int)
         self.shared = self.get_option("shared")
+        self.shared_naive = self.get_option("shared_naive")
         self.with_replacement = self.get_option("with_replacement")
         if not self.with_replacement and not self.shared:
             raise ValueError(
@@ -237,6 +238,11 @@ class KgeUniformSampler(KgeSampler):
         self, positive_triples: torch.Tensor, slot: int, num_samples: int
     ):
         batch_size = len(positive_triples)
+        if self.shared_naive:
+            shared_samples = self._sample(positive_triples[0, :].view(1, -1), slot, num_samples+1)
+            drop_index = torch.zeros(batch_size, dtype=torch.long)
+            repeat_index = torch.empty(0)
+            return shared_samples.reshape(-1), drop_index, repeat_index
 
         # determine number of distinct negative samples for each positive
         if self.with_replacement:
