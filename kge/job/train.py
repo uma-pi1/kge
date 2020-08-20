@@ -869,7 +869,7 @@ class TrainingJobNegativeSampling(TrainingJob):
 
                 # compute the scores
                 forward_time -= time.time()
-                scores = torch.empty((chunk_size, num_samples + 1))
+                scores = torch.empty((chunk_size, num_samples + 1), device=self.device)
                 scores[:, 0] = self.model.score_spo(
                     triples[:, S],
                     triples[:, P],
