@@ -282,11 +282,15 @@ negative_sampling:
   shared: False
 
   # type of shared sampling implementation:
-  # - default : Shared samples are unique and entity of positive triple won't occur
-  #             in it's own negatives
-  # - naive   : Shared samples may not be unique, entity of positive triple might
-  #             occur in it's own negatives.
-  #             Faster than default
+
+  # - naive: Each positive triples uses exactly the same set of shared samples,
+  #          even if it's own positive entity is in the shared sample as a
+  #          negative. Very fast.
+  # - default: Avoid that a positive triple's entity occurs in its shared
+  #            negative samples. This is done by using a shared sample size that
+  #            is one sample larger then needed. The actual sample of a triple
+  #            is then obtained by dropping the sample corresponding to its
+  #            positive entity (or a random one if there is no such sample).
   shared_type: 'default'
 
   # Whether sampling should be performed with replacement. Without replacement
