@@ -281,6 +281,12 @@ negative_sampling:
   # negative.
   shared: False
 
+  # if shared is True, use naive implementation of shared sampling
+  # shared samples won't be unique
+  # positive entity occurring in batch can also occur in shared negative samples
+  # faster than default shared sampling implementation
+  shared_naive: False
+
   # Whether sampling should be performed with replacement. Without replacement
   # sampling is currently only supported for shared sampling.
   with_replacement: True
