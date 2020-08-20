@@ -659,13 +659,12 @@ class KgeUniformSampler(KgeSampler):
         # For default, we now filter the positives. For each row i (positive triple),
         # select a sample to drop. For rows that contain its positive as a negative
         # example, drop that positive. For all other rows, drop a random position. Here
-        # we start with random drop position for each row:
-        drop_index = np.random.choice(num_unique + 1, batch_size, replace=True)
-        # and then update the ones that contain its positive in the negative samples
+        # we start with random drop position for each row and then update the ones that
+        # contain its positive in the negative samples
         positives = positive_triples[:, slot].numpy()
+        drop_index = np.random.choice(num_unique + 1, batch_size, replace=True)
+        # TODO can we do the following quicker?
         unique_samples_index = {s: j for j, s in enumerate(unique_samples)}
-
-        # TODO can we do this quicker?
         for i, v in [
             (i, unique_samples_index.get(positives[i]))
             for i in range(batch_size)
