@@ -23,7 +23,7 @@ class KgeSampler(Configurable):
         self.filter_positives = torch.zeros(3, dtype=torch.bool)
         self.vocabulary_size = torch.zeros(3, dtype=torch.int)
         self.shared = self.get_option("shared")
-        self.shared_naive = self.get_option("shared_naive")
+        self.shared_naive = self.get_option("shared_type") == "naive"
         self.with_replacement = self.get_option("with_replacement")
         if not self.with_replacement and not self.shared:
             raise ValueError(
