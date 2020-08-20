@@ -257,7 +257,7 @@ class BatchNegativeSample(Configurable):
 
     def to(self, device) -> "BatchNegativeSample":
         """Move the negative samples to the specified device."""
-        self.positive_triples.to(device)
+        self.positive_triples = self.positive_triples.to(device)
         return self
 
     def score(self, model, indexes=None) -> torch.Tensor:
@@ -375,7 +375,7 @@ class DefaultBatchNegativeSample(BatchNegativeSample):
 
     def to(self, device) -> "DefaultBatchNegativeSample":
         super().to(device)
-        self._samples.to(device)
+        self._samples = self._samples.to(device)
         return self
 
 
@@ -456,7 +456,7 @@ class NaiveSharedNegativeSample(BatchNegativeSample):
         # repeat scores as needed for WR sampling
         if num_unique != self.num_samples:
             scores = scores[
-                :, torch.cat((torch.arange(num_unique), self._repeat_indexes))
+                :, torch.cat((torch.arange(num_unique, device=scores.device), self._repeat_indexes))
             ]
         self.forward_time += time.time()
 
@@ -464,8 +464,8 @@ class NaiveSharedNegativeSample(BatchNegativeSample):
 
     def to(self, device) -> "NaiveSharedNegativeSample":
         super().to(device)
-        self._unique_samples.to(device)
-        self._repeat_indexes.to(device)
+        self._unique_samples = self._unique_samples.to(device)
+        self._repeat_indexes = self._repeat_indexes.to(device)
         return self
 
 
@@ -558,7 +558,7 @@ class DefaultSharedNegativeSample(BatchNegativeSample):
         # repeat scores as needed for WR sampling
         if num_unique != self.num_samples:
             scores = scores[
-                :, torch.cat((torch.arange(num_unique), self._repeat_indexes))
+                :, torch.cat((torch.arange(num_unique, device=device), self._repeat_indexes))
             ]
         self.forward_time += time.time()
 
@@ -566,9 +566,9 @@ class DefaultSharedNegativeSample(BatchNegativeSample):
 
     def to(self, device):
         super().to(device)
-        self._unique_samples.to(device)
-        self._drop_index.to(device)
-        self._repeat_indexes.to(device)
+        self._unique_samples = self._unique_samples.to(device)
+        self._drop_index = self._drop_index.to(device)
+        self._repeat_indexes = self._repeat_indexes.to(device)
         return self
 
 
