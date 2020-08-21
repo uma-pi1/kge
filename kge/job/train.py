@@ -844,7 +844,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             # determine data used for this chunk
             chunk_start = max_chunk_size * chunk_number
             chunk_end = min(max_chunk_size * (chunk_number + 1), batch_size)
-            chunk_indexes = range(chunk_start, chunk_end)
+            chunk_indexes = slice(chunk_start, chunk_end)
             chunk_size = chunk_end - chunk_start
             triples = batch_triples[chunk_start:chunk_end, :]
 
