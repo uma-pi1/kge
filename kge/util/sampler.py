@@ -326,20 +326,7 @@ class BatchNegativeSample(Configurable):
 
             # compute all scores for slot
             self.forward_time -= time.time()
-            if slot == S:
-                all_scores = model.score_po(
-                    triples[:, P], triples[:, O], unique_targets
-                )
-            elif slot == P:
-                all_scores = model.score_so(
-                    triples[:, S], triples[:, O], unique_targets
-                )
-            elif slot == O:
-                all_scores = model.score_sp(
-                    triples[:, S], triples[:, P], unique_targets
-                )
-            else:
-                raise NotImplementedError
+            all_scores = self._score_unique_targets(model, slot, triples, unique_targets)
             self.forward_time += time.time()
 
             # determine indexes of relevant scores in scoring matrix
@@ -360,6 +347,24 @@ class BatchNegativeSample(Configurable):
             raise ValueError
 
         return scores
+
+    @staticmethod
+    def _score_unique_targets(model, slot, triples, unique_targets) -> torch.Tensor:
+        if slot == S:
+            all_scores = model.score_po(
+                triples[:, P], triples[:, O], unique_targets
+            )
+        elif slot == P:
+            all_scores = model.score_so(
+                triples[:, S], triples[:, O], unique_targets
+            )
+        elif slot == O:
+            all_scores = model.score_sp(
+                triples[:, S], triples[:, P], unique_targets
+            )
+        else:
+            raise NotImplementedError
+        return all_scores
 
 
 class DefaultBatchNegativeSample(BatchNegativeSample):
@@ -452,14 +457,7 @@ class NaiveSharedNegativeSample(BatchNegativeSample):
 
         # compute scores for all unique targets for slot
         self.forward_time -= time.time()
-        if slot == S:
-            scores = model.score_po(triples[:, P], triples[:, O], unique_targets)
-        elif slot == P:
-            scores = model.score_so(triples[:, S], triples[:, O], unique_targets)
-        elif slot == O:
-            scores = model.score_sp(triples[:, S], triples[:, P], unique_targets)
-        else:
-            raise NotImplementedError
+        scores = self._score_unique_targets(model, slot, triples, unique_targets)
 
         # repeat scores as needed for WR sampling
         if num_unique != self.num_samples:
@@ -550,14 +548,7 @@ class DefaultSharedNegativeSample(BatchNegativeSample):
 
         # compute scores for all unique targets for slot
         self.forward_time -= time.time()
-        if slot == S:
-            all_scores = model.score_po(triples[:, P], triples[:, O], unique_targets)
-        elif slot == P:
-            all_scores = model.score_so(triples[:, S], triples[:, O], unique_targets)
-        elif slot == O:
-            all_scores = model.score_sp(triples[:, S], triples[:, P], unique_targets)
-        else:
-            raise NotImplementedError
+        all_scores = self._score_unique_targets(model, slot, triples, unique_targets)
 
         # create the complete scoring matrix
         device = self.positive_triples.device
