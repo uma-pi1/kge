@@ -17,3 +17,4 @@ docs/_build
 /libkge.egg-info/
 !/docs/examples/dump-example-model.csv
 !/docs/examples/dump-example-search.csv
+/.projectile
