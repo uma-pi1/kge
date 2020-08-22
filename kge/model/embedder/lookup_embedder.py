@@ -44,6 +44,8 @@ class LookupEmbedder(KgeEmbedder):
             # initialize weights
             self._init_embeddings(self._embeddings.weight.data)
 
+        self._embeddings_freeze = None
+
         # TODO handling negative dropout because using it with ax searches for now
         dropout = self.get_option("dropout")
         if dropout < 0:
@@ -89,7 +91,10 @@ class LookupEmbedder(KgeEmbedder):
         )
 
     def embed(self, indexes: Tensor) -> Tensor:
-        return self._postprocess(self._embeddings(indexes.long()))
+        return self._postprocess(self._embed(indexes))
+
+    def _embed(self, indexes: Tensor) -> Tensor:
+        return self._embeddings(indexes.long())
 
     def embed_all(self) -> Tensor:
         return self._postprocess(self._embeddings_all())
@@ -108,6 +113,93 @@ class LookupEmbedder(KgeEmbedder):
 
     def _get_regularize_weight(self) -> Tensor:
         return self.get_option("regularize_weight")
+
+    def freeze(self, freeze_indexes) -> Tensor:
+        """Freeze the embeddings of the entities specified by freeze_indexes.
+
+         This method overrides the _embed() and _embeddings_all() methods.
+
+         """
+
+        num_freeze = len(freeze_indexes)
+
+        original_weights = self._embeddings.weight.data
+
+        self._embeddings_freeze = torch.nn.Embedding(
+            num_freeze, self.dim, sparse=self.sparse,
+        )
+        self._embeddings = torch.nn.Embedding(
+            self.vocab_size - num_freeze, self.dim, sparse=self.sparse,
+        )
+
+        # for a global index i stores at position i a 1
+        # when it corresponds to a frozen parameter
+        freeze_mask = torch.zeros(
+            self.vocab_size, dtype=torch.bool, device=original_weights.device
+        )
+        freeze_mask[freeze_indexes] = 1
+
+        # assign current values to the new embeddings
+        self._embeddings_freeze.weight.data = original_weights[freeze_mask]
+        self._embeddings.weight.data = original_weights[~freeze_mask]
+
+        # freeze
+        self._embeddings_freeze.weight.requires_grad = False
+
+        # for a global index i stores at position i its index in either the
+        # frozen or the non-frozen embedding tensor
+        positions = torch.zeros(
+            self.vocab_size, dtype=torch.long, device=self._embeddings.weight.device
+        )
+        positions[freeze_mask] = torch.arange(
+            num_freeze, device=self.config.get("job.device")
+        )
+        positions[~freeze_mask] = torch.arange(
+            self.vocab_size - num_freeze, device=self._embeddings.weight.device
+        )
+
+        def _embed(indexes: Tensor) -> Tensor:
+
+            emb = torch.empty(
+                (len(indexes), self.dim), device=self._embeddings.weight.device
+            )
+
+            frozen_indexes_mask = freeze_mask[indexes.long()]
+
+            emb[frozen_indexes_mask] = self._embeddings_freeze(
+                positions[indexes[frozen_indexes_mask].long()]
+            )
+
+            emb[~frozen_indexes_mask] = self._embeddings(
+                positions[indexes[~frozen_indexes_mask].long()]
+            )
+            return emb
+
+        def _embeddings_all() -> Tensor:
+
+            emb = torch.empty(
+                (self.vocab_size, self.dim), device=self._embeddings.weight.device
+            )
+
+            emb[freeze_mask] = self._embeddings_freeze(
+                torch.arange(
+                    num_freeze,
+                    dtype=torch.long,
+                    device=self._embeddings_freeze.weight.device,
+                )
+            )
+
+            emb[~freeze_mask] = self._embeddings(
+                torch.arange(
+                    self.vocab_size - num_freeze,
+                    dtype=torch.long,
+                    device=self._embeddings.weight.device,
+                )
+            )
+            return emb
+
+        self._embeddings_all = _embeddings_all
+        self._embed = _embed
 
     def penalty(self, **kwargs) -> List[Tensor]:
         # TODO factor out to a utility method
@@ -135,7 +227,7 @@ class LookupEmbedder(KgeEmbedder):
                 unique_indexes, counts = torch.unique(
                     kwargs["indexes"], return_counts=True
                 )
-                parameters = self._embeddings(unique_indexes)
+                parameters = self._embed(unique_indexes)
                 if p % 2 == 1:
                     parameters = torch.abs(parameters)
                 result += [
