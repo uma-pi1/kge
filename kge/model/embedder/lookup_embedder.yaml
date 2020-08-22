@@ -39,6 +39,13 @@ lookup_embedder:
       #  the packaged model
       #  if false initialize other embeddings normally
       ensure_all: False
+
+  # Freeze a subset of the embeddings during training. Expects a file with
+  # entity/relation ids per line. Expects either an absolute path or the filename when
+  # the file is located in the dataset folder. Embeddings associated with the ids
+  # are hold constant during training. Leave empty for not freezing embeddings.
+  freeze:
+    ids_file: ""
  
   # Dropout used for the embeddings.
   dropout: 0.
