@@ -260,13 +260,10 @@ class BatchNegativeSample(Configurable):
         self.positive_triples = self.positive_triples.to(device)
         return self
 
-    def score(self, model, indexes=None, indexed_triples=None) -> torch.Tensor:
+    def score(self, model, indexes=None) -> torch.Tensor:
         """Score the negative samples for the batch with the provided model.
 
         If `indexes` is provided, only score the corresponding subset of the batch.
-        `indexed_triples` is the subset of positive triples corresponding to `indexes`.
-        If `indexed_triples` is None, it will either be computed with `indexes` or the
-        complete batch is used.
 
         Returns a chunk_size x num_samples tensor of scores. Here chunk_size corresponds
         the batch size (if `indexes=None`) or to the number of specified indexes (otherwise).
@@ -282,13 +279,9 @@ class BatchNegativeSample(Configurable):
         self.prepare_time -= time.time()
         negative_samples = self.samples(indexes)
         num_samples = self.num_samples
-
-        if indexed_triples is not None:
-            triples = indexed_triples
-        elif indexes is not None:
-            triples = self.positive_triples[indexes, :]
-        else:
-            triples = self.positive_triples
+        triples = (
+            self.positive_triples[indexes, :] if indexes else self.positive_triples
+        )
         self.prepare_time += time.time()
 
         # go ahead and score
@@ -436,7 +429,7 @@ class NaiveSharedNegativeSample(BatchNegativeSample):
 
         return negative_samples1.unsqueeze(0).expand((chunk_size, -1))
 
-    def score(self, model, indexes=None, indexed_triples=None) -> torch.Tensor:
+    def score(self, model, indexes=None) -> torch.Tensor:
         if self._implementation != "batch":
             return super().score(model, indexes)
 
@@ -447,12 +440,11 @@ class NaiveSharedNegativeSample(BatchNegativeSample):
         slot = self.slot
         unique_targets = self._unique_samples
         num_unique = len(unique_targets)
-        if indexed_triples is not None:
-            triples = indexed_triples
-        elif indexes is not None:
-            triples = self.positive_triples[indexes, :]
-        else:
-            triples = self.positive_triples
+        triples = (
+            self.positive_triples
+            if indexes is None
+            else self.positive_triples[indexes, :]
+        )
         chunk_size = len(triples)
 
         # compute scores for all unique targets for slot
@@ -523,7 +515,7 @@ class DefaultSharedNegativeSample(BatchNegativeSample):
 
         return negative_samples
 
-    def score(self, model, indexes=None, indexed_triples=None) -> torch.Tensor:
+    def score(self, model, indexes=None) -> torch.Tensor:
         if self._implementation != "batch":
             return super().score(model, indexes)
 
@@ -534,14 +526,9 @@ class DefaultSharedNegativeSample(BatchNegativeSample):
         slot = self.slot
         unique_targets = self._unique_samples
         num_unique = len(unique_targets) - 1
-
-        if indexed_triples is not None:
-            triples = indexed_triples
-        elif indexes is not None:
-            triples = self.positive_triples[indexes, :]
-        else:
-            triples = self.positive_triples
-
+        triples = (
+            self.positive_triples[indexes, :] if indexes else self.positive_triples
+        )
         drop_index = self._drop_index[indexes] if indexes else self._drop_index
         drop_rows = torch.nonzero(drop_index != num_unique, as_tuple=False).squeeze()
         chunk_size = len(triples)
