@@ -510,7 +510,7 @@ class DefaultSharedNegativeSample(BatchNegativeSample):
         # repeat indexes as needed for WR sampling
         if num_unique != num_samples:
             negative_samples = negative_samples[
-                :, torch.cat((torch.arange(num_unique), self._repeat_indexes))
+                :, torch.cat((torch.arange(num_unique, device=device), self._repeat_indexes))
             ]
 
         return negative_samples
