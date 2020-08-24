@@ -28,7 +28,7 @@ class KgeSampler(Configurable):
         self.with_replacement = self.get_option("with_replacement")
         if not self.with_replacement and not self.shared:
             raise ValueError(
-                "Without random_replacement sampling is only supported when "
+                "Without replacement sampling is only supported when "
                 "shared negative sampling is enabled."
             )
         self.filtering_split = config.get("negative_sampling.filtering.split")

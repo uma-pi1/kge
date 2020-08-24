@@ -281,8 +281,8 @@ negative_sampling:
   # negative.
   shared: False
 
-  # type of shared sampling implementation:
-
+  # Type of shared sampling implementation:
+  #
   # - naive: Each positive triples uses exactly the same set of shared samples,
   #          even if it's own positive entity is in the shared sample as a
   #          negative. Very fast.
