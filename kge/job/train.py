@@ -848,7 +848,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             chunk_end = min(max_chunk_size * (chunk_number + 1), batch_size)
             chunk_indexes = slice(chunk_start, chunk_end)
             chunk_size = chunk_end - chunk_start
-            triples = batch_triples[chunk_start:chunk_end, :]
+            triples = batch_triples[chunk_indexes]
 
             # process the chunk
             for slot in [S, P, O]:
@@ -880,7 +880,7 @@ class TrainingJobNegativeSampling(TrainingJob):
                 )
                 forward_time += time.time()
                 scores[:, 1:] = batch_negative_samples[slot].score(
-                    self.model, indexes=chunk_indexes, indexed_triples=triples
+                    self.model, indexes=chunk_indexes
                 )
                 forward_time += batch_negative_samples[slot].forward_time
                 prepare_time += batch_negative_samples[slot].prepare_time
