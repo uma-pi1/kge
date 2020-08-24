@@ -825,6 +825,8 @@ class TrainingJobNegativeSampling(TrainingJob):
         # prepare
         prepare_time = -time.time()
         batch_triples = batch["triples"].to(self.device)
+        for ns in batch["negative_samples"]:
+            ns.positive_triples = batch_triples
         batch_negative_samples = [
             ns.to(self.device) for ns in batch["negative_samples"]
         ]
