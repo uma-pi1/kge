@@ -643,7 +643,7 @@ class KgeUniformSampler(KgeSampler):
                 positive_triples,
                 slot,
                 num_samples,
-                torch.tensor(unique_samples),
+                torch.tensor(unique_samples, dtype=torch.long),
                 repeat_indexes,
             )
 
@@ -670,7 +670,7 @@ class KgeUniformSampler(KgeSampler):
             positive_triples,
             slot,
             num_samples,
-            torch.tensor(unique_samples),
+            torch.tensor(unique_samples, dtype=torch.long),
             torch.tensor(drop_index),
             repeat_indexes,
         )
