@@ -319,7 +319,9 @@ class BatchNegativeSample(Configurable):
 
             # compute all scores for slot
             self.forward_time -= time.time()
-            all_scores = self._score_unique_targets(model, slot, triples, unique_targets)
+            all_scores = self._score_unique_targets(
+                model, slot, triples, unique_targets
+            )
             self.forward_time += time.time()
 
             # determine indexes of relevant scores in scoring matrix
@@ -344,17 +346,11 @@ class BatchNegativeSample(Configurable):
     @staticmethod
     def _score_unique_targets(model, slot, triples, unique_targets) -> torch.Tensor:
         if slot == S:
-            all_scores = model.score_po(
-                triples[:, P], triples[:, O], unique_targets
-            )
+            all_scores = model.score_po(triples[:, P], triples[:, O], unique_targets)
         elif slot == P:
-            all_scores = model.score_so(
-                triples[:, S], triples[:, O], unique_targets
-            )
+            all_scores = model.score_so(triples[:, S], triples[:, O], unique_targets)
         elif slot == O:
-            all_scores = model.score_sp(
-                triples[:, S], triples[:, P], unique_targets
-            )
+            all_scores = model.score_sp(triples[:, S], triples[:, P], unique_targets)
         else:
             raise NotImplementedError
         return all_scores
@@ -454,7 +450,13 @@ class NaiveSharedNegativeSample(BatchNegativeSample):
         # repeat scores as needed for WR sampling
         if num_unique != self.num_samples:
             scores = scores[
-                :, torch.cat((torch.arange(num_unique, device=scores.device), self._repeat_indexes))
+                :,
+                torch.cat(
+                    (
+                        torch.arange(num_unique, device=scores.device),
+                        self._repeat_indexes,
+                    )
+                ),
             ]
         self.forward_time += time.time()
 
@@ -487,14 +489,16 @@ class DefaultSharedNegativeSample(BatchNegativeSample):
     def unique_samples(self, indexes=None, return_inverse=False) -> torch.Tensor:
         if return_inverse:
             # slow but probably rarely used anyway
-            super(DefaultSharedNegativeSample, self).unique_samples(indexes=indexes, return_inverse=return_inverse)
+            super(DefaultSharedNegativeSample, self).unique_samples(
+                indexes=indexes, return_inverse=return_inverse
+            )
         elif torch.all(self._drop_index == self._drop_index[0]).item():
             # same sample dropped for every triple in the batch
             not_drop_mask = torch.BoolTensor(len(self._unique_samples))
             not_drop_mask[self._drop_index[0]] = False
             return self._unique_samples[not_drop_mask]
         return self._unique_samples
-        
+
     def samples(self, indexes=None) -> torch.Tensor:
         num_samples = self.num_samples
         triples = (
@@ -521,7 +525,10 @@ class DefaultSharedNegativeSample(BatchNegativeSample):
         # repeat indexes as needed for WR sampling
         if num_unique != num_samples:
             negative_samples = negative_samples[
-                :, torch.cat((torch.arange(num_unique, device=device), self._repeat_indexes))
+                :,
+                torch.cat(
+                    (torch.arange(num_unique, device=device), self._repeat_indexes)
+                ),
             ]
 
         return negative_samples
@@ -560,7 +567,10 @@ class DefaultSharedNegativeSample(BatchNegativeSample):
         # repeat scores as needed for WR sampling
         if num_unique != self.num_samples:
             scores = scores[
-                :, torch.cat((torch.arange(num_unique, device=device), self._repeat_indexes))
+                :,
+                torch.cat(
+                    (torch.arange(num_unique, device=device), self._repeat_indexes)
+                ),
             ]
         self.forward_time += time.time()
 
