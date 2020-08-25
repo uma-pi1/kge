@@ -484,6 +484,17 @@ class DefaultSharedNegativeSample(BatchNegativeSample):
         self._drop_index = drop_index
         self._repeat_indexes = repeat_indexes
 
+    def unique_samples(self, indexes=None, return_inverse=False) -> torch.Tensor:
+        if return_inverse:
+            # slow but probably rarely used anyway
+            super(DefaultSharedNegativeSample, self).unique_samples(indexes=indexes, return_inverse=return_inverse)
+        elif torch.all(self._drop_index == self._drop_index[0]).item():
+            # same sample dropped for every triple in the batch
+            not_drop_mask = torch.BoolTensor(len(self._unique_samples))
+            not_drop_mask[self._drop_index[0]] = False
+            return self._unique_samples[not_drop_mask]
+        return self._unique_samples
+        
     def samples(self, indexes=None) -> torch.Tensor:
         num_samples = self.num_samples
         triples = (
