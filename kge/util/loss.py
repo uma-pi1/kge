@@ -140,9 +140,9 @@ class BCEWithLogitsKgeLoss(KgeLoss):
         self._bce_type = bce_type
         if bce_type is None:
             reduction = "sum"
-        elif bce_type is "mean":
+        elif bce_type == "mean":
             reduction = "none"
-        elif bce_type is "self_adversarial":
+        elif bce_type == "self_adversarial":
             reduction = "none"
             self._temperature = temperature
         else:
@@ -157,7 +157,7 @@ class BCEWithLogitsKgeLoss(KgeLoss):
         losses = self._loss(scores.view(-1), labels_as_matrix.view(-1))
         if self._bce_type is None:
             return losses
-        elif self._bce_type is "mean":
+        elif self._bce_type == "mean":
             labels = self._labels_as_indexes(scores, labels)
             losses = losses.view(scores.shape)
             losses_positives = losses[range(len(scores)), labels]
@@ -166,7 +166,7 @@ class BCEWithLogitsKgeLoss(KgeLoss):
             return (
                 losses_positives.sum() + losses_negatives.sum() / (scores.shape[1] - 1)
             ) / 2.0
-        elif self._bce_type is "self_adversarial":
+        elif self._bce_type == "self_adversarial":
             labels = self._labels_as_indexes(scores, labels)
             negative_indexes = torch.nonzero(labels_as_matrix.view(-1) == 0.0)
             losses = losses.view(scores.shape)

@@ -364,9 +364,9 @@ class TrainingJob(Job):
                 if self.device.startswith("cuda"):
                     self.config.log(
                         "CUDA memory after first batch: allocated={:14,} "
-                        "cached={:14,} max_allocated={:14,}".format(
+                        "reserved={:14,} max_allocated={:14,}".format(
                             torch.cuda.memory_allocated(self.device),
-                            torch.cuda.memory_cached(self.device),
+                            torch.cuda.memory_reserved(self.device),
                             torch.cuda.max_memory_allocated(self.device),
                         )
                     )
@@ -691,7 +691,7 @@ class TrainingJobKvsAll(TrainingJob):
         for query_type_index, query_type in enumerate(self.query_types):
             examples_for_query_type[query_type] = (
                 (query_type_indexes_batch == query_type_index)
-                .nonzero()
+                .nonzero(as_tuple=False)
                 .to(self.device)
                 .view(-1)
             )
