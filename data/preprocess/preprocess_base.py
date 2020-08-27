@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Preprocess a KGE dataset into a the format expected by libkge.
 
-Call as `preprocess.py --folder <name>`. The original dataset should be stored in
+Call as `preprocess_base.py --folder <name>`. The original dataset should be stored in
 subfolder `name` and have files "train.txt", "valid.txt", and "test.txt". Each file
 contains one SPO triple per line, separated by tabs.
 
