@@ -47,8 +47,8 @@ class Split:
         for derived_split in self.derived_splits:
             derived_split.prepare_process(folder)
         for n, t in enumerate(self.raw_data):
-           for derived_split in self.derived_splits:
-               derived_split.process_triple(t, entities, relations, n=n)
+            for derived_split in self.derived_splits:
+                derived_split.process_triple(t, entities, relations, n=n)
         for derived_split in self.derived_splits:
             derived_split.file.close()
 
@@ -71,14 +71,13 @@ class DerivedSplitBase:
             to dataset.yaml under the respective key entry of the split.
 
     """
+
     parent_split: Split = None
     key: str = None
     options: Dict = None
 
     def prepare_process(self, folder):
-        self.file = open(
-            path.join(folder, self.options["filename"]), "w"
-        )
+        self.file = open(path.join(folder, self.options["filename"]), "w")
         self.options["size"] = 0
 
     def process_triple(self, triple, entities, relations, **kwargs):
@@ -103,29 +102,22 @@ class DerivedSplitFiltered(DerivedSplitBase):
             for filtering. The derived split exclusively contains triples where
             entities and relations are known in the filter_with Split.
     """
+
     filter_with: Split = None
 
     def process_triple(self, triple, entities, relations, **kwargs):
         S, P, O = (
             self.parent_split.SPO["S"],
             self.parent_split.SPO["P"],
-            self.parent_split.SPO["O"]
+            self.parent_split.SPO["O"],
         )
         if (
             triple[S] in self.filter_with.entities
             and triple[O] in self.filter_with.entities
             and triple[P] in self.filter_with.relations
         ):
-            write_triple(
-                self.file,
-                entities,
-                relations,
-                triple,
-                S,
-                P,
-                O
-            )
-            self.options["size"]+= 1
+            write_triple(self.file, entities, relations, triple, S, P, O)
+            self.options["size"] += 1
 
 
 @dataclass
@@ -138,6 +130,7 @@ class DerivedSplitSample(DerivedSplitBase):
                sample_size; determined in  prepare_process().
 
     """
+
     sample_size: int = None
     sample: Iterable[int] = None
 
@@ -196,8 +189,7 @@ def process_splits(dataset: RawDataset):
         split.update_config(dataset.config)
 
 
-def analyze_splits(
-    splits: List[Split], folder: str) -> RawDataset:
+def analyze_splits(splits: List[Split], folder: str) -> RawDataset:
     """Read a collection of raw splits and create a RawDataset.
 
     Args:
@@ -282,6 +274,7 @@ def write_dataset_config(config: dict, folder: str):
 
 ### WN11 UTILS #########################################################################
 
+
 @dataclass
 class DerivedLabeledSplit(DerivedSplitBase):
     label: int = None
@@ -299,6 +292,7 @@ class DerivedLabeledSplit(DerivedSplitBase):
             )
             self.options["size"] += 1
 
+
 @dataclass
 class DerivedLabeledSplitFiltered(DerivedSplitFiltered):
     label: int = None
@@ -307,20 +301,12 @@ class DerivedLabeledSplitFiltered(DerivedSplitFiltered):
         S, P, O = (
             self.parent_split.SPO["S"],
             self.parent_split.SPO["P"],
-            self.parent_split.SPO["O"]
+            self.parent_split.SPO["O"],
         )
         if int(triple[3]) == self.label and (
             triple[S] in self.filter_with.entities
             and triple[O] in self.filter_with.entities
             and triple[P] in self.filter_with.relations
-    ):
-            write_triple(
-                self.file,
-                entities,
-                relations,
-                triple,
-                S,
-                P,
-                O
-            )
+        ):
+            write_triple(self.file, entities, relations, triple, S, P, O)
             self.options["size"] += 1
