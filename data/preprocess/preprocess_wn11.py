@@ -25,29 +25,20 @@ if __name__ == "__main__":
     parser.add_argument("--O", action="store", default=2)
     args = parser.parse_args()
 
-    S, P, O = int(args.S), int(args.P), int(args.O)
+    SPO = {"S": int(args.S), "P": int(args.P), "O": int(args.O)}
 
     # register all base splits
     train = Split(
-        file="train.txt",
-        SPO={"S": S, "P": P, "O": O},
-        collect_entities=True,
-        collect_relations=True,
+        file="train.txt", SPO=SPO, collect_entities=True, collect_relations=True,
+    )
 
-    )
-    valid = Split(
-        file="valid.txt",
-        SPO={"S": S, "P": P, "O": O},
-    )
-    test = Split(
-        file="test.txt",
-        SPO={"S": S, "P": P, "O": O},
-    )
+    valid = Split(file="valid.txt", SPO=SPO,)
+
+    test = Split(file="test.txt", SPO=SPO,)
 
     # read data and collect entity and relation maps
     dataset: RawDataset = analyze_splits(
-        splits=[train, valid, test],
-        folder=args.folder,
+        splits=[train, valid, test], folder=args.folder,
     )
 
     # register all splits to be derived from the base splits
@@ -66,7 +57,7 @@ if __name__ == "__main__":
         options={
             "type": "triples",
             "filename": "train_sample.del",
-            "split_type": "train"
+            "split_type": "train",
         },
     )
 
@@ -75,12 +66,8 @@ if __name__ == "__main__":
     valid_pos_derived = DerivedLabeledSplit(
         parent_split=valid,
         key="valid",
-        options={
-            "type": "triples",
-            "filename": "valid.del",
-            "split_type": "valid"
-        },
-        label=1
+        options={"type": "triples", "filename": "valid.del", "split_type": "valid"},
+        label=1,
     )
 
     valid_neg_derived = DerivedLabeledSplit(
@@ -89,9 +76,9 @@ if __name__ == "__main__":
         options={
             "type": "triples",
             "filename": "valid_negatives.del",
-            "split_type": "valid"
+            "split_type": "valid",
         },
-        label=-1
+        label=-1,
     )
 
     valid_pos_wo_unseen_derived = DerivedLabeledSplitFiltered(
@@ -101,9 +88,9 @@ if __name__ == "__main__":
         options={
             "type": "triples",
             "filename": "valid_without_unseen.del",
-            "split_type": "valid"
+            "split_type": "valid",
         },
-        label=1
+        label=1,
     )
 
     valid_neg_wo_unseen_derived = DerivedLabeledSplitFiltered(
@@ -113,9 +100,9 @@ if __name__ == "__main__":
         options={
             "type": "triples",
             "filename": "valid_without_unseen_negatives.del",
-            "split_type": "valid"
+            "split_type": "valid",
         },
-        label=-1
+        label=-1,
     )
 
     valid.derived_splits.extend(
@@ -130,12 +117,8 @@ if __name__ == "__main__":
     test_pos_derived = DerivedLabeledSplit(
         parent_split=test,
         key="test",
-        options={
-            "type": "triples",
-            "filename": "test.del",
-            "split_type": "test"
-        },
-        label=1
+        options={"type": "triples", "filename": "test.del", "split_type": "test"},
+        label=1,
     )
 
     test_neg_derived = DerivedLabeledSplit(
@@ -144,9 +127,9 @@ if __name__ == "__main__":
         options={
             "type": "triples",
             "filename": "test_negatives.del",
-            "split_type": "test"
+            "split_type": "test",
         },
-        label=-1
+        label=-1,
     )
 
     test_pos_wo_unseen_derived = DerivedLabeledSplitFiltered(
@@ -156,9 +139,9 @@ if __name__ == "__main__":
         options={
             "type": "triples",
             "filename": "test_without_unseen.del",
-            "split_type": "test"
+            "split_type": "test",
         },
-        label=1
+        label=1,
     )
 
     test_neg_wo_unseen_derived = DerivedLabeledSplitFiltered(
@@ -168,9 +151,9 @@ if __name__ == "__main__":
         options={
             "type": "triples",
             "filename": "test_without_unseen_negatives.del",
-            "split_type": "test"
+            "split_type": "test",
         },
-        label=-1
+        label=-1,
     )
 
     test.derived_splits.extend(

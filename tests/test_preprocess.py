@@ -17,8 +17,6 @@ from data.preprocess.util import process_splits
 import yaml
 
 
-
-
 class TestPreprocess(unittest.TestCase):
     def setUp(self) -> None:
         self.dataset_name = "dataset_preprocess"
@@ -153,14 +151,8 @@ class TestPreprocess(unittest.TestCase):
             collect_entities=True,
             collect_relations=True,
         )
-        valid = Split(
-            file="valid.txt",
-            SPO={"S": S, "P": P, "O": O},
-        )
-        test = Split(
-            file="test.txt",
-            SPO={"S": S, "P": P, "O": O},
-        )
+        valid = Split(file="valid.txt", SPO={"S": S, "P": P, "O": O},)
+        test = Split(file="test.txt", SPO={"S": S, "P": P, "O": O},)
 
         return {"train": train, "valid": valid, "test": test}
 
@@ -178,7 +170,7 @@ class TestPreprocess(unittest.TestCase):
             options={
                 "type": "triples",
                 "filename": "train_sample.del",
-                "split_type": "train"
+                "split_type": "train",
             },
         )
 
@@ -197,7 +189,7 @@ class TestPreprocess(unittest.TestCase):
             options={
                 "type": "triples",
                 "filename": "valid_without_unseen.del",
-                "split_type": "valid"
+                "split_type": "valid",
             },
         )
 
@@ -216,7 +208,7 @@ class TestPreprocess(unittest.TestCase):
             options={
                 "type": "triples",
                 "filename": "test_without_unseen.del",
-                "split_type": "test"
+                "split_type": "test",
             },
         )
 

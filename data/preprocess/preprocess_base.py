@@ -41,35 +41,26 @@ if __name__ == "__main__":
     parser.add_argument("--O", action="store", default=2)
     args = parser.parse_args()
 
-    S, P, O = int(args.S), int(args.P), int(args.O)
+    SPO = {"S": int(args.S), "P": int(args.P), "O": int(args.O)}
 
     print(f"Preprocessing {args.folder}...")
 
     # register all base splits
     train = Split(
-        file="train.txt",
-        SPO={"S": S, "P": P, "O": O},
-        collect_entities=True,
-        collect_relations=True,
+        file="train.txt", SPO=SPO, collect_entities=True, collect_relations=True,
+    )
 
-    )
-    valid = Split(
-        file="valid.txt",
-        SPO={"S": S, "P": P, "O": O},
-    )
-    test = Split(
-        file="test.txt",
-        SPO={"S": S, "P": P, "O": O},
-    )
+    valid = Split(file="valid.txt", SPO=SPO,)
+
+    test = Split(file="test.txt", SPO=SPO,)
 
     # read data and collect entity and relation maps
     dataset: RawDataset = analyze_splits(
-        splits=[train, valid, test],
-        folder=args.folder,
+        splits=[train, valid, test], folder=args.folder,
     )
 
     # register all splits to be derived from the base splits
-    # arbitrary options can be added which will be written the the dataset config
+    # arbitrary options can be added which will be written to the dataset config
 
     train_derived = DerivedSplitBase(
         parent_split=train,
@@ -84,7 +75,7 @@ if __name__ == "__main__":
         options={
             "type": "triples",
             "filename": "train_sample.del",
-            "split_type": "train"
+            "split_type": "train",
         },
     )
 
@@ -103,7 +94,7 @@ if __name__ == "__main__":
         options={
             "type": "triples",
             "filename": "valid_without_unseen.del",
-            "split_type": "valid"
+            "split_type": "valid",
         },
     )
 
@@ -122,18 +113,16 @@ if __name__ == "__main__":
         options={
             "type": "triples",
             "filename": "test_without_unseen.del",
-            "split_type": "test"
+            "split_type": "test",
         },
     )
 
     test.derived_splits.extend([test_derived, test_derived_wo_unseen])
 
-
     string_files = {
         "entity_strings": "entity_strings.del",
         "relation_strings": "relation_strings.del",
     }
-
 
     # write all splits and collect meta data
     process_splits(dataset)
