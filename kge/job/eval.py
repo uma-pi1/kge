@@ -1,13 +1,13 @@
 import torch
 
 from kge import Config, Dataset
-from kge.job import Job
+from kge.job import Job, TrainingOrEvaluationJob
 from kge.model import KgeModel
 
 from typing import Dict, Union, Optional
 
 
-class EvaluationJob(Job):
+class EvaluationJob(TrainingOrEvaluationJob):
     def __init__(self, config, dataset, parent_job, model):
         super().__init__(config, dataset, parent_job)
 
@@ -17,7 +17,8 @@ class EvaluationJob(Job):
         self.batch_size = config.get("eval.batch_size")
         self.device = self.config.get("job.device")
         max_k = min(
-            self.dataset.num_entities(), max(self.config.get("entity_ranking.hits_at_k_s"))
+            self.dataset.num_entities(),
+            max(self.config.get("entity_ranking.hits_at_k_s")),
         )
         self.hits_at_k_s = list(
             filter(lambda x: x <= max_k, self.config.get("entity_ranking.hits_at_k_s"))
@@ -34,30 +35,11 @@ class EvaluationJob(Job):
         self.filter_with_test = config.get("entity_ranking.filter_with_test")
         self.epoch = -1
 
-        #: Hooks run after training for an epoch.
-        #: Signature: job, trace_entry
-        self.post_epoch_hooks = []
-
-        #: Hooks run before starting a batch.
-        #: Signature: job
-        self.pre_batch_hooks = []
-
-        #: Hooks run before outputting the trace of a batch. Can modify trace entry.
-        #: Signature: job, trace_entry
-        self.post_batch_trace_hooks = []
-
-        #: Hooks run before outputting the trace of an epoch. Can modify trace entry.
-        #: Signature: job, trace_entry
-        self.post_epoch_trace_hooks = []
-
-        #: Signature: job, trace_entry
-        self.post_valid_hooks = []
-
         #: Whether to create additional histograms for head and tail slot
         self.head_and_tail = config.get("entity_ranking.metrics_per.head_and_tail")
 
         #: Hooks after computing the ranks for each batch entry.
-        #: Signature: job, trace_entry
+        #: Signature: hists, s, p, o, s_ranks, o_ranks, job, **kwargs
         self.hist_hooks = [hist_all]
         if config.get("entity_ranking.metrics_per.relation_type"):
             self.hist_hooks.append(hist_per_relation_type)

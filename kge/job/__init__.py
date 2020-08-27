@@ -1,5 +1,6 @@
 from kge.job.trace import Trace
 from kge.job.job import Job
+from kge.job.job import TrainingOrEvaluationJob
 from kge.job.train import TrainingJob
 from kge.job.eval import EvaluationJob
 from kge.job.grid_search import GridSearchJob

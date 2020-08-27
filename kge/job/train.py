@@ -12,7 +12,7 @@ import torch.utils.data
 import numpy as np
 
 from kge import Config, Dataset
-from kge.job import Job
+from kge.job import Job, TrainingOrEvaluationJob
 from kge.model import KgeModel
 
 from kge.util import KgeLoss, KgeOptimizer, KgeSampler, KgeLRScheduler
@@ -43,7 +43,7 @@ def _generate_worker_init_fn(config):
     return worker_init_fn
 
 
-class TrainingJob(Job):
+class TrainingJob(TrainingOrEvaluationJob):
     """Abstract base job to train a single model with a fixed set of hyperparameters.
 
     Also used by jobs such as :class:`SearchJob`.
@@ -89,29 +89,9 @@ class TrainingJob(Job):
         self.num_examples = None
         self.type_str: Optional[str] = None
 
-        #: Hooks run after training for an epoch.
-        #: Signature: job, trace_entry
-        self.post_epoch_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
-
-        #: Hooks run before starting a batch.
-        #: Signature: job
-        self.pre_batch_hooks: List[Callable[[Job], Any]] = []
-
-        #: Hooks run before outputting the trace of a batch. Can modify trace entry.
-        #: Signature: job, trace_entry
-        self.post_batch_trace_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
-
-        #: Hooks run before outputting the trace of an epoch. Can modify trace entry.
-        #: Signature: job, trace_entry
-        self.post_epoch_trace_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
-
-        #: Hooks run after a validation job.
-        #: Signature: job, trace_entry
-        self.post_valid_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
-
-        #: Hooks run after training
-        #: Signature: job, trace_entry
-        self.post_train_hooks: List[Callable[[Job, Dict[str, Any]], Any]] = []
+        # Hooks run after validation. The corresponding valid trace entry can be found
+        # in self.valid_trace[-1] Signature: job
+        self.post_valid_hooks: List[Callable[[Job], Any]] = []
 
         if self.__class__ == TrainingJob:
             for f in Job.job_created_hooks:
@@ -187,8 +167,6 @@ class TrainingJob(Job):
             self.epoch += 1
             self.config.log("Starting epoch {}...".format(self.epoch))
             trace_entry = self.run_epoch()
-            for f in self.post_epoch_hooks:
-                f(self, trace_entry)
             self.config.log("Finished epoch {}.".format(self.epoch))
 
             # update model metadata
@@ -206,7 +184,7 @@ class TrainingJob(Job):
                 trace_entry = self.valid_job.run()
                 self.valid_trace.append(trace_entry)
                 for f in self.post_valid_hooks:
-                    f(self, trace_entry)
+                    f(self)
                 self.model.meta["valid_trace_entry"] = trace_entry
 
                 # metric-based scheduler step
@@ -246,8 +224,6 @@ class TrainingJob(Job):
                             )
                         )
 
-        for f in self.post_train_hooks:
-            f(self, trace_entry)
         self.trace(event="train_completed")
 
     def save(self, filename) -> None:
@@ -294,7 +270,22 @@ class TrainingJob(Job):
         )
 
     def run_epoch(self) -> Dict[str, Any]:
-        "Runs an epoch and returns a trace entry."
+        "Runs an epoch and returns its trace entry."
+
+        # create initial trace entry
+        self.current_trace["epoch"] = dict(
+            type=self.type_str,
+            scope="epoch",
+            epoch=self.epoch,
+            split=self.train_split,
+            batches=len(self.loader),
+            size=self.num_examples,
+            lr=[group["lr"] for group in self.optimizer.param_groups],
+        )
+
+        # run pre-epoch hooks (may modify trace)
+        for f in self.pre_epoch_hooks:
+            f(self)
 
         # variables that record various statitics
         sum_loss = 0.0
@@ -308,6 +299,18 @@ class TrainingJob(Job):
 
         # process each batch
         for batch_index, batch in enumerate(self.loader):
+            # create initial batch trace (yet incomplete)
+            self.current_trace["batch"] = {
+                "type": self.type_str,
+                "scope": "batch",
+                "epoch": self.epoch,
+                "split": self.train_split,
+                "batch": batch_index,
+                "batches": len(self.loader),
+                "lr": [group["lr"] for group in self.optimizer.param_groups],
+            }
+
+            # run the pre-batch hooks (may update the trace)
             for f in self.pre_batch_hooks:
                 f(self)
 
@@ -376,17 +379,10 @@ class TrainingJob(Job):
             self.optimizer.step()
             batch_optimizer_time += time.time()
 
-            # tracing/logging
-            if self.trace_batch:
-                batch_trace = {
-                    "type": self.type_str,
-                    "scope": "batch",
-                    "epoch": self.epoch,
-                    "split": self.train_split,
-                    "batch": batch_index,
+            # update batch trace with the results
+            self.current_trace["batch"].update(
+                {
                     "size": batch_result.size,
-                    "batches": len(self.loader),
-                    "lr": [group["lr"] for group in self.optimizer.param_groups],
                     "avg_loss": batch_result.avg_loss,
                     "penalties": [p.item() for k, p in penalties_torch],
                     "penalty": penalty,
@@ -395,10 +391,20 @@ class TrainingJob(Job):
                     "forward_time": batch_forward_time,
                     "backward_time": batch_backward_time,
                     "optimizer_time": batch_optimizer_time,
+                    "event": "batch_completed",
                 }
-                for f in self.post_batch_trace_hooks:
-                    f(self, batch_trace)
-                self.trace(**batch_trace, event="batch_completed")
+            )
+
+            # run the post-batch hooks (may modify the trace)
+            for f in self.post_batch_hooks:
+                f(self)
+
+            # output, then clear trace
+            if self.trace_batch:
+                self.trace(**self.current_trace["batch"])
+            self.current_trace["batch"] = None
+
+            # print console feedback
             self.config.print(
                 (
                     "\r"  # go back
@@ -423,7 +429,7 @@ class TrainingJob(Job):
                 flush=True,
             )
 
-            # update times
+            # update epoch times
             prepare_time += batch_result.prepare_time
             forward_time += batch_forward_time
             backward_time += batch_backward_time
@@ -436,29 +442,36 @@ class TrainingJob(Job):
         other_time = (
             epoch_time - prepare_time - forward_time - backward_time - optimizer_time
         )
-        trace_entry = dict(
-            type=self.type_str,
-            scope="epoch",
-            epoch=self.epoch,
-            split=self.train_split,
-            batches=len(self.loader),
-            size=self.num_examples,
-            lr=[group["lr"] for group in self.optimizer.param_groups],
-            avg_loss=sum_loss / self.num_examples,
-            avg_penalty=sum_penalty / len(self.loader),
-            avg_penalties={k: p / len(self.loader) for k, p in sum_penalties.items()},
-            avg_cost=sum_loss / self.num_examples + sum_penalty / len(self.loader),
-            epoch_time=epoch_time,
-            prepare_time=prepare_time,
-            forward_time=forward_time,
-            backward_time=backward_time,
-            optimizer_time=optimizer_time,
-            other_time=other_time,
-            event="epoch_completed",
+
+        # add results to trace entry
+        self.current_trace["epoch"].update(
+            dict(
+                avg_loss=sum_loss / self.num_examples,
+                avg_penalty=sum_penalty / len(self.loader),
+                avg_penalties={
+                    k: p / len(self.loader) for k, p in sum_penalties.items()
+                },
+                avg_cost=sum_loss / self.num_examples + sum_penalty / len(self.loader),
+                epoch_time=epoch_time,
+                prepare_time=prepare_time,
+                forward_time=forward_time,
+                backward_time=backward_time,
+                optimizer_time=optimizer_time,
+                other_time=other_time,
+                event="epoch_completed",
+            )
         )
-        for f in self.post_epoch_trace_hooks:
-            f(self, trace_entry)
-        trace_entry = self.trace(**trace_entry, echo=True, echo_prefix="  ", log=True)
+
+        # run hooks (may modify trace)
+        for f in self.post_epoch_hooks:
+            f(self)
+
+        # output the trace, then clear it
+        trace_entry = self.trace(
+            **self.current_trace["epoch"], echo=True, echo_prefix="  ", log=True
+        )
+        self.current_trace["epoch"] = None
+
         return trace_entry
 
     def _prepare(self):
