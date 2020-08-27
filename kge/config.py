@@ -677,7 +677,7 @@ def _process_deprecated_options(options: Dict[str, Any]):
             else:
                 raise ValueError(f"key {key} is deprecated and has been removed.")
 
-    # deletes a key with a regular expression
+    # deletes a key with a regular expression if it takes the given value (else error)
     def delete_key_re_with_default_value(key_regex, value):
         regex = re.compile(key_regex)
         for old_key in list(options.keys()):
@@ -685,14 +685,15 @@ def _process_deprecated_options(options: Dict[str, Any]):
                 if options[old_key] == value:
                     print(
                         f"Warning: key {old_key} is deprecated and has been removed."
-                        " Ignoring key since it has default value.",
+                        " Ignoring key since it has its value is compatible with the"
+                        " current implementation.",
                         file=sys.stderr,
                     )
                     del options[old_key]
                 else:
                     raise ValueError(
-                        f"key {old_key} with value {value} is deprecated and is not "
-                        f"supported any more."
+                        f"Warning: key {old_key} is deprecated and has been removed."
+                        f" The specified value {options[old_key]} is not supported any more."
                     )
 
     # renames a set of keys matching a regular expression
@@ -715,6 +716,9 @@ def _process_deprecated_options(options: Dict[str, Any]):
                 if rename_value(key, old_value, new_value):
                     renamed_keys.add(key)
         return renamed_keys
+
+    # 13.6.2020
+    delete_key_re_with_default_value(".*normalize.with_grad", False)
 
     # 10.6.2020
     rename_key("eval.filter_splits", "entity_ranking.filter_splits")
@@ -802,8 +806,5 @@ def _process_deprecated_options(options: Dict[str, Any]):
         "eval.metric_per_argument_frequency_perc",
         "entity_ranking.metrics_per.argument_frequency",
     )
-
-    # 13.6.2020
-    delete_key_re_with_default_value(".*normalize.with_grad", False)
 
     return options

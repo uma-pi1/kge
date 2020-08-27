@@ -35,14 +35,13 @@ class LookupEmbedder(KgeEmbedder):
             self.dim = round_to_points(round_embedder_dim_to, self.dim)
 
         self._embeddings = torch.nn.Embedding(
-            self.vocab_size,
-            self.dim,
-            sparse=self.sparse,
+            self.vocab_size, self.dim, sparse=self.sparse,
         )
 
         if not init_for_load_only:
             # initialize weights
             self._init_embeddings(self._embeddings.weight.data)
+            self._normalize_embeddings()
 
         # TODO handling negative dropout because using it with ax searches for now
         dropout = self.get_option("dropout")
@@ -55,19 +54,23 @@ class LookupEmbedder(KgeEmbedder):
                 dropout = 0
         self.dropout = torch.nn.Dropout(dropout)
 
-    def prepare_job(self, job: Job, **kwargs):
-        super().prepare_job(job, **kwargs)
+    def _normalize_embeddings(self):
         if self.normalize_p > 0:
-            def normalize_embeddings(job : "TrainingJob", trace_entry: Dict[str,str]=None):
-                with torch.no_grad():
-                    self._embeddings.weight.data =\
-                        torch.nn.functional.normalize(
-                            self._embeddings.weight.data, p=self.normalize_p, dim=-1
-                        )
-            # normalize before starting a batch
-            job.pre_batch_hooks.append(normalize_embeddings)
-            # normalize after an epoch (before validation and checkpoint is saved)
-            job.post_epoch_hooks.append(normalize_embeddings)
+            with torch.no_grad():
+                self._embeddings.weight.data = torch.nn.functional.normalize(
+                    self._embeddings.weight.data, p=self.normalize_p, dim=-1
+                )
+
+    def prepare_job(self, job: Job, **kwargs):
+        from kge.job import TrainingJob
+
+        super().prepare_job(job, **kwargs)
+        if self.normalize_p > 0 and isinstance(job, TrainingJob):
+            # just to be sure it's right initially
+            job.pre_run_hooks.append(lambda job: self._normalize_embeddings())
+
+            # normalize after each batch
+            job.post_batch_hooks.append(lambda job: self._normalize_embeddings())
 
     @torch.no_grad()
     def init_pretrained(self, pretrained_embedder: KgeEmbedder) -> None:
