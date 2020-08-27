@@ -23,10 +23,12 @@ import yaml
 import os.path
 import numpy as np
 
-from util import analyze_raw_splits
-from util import store_map
+from util import analyze_splits
 from util import RawDataset
-from util import RawSplit
+from util import DerivedSplitBase
+from util import DerivedSplitSample
+from util import DerivedSplitFiltered
+from util import Split
 from util import write_dataset_config
 from util import process_splits
 
@@ -34,76 +36,104 @@ from util import process_splits
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("folder", type=str)
-    parser.add_argument("--order_sop", action="store_true")
+    parser.add_argument("--S", action="store", default=0)
+    parser.add_argument("--P", action="store", default=1)
+    parser.add_argument("--O", action="store", default=2)
     args = parser.parse_args()
+
+    S, P, O = int(args.S), int(args.P), int(args.O)
 
     print(f"Preprocessing {args.folder}...")
 
-    raw_train = RawSplit(
+    # register all base splits
+    train = Split(
         file="train.txt",
-        order_sop=args.order_sop,
+        SPO={"S": S, "P": P, "O": O},
         collect_entities=True,
         collect_relations=True,
-        derived_split_key="train",
-        derived_split_options={
-            "type": "triples",
-            "filename": "train.del",
-            "split_type": "train",
-        },
-        derived_sample_split_key="train_sample",
-        sample_split_options={
+
+    )
+    valid = Split(
+        file="valid.txt",
+        SPO={"S": S, "P": P, "O": O},
+    )
+    test = Split(
+        file="test.txt",
+        SPO={"S": S, "P": P, "O": O},
+    )
+
+    # read data and collect entity and relation maps
+    dataset: RawDataset = analyze_splits(
+        splits=[train, valid, test],
+        folder=args.folder,
+    )
+
+    # register all splits to be derived from the base splits
+    # arbitrary options can be added which will be written the the dataset config
+
+    train_derived = DerivedSplitBase(
+        parent_split=train,
+        key="train",
+        options={"type": "triples", "filename": "train.del", "split_type": "train"},
+    )
+
+    train_derived_sample = DerivedSplitSample(
+        parent_split=train,
+        key="train_sample",
+        sample_size=len(valid.raw_data),
+        options={
             "type": "triples",
             "filename": "train_sample.del",
-            "split_type": "train",
+            "split_type": "train"
         },
     )
-    raw_valid = RawSplit(
-        file="valid.txt",
-        order_sop=args.order_sop,
-        derived_split_key="valid",
-        derived_split_options={
-            "type": "triples",
-            "filename": "valid.del",
-            "split_type": "valid",
-        },
-        derived_filtered_split_key="valid_without_unseen",
-        filter_with=raw_train,
-        filtered_split_options={
+
+    train.derived_splits.extend([train_derived, train_derived_sample])
+
+    valid_derived = DerivedSplitBase(
+        parent_split=valid,
+        key="valid",
+        options={"type": "triples", "filename": "valid.del", "split_type": "valid"},
+    )
+
+    valid_derived_wo_unseen = DerivedSplitFiltered(
+        parent_split=valid,
+        key="valid_without_unseen",
+        filter_with=train,
+        options={
             "type": "triples",
             "filename": "valid_without_unseen.del",
-            "split_type": "valid",
+            "split_type": "valid"
         },
     )
-    raw_test = RawSplit(
-        file="test.txt",
-        order_sop=args.order_sop,
-        derived_split_key="test",
-        derived_split_options={
-            "type": "triples",
-            "filename": "test.del",
-            "split_type": "test",
-        },
-        derived_filtered_split_key="test_without_unseen",
-        filter_with=raw_train,
-        filtered_split_options={
+
+    valid.derived_splits.extend([valid_derived, valid_derived_wo_unseen])
+
+    test_derived = DerivedSplitBase(
+        parent_split=test,
+        key="test",
+        options={"type": "triples", "filename": "test.del", "split_type": "test"},
+    )
+
+    test_derived_wo_unseen = DerivedSplitFiltered(
+        parent_split=test,
+        key="test_without_unseen",
+        filter_with=train,
+        options={
             "type": "triples",
             "filename": "test_without_unseen.del",
-            "split_type": "test",
+            "split_type": "test"
         },
     )
+
+    test.derived_splits.extend([test_derived, test_derived_wo_unseen])
+
 
     string_files = {
         "entity_strings": "entity_strings.del",
         "relation_strings": "relation_strings.del",
     }
 
-    # read data and collect entity and relation maps
-    dataset: RawDataset = analyze_raw_splits(
-        raw_splits=[raw_train, raw_valid, raw_test],
-        order_sop=args.order_sop,
-        folder=args.folder,
-    )
-    raw_train.sample_size = raw_valid.size
 
     # write all splits and collect meta data
     process_splits(dataset)
