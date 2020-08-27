@@ -156,7 +156,9 @@ def _run_train_job(sicnk, device=None):
         metric_name = search_job.config.get("valid.metric")
         valid_trace = []
 
-        def copy_to_search_trace(job, trace_entry):
+        def copy_to_search_trace(job, trace_entry = None):
+            if trace_entry is None:
+                trace_entry = job.valid_trace[-1]
             trace_entry = copy.deepcopy(trace_entry)
             for key in trace_keys:
                 # Process deprecated options to some extent. Support key renames, but

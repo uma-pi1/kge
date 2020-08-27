@@ -8,6 +8,7 @@ import numpy as np
 import os
 
 import kge
+from kge.job import TrainingOrEvaluationJob
 from kge import Config, Configurable, Dataset
 from kge.misc import filename_in_module
 from kge.util import load_checkpoint
@@ -580,10 +581,13 @@ class KgeModel(KgeBase):
         self._entity_embedder.prepare_job(job, **kwargs)
         self._relation_embedder.prepare_job(job, **kwargs)
 
-        def append_num_parameter(job, trace):
-            trace["num_parameters"] = sum(map(lambda p: p.numel(), self.parameters()))
+        if isinstance(job, TrainingOrEvaluationJob):
+            def append_num_parameter(job):
+                job.current_trace["epoch"]["num_parameters"] = sum(
+                    map(lambda p: p.numel(), self.parameters())
+                )
 
-        job.post_epoch_trace_hooks.append(append_num_parameter)
+            job.post_epoch_hooks.append(append_num_parameter)
 
     def penalty(self, **kwargs) -> List[Tensor]:
         # Note: If the subject and object embedder are identical, embeddings may be
