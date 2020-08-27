@@ -137,7 +137,7 @@ else
     echo dbpedia500 already present
 fi
 if [ ! -f "$BASEDIR/dbpedia500/dataset.yaml" ]; then
-  python preprocess/preprocess_default.py dbpedia500 --order_sop
+  python preprocess/preprocess_default.py dbpedia500  --S 0 --P 2 --O 1
 else
     echo dbpedia500 already prepared
 fi

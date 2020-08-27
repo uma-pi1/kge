@@ -8,8 +8,8 @@ import yaml
 
 
 @dataclass
-class RawSplitBase:
-    """Base RawSplit, tracks data and meta data of a raw split.
+class Split:
+    """Track data and meta-data of a dataset split.
 
     Attributes:
         file (str): File with tab-separated raw triples (can be labeled)
@@ -17,7 +17,11 @@ class RawSplitBase:
             collected during preprocessing.
         collect_relations (bool): If true, relations contained in this split will be
             collected during preprocessing.
-        raw_data (list): List of triples represented with raw ids; determined during
+        SPO (dict): Mapping of subject, relation, object-index corresponding to the raw
+            triples.
+        derived_splits (list[DerivedSplitBase]): List of DerivedSplits, i.e, the final
+            splits that ultimately will be written from this split.
+        raw_data (list): List of triples represented with raw ids; created during
             preprocessing
         size (str): Number of triples; determined during preprocessing.
         entities (dict): Entities contained in this split if collected. Keys refer to
@@ -30,112 +34,131 @@ class RawSplitBase:
     file: str
     collect_entities: bool = False
     collect_relations: bool = False
+    SPO: Dict = None
+    derived_splits: List[int] = field(default_factory=list)
 
     # fields defined during pre-processing
     raw_data: List[str] = None
-    order_sop: bool = False
     size: int = None
-
     entities: Dict = field(default_factory=dict)
     relations: Dict = field(default_factory=dict)
 
-    def write_splits(self, entities: Dict, relations: Dict, folder: str):
-        """Write the derived splits of this RawSplit and collect meta-data. """
-        raise NotImplemented
+    def write_splits(self, entities: dict, relations: dict, folder):
+        for derived_split in self.derived_splits:
+            derived_split.prepare_process(folder)
+        for n, t in enumerate(self.raw_data):
+           for derived_split in self.derived_splits:
+               derived_split.process_triple(t, entities, relations, n=n)
+        for derived_split in self.derived_splits:
+            derived_split.file.close()
 
     def update_config(self, config: Dict) -> Dict:
         """Update a dataset config with meta data of the derived splits."""
-        raise NotImplemented
+        for derived_split in self.derived_splits:
+            for key, val in derived_split.options.items():
+                config[f"files.{derived_split.key}.{key}"] = val
+        return config
 
 
 @dataclass
-class RawSplit(RawSplitBase):
-    """A raw split, tracks meta data and info about splits to be derived.
+class DerivedSplitBase:
+    """The final libKGE split derived and written from a base Split.
 
     Attributes:
-        derived_split_key (str): The config key of the default split derived from
-            this raw split.
-        derived_split_options (dict): A dictionary with config options to
-            be added to the config entry of the derived default split.
-        derived_sample_split_key (str): If a key is set, an additional subsample
-            with config entry of this key will be derived from the raw split.
-        sample_split_options (dict): Dict with options to be added to the config
-            entry of the subsample split.
-        sample_size (int): Size of the subsample split.
-        derived_filtered_split_key (str): If a key is set, an additional filtered
-            split will be derived from the raw split.
-        filter_with (RawSplit): A RawSplit, entities and relations from this split
-            are used as filter for the filtered split.
-        filtered_split_options (str): Dict with options to be added to the config
-            entry of the filtered split.
+        parent_split (Split): The parent split.
+        key (str): The key in the dataset.yaml file.
+        options (dict): Arbitrary dict of options. Key_ value_ pairs will be added to
+            to dataset.yaml under the respective key entry of the split.
 
     """
-    # fields defined by user
-    derived_split_key: str = None
-    derived_split_options: Dict = None
-    derived_sample_split_key: str = None
-    sample_size: int = None
-    sample_split_options: Dict = None
-    derived_filtered_split_key: str = None
-    filter_with: RawSplitBase = None
-    filtered_split_options: Dict = None
+    parent_split: Split = None
+    key: str = None
+    options: Dict = None
 
-    def write_splits(self, entities: dict, relations: dict, folder: str):
-        """Write the derived splits of this RawSplit and collect meta-data. """
-        if self.order_sop:
-            S, P, O = 0, 2, 1
-        else:
-            S, P, O = 0, 1, 2
+    def prepare_process(self, folder):
+        self.file = open(
+            path.join(folder, self.options["filename"]), "w"
+        )
+        self.options["size"] = 0
 
-        # the sampled split is a randomly chosen subsample
-        if self.derived_sample_split_key:
-            sample = np.random.choice(len(self.raw_data), self.sample_size, False)
-            sample_f = open(
-                path.join(folder, self.sample_split_options["filename"]), "w"
+    def process_triple(self, triple, entities, relations, **kwargs):
+        write_triple(
+            self.file,
+            entities,
+            relations,
+            triple,
+            self.parent_split.SPO["S"],
+            self.parent_split.SPO["P"],
+            self.parent_split.SPO["O"],
+        )
+        self.options["size"] += 1
+
+
+@dataclass
+class DerivedSplitFiltered(DerivedSplitBase):
+    """A filtered derived split.
+
+    Attributes:
+        filter_with (Split): The Split of which entities and relations shall be taken
+            for filtering. The derived split exclusively contains triples where
+            entities and relations are known in the filter_with Split.
+    """
+    filter_with: Split = None
+
+    def process_triple(self, triple, entities, relations, **kwargs):
+        S, P, O = (
+            self.parent_split.SPO["S"],
+            self.parent_split.SPO["P"],
+            self.parent_split.SPO["O"]
+        )
+        if (
+            triple[S] in self.filter_with.entities
+            and triple[O] in self.filter_with.entities
+            and triple[P] in self.filter_with.relations
+        ):
+            write_triple(
+                self.file,
+                entities,
+                relations,
+                triple,
+                S,
+                P,
+                O
             )
+            self.options["size"]+= 1
 
-        # the filtered split consists of triples from the raw split where both entities
-        # and relation exist in filtered_include_ent/filter_relation
-        if self.derived_filtered_split_key:
-            filtered_size = 0
-            filter_f = open(
-                path.join(folder, self.filtered_split_options["filename"]), "w")
 
-        filename = path.join(folder, self.derived_split_options["filename"])
-        with open(filename, "w") as f:
-            for n, t in enumerate(self.raw_data):
-                write_triple(f, entities, relations, t, S, P, O)
-                if self.derived_sample_split_key and n in sample:
-                    write_triple(sample_f, entities, relations, t, S, P, O)
-                if (
-                    self.derived_filtered_split_key
-                    and t[S] in self.filter_with.entities
-                    and t[O] in self.filter_with.entities
-                    and t[P] in self.filter_with.relations
-                ):
-                    write_triple(filter_f, entities, relations, t, S, P, O)
-                    filtered_size += 1
+@dataclass
+class DerivedSplitSample(DerivedSplitBase):
+    """A derived sub-sample Split.
 
-        # collect meta data of everything you have done
-        self.derived_split_options["size"] = self.size
-        if self.derived_filtered_split_key:
-            self.filtered_split_options["size"] = filtered_size
-            filter_f.close()
-        if self.derived_sample_split_key:
-            self.sample_split_options["size"] = self.sample_size
-            sample_f.close()
+       Attributes:
+           sample_size (int): Size of the subsample.
+           sample (Iterable[int]): Randomly selected triple indexes with size
+               sample_size; determined in  prepare_process().
 
-    def update_config(self, config: Dict) -> Dict:
-        """Update a dataset config with meta data of the derived splits."""
-        for key, val in self.derived_split_options.items():
-            config[f"files.{self.derived_split_key}.{key}"] = val
-        if self.derived_sample_split_key:
-            for key, val in self.sample_split_options.items():
-                config[f"files.{self.derived_sample_split_key}.{key}"] = val
-        if self.derived_filtered_split_key:
-            for key, val in self.filtered_split_options.items():
-                config[f"files.{self.derived_filtered_split_key}.{key}"] = val
-        return config
+    """
+    sample_size: int = None
+    sample: Iterable[int] = None
+
+    def prepare_process(self, folder):
+        super().prepare_process(folder)
+        self.sample = np.random.choice(
+            len(self.parent_split.raw_data), self.sample_size, False
+        )
+
+    def process_triple(self, triple, entities, relations, **kwargs):
+        if kwargs["n"] in self.sample:
+            write_triple(
+                self.file,
+                entities,
+                relations,
+                triple,
+                self.parent_split.SPO["S"],
+                self.parent_split.SPO["P"],
+                self.parent_split.SPO["O"],
+            )
+            self.options["size"] += 1
 
 
 @dataclass
@@ -143,10 +166,10 @@ class RawDataset:
     """A raw relational dataset.
 
      Contains the RawSplits of the dataset to be processed and the final config;
-     is generated automatically in analyze_raw_splits().
+     is generated automatically in analyze_splits().
 
      Attributes:
-         raw_splits (list[RawSplit]): List of RawSplits.
+         splits (list[Split]): List of Splits.
          all_entities (dict): Distinct entities over all splits. Keys refer to
             raw entity-id's and values to the dense index.
          all_relations (dict): See all entities.
@@ -155,7 +178,7 @@ class RawDataset:
 
      """
 
-    raw_splits: List[RawSplitBase]
+    splits: List[Split]
     all_entities: Dict[str, int]
     all_relations: Dict[str, int]
     config: Dict[str, str]
@@ -163,41 +186,33 @@ class RawDataset:
 
 
 def process_splits(dataset: RawDataset):
-    for raw_split in dataset.raw_splits:
-        raw_split.write_splits(
+    for split in dataset.splits:
+        split.write_splits(
             entities=dataset.all_entities,
             relations=dataset.all_relations,
             folder=dataset.folder,
         )
         # add the collected meta data to the config
-        raw_split.update_config(dataset.config)
+        split.update_config(dataset.config)
 
 
-def analyze_raw_splits(
-    raw_splits: List[RawSplit], folder: str, order_sop: bool = False,
-) -> RawDataset:
+def analyze_splits(
+    splits: List[Split], folder: str) -> RawDataset:
     """Read a collection of raw splits and create a RawDataset.
 
     Args:
-        raw_splits (list[RawSplits]): List of RawSplits.
+        splits (list[Splits]): List of RawSplits.
         folder (str): Folder of the dataset containing the files.
-        order_sop (bool): True when the order in the raw triples is (S,O,P) instead of
-            (S,P,O).     
     """
-
-    if order_sop:
-        S, P, O = 0, 2, 1
-    else:
-        S, P, O = 0, 1, 2
-
     # read data and collect entities and relations
     all_entities = {}
     all_relations = {}
     ent_id = 0
     rel_id = 0
-    for split in raw_splits:
+    for split in splits:
         with open(path.join(folder, split.file), "r") as f:
             split.raw_data = list(map(lambda s: s.strip().split("\t"), f.readlines()))
+            S, P, O = split.SPO["S"], split.SPO["P"], split.SPO["O"]
             for t in split.raw_data:
                 if t[S] not in all_entities:
                     all_entities[t[S]] = ent_id
@@ -223,7 +238,7 @@ def analyze_raw_splits(
     )
 
     dataset = RawDataset(
-        raw_splits=raw_splits,
+        splits=splits,
         all_entities=all_entities,
         all_relations=all_relations,
         config=config,
@@ -267,96 +282,45 @@ def write_dataset_config(config: dict, folder: str):
 
 ### WN11 UTILS #########################################################################
 
+@dataclass
+class DerivedLabeledSplit(DerivedSplitBase):
+    label: int = None
+
+    def process_triple(self, triple, entities, relations, **kwargs):
+        if int(triple[3]) == self.label:
+            write_triple(
+                self.file,
+                entities,
+                relations,
+                triple,
+                self.parent_split.SPO["S"],
+                self.parent_split.SPO["P"],
+                self.parent_split.SPO["O"],
+            )
+            self.options["size"] += 1
 
 @dataclass
-class PosNegRawSplit(RawSplitBase):
-    """A raw split containing positive and negative triples."""
+class DerivedLabeledSplitFiltered(DerivedSplitFiltered):
+    label: int = None
 
-    # fields defined by user
-    derived_split_pos_key: str = None
-    derived_split_pos_options: Dict = None
-    derived_split_neg_key: str = None
-    derived_split_neg_options: Dict = None
-    derived_split_filtered_pos_key: str = None
-    filtered_split_pos_options: Dict = None
-    derived_split_filtered_neg_key: str = None
-    filtered_split_neg_options: Dict = None
-    filter_with: RawSplitBase = None
-
-    def write_splits(self, entities: dict, relations: dict, folder: str):
-        if self.order_sop:
-            S, P, O = 0, 2, 1
-        else:
-            S, P, O = 0, 1, 2
-
-        # the filtered split cosists of triples from the raw split where both
-        create_filtered = (
-            self.derived_split_filtered_neg_key and self.derived_split_filtered_pos_key
+    def process_triple(self, triple, entities, relations, **kwargs):
+        S, P, O = (
+            self.parent_split.SPO["S"],
+            self.parent_split.SPO["P"],
+            self.parent_split.SPO["O"]
         )
-        if create_filtered:
-            filter_pos_f = open(
-                path.join(folder, self.filtered_split_pos_options["filename"]), "w"
+        if int(triple[3]) == self.label and (
+            triple[S] in self.filter_with.entities
+            and triple[O] in self.filter_with.entities
+            and triple[P] in self.filter_with.relations
+    ):
+            write_triple(
+                self.file,
+                entities,
+                relations,
+                triple,
+                S,
+                P,
+                O
             )
-            filter_neg_f = open(
-                path.join(folder, self.filtered_split_neg_options["filename"]), "w"
-            )
-            filtered_pos_size = 0
-            filtered_neg_size = 0
-
-        pos_size = 0
-        neg_size = 0
-        pos_file = path.join(folder, self.derived_split_pos_options["filename"])
-        neg_file = path.join(folder, self.derived_split_neg_options["filename"])
-        with open(pos_file, "w") as pos_file, open(neg_file, "w") as neg_file:
-            for n, t in enumerate(self.raw_data):
-                if int(t[3]) == -1:
-                    file_wrapper = neg_file
-                    neg_size += 1
-                else:
-                    file_wrapper = pos_file
-                    pos_size += 1
-                write_triple(file_wrapper, entities, relations, t, S, P, O)
-                if (
-                    create_filtered
-                    and t[S] in self.filter_with.entities
-                    and t[O] in self.filter_with.entities
-                    and t[P] in self.filter_with.relations
-                ):
-
-                    if int(t[3]) == -1:
-                        filtered_neg_size += 1
-                        filtered_file_wrapper = filter_neg_f
-                    else:
-                        filtered_pos_size += 1
-                        filtered_file_wrapper = filter_pos_f
-                    write_triple(filtered_file_wrapper, entities, relations, t, S, P, O)
-
-            # collect meta data of everything you have done
-            self.derived_split_pos_options["size"] = pos_size
-            self.derived_split_neg_options["size"] = neg_size
-            if create_filtered:
-                self.filtered_split_pos_options["size"] = filtered_pos_size
-                self.filtered_split_neg_options["size"] = filtered_neg_size
-                filter_neg_f.close()
-                filter_pos_f.close()
-
-    def update_config(self, config: Dict) -> Dict:
-        """Update a dataset config with meta data of the derived splits."""
-
-        options = [self.derived_split_pos_options, self.derived_split_neg_options]
-
-        file_keys = [
-            self.derived_split_pos_key,
-            self.derived_split_neg_key,
-        ]
-        filt_pos_key = self.derived_split_filtered_pos_key
-        filt_neg_key = self.derived_split_filtered_neg_key
-        if filt_pos_key and filt_neg_key:
-            options.extend(
-                [self.filtered_split_pos_options, self.filtered_split_neg_options]
-            )
-            file_keys.extend([filt_pos_key, filt_neg_key])
-        for file_key, options in zip(file_keys, options):
-            for key, val in options.items():
-                config[f"files.{file_key}.{key}"] = val
-        return config
+            self.options["size"] += 1

@@ -7,102 +7,180 @@ import os.path
 import numpy as np
 from collections import OrderedDict
 
-from util import analyze_raw_splits
+from util import analyze_splits
 from util import RawDataset
 from util import write_dataset_config
-from util import RawSplit
-from util import PosNegRawSplit
+from util import Split
+from util import DerivedSplitBase
+from util import DerivedSplitSample
+from util import DerivedLabeledSplit
+from util import DerivedLabeledSplitFiltered
 from util import process_splits
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("folder", type=str)
+    parser.add_argument("--S", action="store", default=0)
+    parser.add_argument("--P", action="store", default=1)
+    parser.add_argument("--O", action="store", default=2)
     args = parser.parse_args()
 
-    print(f"Preprocessing {args.folder}...")
+    S, P, O = int(args.S), int(args.P), int(args.O)
 
-    raw_train = RawSplit(
+    # register all base splits
+    train = Split(
         file="train.txt",
+        SPO={"S": S, "P": P, "O": O},
         collect_entities=True,
         collect_relations=True,
-        derived_split_key="train",
-        derived_split_options={
-            "type": "triples",
-            "filename": "train.del",
-            "split_type": "train",
-        },
-        derived_sample_split_key="train_sample",
-        sample_split_options={
-            "type": "triples",
-            "filename": "train_sample.del",
-            "split_type": "train",
-        },
-    )
 
-    raw_valid = PosNegRawSplit(
+    )
+    valid = Split(
         file="valid.txt",
-        derived_split_pos_key="valid",
-        derived_split_pos_options={
-            "type": "triples",
-            "filename": "valid.del",
-            "split_type": "valid",
-        },
-        derived_split_neg_key="valid_negative",
-        derived_split_neg_options={
-            "type": "triples",
-            "filename": "valid_negative.del",
-            "split_type": "valid",
-        },
-        derived_split_filtered_pos_key="valid_without_unseen",
-        filtered_split_pos_options={
-            "type": "triples",
-            "filename": "valid_without_unseen.del",
-            "split_type": "valid",
-        },
-        derived_split_filtered_neg_key="valid_without_unseen_negative",
-        filtered_split_neg_options={
-            "type": "triples",
-            "filename": "valid_without_unseen_negative.del",
-            "split_type": "valid",
-        },
-        filter_with=raw_train,
+        SPO={"S": S, "P": P, "O": O},
     )
-
-    raw_test = PosNegRawSplit(
+    test = Split(
         file="test.txt",
-        derived_split_pos_key="test",
-        derived_split_pos_options={
-            "type": "triples",
-            "filename": "test.del",
-            "split_type": "test",
-        },
-        derived_split_neg_key="test_negative",
-        derived_split_neg_options={
-            "type": "triples",
-            "filename": "test_negative.del",
-            "split_type": "test",
-        },
-        derived_split_filtered_pos_key="test_without_unseen",
-        filtered_split_pos_options={
-            "type": "triples",
-            "filename": "test_without_unseen.del",
-            "split_type": "test",
-        },
-        derived_split_filtered_neg_key="test_without_unseen_negative",
-        filtered_split_neg_options={
-            "type": "triples",
-            "filename": "test_without_unseen_negative.del",
-            "split_type": "test",
-        },
-        filter_with=raw_train,
+        SPO={"S": S, "P": P, "O": O},
     )
 
-    # read data and collect entities and relations
-    dataset: RawDataset = analyze_raw_splits(
-        raw_splits=[raw_train, raw_valid, raw_test],
+    # read data and collect entity and relation maps
+    dataset: RawDataset = analyze_splits(
+        splits=[train, valid, test],
         folder=args.folder,
     )
-    raw_train.sample_size = raw_valid.size
+
+    # register all splits to be derived from the base splits
+    # arbitrary options can be added which will be written the the dataset config
+
+    train_derived = DerivedSplitBase(
+        parent_split=train,
+        key="train",
+        options={"type": "triples", "filename": "train.del", "split_type": "train"},
+    )
+
+    train_derived_sample = DerivedSplitSample(
+        parent_split=train,
+        key="train_sample",
+        sample_size=len(valid.raw_data),
+        options={
+            "type": "triples",
+            "filename": "train_sample.del",
+            "split_type": "train"
+        },
+    )
+
+    train.derived_splits.extend([train_derived, train_derived_sample])
+
+    valid_pos_derived = DerivedLabeledSplit(
+        parent_split=valid,
+        key="valid",
+        options={
+            "type": "triples",
+            "filename": "valid.del",
+            "split_type": "valid"
+        },
+        label=1
+    )
+
+    valid_neg_derived = DerivedLabeledSplit(
+        parent_split=valid,
+        key="valid_negatives",
+        options={
+            "type": "triples",
+            "filename": "valid_negatives.del",
+            "split_type": "valid"
+        },
+        label=-1
+    )
+
+    valid_pos_wo_unseen_derived = DerivedLabeledSplitFiltered(
+        parent_split=valid,
+        key="valid_without_unseen",
+        filter_with=train,
+        options={
+            "type": "triples",
+            "filename": "valid_without_unseen.del",
+            "split_type": "valid"
+        },
+        label=1
+    )
+
+    valid_neg_wo_unseen_derived = DerivedLabeledSplitFiltered(
+        parent_split=valid,
+        key="valid_without_unseen_negatives",
+        filter_with=train,
+        options={
+            "type": "triples",
+            "filename": "valid_without_unseen_negatives.del",
+            "split_type": "valid"
+        },
+        label=-1
+    )
+
+    valid.derived_splits.extend(
+        [
+            valid_pos_derived,
+            valid_neg_derived,
+            valid_pos_wo_unseen_derived,
+            valid_neg_wo_unseen_derived,
+        ]
+    )
+
+    test_pos_derived = DerivedLabeledSplit(
+        parent_split=test,
+        key="test",
+        options={
+            "type": "triples",
+            "filename": "test.del",
+            "split_type": "test"
+        },
+        label=1
+    )
+
+    test_neg_derived = DerivedLabeledSplit(
+        parent_split=test,
+        key="test_negatives",
+        options={
+            "type": "triples",
+            "filename": "test_negatives.del",
+            "split_type": "test"
+        },
+        label=-1
+    )
+
+    test_pos_wo_unseen_derived = DerivedLabeledSplitFiltered(
+        parent_split=test,
+        key="test_without_unseen",
+        filter_with=train,
+        options={
+            "type": "triples",
+            "filename": "test_without_unseen.del",
+            "split_type": "test"
+        },
+        label=1
+    )
+
+    test_neg_wo_unseen_derived = DerivedLabeledSplitFiltered(
+        parent_split=test,
+        key="test_without_unseen_negatives",
+        filter_with=train,
+        options={
+            "type": "triples",
+            "filename": "test_without_unseen_negatives.del",
+            "split_type": "test"
+        },
+        label=-1
+    )
+
+    test.derived_splits.extend(
+        [
+            test_pos_derived,
+            test_neg_derived,
+            test_pos_wo_unseen_derived,
+            test_neg_wo_unseen_derived,
+        ]
+    )
 
     # write all splits and collect meta data
     process_splits(dataset)
