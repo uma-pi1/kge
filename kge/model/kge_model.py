@@ -591,9 +591,16 @@ class KgeModel(KgeBase):
         # weighted).
         if "batch" in kwargs and "triples" in kwargs["batch"]:
             triples = kwargs["batch"]["triples"].to(self.config.get("job.device"))
-            penalty_result = super().penalty(**kwargs) + self.get_p_embedder().penalty(indexes=triples[:, P], **kwargs)
+            penalty_result = super().penalty(**kwargs) + self.get_p_embedder().penalty(
+                indexes=triples[:, P], **kwargs
+            )
             if self.get_s_embedder() == self.get_o_embedder():
-                entity_penalty_result = self.get_s_embedder().penalty(indexes=torch.cat((triples[:, S].view(-1, 1), triples[:, O].view(-1, 1)), dim=1), **kwargs)
+                entity_penalty_result = self.get_s_embedder().penalty(
+                    indexes=torch.cat(
+                        (triples[:, S].view(-1, 1), triples[:, O].view(-1, 1)), dim=1
+                    ),
+                    **kwargs,
+                )
                 if not self.get_s_embedder().get_option("regularize_args.weighted"):
                     # backwards compatibility
                     for penalty in entity_penalty_result:
@@ -601,11 +608,17 @@ class KgeModel(KgeBase):
                             p *= 2
                 penalty_result += entity_penalty_result
             else:
-                penalty_result += self.get_s_embedder().penalty(indexes=triples[:, S], **kwargs)
-                penalty_result += self.get_o_embedder().penalty(indexes=triples[:, O], **kwargs)
+                penalty_result += self.get_s_embedder().penalty(
+                    indexes=triples[:, S], **kwargs
+                )
+                penalty_result += self.get_o_embedder().penalty(
+                    indexes=triples[:, O], **kwargs
+                )
             return penalty_result
         else:
-            penalty_result = super().penalty(**kwargs) + self.get_p_embedder().penalty(**kwargs)
+            penalty_result = super().penalty(**kwargs) + self.get_p_embedder().penalty(
+                **kwargs
+            )
             if self.get_s_embedder() == self.get_o_embedder():
                 entity_penalty_result = self.get_s_embedder().penalty(**kwargs)
                 for penalty in entity_penalty_result:
