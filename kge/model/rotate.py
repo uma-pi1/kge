@@ -37,7 +37,7 @@ class RotatEScorer(RelationalScorer):
             diff_abs = norm_complex(diff_re, diff_im)
 
             # now take the norm of the absolute values of the difference vector
-            out = torch.norm(diff_abs, dim=1, p=self._norm)
+            out = -torch.norm(diff_abs, dim=1, p=self._norm)
         elif combine == "sp_":
             # as above, but pair each sp-pair with each object
             sp_emb_re, sp_emb_im = hadamard_complex(
@@ -47,7 +47,7 @@ class RotatEScorer(RelationalScorer):
                 sp_emb_re, sp_emb_im, o_emb_re, o_emb_im
             )  # sp x o x dim
             diff_abs = norm_complex(diff_re, diff_im)  # sp x o x dim
-            out = torch.norm(diff_abs, dim=2, p=self._norm)
+            out = -torch.norm(diff_abs, dim=2, p=self._norm)
         elif combine == "_po":
             # as above, but pair each subject with each po-pair
             sp_emb_re, sp_emb_im = pairwise_hadamard_complex(
@@ -57,9 +57,10 @@ class RotatEScorer(RelationalScorer):
                 sp_emb_re, sp_emb_im, o_emb_re, o_emb_im
             )  # s x po x dim
             diff_abs = norm_complex(diff_re, diff_im)  # s x po x dim
-            out = torch.norm(diff_abs, dim=2, p=self._norm).t()
+            out = -torch.norm(diff_abs, dim=2, p=self._norm).t()
         else:
             return super().score_emb(s_emb, p_emb, o_emb, combine)
+
         return out.view(n, -1)
 
 

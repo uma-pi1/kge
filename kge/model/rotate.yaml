@@ -25,5 +25,5 @@ rotate:
 
     +++: +++
 
+  # which norm to use to score distances
   l_norm: 1.
-
