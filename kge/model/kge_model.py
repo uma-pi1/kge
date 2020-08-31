@@ -594,14 +594,17 @@ class KgeModel(KgeBase):
             penalty_result = super().penalty(**kwargs) + self.get_p_embedder().penalty(
                 indexes=triples[:, P], **kwargs
             )
-            if self.get_s_embedder() == self.get_o_embedder():
-                entity_penalty_result = self.get_s_embedder().penalty(
-                    indexes=torch.cat(
+            if self.get_s_embedder() is self.get_o_embedder():
+                weighted = self.get_s_embedder().get_option("regularize_args.weighted")
+                entity_indexes = None
+                if weighted:
+                    entity_indexes = torch.cat(
                         (triples[:, S].view(-1, 1), triples[:, O].view(-1, 1)), dim=1
-                    ),
-                    **kwargs,
+                    )
+                entity_penalty_result = self.get_s_embedder().penalty(
+                    indexes=entity_indexes, **kwargs,
                 )
-                if not self.get_s_embedder().get_option("regularize_args.weighted"):
+                if not weighted:
                     # backwards compatibility
                     for penalty in entity_penalty_result:
                         for p in penalty:
@@ -619,7 +622,7 @@ class KgeModel(KgeBase):
             penalty_result = super().penalty(**kwargs) + self.get_p_embedder().penalty(
                 **kwargs
             )
-            if self.get_s_embedder() == self.get_o_embedder():
+            if self.get_s_embedder() is self.get_o_embedder():
                 entity_penalty_result = self.get_s_embedder().penalty(**kwargs)
                 for penalty in entity_penalty_result:
                     for p in penalty:
