@@ -498,10 +498,38 @@ class TrainingJob(TrainingOrEvaluationJob):
         forward_time: float = 0.0
         backward_time: float = 0.0
 
-    def _process_batch(
-        self, batch_index: int, batch
-    ) -> "TrainingJob._ProcessBatchResult":
-        "Run forward and backward pass on batch and return results."
+    def _process_batch(self, batch_index, batch) -> _ProcessBatchResult:
+        "Breaks a batch into subbatches and processes them in turn."
+        result = TrainingJob._ProcessBatchResult()
+        self._prepare_batch(batch_index, batch, result)
+        batch_size = result.size
+
+        max_subbatch_size = (
+            self._max_subbatch_size if self._max_subbatch_size > 0 else batch_size
+        )
+        for subbatch_start in range(0, batch_size, max_subbatch_size):
+            # determine data used for this subbatch
+            subbatch_end = min(subbatch_start + max_subbatch_size, batch_size)
+            subbatch_slice = slice(subbatch_start, subbatch_end)
+            self._process_subbatch(batch_index, batch, subbatch_slice, result)
+
+        return result
+
+    def _prepare_batch(self, batch_index, batch, result: _ProcessBatchResult):
+        """Prepare the given batch for processing and determine the batch size.
+
+        batch size must be written into result.size.
+        """
+        raise NotImplementedError
+
+    def _process_subbatch(
+        self, batch_index, batch, subbatch_slice, result: _ProcessBatchResult,
+    ):
+        """Run forward and backward pass on the given subbatch.
+
+        Also update result.
+
+        """
         raise NotImplementedError
 
 
@@ -691,29 +719,15 @@ class TrainingJobKvsAll(TrainingJob):
 
         return collate
 
-    def _process_batch(self, batch_index, batch) -> TrainingJob._ProcessBatchResult:
-        batch_size = len(batch["queries"])
-        result = TrainingJob._ProcessBatchResult()
-        result.size = batch_size
-
+    def _prepare_batch(
+        self, batch_index, batch, result: TrainingJob._ProcessBatchResult
+    ):
         # move labels to GPU for entire batch (else somewhat costly, but this should be
-        # reaonably small)
-        result.prepare_time = -time.time()
-        batch["label_coords"] = batch["label_coords"].to(
-            self.device
-        )
-        result.prepare_time = +time.time()
-
-        max_subbatch_size = (
-            self._max_subbatch_size if self._max_subbatch_size > 0 else batch_size
-        )
-        for subbatch_start in range(0, batch_size, max_subbatch_size):
-            # determine data used for this subbatch
-            subbatch_end = min(subbatch_start + max_subbatch_size, batch_size)
-            subbatch_slice = slice(subbatch_start, subbatch_end)
-            self._process_subbatch(batch_index, batch, subbatch_slice, result)
-
-        return result
+        # reasonably small)
+        result.prepare_time -= time.time()
+        batch["label_coords"] = batch["label_coords"].to(self.device)
+        result.prepare_time += time.time()
+        result.size = len(batch["queries"])
 
     def _process_subbatch(
         self,
@@ -746,7 +760,7 @@ class TrainingJobKvsAll(TrainingJob):
             max(self.dataset.num_entities(), self.dataset.num_relations()),
             label_coords_batch,
             self.device,
-            row_slice = subbatch_slice
+            row_slice=subbatch_slice,
         ).to_dense()
         labels_for_query_type = {}
         for query_type, examples in examples_for_query_type.items():
@@ -973,34 +987,40 @@ class TrainingJob1vsAll(TrainingJob):
             pin_memory=self.config.get("train.pin_memory"),
         )
 
-    def _process_batch(self, batch_index, batch) -> TrainingJob._ProcessBatchResult:
+    def _prepare_batch(
+        self, batch_index, batch, result: TrainingJob._ProcessBatchResult
+    ):
+        result.size = len(batch["triples"])
+
+    def _process_subbatch(
+        self,
+        batch_index,
+        batch,
+        subbatch_slice,
+        result: TrainingJob._ProcessBatchResult,
+    ):
         # prepare
-        prepare_time = -time.time()
-        triples = batch["triples"].to(self.device)
+        result.prepare_time = -time.time()
+        triples = batch["triples"][subbatch_slice].to(self.device)
         batch_size = len(triples)
-        prepare_time += time.time()
+        result.prepare_time += time.time()
 
         # forward/backward pass (sp)
-        forward_time = -time.time()
+        result.forward_time = -time.time()
         scores_sp = self.model.score_sp(triples[:, 0], triples[:, 1])
         loss_value_sp = self.loss(scores_sp, triples[:, 2]) / batch_size
-        loss_value = loss_value_sp.item()
-        forward_time += time.time()
-        backward_time = -time.time()
+        result.avg_loss += loss_value_sp.item()
+        result.forward_time += time.time()
+        result.backward_time = -time.time()
         loss_value_sp.backward()
-        backward_time += time.time()
+        result.backward_time += time.time()
 
         # forward/backward pass (po)
-        forward_time -= time.time()
+        result.forward_time -= time.time()
         scores_po = self.model.score_po(triples[:, 1], triples[:, 2])
         loss_value_po = self.loss(scores_po, triples[:, 0]) / batch_size
-        loss_value += loss_value_po.item()
-        forward_time += time.time()
-        backward_time -= time.time()
+        result.avg_loss += loss_value_po.item()
+        result.forward_time += time.time()
+        result.backward_time -= time.time()
         loss_value_po.backward()
-        backward_time += time.time()
-
-        # all done
-        return TrainingJob._ProcessBatchResult(
-            loss_value, batch_size, prepare_time, forward_time, backward_time
-        )
+        result.backward_time += time.time()
