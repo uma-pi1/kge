@@ -39,8 +39,19 @@ def get_sp_po_coords_from_spo_batch(
 
 
 def coord_to_sparse_tensor(
-    nrows: int, ncols: int, coords: Tensor, device: str, value=1.0
+    nrows: int, ncols: int, coords: Tensor, device: str, value=1.0, row_slice=None
 ):
+    if row_slice is not None:
+        if row_slice.step is not None:
+            # just to be sure
+            raise ValueError()
+
+        coords = coords[
+            (coords[:, 0] >= row_slice.start) & (coords[:, 0] <= row_slice.stop), :
+        ]
+        coords[:, 0] -= row_slice.start
+        nrows = row_slice.stop - row_slice.start
+
     if device == "cpu":
         labels = torch.sparse.FloatTensor(
             coords.long().t(),
@@ -54,4 +65,5 @@ def coord_to_sparse_tensor(
             torch.Size([nrows, ncols]),
             device=device,
         )
+
     return labels
