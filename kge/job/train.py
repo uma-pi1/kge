@@ -68,6 +68,7 @@ class TrainingJob(TrainingOrEvaluationJob):
         self.loss = KgeLoss.create(config)
         self.abort_on_nan: bool = config.get("train.abort_on_nan")
         self.batch_size: int = config.get("train.batch_size")
+        self._max_subbatch_size: int = config.get("train.subbatch_size")
         self.device: str = self.config.get("job.device")
         self.train_split = config.get("train.split")
 
@@ -491,11 +492,11 @@ class TrainingJob(TrainingOrEvaluationJob):
     class _ProcessBatchResult:
         """Result of running forward+backward pass on a batch."""
 
-        avg_loss: float
-        size: int
-        prepare_time: float
-        forward_time: float
-        backward_time: float
+        avg_loss: float = 0.0
+        size: int = 0
+        prepare_time: float = 0.0
+        forward_time: float = 0.0
+        backward_time: float = 0.0
 
     def _process_batch(
         self, batch_index: int, batch
@@ -691,38 +692,70 @@ class TrainingJobKvsAll(TrainingJob):
         return collate
 
     def _process_batch(self, batch_index, batch) -> TrainingJob._ProcessBatchResult:
+        batch_size = len(batch["queries"])
+        result = TrainingJob._ProcessBatchResult()
+        result.size = batch_size
+
+        # move labels to GPU for entire batch (else somewhat costly, but this should be
+        # reaonably small)
+        result.prepare_time = -time.time()
+        batch["label_coords"] = batch["label_coords"].to(
+            self.device
+        )
+        result.prepare_time = +time.time()
+
+        max_subbatch_size = (
+            self._max_subbatch_size if self._max_subbatch_size > 0 else batch_size
+        )
+        for subbatch_start in range(0, batch_size, max_subbatch_size):
+            # determine data used for this subbatch
+            subbatch_end = min(subbatch_start + max_subbatch_size, batch_size)
+            subbatch_slice = slice(subbatch_start, subbatch_end)
+            self._process_subbatch(batch_index, batch, subbatch_slice, result)
+
+        return result
+
+    def _process_subbatch(
+        self,
+        batch_index,
+        batch,
+        subbatch_slice,
+        result: TrainingJob._ProcessBatchResult,
+    ):
         # prepare
-        prepare_time = -time.time()
-        queries_batch = batch["queries"].to(self.device)
-        batch_size = len(queries_batch)
-        label_coords_batch = batch["label_coords"].to(self.device)
-        query_type_indexes_batch = batch["query_type_indexes"]
+        result.prepare_time = -time.time()
+        queries_subbatch = batch["queries"][subbatch_slice].to(self.device)
+        batch_size = len(batch["queries"])
+        subbatch_size = len(queries_subbatch)
+        label_coords_batch = batch["label_coords"]
+        query_type_indexes_subbatch = batch["query_type_indexes"][subbatch_slice]
 
         # in this method, example refers to the index of an example in the batch, i.e.,
         # it takes values in 0,1,...,batch_size-1
         examples_for_query_type = {}
         for query_type_index, query_type in enumerate(self.query_types):
             examples_for_query_type[query_type] = (
-                (query_type_indexes_batch == query_type_index)
+                (query_type_indexes_subbatch == query_type_index)
                 .nonzero(as_tuple=False)
                 .to(self.device)
                 .view(-1)
             )
 
-        labels_batch = kge.job.util.coord_to_sparse_tensor(
-            batch_size,
+        labels_subbatch = kge.job.util.coord_to_sparse_tensor(
+            subbatch_size,
             max(self.dataset.num_entities(), self.dataset.num_relations()),
             label_coords_batch,
             self.device,
+            row_slice = subbatch_slice
         ).to_dense()
         labels_for_query_type = {}
         for query_type, examples in examples_for_query_type.items():
             if query_type == "s_o":
-                labels_for_query_type[query_type] = labels_batch[
+                labels_for_query_type[query_type] = labels_subbatch[
                     examples, : self.dataset.num_relations()
                 ]
             else:
-                labels_for_query_type[query_type] = labels_batch[
+                labels_for_query_type[query_type] = labels_subbatch[
                     examples, : self.dataset.num_entities()
                 ]
 
@@ -734,40 +767,33 @@ class TrainingJobKvsAll(TrainingJob):
                         1.0 - self.label_smoothing
                     ) * labels + 1.0 / labels.size(1)
 
-        prepare_time += time.time()
+        result.prepare_time += time.time()
 
         # forward/backward pass (sp)
-        loss_value_total = 0.0
-        backward_time = 0
-        forward_time = 0
         for query_type, examples in examples_for_query_type.items():
             if len(examples) > 0:
-                forward_time -= time.time()
+                result.forward_time -= time.time()
                 if query_type == "sp_":
                     scores = self.model.score_sp(
-                        queries_batch[examples, 0], queries_batch[examples, 1]
+                        queries_subbatch[examples, 0], queries_subbatch[examples, 1]
                     )
                 elif query_type == "s_o":
                     scores = self.model.score_so(
-                        queries_batch[examples, 0], queries_batch[examples, 1]
+                        queries_subbatch[examples, 0], queries_subbatch[examples, 1]
                     )
                 else:
                     scores = self.model.score_po(
-                        queries_batch[examples, 0], queries_batch[examples, 1]
+                        queries_subbatch[examples, 0], queries_subbatch[examples, 1]
                     )
+                # note: average on batch_size, not on subbatch_size
                 loss_value = (
                     self.loss(scores, labels_for_query_type[query_type]) / batch_size
                 )
-                loss_value_total += loss_value.item()
-                forward_time += time.time()
-                backward_time -= time.time()
+                result.avg_loss += loss_value.item()
+                result.forward_time += time.time()
+                result.backward_time -= time.time()
                 loss_value.backward()
-                backward_time += time.time()
-
-        # all done
-        return TrainingJob._ProcessBatchResult(
-            loss_value_total, batch_size, prepare_time, forward_time, backward_time
-        )
+                result.backward_time += time.time()
 
 
 class TrainingJobNegativeSampling(TrainingJob):

@@ -166,6 +166,12 @@ train:
   # Batch size used for training.
   batch_size: 100
 
+  # If specified, split the batch into subbatches of at most this size and run
+  # the forward/backward passes on each subbatch. Saves memory, adds processing
+  # time. This setting allows to simulate larger batch sizes even when the GPU
+  # has insufficient memory.
+  subbatch_size: -1
+
   # Number of workers used to construct batches. Leave at 0 for default (no
   # separate workers). On Windows, only 0 is supported.
   num_workers: 0
