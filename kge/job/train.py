@@ -779,6 +779,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             "'{}' scoring function ...".format(self._implementation)
         )
         self.type_str = "negative_sampling"
+        self.backward_pass_per_slot = self.config.get("negative_sampling.backward_pass_per_slot")
 
         if self.__class__ == TrainingJobNegativeSampling:
             for f in Job.job_created_hooks:
@@ -851,6 +852,13 @@ class TrainingJobNegativeSampling(TrainingJob):
             triples = batch_triples[chunk_indexes]
 
             # process the chunk
+            if not self.backward_pass_per_slot:
+                positive_scores = self.model.score_spo(
+                    triples[:, S],
+                    triples[:, P],
+                    triples[:, O],
+                )
+                loss_values_torch = []
             for slot in [S, P, O]:
                 num_samples = self._sampler.num_samples[slot]
                 if num_samples <= 0:
@@ -872,12 +880,15 @@ class TrainingJobNegativeSampling(TrainingJob):
                 # compute the scores
                 forward_time -= time.time()
                 scores = torch.empty((chunk_size, num_samples + 1), device=self.device)
-                scores[:, 0] = self.model.score_spo(
-                    triples[:, S],
-                    triples[:, P],
-                    triples[:, O],
-                    direction=SLOT_STR[slot],
-                )
+                if not self.backward_pass_per_slot:
+                    scores[:, 0] = positive_scores
+                else:
+                    scores[:, 0] = self.model.score_spo(
+                        triples[:, S],
+                        triples[:, P],
+                        triples[:, O],
+                        direction=SLOT_STR[slot],
+                    )
                 forward_time += time.time()
                 scores[:, 1:] = batch_negative_samples[slot].score(
                     self.model, indexes=chunk_indexes
@@ -891,12 +902,19 @@ class TrainingJobNegativeSampling(TrainingJob):
                     self.loss(scores, labels[slot], num_negatives=num_samples)
                     / batch_size
                 )
+                if not self.backward_pass_per_slot:
+                    loss_values_torch.append(loss_value_torch)
                 loss_value += loss_value_torch.item()
                 forward_time += time.time()
 
                 # backward pass for this chunk
+                if self.backward_pass_per_slot:
+                    backward_time -= time.time()
+                    loss_value_torch.backward()
+                    backward_time += time.time()
+            if not self.backward_pass_per_slot:
                 backward_time -= time.time()
-                loss_value_torch.backward()
+                torch.autograd.backward(loss_values_torch)
                 backward_time += time.time()
 
         # all done
