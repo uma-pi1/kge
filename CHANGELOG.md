@@ -1,4 +1,5 @@
 #### August 2020
+- PR [#138](https://github.com/uma-pi1/kge/pull/138): Revision of hooks, fix of embedding normalization
 - PR [#135](https://github.com/uma-pi1/kge/pull/135): Revised sampling API, faster negative sampling with shared samples
 
 #### June 2020
