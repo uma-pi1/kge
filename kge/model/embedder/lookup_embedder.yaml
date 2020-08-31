@@ -49,9 +49,6 @@ lookup_embedder:
     # l_p norm to use. Negative numbers mean do not normalize.
     p: -1.                    # common choices: 1., 2.
 
-    # Whether to push gradients through normalization.
-    with_grad: False
-
   # Whether and how embeddings should be regularized. Possible values are '' (do
   # not regularize) or lp (defaults to p=2; else set regularize_args.p)
   regularize: 'lp'

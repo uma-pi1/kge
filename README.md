@@ -75,14 +75,18 @@ alternative to KGE.
 
 ## Results and pretrained models
 
-We list some example results (w.r.t. filtered MRR and HITS@k) obtained with
+We list some example results (filtered MRR and HITS@k on test data) obtained with
 LibKGE below. These results are obtained by running automatic hyperparameter
-search as described [here](https://github.com/uma-pi1/kge-iclr20). They are not
-necessarily the best results that can be achieved using LibKGE, but the results
-are comparable in that a common experimental setup (and equal amount of work)
-has been used for hyperparameter optimization for each model.
+search as described [here](https://github.com/uma-pi1/kge-iclr20). 
 
-Note that we report performance numbers on the entire test set, **including the
+These results are not necessarily the best results that can be achieved using LibKGE, 
+but they are comparable in that a common experimental setup (and equal amount of work)
+has been used for hyperparameter optimization for each model. Since we use **filtered MRR 
+for model selection**, our results may not be indicative of the achievable model performance 
+for other validation metrics (such as HITS@10, which has been used for model selection 
+elsewhere). 
+
+We report performance numbers on the entire test set, **including the
 triples that contain entities not seen during training**. This is not done
 consistently throughout existing KGE implementations: some frameworks remove
 unseen entities from the test set, which leads to a perceived increase in

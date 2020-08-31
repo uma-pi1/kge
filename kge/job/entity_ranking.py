@@ -78,7 +78,6 @@ class EntityRankingJob(EvaluationJob):
 
     @torch.no_grad()
     def _run(self) -> dict:
-
         was_training = self.model.training
         self.model.eval()
         self.config.log(
@@ -107,9 +106,40 @@ class EntityRankingJob(EvaluationJob):
         hists_filt = dict()
         hists_filt_test = dict()
 
+        # create initial trace entry
+        self.current_trace["epoch"] = dict(
+            type="entity_ranking",
+            scope="epoch",
+            split=self.eval_split,
+            filter_splits=self.filter_splits,
+            epoch=self.epoch,
+            batches=len(self.loader),
+            size=len(self.triples),
+        )
+
+        # run pre-epoch hooks (may modify trace)
+        for f in self.pre_epoch_hooks:
+            f(self)
+
         # let's go
         epoch_time = -time.time()
         for batch_number, batch_coords in enumerate(self.loader):
+            # create initial batch trace (yet incomplete)
+            self.current_trace["batch"] = dict(
+                type="entity_ranking",
+                scope="batch",
+                split=self.eval_split,
+                filter_splits=self.filter_splits,
+                epoch=self.epoch,
+                batch=batch_number,
+                size=len(batch_coords[0]),
+                batches=len(self.loader),
+            )
+
+            # run the pre-batch hooks (may update the trace)
+            for f in self.pre_batch_hooks:
+                f(self)
+
             # construct a sparse label tensor of shape batch_size x 2*num_entities
             # entries are either 0 (false) or infinity (true)
             # TODO add timing information
@@ -317,20 +347,17 @@ class EntityRankingJob(EvaluationJob):
                     )
                 )
 
-            # optionally: trace batch metrics
+            # update batch trace with the results
+            self.current_trace["batch"].update(metrics)
+
+            # run the post-batch hooks (may modify the trace)
+            for f in self.post_batch_hooks:
+                f(self)
+
+            # output, then clear trace
             if self.trace_batch:
-                self.trace(
-                    event="batch_completed",
-                    type="entity_ranking",
-                    scope="batch",
-                    split=self.eval_split,
-                    filter_splits=self.filter_splits,
-                    epoch=self.epoch,
-                    batch=batch_number,
-                    size=len(batch),
-                    batches=len(self.loader),
-                    **metrics,
-                )
+                self.trace(**self.current_trace["batch"])
+            self.current_trace["batch"] = None
 
             # output batch information to console
             self.config.print(
@@ -387,41 +414,35 @@ class EntityRankingJob(EvaluationJob):
                 )
         epoch_time += time.time()
 
-        # compute trace
-        trace_entry = dict(
-            type="entity_ranking",
-            scope="epoch",
-            split=self.eval_split,
-            filter_splits=self.filter_splits,
-            epoch=self.epoch,
-            batches=len(self.loader),
-            size=len(self.triples),
-            epoch_time=epoch_time,
-            event="eval_completed",
-            **metrics,
+        # update trace with results
+        self.current_trace["epoch"].update(
+            dict(epoch_time=epoch_time, event="eval_completed", **metrics,)
         )
-        for f in self.post_epoch_trace_hooks:
-            f(self, trace_entry)
 
         # if validation metric is not present, try to compute it
         metric_name = self.config.get("valid.metric")
-        if metric_name not in trace_entry:
-            trace_entry[metric_name] = eval(
+        if metric_name not in self.current_trace["epoch"]:
+            self.current_trace["epoch"][metric_name] = eval(
                 self.config.get("valid.metric_expr"),
                 None,
-                dict(config=self.config, **trace_entry),
+                dict(config=self.config, **self.current_trace["epoch"]),
             )
 
-        # write out trace
-        trace_entry = self.trace(**trace_entry, echo=True, echo_prefix="  ", log=True)
+        # run hooks (may modify trace)
+        for f in self.post_epoch_hooks:
+            f(self)
+
+        # output the trace, then clear it
+        trace_entry = self.trace(
+            **self.current_trace["epoch"], echo=True, echo_prefix="  ", log=True
+        )
+        self.current_trace["epoch"] = None
 
         # reset model and return metrics
         if was_training:
             self.model.train()
-        self.config.log("Finished evaluating on " + self.eval_split + " split.")
 
-        for f in self.post_valid_hooks:
-            f(self, trace_entry)
+        self.config.log("Finished evaluating on " + self.eval_split + " split.")
 
         return trace_entry
 

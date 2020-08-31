@@ -34,10 +34,10 @@ class RotatEScorer(RelationalScorer):
 
             # compute the absolute values for each (complex) element of the difference
             # vector
-            diff_abs = norm_complex(diff_re, diff_im)
+            diff_abs = abs_complex(diff_re, diff_im)
 
             # now take the norm of the absolute values of the difference vector
-            out = torch.norm(diff_abs, dim=1, p=self._norm)
+            out = -norm_nonnegative(diff_abs, dim=1, p=self._norm)
         elif combine == "sp_":
             # as above, but pair each sp-pair with each object
             sp_emb_re, sp_emb_im = hadamard_complex(
@@ -46,8 +46,8 @@ class RotatEScorer(RelationalScorer):
             diff_re, diff_im = pairwise_diff_complex(
                 sp_emb_re, sp_emb_im, o_emb_re, o_emb_im
             )  # sp x o x dim
-            diff_abs = norm_complex(diff_re, diff_im)  # sp x o x dim
-            out = torch.norm(diff_abs, dim=2, p=self._norm)
+            diff_abs = abs_complex(diff_re, diff_im)  # sp x o x dim
+            out = -norm_nonnegative(diff_abs, dim=2, p=self._norm)
         elif combine == "_po":
             # as above, but pair each subject with each po-pair
             sp_emb_re, sp_emb_im = pairwise_hadamard_complex(
@@ -56,10 +56,11 @@ class RotatEScorer(RelationalScorer):
             diff_re, diff_im = diff_complex(
                 sp_emb_re, sp_emb_im, o_emb_re, o_emb_im
             )  # s x po x dim
-            diff_abs = norm_complex(diff_re, diff_im)  # s x po x dim
-            out = torch.norm(diff_abs, dim=2, p=self._norm).t()
+            diff_abs = abs_complex(diff_re, diff_im)  # s x po x dim
+            out = -norm_nonnegative(diff_abs, dim=2, p=self._norm).t()
         else:
             return super().score_emb(s_emb, p_emb, o_emb, combine)
+
         return out.view(n, -1)
 
 
@@ -94,6 +95,7 @@ class RotatE(KgeModel):
         )
 
 
+@torch.jit.script
 def pairwise_sum(X, Y):
     """Compute pairwise sum of rows of X and Y.
 
@@ -101,6 +103,7 @@ def pairwise_sum(X, Y):
     return X.unsqueeze(1) + Y
 
 
+@torch.jit.script
 def pairwise_diff(X, Y):
     """Compute pairwise difference of rows of X and Y.
 
@@ -108,6 +111,7 @@ def pairwise_diff(X, Y):
     return X.unsqueeze(1) - Y
 
 
+@torch.jit.script
 def pairwise_hadamard(X, Y):
     """Compute pairwise Hadamard product of rows of X and Y.
 
@@ -115,6 +119,7 @@ def pairwise_hadamard(X, Y):
     return X.unsqueeze(1) * Y
 
 
+@torch.jit.script
 def hadamard_complex(x_re, x_im, y_re, y_im):
     "Hadamard product for complex vectors"
     result_re = x_re * y_re - x_im * y_im
@@ -122,6 +127,7 @@ def hadamard_complex(x_re, x_im, y_re, y_im):
     return result_re, result_im
 
 
+@torch.jit.script
 def pairwise_hadamard_complex(x_re, x_im, y_re, y_im):
     "Pairwise Hadamard product for complex vectors"
     result_re = pairwise_hadamard(x_re, y_re) - pairwise_hadamard(x_im, y_im)
@@ -129,17 +135,31 @@ def pairwise_hadamard_complex(x_re, x_im, y_re, y_im):
     return result_re, result_im
 
 
+@torch.jit.script
 def diff_complex(x_re, x_im, y_re, y_im):
     "Difference of complex vectors"
     return x_re - y_re, x_im - y_im
 
 
+@torch.jit.script
 def pairwise_diff_complex(x_re, x_im, y_re, y_im):
     "Pairwise difference of complex vectors"
     return pairwise_diff(x_re, y_re), pairwise_diff(x_im, y_im)
 
 
-def norm_complex(x_re, x_im):
+@torch.jit.script
+def abs_complex(x_re, x_im):
     "Compute magnitude of given complex numbers"
     x_re_im = torch.stack((x_re, x_im), dim=0)  # dim0: real, imaginary
     return torch.norm(x_re_im, dim=0)  # sqrt(real^2+imaginary^2)
+
+
+@torch.jit.script
+def norm_nonnegative(x, dim: int, p: float):
+    "Computes lp-norm along dim assuming that all inputs are non-negative."
+    if p == 1.0:
+        # speed up things for this common case. We known that the inputs are
+        # non-negative here.
+        return torch.sum(x, dim=dim)
+    else:
+        return torch.norm(x, dim=dim, p=p)

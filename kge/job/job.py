@@ -64,9 +64,8 @@ class Job:
         self.pre_run_hooks: List[Callable[[Job], Any]] = []
 
         #: Hooks after running a job
-        #: Signature: job, dict returned by the run method
-        self.post_run_hooks: List[Callable[[Job, Dict], Any]] = []
-
+        #: Signature: job, result returned by the run method
+        self.post_run_hooks: List[Callable[[Job, Any], Any]] = []
 
     @staticmethod
     def create(
@@ -144,7 +143,7 @@ class Job:
     def _prepare(self):
         pass
 
-    def run(self):
+    def run(self) -> Any:
         """
         Run the job: first prepare it run some pre run hooks, then execute the job
         and run some post run hooks and return the result.
@@ -163,7 +162,7 @@ class Job:
 
         return result
 
-    def _run(self):
+    def _run(self) -> Any:
         raise NotImplementedError
 
     def trace(self, **kwargs) -> Dict[str, Any]:
@@ -177,3 +176,23 @@ class Job:
         return self.config.trace(
             job_id=self.job_id, job=self.config.get("job.type"), **kwargs
         )
+
+
+class TrainingOrEvaluationJob(Job):
+    """Abstract superclass for training and eval jobs."""
+
+    def __init__(self, config: Config, dataset: Dataset, parent_job: "Job" = None):
+        super().__init__(config, dataset, parent_job)
+
+        # defines various hooks
+        # Signature: job
+        self.pre_batch_hooks: List[Callable[[Job], Any]] = []
+        self.post_batch_hooks: List[Callable[[Job], Any]] = []
+        self.pre_epoch_hooks: List[Callable[[Job], Any]] = []
+        self.post_epoch_hooks: List[Callable[[Job], Any]] = []
+
+        # Holds the current trace entries (which may be modified by hooks). Key
+        # determines which trace entry (e.g., "batch", "epoch"). These traces can be
+        # modified by the hooks defined above. The traces are logged only after the
+        # corresponding hooks have been executed. The traces are then cleared.
+        self.current_trace: Dict[str, Dict[str, Any]] = {"batch": None, "epoch": None}
