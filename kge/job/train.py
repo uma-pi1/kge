@@ -726,8 +726,8 @@ class TrainingJobKvsAll(TrainingJob):
         # reasonably small)
         result.prepare_time -= time.time()
         batch["label_coords"] = batch["label_coords"].to(self.device)
-        result.prepare_time += time.time()
         result.size = len(batch["queries"])
+        result.prepare_time += time.time()
 
     def _process_subbatch(
         self,
@@ -878,6 +878,7 @@ class TrainingJobNegativeSampling(TrainingJob):
     ):
         # move triples and negatives to GPU. With some implementaiton effort, this may
         # be avoided.
+        result.prepare_time -= time.time()
         batch["triples"] = batch["triples"].to(self.device)
         for ns in batch["negative_samples"]:
             ns.positive_triples = batch["triples"]
@@ -887,6 +888,7 @@ class TrainingJobNegativeSampling(TrainingJob):
 
         batch["labels"] = [None] * 3 # reuse label tensors b/w subbatches
         result.size = len(batch["triples"])
+        result.prepare_time += time.time()
 
     def _process_subbatch(
         self,
