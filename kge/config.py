@@ -718,7 +718,7 @@ def _process_deprecated_options(options: Dict[str, Any]):
         return renamed_keys
 
     # 31.8.2020
-    delete_key_re_with_default_value("negative_sampling.chunk_size", -1)
+    rename_key("negative_sampling.chunk_size", "train.subbatch_size")
 
     # 13.6.2020
     delete_key_re_with_default_value(".*normalize.with_grad", False)
