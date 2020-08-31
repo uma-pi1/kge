@@ -758,7 +758,7 @@ class TrainingJobKvsAll(TrainingJob):
                 loss_value = (
                     self.loss(scores, labels_for_query_type[query_type]) / batch_size
                 )
-                loss_value_total = loss_value.item()
+                loss_value_total += loss_value.item()
                 forward_time += time.time()
                 backward_time -= time.time()
                 loss_value.backward()
