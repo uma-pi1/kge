@@ -167,10 +167,11 @@ train:
   batch_size: 100
 
   # If specified, split the batch into subbatches of at most this size and run
-  # the forward/backward passes on each subbatch. Saves memory, adds processing
-  # time. This setting allows to simulate larger batch sizes even when the GPU
-  # has insufficient memory.
-  subbatch_size: -1
+  # the forward/backward passes separately on each subbatch. This reduces memory
+  # consumption but may increase runtime. This setting allows to simulate larger
+  # batch sizes when the GPU has insufficient memory. An alternative is to
+  # reduce the batch size directly.
+  subbatch_size: -1            # default: no subbatches
 
   # Number of workers used to construct batches. Leave at 0 for default (no
   # separate workers). On Windows, only 0 is supported.
@@ -317,14 +318,6 @@ negative_sampling:
   # implementations to score many targets at once. For all other models, use
   # 'triple' (e.g., for TransE or RotatE in the current implementation).
   implementation: triple
-
-  # Perform training in chunks of the specified size. When set, process each
-  # batch in chunks of at most this size. This reduces memory consumption but
-  # may increase runtime. Useful when there are many negative samples and/or
-  # memory-intensive models are used. An alternative is to reduce the
-  # batch_size.
-  chunk_size: -1                  # default: no chunking
-
 
 ## VALIDATION AND EVALUATION ###################################################
 

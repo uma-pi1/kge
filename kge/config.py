@@ -720,6 +720,9 @@ def _process_deprecated_options(options: Dict[str, Any]):
                     renamed_keys.add(key)
         return renamed_keys
 
+    # 31.8.2020
+    delete_key_re_with_default_value("negative_sampling.chunk_size", -1)
+
     # 13.6.2020
     delete_key_re_with_default_value(".*normalize.with_grad", False)
 

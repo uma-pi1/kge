@@ -737,7 +737,7 @@ class TrainingJobKvsAll(TrainingJob):
         result: TrainingJob._ProcessBatchResult,
     ):
         # prepare
-        result.prepare_time = -time.time()
+        result.prepare_time -= time.time()
         queries_subbatch = batch["queries"][subbatch_slice].to(self.device)
         batch_size = len(batch["queries"])
         subbatch_size = len(queries_subbatch)
@@ -825,7 +825,6 @@ class TrainingJobNegativeSampling(TrainingJob):
                 self._implementation = "triple"
             elif max_nr_of_negs > 30:
                 self._implementation = "batch"
-        self._max_chunk_size = self.config.get("negative_sampling.chunk_size")
 
         config.log(
             "Initializing negative sampling training job with "
@@ -874,88 +873,86 @@ class TrainingJobNegativeSampling(TrainingJob):
 
         return collate
 
-    def _process_batch(self, batch_index, batch) -> TrainingJob._ProcessBatchResult:
-        # prepare
-        prepare_time = -time.time()
-        batch_triples = batch["triples"].to(self.device)
+    def _prepare_batch(
+        self, batch_index, batch, result: TrainingJob._ProcessBatchResult
+    ):
+        # move triples and negatives to GPU. With some implementaiton effort, this may
+        # be avoided.
+        batch["triples"] = batch["triples"].to(self.device)
         for ns in batch["negative_samples"]:
-            ns.positive_triples = batch_triples
-        batch_negative_samples = [
+            ns.positive_triples = batch["triples"]
+        batch["negative_samples"] = [
             ns.to(self.device) for ns in batch["negative_samples"]
         ]
-        batch_size = len(batch_triples)
-        prepare_time += time.time()
 
-        loss_value = 0.0
-        forward_time = 0.0
-        backward_time = 0.0
-        labels = [None] * 3
+        batch["labels"] = [None] * 3 # reuse label tensors b/w subbatches
+        result.size = len(batch["triples"])
 
-        # perform processing of batch in smaller chunks to save memory
-        max_chunk_size = (
-            self._max_chunk_size if self._max_chunk_size > 0 else batch_size
-        )
-        for chunk_number in range(math.ceil(batch_size / max_chunk_size)):
-            # determine data used for this chunk
-            chunk_start = max_chunk_size * chunk_number
-            chunk_end = min(max_chunk_size * (chunk_number + 1), batch_size)
-            chunk_indexes = slice(chunk_start, chunk_end)
-            chunk_size = chunk_end - chunk_start
-            triples = batch_triples[chunk_indexes]
+    def _process_subbatch(
+        self,
+        batch_index,
+        batch,
+        subbatch_slice,
+        result: TrainingJob._ProcessBatchResult,
+    ):
+        # prepare
+        result.prepare_time -= time.time()
+        triples = batch["triples"][subbatch_slice]
+        batch_negative_samples = batch["negative_samples"]
+        batch_size = len(batch["triples"])
+        subbatch_size = len(triples)
+        result.prepare_time += time.time()
+        labels = batch["labels"] # reuse b/w subbatches
 
-            # process the chunk
-            for slot in [S, P, O]:
-                num_samples = self._sampler.num_samples[slot]
-                if num_samples <= 0:
-                    continue
 
-                # construct gold labels: first column corresponds to positives,
-                # remaining columns to negatives
-                if labels[slot] is None or labels[slot].shape != (
-                    chunk_size,
-                    1 + num_samples,
-                ):
-                    prepare_time -= time.time()
-                    labels[slot] = torch.zeros(
-                        (chunk_size, 1 + num_samples), device=self.device
-                    )
-                    labels[slot][:, 0] = 1
-                    prepare_time += time.time()
+        # process the chunk
+        for slot in [S, P, O]:
+            num_samples = self._sampler.num_samples[slot]
+            if num_samples <= 0:
+                continue
 
-                # compute the scores
-                forward_time -= time.time()
-                scores = torch.empty((chunk_size, num_samples + 1), device=self.device)
-                scores[:, 0] = self.model.score_spo(
-                    triples[:, S],
-                    triples[:, P],
-                    triples[:, O],
-                    direction=SLOT_STR[slot],
+            # construct gold labels: first column corresponds to positives,
+            # remaining columns to negatives
+            if labels[slot] is None or labels[slot].shape != (
+                subbatch_size,
+                1 + num_samples,
+            ):
+                result.prepare_time -= time.time()
+                labels[slot] = torch.zeros(
+                    (subbatch_size, 1 + num_samples), device=self.device
                 )
-                forward_time += time.time()
-                scores[:, 1:] = batch_negative_samples[slot].score(
-                    self.model, indexes=chunk_indexes
-                )
-                forward_time += batch_negative_samples[slot].forward_time
-                prepare_time += batch_negative_samples[slot].prepare_time
+                labels[slot][:, 0] = 1
+                result.prepare_time += time.time()
 
-                # compute chunk loss (concluding the forward pass of the chunk)
-                forward_time -= time.time()
-                loss_value_torch = (
-                    self.loss(scores, labels[slot], num_negatives=num_samples)
-                    / batch_size
-                )
-                loss_value += loss_value_torch.item()
-                forward_time += time.time()
+            # compute the scores
+            result.forward_time -= time.time()
+            scores = torch.empty((subbatch_size, num_samples + 1), device=self.device)
+            scores[:, 0] = self.model.score_spo(
+                triples[:, S],
+                triples[:, P],
+                triples[:, O],
+                direction=SLOT_STR[slot],
+            )
+            result.forward_time += time.time()
+            scores[:, 1:] = batch_negative_samples[slot].score(
+                self.model, indexes=subbatch_slice
+            )
+            result.forward_time += batch_negative_samples[slot].forward_time
+            result.prepare_time += batch_negative_samples[slot].prepare_time
 
-                # backward pass for this chunk
-                backward_time -= time.time()
-                loss_value_torch.backward()
-                backward_time += time.time()
+            # compute chunk loss (concluding the forward pass of the chunk)
+            result.forward_time -= time.time()
+            loss_value_torch = (
+                self.loss(scores, labels[slot], num_negatives=num_samples)
+                / batch_size
+            )
+            result.avg_loss += loss_value_torch.item()
+            result.forward_time += time.time()
 
-        # all done
-        return TrainingJob._ProcessBatchResult(
-            loss_value, batch_size, prepare_time, forward_time, backward_time
-        )
+            # backward pass for this chunk
+            result.backward_time -= time.time()
+            loss_value_torch.backward()
+            result.backward_time += time.time()
 
 
 class TrainingJob1vsAll(TrainingJob):
@@ -1000,13 +997,13 @@ class TrainingJob1vsAll(TrainingJob):
         result: TrainingJob._ProcessBatchResult,
     ):
         # prepare
-        result.prepare_time = -time.time()
+        result.prepare_time -= time.time()
         triples = batch["triples"][subbatch_slice].to(self.device)
         batch_size = len(triples)
         result.prepare_time += time.time()
 
         # forward/backward pass (sp)
-        result.forward_time = -time.time()
+        result.forward_time -= time.time()
         scores_sp = self.model.score_sp(triples[:, 0], triples[:, 1])
         loss_value_sp = self.loss(scores_sp, triples[:, 2]) / batch_size
         result.avg_loss += loss_value_sp.item()
