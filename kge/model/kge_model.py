@@ -436,50 +436,50 @@ class KgeModel(KgeBase):
                     self._relation_embedder.init_pretrained(
                         pretrained_relations_model.get_p_embedder()
                     )
-                # freeze embeddings if desired
-                for embedder, name in [
-                    (self._relation_embedder, "relation"),
-                    (self._entity_embedder, "entity"),
-                ]:
-                    freeze_file = embedder.get_option("freeze.ids_file")
-                    if freeze_file != "":
-                        if not os.path.isfile(freeze_file):
-                            freeze_file = os.path.join(self.dataset.folder, freeze_file)
-                        if not os.path.isfile(freeze_file):
-                            raise FileNotFoundError(
-                                f"Could not find freeze files for {name} embedder"
+            # freeze embeddings if desired
+            for embedder, name in [
+                (self._relation_embedder, "relation"),
+                (self._entity_embedder, "entity"),
+            ]:
+                freeze_file = embedder.get_option("freeze.ids_file")
+                if freeze_file != "":
+                    if not os.path.isfile(freeze_file):
+                        freeze_file = os.path.join(self.dataset.folder, freeze_file)
+                    if not os.path.isfile(freeze_file):
+                        raise FileNotFoundError(
+                            f"Could not find freeze files for {name} embedder"
+                        )
+                    else:
+                        with open(freeze_file, "r") as file:
+                            ids = file.read().rstrip("\n").splitlines()
+                            id_map = self.dataset.load_map(f"{name}_ids")
+                            freeze_indexes = list(
+                                map(lambda _id: id_map.index(_id), ids)
                             )
-                        else:
-                            with open(freeze_file, "r") as file:
-                                ids = file.read().rstrip("\n").splitlines()
-                                id_map = self.dataset.load_map(f"{name}_ids")
-                                freeze_indexes = list(
-                                    map(lambda _id: id_map.index(_id), ids)
-                                )
-                                model = self.config.get("model")
-                                if (
+                            model = self.config.get("model")
+                            if (
                                     model == "reciprocal_relations_model"
                                     and name == "relation"
-                                ):
-                                    # this is the base model and num_relations is twice
-                                    # the number of relations already
-                                    reciprocal_indexes = list(
-                                        map(
-                                            lambda idx: idx
-                                            + self.dataset.num_relations() / 2,
-                                            freeze_indexes,
-                                        )
+                            ):
+                                # this is the base model and num_relations is twice
+                                # the number of relations already
+                                reciprocal_indexes = list(
+                                    map(
+                                        lambda idx: idx
+                                                    + self.dataset.num_relations() / 2,
+                                        freeze_indexes,
                                     )
-                                    freeze_indexes.extend(reciprocal_indexes)
-                                if list(set(freeze_indexes)) != freeze_indexes:
-                                    raise Exception(
-                                        f"Unique set of ids needed for freezing {name}'s."
-                                    )
-
-                                self.config.log(
-                                    f"Freezing {name} embeddings found in {freeze_file}"
                                 )
-                                embedder.freeze(freeze_indexes)
+                                freeze_indexes.extend(reciprocal_indexes)
+                            if len(freeze_indexes) > len(set(freeze_indexes)):
+                                raise Exception(
+                                    f"Unique set of ids needed for freezing {name}'s."
+                                )
+
+                            self.config.log(
+                                f"Freezing {name} embeddings found in {freeze_file}"
+                            )
+                            embedder.freeze(freeze_indexes)
 
         #: Scorer
         self._scorer: RelationalScorer
