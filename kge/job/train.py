@@ -3,6 +3,7 @@ import os
 import math
 import time
 import sys
+import traceback
 from collections import defaultdict
 
 from dataclasses import dataclass
@@ -68,6 +69,7 @@ class TrainingJob(TrainingOrEvaluationJob):
         self.loss = KgeLoss.create(config)
         self.abort_on_nan: bool = config.get("train.abort_on_nan")
         self.batch_size: int = config.get("train.batch_size")
+        self._subbatch_auto_tune: bool = config.get("train.subbatch_auto_tune")
         self._max_subbatch_size: int = config.get("train.subbatch_size")
         self.device: str = self.config.get("job.device")
         self.train_split = config.get("train.split")
@@ -316,10 +318,45 @@ class TrainingJob(TrainingOrEvaluationJob):
                 f(self)
 
             # process batch (preprocessing + forward pass + backward pass on loss)
-            self.optimizer.zero_grad()
-            batch_result: TrainingJob._ProcessBatchResult = self._process_batch(
-                batch_index, batch
-            )
+            done = False
+            while not done:
+                try:
+                    # try running the batch
+                    self.optimizer.zero_grad()
+                    batch_result: TrainingJob._ProcessBatchResult = self._process_batch(
+                        batch_index, batch
+                    )
+                    done = True
+                except RuntimeError as e:
+                    # is it a CUDA OOM exception and are we allowed to reduce the
+                    # subbatch size on such an error? if not, raise the exception again
+                    if (
+                        "CUDA out of memory" not in str(e)
+                        or not self._subbatch_auto_tune
+                    ):
+                        raise e
+
+                    # try rerunning with smaller subbatch size
+                    tb = traceback.format_exc()
+                    self.config.log(tb)
+                    self.config.log(
+                        "Caught OOM exception when running a batch; "
+                        "trying to reduce the subbatch size..."
+                    )
+
+                    if self._max_subbatch_size <= 0:
+                        self._max_subbatch_size = self.batch_size
+                    if self._max_subbatch_size <= 1:
+                        self.config.log(
+                            "Cannot reduce subbatch size "
+                            f"(current value: {self._max_subbatch_size})"
+                        )
+                        raise e  # cannot reduce further
+
+                    self._max_subbatch_size //= 2
+                    self.config.set(
+                        "train.subbatch_size", self._max_subbatch_size, log=True
+                    )
             sum_loss += batch_result.avg_loss * batch_result.size
 
             # determine penalty terms (forward pass)
@@ -886,7 +923,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             ns.to(self.device) for ns in batch["negative_samples"]
         ]
 
-        batch["labels"] = [None] * 3 # reuse label tensors b/w subbatches
+        batch["labels"] = [None] * 3  # reuse label tensors b/w subbatches
         result.size = len(batch["triples"])
         result.prepare_time += time.time()
 
@@ -904,7 +941,7 @@ class TrainingJobNegativeSampling(TrainingJob):
         batch_size = len(batch["triples"])
         subbatch_size = len(triples)
         result.prepare_time += time.time()
-        labels = batch["labels"] # reuse b/w subbatches
+        labels = batch["labels"]  # reuse b/w subbatches
 
         # process the subbatch for each slot separately
         for slot in [S, P, O]:
@@ -929,10 +966,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             result.forward_time -= time.time()
             scores = torch.empty((subbatch_size, num_samples + 1), device=self.device)
             scores[:, 0] = self.model.score_spo(
-                triples[:, S],
-                triples[:, P],
-                triples[:, O],
-                direction=SLOT_STR[slot],
+                triples[:, S], triples[:, P], triples[:, O], direction=SLOT_STR[slot],
             )
             result.forward_time += time.time()
             scores[:, 1:] = batch_negative_samples[slot].score(
@@ -944,8 +978,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             # compute loss for slot in subbatch (concluding the forward pass)
             result.forward_time -= time.time()
             loss_value_torch = (
-                self.loss(scores, labels[slot], num_negatives=num_samples)
-                / batch_size
+                self.loss(scores, labels[slot], num_negatives=num_samples) / batch_size
             )
             result.avg_loss += loss_value_torch.item()
             result.forward_time += time.time()
