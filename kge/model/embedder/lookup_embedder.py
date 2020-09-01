@@ -7,7 +7,7 @@ from kge.job import Job
 from kge.model import KgeEmbedder
 from kge.misc import round_to_points
 
-from typing import List, Dict
+from typing import List, Dict, Union
 
 
 class LookupEmbedder(KgeEmbedder):
@@ -44,7 +44,7 @@ class LookupEmbedder(KgeEmbedder):
             # initialize weights
             self._init_embeddings(self._embeddings.weight.data)
 
-        self._embeddings_freeze = None
+        self._embeddings_frozen = None
 
         # TODO handling negative dropout because using it with ax searches for now
         dropout = self.get_option("dropout")
@@ -114,18 +114,22 @@ class LookupEmbedder(KgeEmbedder):
     def _get_regularize_weight(self) -> Tensor:
         return self.get_option("regularize_weight")
 
-    def freeze(self, freeze_indexes) -> Tensor:
+    def freeze(self, freeze_indexes: Union[List, Tensor]) -> Tensor:
         """Freeze the embeddings of the entities specified by freeze_indexes.
 
          This method overrides the _embed() and _embeddings_all() methods.
 
          """
-
         num_freeze = len(freeze_indexes)
 
         original_weights = self._embeddings.weight.data
 
-        self._embeddings_freeze = torch.nn.Embedding(
+        if isinstance(freeze_indexes, list):
+            freeze_indexes = torch.tensor(
+                freeze_indexes, device=self.config.get("job.device")
+            ).long()
+
+        self._embeddings_frozen = torch.nn.Embedding(
             num_freeze, self.dim, sparse=self.sparse,
         )
         self._embeddings = torch.nn.Embedding(
@@ -135,27 +139,27 @@ class LookupEmbedder(KgeEmbedder):
         # for a global index i stores at position i a 1
         # when it corresponds to a frozen parameter
         freeze_mask = torch.zeros(
-            self.vocab_size, dtype=torch.bool, device=original_weights.device
+            self.vocab_size, dtype=torch.bool, device=self.config.get("job.device")
         )
         freeze_mask[freeze_indexes] = 1
 
         # assign current values to the new embeddings
-        self._embeddings_freeze.weight.data = original_weights[freeze_mask]
+        self._embeddings_frozen.weight.data = original_weights[freeze_mask]
         self._embeddings.weight.data = original_weights[~freeze_mask]
 
         # freeze
-        self._embeddings_freeze.weight.requires_grad = False
+        self._embeddings_frozen.weight.requires_grad = False
 
         # for a global index i stores at position i its index in either the
         # frozen or the non-frozen embedding tensor
-        positions = torch.zeros(
-            self.vocab_size, dtype=torch.long, device=self._embeddings.weight.device
+        global_to_local_mapper = torch.zeros(
+            self.vocab_size, dtype=torch.long, device=self.config.get("job.device")
         )
-        positions[freeze_mask] = torch.arange(
+        global_to_local_mapper[freeze_mask] = torch.arange(
             num_freeze, device=self.config.get("job.device")
         )
-        positions[~freeze_mask] = torch.arange(
-            self.vocab_size - num_freeze, device=self._embeddings.weight.device
+        global_to_local_mapper[~freeze_mask] = torch.arange(
+            self.vocab_size - num_freeze, device=self.config.get("job.device")
         )
 
         def _embed(indexes: Tensor) -> Tensor:
@@ -166,12 +170,12 @@ class LookupEmbedder(KgeEmbedder):
 
             frozen_indexes_mask = freeze_mask[indexes.long()]
 
-            emb[frozen_indexes_mask] = self._embeddings_freeze(
-                positions[indexes[frozen_indexes_mask].long()]
+            emb[frozen_indexes_mask] = self._embeddings_frozen(
+                global_to_local_mapper[indexes[frozen_indexes_mask].long()]
             )
 
             emb[~frozen_indexes_mask] = self._embeddings(
-                positions[indexes[~frozen_indexes_mask].long()]
+                global_to_local_mapper[indexes[~frozen_indexes_mask].long()]
             )
             return emb
 
@@ -181,11 +185,11 @@ class LookupEmbedder(KgeEmbedder):
                 (self.vocab_size, self.dim), device=self._embeddings.weight.device
             )
 
-            emb[freeze_mask] = self._embeddings_freeze(
+            emb[freeze_mask] = self._embeddings_frozen(
                 torch.arange(
                     num_freeze,
                     dtype=torch.long,
-                    device=self._embeddings_freeze.weight.device,
+                    device=self._embeddings_frozen.weight.device,
                 )
             )
 

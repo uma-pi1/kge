@@ -12,6 +12,7 @@ from kge import Config, Configurable, Dataset
 from kge.misc import filename_in_module
 from kge.util import load_checkpoint
 from typing import Any, Dict, List, Optional, Union, Tuple
+from kge.util.io import file_to_list
 
 from typing import TYPE_CHECKING
 
@@ -450,36 +451,35 @@ class KgeModel(KgeBase):
                             f"Could not find freeze files for {name} embedder"
                         )
                     else:
-                        with open(freeze_file, "r") as file:
-                            ids = file.read().rstrip("\n").splitlines()
-                            id_map = self.dataset.load_map(f"{name}_ids")
-                            freeze_indexes = list(
-                                map(lambda _id: id_map.index(_id), ids)
+                        ids = file_to_list(freeze_file)
+                        id_map = self.dataset.load_map(f"{name}_ids")
+                        freeze_indexes = list(
+                            map(lambda _id: id_map.index(_id), ids)
+                        )
+                        model = self.config.get("model")
+                        if (
+                                model == "reciprocal_relations_model"
+                                and name == "relation"
+                        ):
+                            # this is the base model and num_relations is twice
+                            # the number of relations already
+                            reciprocal_indexes = list(
+                                map(
+                                    lambda idx: idx
+                                                + self.dataset.num_relations() / 2,
+                                    freeze_indexes,
+                                )
                             )
-                            model = self.config.get("model")
-                            if (
-                                    model == "reciprocal_relations_model"
-                                    and name == "relation"
-                            ):
-                                # this is the base model and num_relations is twice
-                                # the number of relations already
-                                reciprocal_indexes = list(
-                                    map(
-                                        lambda idx: idx
-                                                    + self.dataset.num_relations() / 2,
-                                        freeze_indexes,
-                                    )
-                                )
-                                freeze_indexes.extend(reciprocal_indexes)
-                            if len(freeze_indexes) > len(set(freeze_indexes)):
-                                raise Exception(
-                                    f"Unique set of ids needed for freezing {name}'s."
-                                )
+                            freeze_indexes.extend(reciprocal_indexes)
+                        if len(freeze_indexes) > len(set(freeze_indexes)):
+                            raise Exception(
+                                f"Unique set of ids needed for freezing {name}'s."
+                            )
 
-                            self.config.log(
-                                f"Freezing {name} embeddings found in {freeze_file}"
-                            )
-                            embedder.freeze(freeze_indexes)
+                        self.config.log(
+                            f"Freezing {name} embeddings found in {freeze_file}"
+                        )
+                        embedder.freeze(freeze_indexes)
 
         #: Scorer
         self._scorer: RelationalScorer
