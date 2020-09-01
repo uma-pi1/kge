@@ -49,15 +49,18 @@ class RotatEScorer(RelationalScorer):
             diff_abs = abs_complex(diff_re, diff_im)  # sp x o x dim
             out = -norm_nonnegative(diff_abs, dim=2, p=self._norm)
         elif combine == "_po":
-            # as above, but pair each subject with each po-pair
-            sp_emb_re, sp_emb_im = pairwise_hadamard_complex(
-                s_emb_re, s_emb_im, p_emb_re, p_emb_im
-            )  # s x p x dim
-            diff_re, diff_im = diff_complex(
-                sp_emb_re, sp_emb_im, o_emb_re, o_emb_im
-            )  # s x po x dim
-            diff_abs = abs_complex(diff_re, diff_im)  # s x po x dim
-            out = -norm_nonnegative(diff_abs, dim=2, p=self._norm).t()
+            # compute the complex conjugate (cc) of the relation vector and perform
+            # inverse rotation on tail. This uses || s*p - o || = || s - cc(p)*o || for
+            # a rotation p.
+            p_emb_im = -p_emb_im
+            po_emb_re, po_emb_im = hadamard_complex(
+                p_emb_re, p_emb_im, o_emb_re, o_emb_im
+            )  # po x dim
+            diff_re, diff_im = pairwise_diff_complex(
+                po_emb_re, po_emb_im, s_emb_re, s_emb_im
+            )  # po x s x dim
+            diff_abs = abs_complex(diff_re, diff_im)  # po x s x dim
+            out = -norm_nonnegative(diff_abs, dim=2, p=self._norm)
         else:
             return super().score_emb(s_emb, p_emb, o_emb, combine)
 

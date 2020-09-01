@@ -8,7 +8,6 @@ import numpy as np
 import os
 
 import kge
-from kge.job import TrainingOrEvaluationJob
 from kge import Config, Configurable, Dataset
 from kge.misc import filename_in_module
 from kge.util import load_checkpoint
@@ -581,6 +580,7 @@ class KgeModel(KgeBase):
         self._entity_embedder.prepare_job(job, **kwargs)
         self._relation_embedder.prepare_job(job, **kwargs)
 
+        from kge.job import TrainingOrEvaluationJob
         if isinstance(job, TrainingOrEvaluationJob):
             def append_num_parameter(job):
                 job.current_trace["epoch"]["num_parameters"] = sum(
