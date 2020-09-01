@@ -495,6 +495,9 @@ class Config:
     @staticmethod
     def best_or_last_checkpoint_file(path: str) -> str:
         """Return best (if present) or last checkpoint path for a given folder path."""
+        if not os.path.exists(path):
+            raise Exception("Path or file {} does not exist".format(path))
+
         config = Config(folder=path, load_default=False)
         checkpoint_file = config.checkpoint_file("best")
         if os.path.isfile(checkpoint_file):
