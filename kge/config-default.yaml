@@ -312,6 +312,13 @@ negative_sampling:
   # 'triple' (e.g., for TransE or RotatE in the current implementation).
   implementation: triple
 
+  # Whether to compute the backward pass after scoring against each slot (S, P, O)
+  # or once after scoring against all three slots.
+  # Does not work with reciprocal relations.
+  # - True: slower, but needs less memory
+  # - False: faster, but needs more memory
+  backward_pass_per_slot: True
+
   # Perform training in chunks of the specified size. When set, process each
   # batch in chunks of at most this size. This reduces memory consumption but
   # may increase runtime. Useful when there are many negative samples and/or
