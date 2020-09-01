@@ -906,8 +906,7 @@ class TrainingJobNegativeSampling(TrainingJob):
         result.prepare_time += time.time()
         labels = batch["labels"] # reuse b/w subbatches
 
-
-        # process the chunk
+        # process the subbatch for each slot separately
         for slot in [S, P, O]:
             num_samples = self._sampler.num_samples[slot]
             if num_samples <= 0:
@@ -942,7 +941,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             result.forward_time += batch_negative_samples[slot].forward_time
             result.prepare_time += batch_negative_samples[slot].prepare_time
 
-            # compute chunk loss (concluding the forward pass of the chunk)
+            # compute loss for slot in subbatch (concluding the forward pass)
             result.forward_time -= time.time()
             loss_value_torch = (
                 self.loss(scores, labels[slot], num_negatives=num_samples)
@@ -951,7 +950,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             result.avg_loss += loss_value_torch.item()
             result.forward_time += time.time()
 
-            # backward pass for this chunk
+            # backward pass for this slot in the subbatch
             result.backward_time -= time.time()
             loss_value_torch.backward()
             result.backward_time += time.time()
