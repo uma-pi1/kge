@@ -173,6 +173,11 @@ train:
   # reduce the batch size directly.
   subbatch_size: -1            # default: no subbatches
 
+  # If set and a batch runs out of memory, repeatedly half the subbatch size
+  # until the batch succeeds. The reduced subbatch size will be used for all
+  # future batches.
+  subbatch_auto_tune: False
+
   # Number of workers used to construct batches. Leave at 0 for default (no
   # separate workers). On Windows, only 0 is supported.
   num_workers: 0
