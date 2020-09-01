@@ -1,4 +1,5 @@
 #### September 2020
+- PR [#144](https://github.com/uma-pi1/kge/pull/144): Support to tune subbatch size automatically
 - PR [#143](https://github.com/uma-pi1/kge/pull/143): Allow processing of large batches in smaller subbatches to save memory
 
 #### August 2020
