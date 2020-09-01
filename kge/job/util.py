@@ -47,7 +47,7 @@ def coord_to_sparse_tensor(
             raise ValueError()
 
         coords = coords[
-            (coords[:, 0] >= row_slice.start) & (coords[:, 0] <= row_slice.stop), :
+            (coords[:, 0] >= row_slice.start) & (coords[:, 0] < row_slice.stop), :
         ]
         coords[:, 0] -= row_slice.start
         nrows = row_slice.stop - row_slice.start
