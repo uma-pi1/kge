@@ -76,11 +76,11 @@ class DerivedSplitBase:
     key: str = None
     options: Dict = None
 
-    def prepare_process(self, folder):
+    def prepare_process(self, folder: str):
         self.file = open(path.join(folder, self.options["filename"]), "w")
         self.options["size"] = 0
 
-    def process_triple(self, triple, entities, relations, **kwargs):
+    def process_triple(self, triple: List, entities: Dict, relations: Dict, **kwargs):
         write_triple(
             self.file,
             entities,
@@ -105,7 +105,7 @@ class DerivedSplitFiltered(DerivedSplitBase):
 
     filter_with: Split = None
 
-    def process_triple(self, triple, entities, relations, **kwargs):
+    def process_triple(self, triple: List, entities: Dict, relations: Dict, **kwargs):
         S, P, O = (
             self.parent_split.SPO["S"],
             self.parent_split.SPO["P"],
@@ -116,8 +116,7 @@ class DerivedSplitFiltered(DerivedSplitBase):
             and triple[O] in self.filter_with.entities
             and triple[P] in self.filter_with.relations
         ):
-            write_triple(self.file, entities, relations, triple, S, P, O)
-            self.options["size"] += 1
+            super().process_triple(triple, entities, relations, **kwargs)
 
 
 @dataclass
@@ -134,24 +133,15 @@ class DerivedSplitSample(DerivedSplitBase):
     sample_size: int = None
     sample: Iterable[int] = None
 
-    def prepare_process(self, folder):
+    def prepare_process(self, folder: str):
         super().prepare_process(folder)
         self.sample = np.random.choice(
             len(self.parent_split.raw_data), self.sample_size, False
         )
 
-    def process_triple(self, triple, entities, relations, **kwargs):
+    def process_triple(self, triple: List, entities: Dict, relations: Dict, **kwargs):
         if kwargs["n"] in self.sample:
-            write_triple(
-                self.file,
-                entities,
-                relations,
-                triple,
-                self.parent_split.SPO["S"],
-                self.parent_split.SPO["P"],
-                self.parent_split.SPO["O"],
-            )
-            self.options["size"] += 1
+            super().process_triple(triple, entities, relations, **kwargs)
 
 
 @dataclass
@@ -253,7 +243,7 @@ def write_obj_maps(dataset: RawDataset):
         dataset.config[f"files.{obj}_ids.type"] = "map"
 
 
-def store_map(symbol_map: dict, filename: str):
+def store_map(symbol_map: Dict, filename: str):
     """Write a map file."""
     with open(filename, "w") as f:
         for symbol, index in symbol_map.items():
@@ -265,7 +255,7 @@ def write_triple(f, ent, rel, t, S, P, O):
     f.write(str(ent[t[S]]) + "\t" + str(rel[t[P]]) + "\t" + str(ent[t[O]]) + "\n")
 
 
-def write_dataset_config(config: dict, folder: str):
+def write_dataset_config(config: Dict, folder: str):
     """Write a dataset.yaml file given a config dictionary and a folder path. """
     print(yaml.dump(dict(dataset=config)))
     with open(path.join(folder, "dataset.yaml"), "w+") as filename:
@@ -281,32 +271,14 @@ class DerivedLabeledSplit(DerivedSplitBase):
 
     def process_triple(self, triple, entities, relations, **kwargs):
         if int(triple[3]) == self.label:
-            write_triple(
-                self.file,
-                entities,
-                relations,
-                triple,
-                self.parent_split.SPO["S"],
-                self.parent_split.SPO["P"],
-                self.parent_split.SPO["O"],
-            )
-            self.options["size"] += 1
+            super().process_triple(triple, entities, relations, **kwargs)
+
 
 
 @dataclass
 class DerivedLabeledSplitFiltered(DerivedSplitFiltered):
     label: int = None
 
-    def process_triple(self, triple, entities, relations, **kwargs):
-        S, P, O = (
-            self.parent_split.SPO["S"],
-            self.parent_split.SPO["P"],
-            self.parent_split.SPO["O"],
-        )
-        if int(triple[3]) == self.label and (
-            triple[S] in self.filter_with.entities
-            and triple[O] in self.filter_with.entities
-            and triple[P] in self.filter_with.relations
-        ):
-            write_triple(self.file, entities, relations, triple, S, P, O)
-            self.options["size"] += 1
+    def process_triple(self, triple: List, entities: Dict, relations: Dict, **kwargs):
+        if int(triple[3]) == self.label:
+            super().process_triple(triple, entities, relations, **kwargs)
