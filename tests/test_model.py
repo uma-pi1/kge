@@ -6,8 +6,6 @@ from kge import Dataset
 from kge.model import KgeModel
 from kge.indexing import KvsAllIndex
 
-from tests.constants import ALL_MODELS
-
 
 # tests for all models
 
@@ -88,9 +86,7 @@ class TestConvE(BaseTestModel, unittest.TestCase):
         BaseTestModel.__init__(
             self,
             "reciprocal_relations_model",
-            options={
-                "reciprocal_relations_model.base_model.type": "conve",
-            },
+            options={"reciprocal_relations_model.base_model.type": "conve",},
         )
 
 
