@@ -1,4 +1,5 @@
 import torch
+from torch import Tensor
 import math
 
 from kge import Config, Dataset
@@ -95,17 +96,6 @@ class ConvEScorer(RelationalScorer):
 
         return out.view(batch_size, -1)
 
-    # # TODO: move up for all scorers?
-    # def get_option(self, name):
-    #     return self.config.get_default(self.configuration_key + "." + name)
-    #
-    # # TODO: move up for all scorers?
-    # def set_option(self, name, value):
-    #     if self.configuration_key:
-    #         self.config.set(self.configuration_key + "." + name, value)
-    #     else:
-    #         self.config.set(name, value)
-
 
 class ConvE(KgeModel):
     r"""Implementation of the ConvE KGE model."""
@@ -139,3 +129,13 @@ class ConvE(KgeModel):
         self.set_option(
             "relation_embedder.dim", self.get_option("relation_embedder.dim") - 1
         )
+
+
+    def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
+        # We overwrite this method to ensure that ConvE only predicts towards objects.
+        # If ConvE is wrapped in a reciprocal relations model, this will always be the
+        # case.
+        if direction == "o":
+            super().score_spo(s, p, o, direction)
+        else:
+            raise ValueError("ConvE can only score objects")
