@@ -18,3 +18,4 @@ docs/_build
 !/docs/examples/dump-example-model.csv
 !/docs/examples/dump-example-search.csv
 /.projectile
+/tests/data/dataset_test/*.pckl
