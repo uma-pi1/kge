@@ -12,12 +12,19 @@ job:
   # Main device to use for this job (e.g., 'cpu', 'cuda', 'cuda:0')
   device: 'cuda'
 
-# The seeds of the PRNGs can be set manually for (increased) reproducability.
-# Use -1 to use default seed.
+# The seeds of the PRNGs can be set manually for (increased) reproducibility.
+# Use -1 to disable explicit seeding.
 random_seed:
+  # Seed used to initialize each of the PRNGs below in case they do not have
+  # their own seed specified. The actual seed used computed from the value given
+  # here and the name of the PRNG (e.g., python, torch, ...). If -1, disable
+  # default seeding.
+  default: -1
+
   python: -1
   torch: -1
   numpy: -1
+  numba: -1
 
 
 ## DATASET #####################################################################

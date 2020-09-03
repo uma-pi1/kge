@@ -20,9 +20,8 @@ setup(
         "torchviz",
         "dataclasses",
         # LibKGE uses numba typed-dicts which is part of the experimental numba API
-        # in version 0.48
-        # see http://numba.pydata.org/numba-doc/0.48.0/reference/pysupported.html
-        "numba==0.48.0",
+        # see http://numba.pydata.org/numba-doc/0.50.1/reference/pysupported.html
+        "numba==0.50.*",
     ],
     python_requires='>=3.7',  # ax 0.1.10 requires python 3.7
     zip_safe=False,
