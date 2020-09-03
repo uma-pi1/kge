@@ -258,7 +258,7 @@ def main():
         # set random seeds
         def get_seed(what):
             seed = config.get(f"random_seed.{what}")
-            if seed < 0:
+            if seed < 0 and config.get(f"random_seed.default") >= 0:
                 import hashlib
 
                 # we add an md5 hash to the default seed so that different PRNGs get a
