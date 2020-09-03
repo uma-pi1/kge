@@ -1,5 +1,7 @@
 import torch
+import math
 from kge import Config, Dataset
+from kge.job import Job
 from kge.model.kge_model import RelationalScorer, KgeModel
 from torch.nn import functional as F
 
@@ -96,6 +98,39 @@ class RotatE(KgeModel):
             configuration_key=self.configuration_key,
             init_for_load_only=init_for_load_only,
         )
+
+    @torch.no_grad()
+    def _normalize_relations(self):
+        out = self.get_p_embedder()._embeddings.weight.data
+
+        # normalize phases so that they lie in [-pi,pi]
+        # TODO this is a hack that assumes that we use a lookup embedder
+
+        # first shift phases by pi
+        out = out + math.pi
+
+        # make all phases positive by adding 2*pi sufficiently often
+        min_phase = torch.min(out)
+        if min_phase < 0.0:
+            shift = math.ceil(-min_phase / (2.0 * math.pi))
+            out = out + shift * 2.0 * math.pi
+
+        # compute the modulo (result in [0,2*pi)) and shift back (then in [-pi,pi))
+        out = torch.remainder(out, 2.0 * math.pi) - math.pi
+
+        # write back the updated embeddings
+        self.get_p_embedder()._embeddings.weight.data[:] = out[:]
+
+    def prepare_job(self, job: Job, **kwargs):
+        from kge.job import TrainingJob
+
+        super().prepare_job(job, **kwargs)
+        if isinstance(job, TrainingJob):
+            # just to be sure it's right initially
+            job.pre_run_hooks.append(lambda job: self._normalize_relations())
+
+            # normalize after each batch
+            job.post_batch_hooks.append(lambda job: self._normalize_relations())
 
 
 @torch.jit.script
