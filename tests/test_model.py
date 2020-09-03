@@ -1,6 +1,7 @@
 import unittest
 import os
 import torch
+import math
 from tests.util import create_config, get_dataset_folder
 from kge import Dataset
 from kge.model import KgeModel
@@ -118,6 +119,43 @@ class TestRotatE(BaseTestModel, unittest.TestCase):
     def __init__(self, methodName="runTest"):
         unittest.TestCase.__init__(self, methodName=methodName)
         BaseTestModel.__init__(self, "rotate")
+
+    def test_normalize_phases(self):
+        model = KgeModel.create(self.config, self.dataset)
+        model.eval()
+        num_entities = self.dataset.num_entities()
+        num_relations = self.dataset.num_relations()
+
+        # start with embeddings outside of [-pi,pi]
+        data = model.get_p_embedder()._embeddings.weight.data
+        data[:] = (torch.rand(data.shape) - 0.5) * 100
+
+        # perform initial predictions
+        s = torch.arange(num_entities).repeat_interleave(num_relations * num_entities)
+        p = (
+            torch.arange(num_relations)
+            .repeat_interleave(num_entities)
+            .repeat(num_entities)
+        )
+        o = torch.arange(num_entities).repeat(num_relations * num_entities)
+        scores_org = model.score_spo(s, p, o)
+
+        # now normalize phases
+        model.normalize_phases()
+
+        # check if predictions are unaffected
+        scores_new = model.score_spo(s, p, o)
+        self.assertTrue(
+            torch.allclose(scores_org, scores_new),
+            msg="test that normalizing phases does not change predictions",
+        )
+
+        # check that phases are normalized
+        data = model.get_p_embedder()._embeddings.weight.data
+        self.assertTrue(
+            torch.all((data >= -math.pi) & (data < math.pi)),
+            msg="check that phases are normalized",
+        )
 
 
 class TestSimplE(BaseTestModel, unittest.TestCase):

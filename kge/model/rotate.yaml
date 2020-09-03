@@ -25,5 +25,13 @@ rotate:
 
     +++: +++
 
+  # Whether to keep relation phases into [-pi,pi] during training. A phase
+  # outside this range will be transformed into the range so that the rotation
+  # remains the same (e.g., -1.2pi will be transformed to 0.8pi). This has no
+  # effect on model predictions, but makes regularization during training more
+  # useful. Currently only supported when
+  # relation_embedder.type==lookup_embedder.
+  normalize_phases: True
+
   # which norm to use to score distances
   l_norm: 1.

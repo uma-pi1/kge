@@ -98,9 +98,10 @@ class RotatE(KgeModel):
             configuration_key=self.configuration_key,
             init_for_load_only=init_for_load_only,
         )
+        self._normalize_phases = self.get_option("normalize_phases")
 
     @torch.no_grad()
-    def _normalize_relations(self):
+    def normalize_phases(self):
         out = self.get_p_embedder()._embeddings.weight.data
 
         # normalize phases so that they lie in [-pi,pi]
@@ -109,14 +110,11 @@ class RotatE(KgeModel):
         # first shift phases by pi
         out = out + math.pi
 
-        # make all phases positive by adding 2*pi sufficiently often
-        min_phase = torch.min(out)
-        if min_phase < 0.0:
-            shift = math.ceil(-min_phase / (2.0 * math.pi))
-            out = out + shift * 2.0 * math.pi
+        # compute the modulo (result then in [0,2*pi))
+        out = torch.remainder(out, 2.0 * math.pi)
 
-        # compute the modulo (result in [0,2*pi)) and shift back (then in [-pi,pi))
-        out = torch.remainder(out, 2.0 * math.pi) - math.pi
+        # shift back
+        out = out - math.pi
 
         # write back the updated embeddings
         self.get_p_embedder()._embeddings.weight.data[:] = out[:]
@@ -125,12 +123,24 @@ class RotatE(KgeModel):
         from kge.job import TrainingJob
 
         super().prepare_job(job, **kwargs)
-        if isinstance(job, TrainingJob):
+
+        if self._normalize_phases and isinstance(job, TrainingJob):
+            from kge.model import LookupEmbedder
+
+            if not isinstance(self.get_p_embedder(), LookupEmbedder):
+                raise ValueError(
+                    "RotatE currently supports normalize_phases=True "
+                    "only when a lookup embedder is used for relations; "
+                    "current relation embedder is "
+                    f"{self.get_option('relation_embedder.type')} "
+                    "however"
+                )
+
             # just to be sure it's right initially
-            job.pre_run_hooks.append(lambda job: self._normalize_relations())
+            job.pre_run_hooks.append(lambda job: self.normalize_phases())
 
             # normalize after each batch
-            job.post_batch_hooks.append(lambda job: self._normalize_relations())
+            job.post_batch_hooks.append(lambda job: self.normalize_phases())
 
 
 @torch.jit.script
