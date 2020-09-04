@@ -44,3 +44,10 @@ def load_checkpoint(checkpoint_file: str, device="cpu"):
     checkpoint["file"] = checkpoint_file
     checkpoint["folder"] = os.path.dirname(checkpoint_file)
     return checkpoint
+
+
+def file_to_list(file: str):
+    """Return lines of a file as list. """
+    with open(file, "r") as f:
+        data = f.read().rstrip("\n").splitlines()
+    return data
