@@ -4,7 +4,7 @@ from kge import Config, Dataset
 from kge.job import Job, TrainingOrEvaluationJob
 from kge.model import KgeModel
 
-from typing import Dict, Union, Optional
+from typing import Dict, Optional
 
 
 class EvaluationJob(TrainingOrEvaluationJob):

@@ -7,7 +7,7 @@ import uuid
 from kge.misc import get_git_revision_short_hash
 import os
 import socket
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional
 
 
 def _trace_job_creation(job: "Job"):

@@ -1,5 +1,4 @@
 import unittest
-import os
 import torch
 import math
 from tests.util import create_config, get_dataset_folder

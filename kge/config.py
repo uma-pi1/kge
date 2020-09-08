@@ -10,7 +10,7 @@ import sys
 from enum import Enum
 
 import yaml
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 
 class Config:

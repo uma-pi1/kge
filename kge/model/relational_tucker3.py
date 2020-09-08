@@ -1,4 +1,3 @@
-import math
 import torch.nn
 from kge import Config, Dataset
 from kge.model.kge_model import KgeModel

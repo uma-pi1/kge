@@ -7,7 +7,6 @@ from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrateg
 from kge.job import AutoSearchJob, Job
 from kge import Config
 from ax.service.ax_client import AxClient
-from typing import List
 
 
 class AxSearchJob(AutoSearchJob):
