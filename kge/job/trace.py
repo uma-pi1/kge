@@ -1,13 +1,8 @@
 import yaml
 import pandas as pd
 import re
-import os
 import torch
-import sys
-import csv
-from collections import OrderedDict
 import subprocess
-import time
 
 
 from kge.misc import kge_base_dir
@@ -52,9 +47,8 @@ class Trace:
         """Return the value of the given metric from a trace entry.
 
         Understands hits@5 or hits@5_filtered."""
-        value = entry.get(metric_name)
-        if value:
-            return value
+        if metric_name in entry:
+            return entry.get(metric_name)
         pattern = re.compile("^hits(?:@|_at_)([0-9]+)(_filtered)?$")
         match = pattern.match(metric_name)
         if match:
@@ -63,7 +57,7 @@ class Trace:
                 return entry.get("hits_at_k_filtered")[k - 1]
             else:
                 return entry.get("hits_at_k")[k - 1]
-        raise ValueError("metric " + metric_name + " not found")
+        raise ValueError(f"metric {metric_name} not found in trace entry {entry}")
 
     @staticmethod
     def grep_entries(tracefile: str, conjunctions: list, raw=False):

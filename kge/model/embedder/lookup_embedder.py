@@ -7,7 +7,7 @@ from kge.job import Job
 from kge.model import KgeEmbedder
 from kge.misc import round_to_points
 
-from typing import List, Dict
+from typing import List
 
 
 class LookupEmbedder(KgeEmbedder):

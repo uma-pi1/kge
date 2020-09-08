@@ -256,18 +256,40 @@ def main():
         config.log("git commit: {}".format(get_git_revision_short_hash()), prefix="  ")
 
         # set random seeds
-        if config.get("random_seed.python") > -1:
+        def get_seed(what):
+            seed = config.get(f"random_seed.{what}")
+            if seed < 0 and config.get(f"random_seed.default") >= 0:
+                import hashlib
+
+                # we add an md5 hash to the default seed so that different PRNGs get a
+                # different seed
+                seed = (
+                    config.get(f"random_seed.default")
+                    + int(hashlib.md5(what.encode()).hexdigest(), 16)
+                ) % 0xFFFF  # stay 32-bit
+
+            return seed
+
+        if get_seed("python") > -1:
             import random
 
-            random.seed(config.get("random_seed.python"))
-        if config.get("random_seed.torch") > -1:
+            random.seed(get_seed("python"))
+        if get_seed("torch") > -1:
             import torch
 
-            torch.manual_seed(config.get("random_seed.torch"))
-        if config.get("random_seed.numpy") > -1:
+            torch.manual_seed(get_seed("torch"))
+        if get_seed("numpy") > -1:
             import numpy.random
 
-            numpy.random.seed(config.get("random_seed.numpy"))
+            numpy.random.seed(get_seed("numpy"))
+        if get_seed("numba") > -1:
+            import numpy as np, numba
+
+            @numba.njit
+            def seed_numba(seed):
+                np.random.seed(seed)
+
+            seed_numba(get_seed("numba"))
 
         # let's go
         if args.command == "start" and not args.run:

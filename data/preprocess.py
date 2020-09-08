@@ -17,7 +17,6 @@ import argparse
 import yaml
 import os.path
 import numpy as np
-from collections import OrderedDict
 
 def store_map(symbol_map, filename):
     with open(filename, "w") as f:

@@ -1,11 +1,9 @@
-import time
 import os
 from collections import OrderedDict
 import sys
 import torch
 import csv
 import yaml
-import re
 import socket
 import copy
 

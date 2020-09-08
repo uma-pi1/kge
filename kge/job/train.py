@@ -2,7 +2,6 @@ import itertools
 import os
 import math
 import time
-import sys
 import traceback
 from collections import defaultdict
 
@@ -18,7 +17,7 @@ from kge.model import KgeModel
 
 from kge.util import KgeLoss, KgeOptimizer, KgeSampler, KgeLRScheduler
 from kge.util.io import load_checkpoint
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional
 import kge.job.util
 
 SLOTS = [0, 1, 2]

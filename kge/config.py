@@ -10,7 +10,7 @@ import sys
 from enum import Enum
 
 import yaml
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 
 class Config:
@@ -53,10 +53,10 @@ class Config:
             except KeyError:
                 raise KeyError(f"Error accessing {name} for key {key}")
 
-        if remove_plusplusplus and isinstance(result, collections.Mapping):
+        if remove_plusplusplus and isinstance(result, collections.abc.Mapping):
 
             def do_remove_plusplusplus(option):
-                if isinstance(option, collections.Mapping):
+                if isinstance(option, collections.abc.Mapping):
                     option.pop("+++", None)
                     for values in option.values():
                         do_remove_plusplusplus(values)
