@@ -584,7 +584,7 @@ class KgeModel(KgeBase):
         if isinstance(job, TrainingOrEvaluationJob):
             def append_num_parameter(job):
                 job.current_trace["epoch"]["num_parameters"] = sum(
-                    map(lambda p: p.numel(), self.parameters())
+                    map(lambda p: p.numel(), job.model.parameters())
                 )
 
             job.post_epoch_hooks.append(append_num_parameter)
