@@ -4,7 +4,7 @@ from kge import Config, Dataset
 from kge.job import Job, TrainingOrEvaluationJob
 from kge.model import KgeModel
 
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 
 
 class EvaluationJob(TrainingOrEvaluationJob):
@@ -32,7 +32,6 @@ class EvaluationJob(TrainingOrEvaluationJob):
         self.filter_splits = self.config.get("entity_ranking.filter_splits")
         if self.eval_split not in self.filter_splits:
             self.filter_splits.append(self.eval_split)
-        self.filter_with_test = config.get("entity_ranking.filter_with_test")
         self.epoch = -1
 
         #: Whether to create additional histograms for head and tail slot
@@ -66,7 +65,53 @@ class EvaluationJob(TrainingOrEvaluationJob):
         else:
             raise ValueError("eval.type")
 
-    def _run(self) -> dict:
+    def _prepare(self):
+        """Prepare this job for running.
+        Guaranteed to be called exactly once before running the first epoch.
+
+        """
+        super()._prepare()
+        self.model.prepare_job(self)  # let the model add some hooks
+
+    def _run(self) -> Dict[str, Any]:
+        was_training = self.model.training
+        self.model.eval()
+        self.config.log(
+            "Evaluating on "
+            + self.eval_split
+            + " data (epoch {})...".format(self.epoch)
+        )
+
+        trace_entry = self._evaluate()
+
+        # if validation metric is not present, try to compute it
+        metric_name = self.config.get("valid.metric")
+        if metric_name not in self.current_trace["epoch"]:
+            self.current_trace["epoch"][metric_name] = eval(
+                self.config.get("valid.metric_expr"),
+                None,
+                dict(config=self.config, **self.current_trace["epoch"]),
+            )
+
+        # run hooks (may modify trace)
+        for f in self.post_epoch_hooks:
+            f(self)
+
+        # output the trace, then clear it
+        trace_entry = self.trace(
+            **self.current_trace["epoch"], echo=True, echo_prefix="  ", log=True
+        )
+        self.current_trace["epoch"] = None
+
+        # reset model and return metrics
+        if was_training:
+            self.model.train()
+
+        self.config.log("Finished evaluating on " + self.eval_split + " split.")
+
+        return trace_entry
+
+    def _evaluate(self) -> dict:
         """ Compute evaluation metrics, output results to trace file """
         raise NotImplementedError
 
