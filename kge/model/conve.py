@@ -130,12 +130,11 @@ class ConvE(KgeModel):
             "relation_embedder.dim", self.get_option("relation_embedder.dim") - 1
         )
 
-
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         # We overwrite this method to ensure that ConvE only predicts towards objects.
         # If ConvE is wrapped in a reciprocal relations model, this will always be the
         # case.
         if direction == "o":
-            super().score_spo(s, p, o, direction)
+            return super().score_spo(s, p, o, direction)
         else:
             raise ValueError("ConvE can only score objects")
