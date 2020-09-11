@@ -82,7 +82,7 @@ class EvaluationJob(TrainingOrEvaluationJob):
             + " data (epoch {})...".format(self.epoch)
         )
 
-        trace_entry = self._evaluate()
+        self._evaluate()
 
         # if validation metric is not present, try to compute it
         metric_name = self.config.get("valid.metric")
@@ -111,8 +111,11 @@ class EvaluationJob(TrainingOrEvaluationJob):
 
         return trace_entry
 
-    def _evaluate(self) -> dict:
-        """ Compute evaluation metrics, output results to trace file """
+    def _evaluate(self):
+        """
+        Compute evaluation metrics, output results to trace file.
+        The results of the evaluation must be written into self.current_trace["epoch"]
+        """
         raise NotImplementedError
 
     def _load(self, checkpoint: Dict):

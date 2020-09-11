@@ -417,9 +417,6 @@ class EntityRankingJob(EvaluationJob):
             dict(epoch_time=epoch_time, event="eval_completed", **metrics,)
         )
 
-        # TODO nothing to return I guess
-        return
-
     def _densify_chunk_of_labels(
         self, labels: torch.Tensor, chunk_start: int, chunk_end: int
     ) -> torch.Tensor:
