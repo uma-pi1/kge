@@ -18,11 +18,19 @@ class EntityRankingJob(EvaluationJob):
             ["rounded_mean_rank", "best_rank", "worst_rank"],
         )
         self.tie_handling = self.config.get("entity_ranking.tie_handling")
-        self.is_prepared = False
 
         if self.__class__ == EntityRankingJob:
             for f in Job.job_created_hooks:
                 f(self)
+
+        max_k = min(
+            self.dataset.num_entities(),
+            max(self.config.get("entity_ranking.hits_at_k_s")),
+        )
+        self.hits_at_k_s = list(
+            filter(lambda x: x <= max_k, self.config.get("entity_ranking.hits_at_k_s"))
+        )
+        self.filter_with_test = config.get("entity_ranking.filter_with_test")
 
     def _prepare(self):
         super()._prepare()
@@ -46,9 +54,6 @@ class EntityRankingJob(EvaluationJob):
             num_workers=self.config.get("eval.num_workers"),
             pin_memory=self.config.get("eval.pin_memory"),
         )
-        # let the model add some hooks, if it wants to do so
-        self.model.prepare_job(self)
-        self.is_prepared = True
 
     def _collate(self, batch):
         "Looks up true triples for each triple in the batch"
@@ -77,14 +82,7 @@ class EntityRankingJob(EvaluationJob):
         return batch, label_coords, test_label_coords
 
     @torch.no_grad()
-    def _run(self) -> dict:
-        was_training = self.model.training
-        self.model.eval()
-        self.config.log(
-            "Evaluating on "
-            + self.eval_split
-            + " data (epoch {})...".format(self.epoch)
-        )
+    def _evaluate(self):
         num_entities = self.dataset.num_entities()
 
         # we also filter with test data if requested
@@ -419,32 +417,8 @@ class EntityRankingJob(EvaluationJob):
             dict(epoch_time=epoch_time, event="eval_completed", **metrics,)
         )
 
-        # if validation metric is not present, try to compute it
-        metric_name = self.config.get("valid.metric")
-        if metric_name not in self.current_trace["epoch"]:
-            self.current_trace["epoch"][metric_name] = eval(
-                self.config.get("valid.metric_expr"),
-                None,
-                dict(config=self.config, **self.current_trace["epoch"]),
-            )
-
-        # run hooks (may modify trace)
-        for f in self.post_epoch_hooks:
-            f(self)
-
-        # output the trace, then clear it
-        trace_entry = self.trace(
-            **self.current_trace["epoch"], echo=True, echo_prefix="  ", log=True
-        )
-        self.current_trace["epoch"] = None
-
-        # reset model and return metrics
-        if was_training:
-            self.model.train()
-
-        self.config.log("Finished evaluating on " + self.eval_split + " split.")
-
-        return trace_entry
+        # TODO nothing to return I guess
+        return
 
     def _densify_chunk_of_labels(
         self, labels: torch.Tensor, chunk_start: int, chunk_end: int

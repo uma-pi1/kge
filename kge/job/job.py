@@ -151,6 +151,7 @@ class Job:
         """
         if not self._is_prepared:
             self._prepare()
+            self._is_prepared = True
 
         for f in self.pre_run_hooks:
             f(self)
