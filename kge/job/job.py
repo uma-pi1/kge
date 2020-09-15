@@ -178,7 +178,6 @@ class Job:
             job_id=self.job_id, job=self.config.get("job.type"), **kwargs
         )
 
-
 class TrainingOrEvaluationJob(Job):
     """Abstract superclass for training and eval jobs."""
 

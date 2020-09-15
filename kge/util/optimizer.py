@@ -32,6 +32,24 @@ class KgeLRScheduler(Configurable):
         args = config.get("train.lr_scheduler_args")
         self._lr_scheduler: _LRScheduler = None
         if name != "":
+            # check for consistency of metric-based scheduler
+            self._metric_based = name in ["ReduceLROnPlateau"]
+            if self._metric_based:
+                desired_mode = "max" if config.get("valid.metric_max") else "min"
+                if "mode" in args:
+                    if args["mode"] != desired_mode:
+                        raise ValueError(
+                            (
+                                "valid.metric_max ({}) and train.lr_scheduler_args.mode "
+                                "({}) are inconsistent."
+                            ).format(config.get("valid.metric_max"), args["mode"])
+                        )
+                    # all fine
+                else:  # mode not set, so set it
+                    args["mode"] = desired_mode
+                    config.set("train.lr_scheduler_args.mode", desired_mode, log=True)
+
+            # create the scheduler
             try:
                 self._lr_scheduler = getattr(torch.optim.lr_scheduler, name)(
                     optimizer, **args
@@ -44,7 +62,6 @@ class KgeLRScheduler(Configurable):
                     ).format(name, args, e)
                 )
 
-        self._metric_based = name in ["ReduceLROnPlateau"]
 
     def step(self, metric=None):
         if self._lr_scheduler is None:

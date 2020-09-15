@@ -369,14 +369,21 @@ valid:
   every: 5
 
   # Name of the trace entry that holds the validation metric (higher value is
-  # better)
+  # better). To add a custom metric, set this to a fresh name and define
+  # metric_expr below.
   metric: mean_reciprocal_rank_filtered_with_test
 
   # If the above metric is not present in trace (e.g., because a custom metric
   # should be used), a Python expression to compute the metric. Can refer to
   # trace entries directly and to configuration options via config.
+  #
   # Example: 'math.sqrt(mean_reciprocal_rank) + config.get("user.par")'
   metric_expr: 'float("nan")'
+
+  # Whether the metric should be maximized (True, large value is better) or
+  # minimized (False, small value is better). Affects things such as early
+  # abort, learning rate scheduling, or hyperparameter search.
+  metric_max: True
 
   early_stopping:
     # Grace period of validation runs before a training run is stopped early
@@ -385,11 +392,11 @@ valid:
     # result so far) in the validation metric during the last n validation runs.
     patience: 5
 
-    # A minimum validation metric value threshold that should be reached after
-    # n epochs, set to 0 epoch to turn off. Should be set very very conservatively
-    # and the main purpose is for pruning completely useless hyperparameter
-    # settings during hyper-parameter optimization.
-    min_threshold:
+    # A target validation metric value that should be reached after n epochs,
+    # set to 0 epoch to turn off. Should be set very very conservatively and the
+    # main purpose is for pruning completely useless hyperparameter settings
+    # during hyper-parameter optimization.
+    threshold:
       epochs: 0
       metric_value: 0.0
 

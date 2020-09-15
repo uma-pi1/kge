@@ -60,7 +60,7 @@ class AxSearchJob(AutoSearchJob):
             name=self.job_id,
             parameters=self.config.get("ax_search.parameters"),
             objective_name="metric_value",
-            minimize=False,
+            minimize=not self.config.get("valid.metric_max"),
             parameter_constraints=self.config.get("ax_search.parameter_constraints"),
             choose_generation_strategy_kwargs=choose_generation_strategy_kwargs,
         )

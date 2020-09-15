@@ -7,6 +7,7 @@ from kge.job import SearchJob, Job
 import kge.job.search
 import copy
 import gc
+from kge.util.metric import Metric
 
 # TODO handle "max_epochs" in some sensible way
 
@@ -47,9 +48,7 @@ class AutoSearchJob(SearchJob):
         self.resumed_from_job_id = checkpoint.get("job_id")
         self.parameters = checkpoint["parameters"]
         self.results = checkpoint["results"]
-        self.trace(
-            event="job_resumed", checkpoint_file=checkpoint["file"]
-        )
+        self.trace(event="job_resumed", checkpoint_file=checkpoint["file"])
         self.config.log(
             "Resuming search from {} of job {}".format(
                 checkpoint["file"], self.resumed_from_job_id
@@ -216,10 +215,10 @@ class AutoSearchJob(SearchJob):
         # and best trial
         if len(failed_trials) != len(self.results):
             trial_metric_values = [
-                float("-Inf") if result is None else result["metric_value"]
+                Metric(self).worst() if result is None else result["metric_value"]
                 for result in self.results
             ]
-            best_trial_index = trial_metric_values.index(max(trial_metric_values))
+            best_trial_index = Metric(self).best_index(trial_metric_values)
             metric_name = self.results[best_trial_index]["metric_name"]
             self.config.log(
                 "Best trial ({:05d}): {}={}".format(
