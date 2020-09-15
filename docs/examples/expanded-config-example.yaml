@@ -165,7 +165,7 @@ user:
   +++: +++
 valid:
   early_stopping:
-    min_threshold:
+    threshold:
       epochs: 0
       metric_value: 0.0
     patience: 5

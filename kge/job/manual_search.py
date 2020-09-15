@@ -3,6 +3,7 @@ from kge import Config, Dataset
 from kge.job import SearchJob, Job
 import kge.job.search
 import concurrent.futures
+from kge.util.metric import Metric
 
 
 class ManualSearchJob(SearchJob):
@@ -89,7 +90,9 @@ class ManualSearchJob(SearchJob):
         for i in range(len(search_configs)):
             best = best_per_job[i]
             best_metric = best_metric_per_job[i]
-            if not overall_best or overall_best_metric < best_metric:
+            if not overall_best or Metric(self).better(
+                best_metric, overall_best_metric
+            ):
                 overall_best = best
                 overall_best_metric = best_metric
             self.config.log(

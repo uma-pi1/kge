@@ -720,6 +720,11 @@ def _process_deprecated_options(options: Dict[str, Any]):
                     renamed_keys.add(key)
         return renamed_keys
 
+    # 15.9.2020
+    rename_keys_re(
+        "^valid\.early_stopping\.min_threshold\.", "valid.early_stopping.threshold."
+    )
+
     # 31.8.2020
     rename_key("negative_sampling.chunk_size", "train.subbatch_size")
 

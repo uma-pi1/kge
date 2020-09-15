@@ -19,6 +19,7 @@ from kge.util import KgeLoss, KgeOptimizer, KgeSampler, KgeLRScheduler
 from kge.util.io import load_checkpoint
 from typing import Any, Callable, Dict, List, Optional
 import kge.job.util
+from kge.util.metric import Metric
 
 SLOTS = [0, 1, 2]
 S, P, O = SLOTS
@@ -130,9 +131,8 @@ class TrainingJob(TrainingOrEvaluationJob):
                 len(self.valid_trace) > 0
                 and self.valid_trace[-1]["epoch"] == self.epoch
             ):
-                best_index = max(
-                    range(len(self.valid_trace)),
-                    key=lambda index: self.valid_trace[index][metric_name],
+                best_index = Metric(self).best_index(
+                    list(map(lambda trace: trace[metric_name], self.valid_trace))
                 )
                 if best_index == len(self.valid_trace) - 1:
                     self.save(self.config.checkpoint_file("best"))
@@ -149,16 +149,19 @@ class TrainingJob(TrainingOrEvaluationJob):
                     )
                     break
                 if self.epoch > self.config.get(
-                    "valid.early_stopping.min_threshold.epochs"
-                ) and self.valid_trace[best_index][metric_name] < self.config.get(
-                    "valid.early_stopping.min_threshold.metric_value"
+                    "valid.early_stopping.threshold.epochs"
                 ):
-                    self.config.log(
-                        "Stopping early ({} did not achieve min treshold after {} epochs".format(
-                            metric_name, self.epoch
-                        )
+                    achieved = self.valid_trace[best_index][metric_name]
+                    target = self.config.get(
+                        "valid.early_stopping.threshold.metric_value"
                     )
-                    break
+                    if Metric(self).better(target, achieved):
+                        self.config.log(
+                            "Stopping early ({} did not achieve threshold after {} epochs".format(
+                                metric_name, self.epoch
+                            )
+                        )
+                        break
 
             # should we stop?
             if self.epoch >= self.config.get("train.max_epochs"):
