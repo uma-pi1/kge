@@ -719,6 +719,11 @@ def _process_deprecated_options(options: Dict[str, Any]):
                 if rename_value(key, old_value, new_value):
                     renamed_keys.add(key)
         return renamed_keys
+    
+    # 21.10.2020
+    tucker_reg_key = "tucker3_relation_embedder.regularize_args.p"
+    if tucker_reg_key in options and isinstance(options[tucker_reg_key], int):
+        options[tucker_reg_key] = float(options[tucker_reg_key])
 
     # 15.9.2020
     rename_keys_re(
