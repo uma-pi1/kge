@@ -38,15 +38,48 @@ class KgeBase(torch.nn.Module, Configurable):
             "_base_model._relation_embedder.embeddings.weight": "_base_model._relation_embedder._embeddings.weight",
         }
 
-    def initialize(self, what: Tensor, initialize: str, initialize_args):
+    @staticmethod
+    def _initialize(what: Tensor, initialize: str, initialize_args):
         try:
             getattr(torch.nn.init, initialize)(what, **initialize_args)
-        except:
+        except Exception as e:
             raise ValueError(
                 "invalid initialization options: {} with args {}".format(
                     initialize, initialize_args
                 )
-            )
+            ) from e
+
+    def initialize(self, what: Tensor, config=None, configuration_key=None):
+        """Initialize tensor with provided configuration.
+
+        The initializers are taken from options "initialize" and "initialize_args".
+
+        If set, config and configuration_key overwrite the default configuration used in
+        this class. When both are set, self can be None.
+
+        """
+        if config is None:
+            config = self.config
+        if configuration_key is None:
+            configuration_key = self.configuration_key
+        configurable = Configurable(config, configuration_key)
+
+        initialize = configurable.get_option("initialize")
+
+        try:
+            initialize_args_key = "initialize_args." + initialize
+            initialize_args = configurable.get_option(initialize_args_key)
+        except KeyError:
+            initialize_args_key = "initialize_args"
+            initialize_args = configurable.get_option(initialize_args_key)
+
+        # Automatically set arg a (lower bound) for uniform_ if not given
+        if initialize == "uniform_" and "a" not in initialize_args:
+            initialize_args["a"] = initialize_args["b"] * -1
+            config.set_option(initialize_args_key + ".a", initialize_args["a"], log=True)
+
+        KgeBase._initialize(what, initialize, initialize_args)
+
 
     def prepare_job(self, job: "Job", **kwargs):
         r"""Prepares the given job to work with this model.
@@ -223,23 +256,6 @@ class KgeEmbedder(KgeBase):
 
         self.dim: int = self.get_option("dim")
 
-    def _init_embeddings(self, data: Tensor):
-        """Initialize embeddings with provided configuration."""
-        initialize = self.get_option("initialize")
-
-        try:
-            initialize_args_key = "initialize_args." + initialize
-            initialize_args = self.get_option(initialize_args_key)
-        except KeyError:
-            initialize_args_key = "initialize_args"
-            initialize_args = self.get_option(initialize_args_key)
-
-        # Automatically set arg a (lower bound) for uniform_ if not given
-        if initialize == "uniform_" and "a" not in initialize_args:
-            initialize_args["a"] = initialize_args["b"] * -1
-            self.set_option(initialize_args_key + ".a", initialize_args["a"], log=True)
-
-        self.initialize(data, initialize, initialize_args)
 
     @staticmethod
     def create(

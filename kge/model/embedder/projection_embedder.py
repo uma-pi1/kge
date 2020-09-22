@@ -30,7 +30,7 @@ class ProjectionEmbedder(KgeEmbedder):
         self.regularize = self.check_option("regularize", ["", "lp"])
         self.projection = torch.nn.Linear(self.base_embedder.dim, self.dim, bias=False)
         if not init_for_load_only:
-            self._init_embeddings(self.projection.weight.data)
+            self.initialize(self.projection.weight.data)
 
     def _embed(self, embeddings):
         embeddings = self.projection(embeddings)

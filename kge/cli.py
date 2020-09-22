@@ -315,10 +315,10 @@ def main():
             else:
                 job = Job.create(config, dataset)
             job.run()
-    except BaseException as e:
+    except BaseException:
         tb = traceback.format_exc()
         config.log(tb, echo=False)
-        raise e from None
+        raise
 
 
 if __name__ == "__main__":
