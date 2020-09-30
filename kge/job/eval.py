@@ -3,6 +3,7 @@ import torch
 from kge import Config, Dataset
 from kge.job import Job, TrainingOrEvaluationJob
 from kge.model import KgeModel
+from kge.job.trace import format_trace_entry
 
 from typing import Dict, Optional, Any
 
@@ -78,8 +79,9 @@ class EvaluationJob(TrainingOrEvaluationJob):
 
         # output the trace, then clear it
         trace_entry = self.trace(
-            **self.current_trace["epoch"], echo=True, echo_prefix="  ", log=True
+            **self.current_trace["epoch"], echo=False, echo_prefix="  ", log=True
         )
+        self.config.log(format_trace_entry("eval_epoch", trace_entry, self.config))
         self.current_trace["epoch"] = None
 
         # reset model and return metrics
@@ -139,5 +141,3 @@ class EvaluationJob(TrainingOrEvaluationJob):
             new_config.set("eval.split", eval_split, create=True)
 
         return super().create_from(checkpoint, new_config, dataset, parent_job)
-
-

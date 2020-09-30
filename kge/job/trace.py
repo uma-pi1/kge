@@ -252,3 +252,22 @@ class Trace:
             tracefile=tracefile, conjunctions=[f"job_id: {job_id}", f"scope: {scope}"],
         )
         return entries
+
+
+def format_trace_entry(format_key, trace_entry, config):
+    "Format a trace entry for console output"
+    try:
+        expr = config.get("console.format." + format_key)
+    except KeyError:
+        # not set -> use default
+        expr = ''
+
+    import yaml
+    if expr:
+        return eval(
+            expr,
+            dict(yaml=yaml),
+            dict(config=config, trace=trace_entry, **trace_entry),
+        )
+    else:
+        return yaml.dump(trace_entry, default_flow_style=False)

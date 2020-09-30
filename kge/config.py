@@ -402,7 +402,7 @@ class Config:
 
     def print(self, *args, **kwargs):
         "Prints the given message unless console output is disabled"
-        if not self.exists("verbose") or self.get("verbose"):
+        if not self.exists("console.quiet") or not self.get("console.quiet"):
             print(*args, **kwargs)
 
     def trace(
@@ -719,8 +719,13 @@ def _process_deprecated_options(options: Dict[str, Any]):
                 if rename_value(key, old_value, new_value):
                     renamed_keys.add(key)
         return renamed_keys
-    
-    # 21.10.2020
+
+    # 30.9.2020
+    if "verbose" in options:
+        rename_key("verbose", "console.quiet")
+        options["console.quiet"] = not options["console.quiet"]
+
+    # 21.9.2020
     tucker_reg_key = "tucker3_relation_embedder.regularize_args.p"
     if tucker_reg_key in options and isinstance(options[tucker_reg_key], int):
         options[tucker_reg_key] = float(options[tucker_reg_key])

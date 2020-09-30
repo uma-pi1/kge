@@ -1,7 +1,25 @@
 # config-default.yaml: LibKGE's default configuration options
 
-# Whether to output progress information to the console
-verbose: True
+# Control output is printed to the console.
+console:
+  # If set, no console output is produced
+  quiet: False
+
+  # Formatting of trace entries for console output after certain events, such as
+  # finishing an epoch. Each entry is a key-value pair, where the key refers to
+  # the type of event and the value is a Python expression (which may access
+  # variables "trace" and "config" as well as all trace entries). If no
+  # expression for a given key is specified or if the expression is empty, the
+  # full trace is produced.
+  #
+  # Supported keys: train_epoch, eval_epoch
+  #
+  # Example (one liners for train and eval):
+  # format:
+  #   train_epoch: 'f"{config.get(''train.type'')}-{config.get(''train.loss'')}: epoch={epoch:3d} avg_cost={avg_cost:.4E} avg_loss={avg_loss:.4E} avg_pens={sum(avg_penalties.values()):.4E} time={epoch_time:.2f}"'
+  #   eval_epoch: 'f"{config.get(''eval.type'')}: epoch={epoch:3d} {config.get(''valid.metric'')}={trace[config.get(''valid.metric'')]:.4E} time={epoch_time:.2f}"'
+  format: {}
+
 
 # Job-level configuration options.
 job:
@@ -356,6 +374,7 @@ eval:
 
   # Other options
   pin_memory: False
+
 
 # Configuration options for model validation/selection during training. Applied
 # in addition to the options set under "eval" above.

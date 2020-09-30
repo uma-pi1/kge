@@ -17,6 +17,7 @@ from kge.model import KgeModel
 
 from kge.util import KgeLoss, KgeOptimizer, KgeSampler, KgeLRScheduler
 from kge.util.io import load_checkpoint
+from kge.job.trace import format_trace_entry
 from typing import Any, Callable, Dict, List, Optional
 import kge.job.util
 from kge.util.metric import Metric
@@ -236,7 +237,8 @@ class TrainingJob(TrainingOrEvaluationJob):
         self.config.log("Saving checkpoint to {}...".format(filename))
         checkpoint = self.save_to({})
         torch.save(
-            checkpoint, filename,
+            checkpoint,
+            filename,
         )
 
     def save_to(self, checkpoint: Dict) -> Dict:
@@ -266,7 +268,9 @@ class TrainingJob(TrainingOrEvaluationJob):
         self.model.train()
         self.resumed_from_job_id = checkpoint.get("job_id")
         self.trace(
-            event="job_resumed", epoch=self.epoch, checkpoint_file=checkpoint["file"],
+            event="job_resumed",
+            epoch=self.epoch,
+            checkpoint_file=checkpoint["file"],
         )
         self.config.log(
             "Resuming training from {} of job {}".format(
@@ -508,8 +512,9 @@ class TrainingJob(TrainingOrEvaluationJob):
 
         # output the trace, then clear it
         trace_entry = self.trace(
-            **self.current_trace["epoch"], echo=True, echo_prefix="  ", log=True
+            **self.current_trace["epoch"], echo=False, echo_prefix="  ", log=True
         )
+        self.config.log(format_trace_entry("train_epoch", trace_entry, self.config))
         self.current_trace["epoch"] = None
 
         return trace_entry
@@ -562,7 +567,11 @@ class TrainingJob(TrainingOrEvaluationJob):
         raise NotImplementedError
 
     def _process_subbatch(
-        self, batch_index, batch, subbatch_slice, result: _ProcessBatchResult,
+        self,
+        batch_index,
+        batch,
+        subbatch_slice,
+        result: _ProcessBatchResult,
     ):
         """Run forward and backward pass on the given subbatch.
 
@@ -727,7 +736,9 @@ class TrainingJobKvsAll(TrainingJob):
                         break
                     start = end
 
-                queries_batch[batch_index,] = queries[example_index]
+                queries_batch[
+                    batch_index,
+                ] = queries[example_index]
                 start = label_offsets[example_index]
                 end = label_offsets[example_index + 1]
                 size = end - start
@@ -854,7 +865,8 @@ class TrainingJobNegativeSampling(TrainingJob):
         super().__init__(config, dataset, parent_job, model=model)
         self._sampler = KgeSampler.create(config, "negative_sampling", dataset)
         self._implementation = self.config.check(
-            "negative_sampling.implementation", ["triple", "all", "batch", "auto"],
+            "negative_sampling.implementation",
+            ["triple", "all", "batch", "auto"],
         )
         if self._implementation == "auto":
             max_nr_of_negs = max(self._sampler.num_samples)
@@ -968,7 +980,10 @@ class TrainingJobNegativeSampling(TrainingJob):
             result.forward_time -= time.time()
             scores = torch.empty((subbatch_size, num_samples + 1), device=self.device)
             scores[:, 0] = self.model.score_spo(
-                triples[:, S], triples[:, P], triples[:, O], direction=SLOT_STR[slot],
+                triples[:, S],
+                triples[:, P],
+                triples[:, O],
+                direction=SLOT_STR[slot],
             )
             result.forward_time += time.time()
             scores[:, 1:] = batch_negative_samples[slot].score(
