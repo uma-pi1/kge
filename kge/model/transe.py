@@ -20,7 +20,7 @@ class TransEScorer(RelationalScorer):
         elif combine == "_po":
             out = -torch.cdist(o_emb - p_emb, s_emb, p=self._norm)
         else:
-            out = super().score_emb(s_emb, p_emb, o_emb, combine)
+            return super().score_emb(s_emb, p_emb, o_emb, combine)
         return out.view(n, -1)
 
 
