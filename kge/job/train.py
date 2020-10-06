@@ -56,7 +56,12 @@ class TrainingJob(TrainingOrEvaluationJob):
     """
 
     def __init__(
-        self, config: Config, dataset: Dataset, parent_job: Job = None, model=None
+        self,
+        config: Config,
+        dataset: Dataset,
+        parent_job: Job = None,
+        model=None,
+        forward_only=False
     ) -> None:
         from kge.job import EvaluationJob
 
@@ -65,8 +70,6 @@ class TrainingJob(TrainingOrEvaluationJob):
             self.model: KgeModel = KgeModel.create(config, dataset)
         else:
             self.model: KgeModel = model
-        self.optimizer = KgeOptimizer.create(config, self.model)
-        self.kge_lr_scheduler = KgeLRScheduler(config, self.optimizer)
         self.loss = KgeLoss.create(config)
         self.abort_on_nan: bool = config.get("train.abort_on_nan")
         self.batch_size: int = config.get("train.batch_size")
@@ -78,15 +81,22 @@ class TrainingJob(TrainingOrEvaluationJob):
         self.config.check("train.trace_level", ["batch", "epoch"])
         self.trace_batch: bool = self.config.get("train.trace_level") == "batch"
         self.epoch: int = 0
-        self.valid_trace: List[Dict[str, Any]] = []
-        valid_conf = config.clone()
-        valid_conf.set("job.type", "eval")
-        if self.config.get("valid.split") != "":
-            valid_conf.set("eval.split", self.config.get("valid.split"))
-        valid_conf.set("eval.trace_level", self.config.get("valid.trace_level"))
-        self.valid_job = EvaluationJob.create(
-            valid_conf, dataset, parent_job=self, model=self.model
-        )
+        self.is_forward_only = forward_only
+
+        if not self.is_forward_only:
+            self.model.train()
+            self.optimizer = KgeOptimizer.create(config, self.model)
+            self.kge_lr_scheduler = KgeLRScheduler(config, self.optimizer)
+
+            self.valid_trace: List[Dict[str, Any]] = []
+            valid_conf = config.clone()
+            valid_conf.set("job.type", "eval")
+            if self.config.get("valid.split") != "":
+                valid_conf.set("eval.split", self.config.get("valid.split"))
+            valid_conf.set("eval.trace_level", self.config.get("valid.trace_level"))
+            self.valid_job = EvaluationJob.create(
+                valid_conf, dataset, parent_job=self, model=self.model
+            )
 
         # attributes filled in by implementing classes
         self.loader = None
@@ -101,25 +111,39 @@ class TrainingJob(TrainingOrEvaluationJob):
             for f in Job.job_created_hooks:
                 f(self)
 
-        self.model.train()
-
     @staticmethod
     def create(
-        config: Config, dataset: Dataset, parent_job: Job = None, model=None
+        config: Config,
+        dataset: Dataset,
+        parent_job: Job = None,
+        model=None,
+        forward_only=False
     ) -> "TrainingJob":
         """Factory method to create a training job."""
         if config.get("train.type") == "KvsAll":
-            return TrainingJobKvsAll(config, dataset, parent_job, model=model)
+            return TrainingJobKvsAll(
+                config, dataset, parent_job, model=model, forward_only=forward_only
+            )
         elif config.get("train.type") == "negative_sampling":
-            return TrainingJobNegativeSampling(config, dataset, parent_job, model=model)
+            return TrainingJobNegativeSampling(
+                config, dataset, parent_job, model=model, forward_only=forward_only
+            )
         elif config.get("train.type") == "1vsAll":
-            return TrainingJob1vsAll(config, dataset, parent_job, model=model)
+            return TrainingJob1vsAll(
+                config, dataset, parent_job, model=model, forward_only=forward_only
+            )
         else:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError("train.type")
 
     def _run(self) -> None:
         """Start/resume the training job and run to completion."""
+
+        if self.is_forward_only:
+            raise Exception(
+                f"{self.__class__.__name__} was initialized for forward only. You can only call run_epoch()"
+            )
+
         self.config.log("Starting training...")
         checkpoint_every = self.config.get("train.checkpoint.every")
         checkpoint_keep = self.config.get("train.checkpoint.keep")
@@ -279,7 +303,7 @@ class TrainingJob(TrainingOrEvaluationJob):
         )
 
     def run_epoch(self) -> Dict[str, Any]:
-        "Runs an epoch and returns its trace entry."
+        """ Runs an epoch and returns its trace entry. """
 
         # create initial trace entry
         self.current_trace["epoch"] = dict(
@@ -289,8 +313,12 @@ class TrainingJob(TrainingOrEvaluationJob):
             split=self.train_split,
             batches=len(self.loader),
             size=self.num_examples,
-            lr=[group["lr"] for group in self.optimizer.param_groups],
+            # lr=[group["lr"] for group in self.optimizer.param_groups],
         )
+        if not self.is_forward_only:
+            self.current_trace["epoch"].update(
+                lr=[group["lr"] for group in self.optimizer.param_groups],
+            )
 
         # run pre-epoch hooks (may modify trace)
         for f in self.pre_epoch_hooks:
@@ -316,8 +344,12 @@ class TrainingJob(TrainingOrEvaluationJob):
                 "split": self.train_split,
                 "batch": batch_index,
                 "batches": len(self.loader),
-                "lr": [group["lr"] for group in self.optimizer.param_groups],
+                # "lr": [group["lr"] for group in self.optimizer.param_groups],
             }
+            if not self.is_forward_only:
+                self.current_trace["batch"].update(
+                    lr=[group["lr"] for group in self.optimizer.param_groups],
+                )
 
             # run the pre-batch hooks (may update the trace)
             for f in self.pre_batch_hooks:
@@ -328,7 +360,8 @@ class TrainingJob(TrainingOrEvaluationJob):
             while not done:
                 try:
                     # try running the batch
-                    self.optimizer.zero_grad()
+                    if not self.is_forward_only:
+                        self.optimizer.zero_grad()
                     batch_result: TrainingJob._ProcessBatchResult = self._process_batch(
                         batch_index, batch
                     )
@@ -379,9 +412,10 @@ class TrainingJob(TrainingOrEvaluationJob):
             batch_backward_time = batch_result.backward_time - time.time()
             penalty = 0.0
             for index, (penalty_key, penalty_value_torch) in enumerate(penalties_torch):
-                penalty_value_torch.backward()
-                penalty += penalty_value_torch.item()
-                sum_penalties[penalty_key] += penalty_value_torch.item()
+                if not self.is_forward_only:
+                    penalty_value_torch.backward()
+                    penalty += penalty_value_torch.item()
+                    sum_penalties[penalty_key] += penalty_value_torch.item()
             sum_penalty += penalty
             batch_backward_time += time.time()
 
@@ -420,7 +454,8 @@ class TrainingJob(TrainingOrEvaluationJob):
 
             # update parameters
             batch_optimizer_time = -time.time()
-            self.optimizer.step()
+            if not self.is_forward_only:
+                self.optimizer.step()
             batch_optimizer_time += time.time()
 
             # update batch trace with the results
@@ -594,8 +629,8 @@ class TrainingJobKvsAll(TrainingJob):
 
     from kge.indexing import KvsAllIndex
 
-    def __init__(self, config, dataset, parent_job=None, model=None):
-        super().__init__(config, dataset, parent_job, model=model)
+    def __init__(self, config, dataset, parent_job=None, model=None, forward_only=False):
+        super().__init__(config, dataset, parent_job, model=model, forward_only=forward_only)
         self.label_smoothing = config.check_range(
             "KvsAll.label_smoothing", float("-inf"), 1.0, max_inclusive=False
         )
@@ -856,13 +891,30 @@ class TrainingJobKvsAll(TrainingJob):
                 result.avg_loss += loss_value.item()
                 result.forward_time += time.time()
                 result.backward_time -= time.time()
-                loss_value.backward()
+                if not self.is_forward_only:
+                    loss_value.backward()
                 result.backward_time += time.time()
+
+    def run_epoch(self):
+        # prepare the training job if not done already
+        # Needed because run() prepares jobs,
+        # But run() is never called on a training job
+        # used for a training loss eval job
+        # Run() is called on the eval job, which calls
+        # run_epoch on its training job
+        # TODO not nice but prepare methods are private
+        #   so a nicer solution requires more change
+        if not self._is_prepared:
+            super()._prepare()
+            self._prepare()
+            self._is_prepared = True
+
+        return super().run_epoch()
 
 
 class TrainingJobNegativeSampling(TrainingJob):
-    def __init__(self, config, dataset, parent_job=None, model=None):
-        super().__init__(config, dataset, parent_job, model=model)
+    def __init__(self, config, dataset, parent_job=None, model=None, forward_only=False):
+        super().__init__(config, dataset, parent_job, model=model, forward_only=forward_only)
         self._sampler = KgeSampler.create(config, "negative_sampling", dataset)
         self._implementation = self.config.check(
             "negative_sampling.implementation",
@@ -1002,15 +1054,32 @@ class TrainingJobNegativeSampling(TrainingJob):
 
             # backward pass for this slot in the subbatch
             result.backward_time -= time.time()
-            loss_value_torch.backward()
+            if not self.is_forward_only:
+                loss_value_torch.backward()
             result.backward_time += time.time()
+
+    def run_epoch(self):
+        # prepare the traininig job if not done already
+        # Needed because run() prepares jobs,
+        # But run() is never called on a training job
+        # used for a training loss eval job
+        # Run() is called on the eval job, which calls
+        # run_epoch on its training job
+        # TODO not nice but prepare methods are private
+        #   so a nicer solution requires more change
+        if not self._is_prepared:
+            super()._prepare()
+            self._prepare()
+            self._is_prepared = True
+
+        return super().run_epoch()
 
 
 class TrainingJob1vsAll(TrainingJob):
     """Samples SPO pairs and queries sp_ and _po, treating all other entities as negative."""
 
-    def __init__(self, config, dataset, parent_job=None, model=None):
-        super().__init__(config, dataset, parent_job, model=model)
+    def __init__(self, config, dataset, parent_job=None, model=None, forward_only=False):
+        super().__init__(config, dataset, parent_job, model=model, forward_only=forward_only)
         config.log("Initializing spo training job...")
         self.type_str = "1vsAll"
 
@@ -1060,7 +1129,8 @@ class TrainingJob1vsAll(TrainingJob):
         result.avg_loss += loss_value_sp.item()
         result.forward_time += time.time()
         result.backward_time = -time.time()
-        loss_value_sp.backward()
+        if not self.is_forward_only:
+            loss_value_sp.backward()
         result.backward_time += time.time()
 
         # forward/backward pass (po)
@@ -1070,5 +1140,22 @@ class TrainingJob1vsAll(TrainingJob):
         result.avg_loss += loss_value_po.item()
         result.forward_time += time.time()
         result.backward_time -= time.time()
-        loss_value_po.backward()
+        if not self.is_forward_only:
+            loss_value_po.backward()
         result.backward_time += time.time()
+
+    def run_epoch(self):
+        # prepare the traininig job if not done already
+        # Needed because run() prepares jobs,
+        # But run() is never called on a training job
+        # used for a training loss eval job
+        # Run() is called on the eval job, which calls
+        # run_epoch on its training job
+        # TODO not nice but prepare methods are private
+        #   so a nicer solution requires more change
+        if not self._is_prepared:
+            super()._prepare()
+            self._prepare()
+            self._is_prepared = True
+
+        return super().run_epoch()
