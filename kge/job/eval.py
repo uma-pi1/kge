@@ -1,7 +1,8 @@
 import torch
+import time
 
 from kge import Config, Dataset
-from kge.job import Job, TrainingOrEvaluationJob
+from kge.job import Job, TrainingOrEvaluationJob, TrainingJob
 from kge.model import KgeModel
 from kge.job.trace import format_trace_entry
 
@@ -40,6 +41,10 @@ class EvaluationJob(TrainingOrEvaluationJob):
             return EntityRankingJob(config, dataset, parent_job=parent_job, model=model)
         elif config.get("eval.type") == "entity_pair_ranking":
             return EntityPairRankingJob(
+                config, dataset, parent_job=parent_job, model=model
+            )
+        elif config.get("eval.type") == "training_loss":
+            return TrainingLossEvaluationJob(
                 config, dataset, parent_job=parent_job, model=model
             )
         else:
@@ -141,3 +146,62 @@ class EvaluationJob(TrainingOrEvaluationJob):
             new_config.set("eval.split", eval_split, create=True)
 
         return super().create_from(checkpoint, new_config, dataset, parent_job)
+
+
+class TrainingLossEvaluationJob(EvaluationJob):
+    """ Evaluating simply by using the training loss """
+
+    def __init__(self, config: Config, dataset: Dataset, parent_job, model):
+        super().__init__(config, dataset, parent_job, model)
+
+        training_loss_eval_config = config.clone()
+        training_loss_eval_config.set("console.quiet", False)
+        # TODO set train split to include validation data here
+        #   once support is added
+        #   Then reflect this change in the trace entries
+
+        self._train_job = TrainingJob.create(
+            config=training_loss_eval_config,
+            parent_job=self,
+            dataset=dataset,
+            model=model,
+            forward_only=True,
+        )
+
+        if self.__class__ == TrainingLossEvaluationJob:
+            for f in Job.job_created_hooks:
+                f(self)
+
+    def _prepare(self):
+        super()._prepare()
+
+    @torch.no_grad()
+    def _evaluate(self) -> Dict[str, Any]:
+        if self.parent_job:
+            self.epoch = self.parent_job.epoch
+
+        # create initial trace entry
+        self.current_trace["epoch"] = dict(
+            type="training_loss",
+            scope="epoch",
+            # split=self.eval_split,
+            split=self._train_job.config.get("train.split"),
+            epoch=self.epoch,
+        )
+
+        # run pre-epoch hooks (may modify trace)
+        for f in self.pre_epoch_hooks:
+            f(self)
+
+        # let's go
+        train_trace_entry = self._train_job.run_epoch()
+
+        # compute trace
+        self.current_trace["epoch"].update(
+            dict(
+                epoch_time=train_trace_entry.get("epoch_time"),
+                event="eval_completed",
+                avg_loss=train_trace_entry["avg_loss"],
+                # TODO add support for sum loss
+            )
+        )
