@@ -11,10 +11,25 @@ class KgeOptimizer:
         """ Factory method for optimizer creation """
         try:
             optimizer = getattr(torch.optim, config.get("train.optimizer"))
-            return optimizer(
-                [p for p in model.parameters() if p.requires_grad],
-                **config.get("train.optimizer_args"),
-            )
+            relation_parameters = set()
+            relation_optimizer = None
+            if config.get("train.relation_optimizer"):
+                relation_optimizer = getattr(
+                    torch.optim, config.get("train.relation_optimizer")
+                )
+                relation_parameters = set(
+                    p for p in model.get_p_embedder().parameters() if p.requires_grad
+                )
+                relation_optimizer = relation_optimizer(
+                    relation_parameters, **config.get("train.relation_optimizer_args")
+                )
+            parameters = [
+                p
+                for p in model.parameters()
+                if p.requires_grad and p not in relation_parameters
+            ]
+            optimizer = optimizer(parameters, **config.get("train.optimizer_args"))
+            return optimizer, relation_optimizer
         except AttributeError:
             # perhaps TODO: try class with specified name -> extensibility
             raise ValueError(
@@ -31,7 +46,7 @@ class KgeLRScheduler(Configurable):
         name = config.get("train.lr_scheduler")
         args = config.get("train.lr_scheduler_args")
         self._lr_scheduler: _LRScheduler = None
-        if name != "":
+        if name != "" and optimizer is not None:
             # check for consistency of metric-based scheduler
             self._metric_based = name in ["ReduceLROnPlateau"]
             if self._metric_based:
@@ -61,7 +76,6 @@ class KgeLRScheduler(Configurable):
                         "Error: {}"
                     ).format(name, args, e)
                 )
-
 
     def step(self, metric=None):
         if self._lr_scheduler is None:

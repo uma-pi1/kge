@@ -216,6 +216,17 @@ train:
   optimizer_args:
     +++: +++
 
+  # Optimizer used for training relations.
+  # When left empty don't use separate optimizer for relations
+  relation_optimizer: ""
+
+  # Additional arguments for the relation optimizer. Arbitrary key-value pairs can be
+  # added here and will be passed along to the relation optimizer. E.g., use entry lr:0.1
+  # to set the learning rate to 0.1.
+  # only used of relation_optimizer is not empty
+  relation_optimizer_args:
+    +++: +++
+
   # Learning rate scheduler to use. Any scheduler from torch.optim.lr_scheduler
   # can be used (e.g., ReduceLROnPlateau). When left empty, no LR scheduler is
   # used.

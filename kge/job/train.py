@@ -65,8 +65,9 @@ class TrainingJob(TrainingOrEvaluationJob):
             self.model: KgeModel = KgeModel.create(config, dataset)
         else:
             self.model: KgeModel = model
-        self.optimizer = KgeOptimizer.create(config, self.model)
+        self.optimizer, self.relation_optimizer = KgeOptimizer.create(config, self.model)
         self.kge_lr_scheduler = KgeLRScheduler(config, self.optimizer)
+        self.relation_kge_lr_scheduler = KgeLRScheduler(config, self.relation_optimizer)
         self.loss = KgeLoss.create(config)
         self.abort_on_nan: bool = config.get("train.abort_on_nan")
         self.batch_size: int = config.get("train.batch_size")
@@ -195,8 +196,10 @@ class TrainingJob(TrainingOrEvaluationJob):
 
                 # metric-based scheduler step
                 self.kge_lr_scheduler.step(trace_entry[metric_name])
+                self.relation_kge_lr_scheduler.step(trace_entry[metric_name])
             else:
                 self.kge_lr_scheduler.step()
+                self.relation_kge_lr_scheduler.step()
 
             # create checkpoint and delete old one, if necessary
             self.save(self.config.checkpoint_file(self.epoch))
@@ -250,8 +253,11 @@ class TrainingJob(TrainingOrEvaluationJob):
             "model": self.model.save(),
             "optimizer_state_dict": self.optimizer.state_dict(),
             "lr_scheduler_state_dict": self.kge_lr_scheduler.state_dict(),
+            "relation_lr_scheduler_state_dict": self.relation_kge_lr_scheduler.state_dict(),
             "job_id": self.job_id,
         }
+        if self.relation_optimizer is not None:
+            train_checkpoint["relation_optimizer_state_dict"] = self.relation_optimizer.state_dict()
         train_checkpoint = self.config.save_to(train_checkpoint)
         checkpoint.update(train_checkpoint)
         return checkpoint
@@ -260,9 +266,13 @@ class TrainingJob(TrainingOrEvaluationJob):
         if checkpoint["type"] != "train":
             raise ValueError("Training can only be continued on trained checkpoints")
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        if self.relation_optimizer is not None and "relation_optimizer_state_dict" in checkpoint:
+            self.relation_optimizer.load_state_dict(checkpoint["relation_optimizer_state_dict"])
         if "lr_scheduler_state_dict" in checkpoint:
             # new format
             self.kge_lr_scheduler.load_state_dict(checkpoint["lr_scheduler_state_dict"])
+        if "relation_lr_scheduler_state_dict" in checkpoint:
+            self.relation_kge_lr_scheduler.load_state_dict(checkpoint["relation_lr_scheduler_state_dict"])
         self.epoch = checkpoint["epoch"]
         self.valid_trace = checkpoint["valid_trace"]
         self.model.train()
@@ -291,6 +301,10 @@ class TrainingJob(TrainingOrEvaluationJob):
             size=self.num_examples,
             lr=[group["lr"] for group in self.optimizer.param_groups],
         )
+        if self.relation_optimizer is not None:
+            self.current_trace["epoch"]["relation_lr"] = [
+                group["lr"] for group in self.relation_optimizer.param_groups
+            ]
 
         # run pre-epoch hooks (may modify trace)
         for f in self.pre_epoch_hooks:
@@ -318,6 +332,10 @@ class TrainingJob(TrainingOrEvaluationJob):
                 "batches": len(self.loader),
                 "lr": [group["lr"] for group in self.optimizer.param_groups],
             }
+            if self.relation_optimizer is not None:
+                self.current_trace["batch"]["relation_lr"] = [
+                    group["lr"] for group in self.relation_optimizer.param_groups
+                ]
 
             # run the pre-batch hooks (may update the trace)
             for f in self.pre_batch_hooks:
@@ -421,6 +439,8 @@ class TrainingJob(TrainingOrEvaluationJob):
             # update parameters
             batch_optimizer_time = -time.time()
             self.optimizer.step()
+            if self.relation_optimizer is not None:
+                self.relation_optimizer.step()
             batch_optimizer_time += time.time()
 
             # update batch trace with the results
