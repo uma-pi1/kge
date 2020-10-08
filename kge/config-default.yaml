@@ -216,6 +216,20 @@ train:
   optimizer_args:
     +++: +++
 
+  # Override specific optimizer options for parameters matched with regex expressions.
+  # Allows for example to define a separate learning rate for all relation parameters
+  # Keys here are regex expressions. Sub-keys are the override optimizer args
+  # Additional regex expressions can be added
+  # example keys to set:
+  # .*_entity_embedder\..*
+  #    lr: 0.1
+  # .*_relation_embedder\..*
+  #    lr: 0.2
+  optimizer_args_override:
+    #.*_entity_embedder\..*:
+    #  lr: 0.1
+    +++: +++
+
   # Learning rate scheduler to use. Any scheduler from torch.optim.lr_scheduler
   # can be used (e.g., ReduceLROnPlateau). When left empty, no LR scheduler is
   # used.

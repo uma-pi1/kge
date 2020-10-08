@@ -1,6 +1,9 @@
 from kge import Config, Configurable
 import torch.optim
 from torch.optim.lr_scheduler import _LRScheduler
+import re
+from operator import or_
+from functools import reduce
 
 
 class KgeOptimizer:
@@ -12,8 +15,8 @@ class KgeOptimizer:
         try:
             optimizer = getattr(torch.optim, config.get("train.optimizer"))
             return optimizer(
-                [p for p in model.parameters() if p.requires_grad],
-                **config.get("train.optimizer_args"),
+                KgeOptimizer._get_parameter_specific_options(config, model),
+                **config.get("train.optimizer_args"),  # default optimizer options
             )
         except AttributeError:
             # perhaps TODO: try class with specified name -> extensibility
@@ -21,6 +24,47 @@ class KgeOptimizer:
                 f"Could not create optimizer {config.get('train.optimizer')}. "
                 f"Please specify an optimizer provided in torch.optim"
             )
+
+    @staticmethod
+    def _get_parameter_specific_options(config, model):
+        named_parameters = dict(model.named_parameters())
+        override_parameters = config.get("train.optimizer_args_override")
+        parameter_names_per_search = dict()
+        # filter named parameters by regex string
+        for regex_string in override_parameters.keys():
+            search_pattern = re.compile(regex_string)
+            filtered_named_parameters = set(
+                filter(search_pattern.match, named_parameters.keys())
+            )
+            parameter_names_per_search[regex_string] = filtered_named_parameters
+        # check if something was matched by multiple strings
+        parameter_values = list(parameter_names_per_search.values())
+        for i, (regex_string, param) in enumerate(parameter_names_per_search.items()):
+            for j in range(i + 1, len(parameter_names_per_search)):
+                intersection = set.intersection(param, parameter_values[j])
+                if len(intersection) > 0:
+                    raise ValueError(
+                        f"The parameters {intersection}, were matched by the override "
+                        f"key {regex_string} and {list(parameter_names_per_search.keys())[j]}"
+                    )
+        # now we need to create a list like [{params: [parameters], options},..]
+        for regex_string, params in parameter_names_per_search.items():
+            override_parameters[regex_string]["params"] = [
+                named_parameters[param] for param in params
+            ]
+        resulting_parameters = list(override_parameters.values())
+        # we still need the unmatched parameters...
+        default_parameter_names = set.difference(
+            set(named_parameters.keys()),
+            reduce(or_, list(parameter_names_per_search.values())),
+        )
+        resulting_parameters.extend(
+            [
+                {"params": named_parameters[default_parameter_name]}
+                for default_parameter_name in default_parameter_names
+            ]
+        )
+        return resulting_parameters
 
 
 class KgeLRScheduler(Configurable):
@@ -61,7 +105,6 @@ class KgeLRScheduler(Configurable):
                         "Error: {}"
                     ).format(name, args, e)
                 )
-
 
     def step(self, metric=None):
         if self._lr_scheduler is None:
