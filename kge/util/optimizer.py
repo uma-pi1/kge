@@ -48,6 +48,8 @@ class KgeOptimizer:
         for group_name, parameter_group in optimizer_settings.items():
             if group_name == "default":
                 continue
+            if "type" in parameter_group.keys():
+                raise NotImplementedError("Multiple optimizer types are not yet supported.")
             search_pattern = re.compile(parameter_group["regex"])
             filtered_named_parameters = set(
                 filter(search_pattern.match, named_parameters.keys())
