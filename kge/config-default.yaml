@@ -208,26 +208,28 @@ train:
   num_workers: 0
 
   # Optimizer used for training.
-  optimizer: Adagrad           # sgd, adagrad, adam
+  optimizer:
+    default:
+      type: Adagrad           # sgd, adagrad, adam
 
-  # Additional arguments for the optimizer. Arbitrary key-value pairs can be
-  # added here and will be passed along to the optimizer. E.g., use entry lr:0.1
-  # to set the learning rate to 0.1.
-  optimizer_args:
-    +++: +++
+      # Additional arguments for the optimizer. Arbitrary key-value pairs can be
+      # added here and will be passed along to the optimizer. E.g., use entry lr:0.1
+      # to set the learning rate to 0.1.
+      args:
+        +++: +++
 
-  # Override specific optimizer options for parameters matched with regex expressions.
-  # Allows for example to define a separate learning rate for all relation parameters
-  # Keys here are regex expressions. Sub-keys are the override optimizer args
-  # Additional regex expressions can be added
-  # example keys to set:
-  # .*_entity_embedder\..*
-  #    lr: 0.1
-  # .*_relation_embedder\..*
-  #    lr: 0.2
-  optimizer_args_override:
-    #.*_entity_embedder\..*:
-    #  lr: 0.1
+    # Specific optimizer options for parameters matched with regex expressions can be
+    # overwritten. Allows for example to define a separate learning rate for all relation
+    # parameters.
+    # Example:
+    # optimizer:
+    #   relation:
+    #     regex: .*_relation_embedder.*
+    #     args:
+    #       lr: 0.1
+    # Names of child keys of optimizer will be set as parameter group name.
+    # Parameters are named by their variable names and can be retrieved by:
+    # model.named_parameters()
     +++: +++
 
   # Learning rate scheduler to use. Any scheduler from torch.optim.lr_scheduler

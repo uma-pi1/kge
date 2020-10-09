@@ -13,10 +13,10 @@ class KgeOptimizer:
     def create(config, model):
         """ Factory method for optimizer creation """
         try:
-            optimizer = getattr(torch.optim, config.get("train.optimizer"))
+            optimizer = getattr(torch.optim, config.get("train.optimizer.default.type"))
             return optimizer(
-                KgeOptimizer._get_parameter_specific_options(config, model),
-                **config.get("train.optimizer_args"),  # default optimizer options
+                KgeOptimizer._get_parameters_and_optimizer_args(config, model),
+                **config.get("train.optimizer.default.args"),
             )
         except AttributeError:
             # perhaps TODO: try class with specified name -> extensibility
@@ -26,44 +26,70 @@ class KgeOptimizer:
             )
 
     @staticmethod
-    def _get_parameter_specific_options(config, model):
+    def _get_parameters_and_optimizer_args(config, model):
+        """
+        Group named parameters by regex strings provided with optimizer args.
+        Constructs a list of dictionaries of the form:
+        [
+            {
+                "name": name of parameter group
+                "params": list of parameters to optimize
+                # parameter specific options as for example learning rate
+                ...
+            },
+            ...
+        ]
+        """
+
         named_parameters = dict(model.named_parameters())
-        override_parameters = config.get("train.optimizer_args_override")
+        optimizer_settings = config.get("train.optimizer")
         parameter_names_per_search = dict()
         # filter named parameters by regex string
-        for regex_string in override_parameters.keys():
-            search_pattern = re.compile(regex_string)
+        for group_name, parameter_group in optimizer_settings.items():
+            if group_name == "default":
+                continue
+            search_pattern = re.compile(parameter_group["regex"])
             filtered_named_parameters = set(
                 filter(search_pattern.match, named_parameters.keys())
             )
-            parameter_names_per_search[regex_string] = filtered_named_parameters
+            parameter_names_per_search[group_name] = filtered_named_parameters
+
         # check if something was matched by multiple strings
         parameter_values = list(parameter_names_per_search.values())
-        for i, (regex_string, param) in enumerate(parameter_names_per_search.items()):
+        for i, (group_name, param) in enumerate(parameter_names_per_search.items()):
             for j in range(i + 1, len(parameter_names_per_search)):
                 intersection = set.intersection(param, parameter_values[j])
                 if len(intersection) > 0:
                     raise ValueError(
-                        f"The parameters {intersection}, were matched by the override "
-                        f"key {regex_string} and {list(parameter_names_per_search.keys())[j]}"
+                        f"The parameters {intersection}, were matched by the optimizer "
+                        f"group {group_name} and {list(parameter_names_per_search.keys())[j]}"
                     )
-        # now we need to create a list like [{params: [parameters], options},..]
-        for regex_string, params in parameter_names_per_search.items():
-            override_parameters[regex_string]["params"] = [
+        resulting_parameters = []
+        for group_name, params in parameter_names_per_search.items():
+            optimizer_settings[group_name]["args"]["params"] = [
                 named_parameters[param] for param in params
             ]
-        resulting_parameters = list(override_parameters.values())
-        # we still need the unmatched parameters...
-        default_parameter_names = set.difference(
-            set(named_parameters.keys()),
-            reduce(or_, list(parameter_names_per_search.values())),
-        )
-        resulting_parameters.extend(
-            [
-                {"params": named_parameters[default_parameter_name]}
+            optimizer_settings[group_name]["args"]["name"] = group_name
+            resulting_parameters.append(optimizer_settings[group_name]["args"])
+
+        # add unmatched parameters to default group
+        if len(parameter_names_per_search) > 0:
+            default_parameter_names = set.difference(
+                set(named_parameters.keys()),
+                reduce(or_, list(parameter_names_per_search.values())),
+            )
+            default_parameters = [
+                named_parameters[default_parameter_name]
                 for default_parameter_name in default_parameter_names
             ]
-        )
+            resulting_parameters.append(
+                {"params": default_parameters, "name": "default"}
+            )
+        else:
+            # no parameters matched, add everything to default group
+            resulting_parameters.append(
+                {"params": model.parameters(), "name": "default"}
+            )
         return resulting_parameters
 
 
