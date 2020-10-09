@@ -312,7 +312,7 @@ class TrainingJob(TrainingOrEvaluationJob):
             epoch=self.epoch,
             split=self.train_split,
             batches=len(self.loader),
-            size=self.num_examples,
+            num_examples=self.num_examples,
         )
         if not self.is_forward_only:
             self.current_trace["epoch"].update(
@@ -523,7 +523,6 @@ class TrainingJob(TrainingOrEvaluationJob):
         # add results to trace entry
         self.current_trace["epoch"].update(
             dict(
-                sum_loss=sum_loss,
                 avg_loss=sum_loss / self.num_examples,
                 avg_penalty=sum_penalty / len(self.loader),
                 avg_penalties={
