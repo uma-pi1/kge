@@ -722,7 +722,7 @@ def _process_deprecated_options(options: Dict[str, Any]):
 
     # 09.10.20
     rename_key("train.optimizer", "train.optimizer.default.type")
-    rename_key("train.optimizer_args", "train.optimizer.default.args")
+    rename_keys_re("^train\.optimizer_args", "train.optimizer.default.args")
 
     # 30.9.2020
     if "verbose" in options:
