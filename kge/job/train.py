@@ -523,6 +523,7 @@ class TrainingJob(TrainingOrEvaluationJob):
         # add results to trace entry
         self.current_trace["epoch"].update(
             dict(
+                sum_loss=sum_loss,
                 avg_loss=sum_loss / self.num_examples,
                 avg_penalty=sum_penalty / len(self.loader),
                 avg_penalties={

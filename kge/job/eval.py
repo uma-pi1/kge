@@ -206,6 +206,6 @@ class TrainingLossEvaluationJob(EvaluationJob):
                 epoch_time=train_trace_entry.get("epoch_time"),
                 event="eval_completed",
                 avg_loss=train_trace_entry["avg_loss"],
-                # TODO add support for sum loss
+                sum_loss=train_trace_entry["sum_loss"],
             )
         )
