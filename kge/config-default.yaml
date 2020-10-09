@@ -358,7 +358,7 @@ eval:
   # Split used for evaluation (specified under 'dataset.files').
   split: valid
 
-  # Type of evaluation (entity_ranking only at the moment)
+  # Type of evaluation (entity_ranking, training_loss)
   type: entity_ranking
 
   # Batch size used during evaluation

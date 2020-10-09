@@ -168,6 +168,10 @@ class TrainingLossEvaluationJob(EvaluationJob):
             forward_only=True,
         )
 
+        # prepare training job
+        self._train_job._prepare()
+        self._train_job._is_prepared = True
+
         if self.__class__ == TrainingLossEvaluationJob:
             for f in Job.job_created_hooks:
                 f(self)
