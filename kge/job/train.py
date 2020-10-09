@@ -313,7 +313,6 @@ class TrainingJob(TrainingOrEvaluationJob):
             split=self.train_split,
             batches=len(self.loader),
             size=self.num_examples,
-            # lr=[group["lr"] for group in self.optimizer.param_groups],
         )
         if not self.is_forward_only:
             self.current_trace["epoch"].update(
@@ -344,7 +343,6 @@ class TrainingJob(TrainingOrEvaluationJob):
                 "split": self.train_split,
                 "batch": batch_index,
                 "batches": len(self.loader),
-                # "lr": [group["lr"] for group in self.optimizer.param_groups],
             }
             if not self.is_forward_only:
                 self.current_trace["batch"].update(
@@ -414,8 +412,8 @@ class TrainingJob(TrainingOrEvaluationJob):
             for index, (penalty_key, penalty_value_torch) in enumerate(penalties_torch):
                 if not self.is_forward_only:
                     penalty_value_torch.backward()
-                    penalty += penalty_value_torch.item()
-                    sum_penalties[penalty_key] += penalty_value_torch.item()
+                penalty += penalty_value_torch.item()
+                sum_penalties[penalty_key] += penalty_value_torch.item()
             sum_penalty += penalty
             batch_backward_time += time.time()
 
@@ -895,22 +893,6 @@ class TrainingJobKvsAll(TrainingJob):
                     loss_value.backward()
                 result.backward_time += time.time()
 
-    def run_epoch(self):
-        # prepare the training job if not done already
-        # Needed because run() prepares jobs,
-        # But run() is never called on a training job
-        # used for a training loss eval job
-        # Run() is called on the eval job, which calls
-        # run_epoch on its training job
-        # TODO not nice but prepare methods are private
-        #   so a nicer solution requires more change
-        if not self._is_prepared:
-            super()._prepare()
-            self._prepare()
-            self._is_prepared = True
-
-        return super().run_epoch()
-
 
 class TrainingJobNegativeSampling(TrainingJob):
     def __init__(self, config, dataset, parent_job=None, model=None, forward_only=False):
@@ -1058,22 +1040,6 @@ class TrainingJobNegativeSampling(TrainingJob):
                 loss_value_torch.backward()
             result.backward_time += time.time()
 
-    def run_epoch(self):
-        # prepare the traininig job if not done already
-        # Needed because run() prepares jobs,
-        # But run() is never called on a training job
-        # used for a training loss eval job
-        # Run() is called on the eval job, which calls
-        # run_epoch on its training job
-        # TODO not nice but prepare methods are private
-        #   so a nicer solution requires more change
-        if not self._is_prepared:
-            super()._prepare()
-            self._prepare()
-            self._is_prepared = True
-
-        return super().run_epoch()
-
 
 class TrainingJob1vsAll(TrainingJob):
     """Samples SPO pairs and queries sp_ and _po, treating all other entities as negative."""
@@ -1143,19 +1109,3 @@ class TrainingJob1vsAll(TrainingJob):
         if not self.is_forward_only:
             loss_value_po.backward()
         result.backward_time += time.time()
-
-    def run_epoch(self):
-        # prepare the traininig job if not done already
-        # Needed because run() prepares jobs,
-        # But run() is never called on a training job
-        # used for a training loss eval job
-        # Run() is called on the eval job, which calls
-        # run_epoch on its training job
-        # TODO not nice but prepare methods are private
-        #   so a nicer solution requires more change
-        if not self._is_prepared:
-            super()._prepare()
-            self._prepare()
-            self._is_prepared = True
-
-        return super().run_epoch()
