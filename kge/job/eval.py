@@ -148,13 +148,12 @@ class EvaluationJob(TrainingOrEvaluationJob):
 
 
 class TrainingLossEvaluationJob(EvaluationJob):
-    """ Evaluating simply by using the training loss """
+    """ Evaluating by using the training loss """
 
     def __init__(self, config: Config, dataset: Dataset, parent_job, model):
         super().__init__(config, dataset, parent_job, model)
 
         training_loss_eval_config = config.clone()
-        training_loss_eval_config.set("console.quiet", False)
         # TODO set train split to include validation data here
         #   once support is added
         #   Then reflect this change in the trace entries
@@ -167,16 +166,15 @@ class TrainingLossEvaluationJob(EvaluationJob):
             forward_only=True,
         )
 
-        # prepare training job
-        self._train_job._prepare()
-        self._train_job._is_prepared = True
-
         if self.__class__ == TrainingLossEvaluationJob:
             for f in Job.job_created_hooks:
                 f(self)
 
     def _prepare(self):
         super()._prepare()
+        # prepare training job
+        self._train_job._prepare()
+        self._train_job._is_prepared = True
 
     @torch.no_grad()
     def _evaluate(self) -> Dict[str, Any]:
@@ -185,9 +183,8 @@ class TrainingLossEvaluationJob(EvaluationJob):
 
         # create initial trace entry
         self.current_trace["epoch"] = dict(
-            type="training_loss",
+            type="training_loss_evaluation",
             scope="epoch",
-            # split=self.eval_split,
             split=self._train_job.config.get("train.split"),
             epoch=self.epoch,
         )
@@ -205,6 +202,6 @@ class TrainingLossEvaluationJob(EvaluationJob):
                 epoch_time=train_trace_entry.get("epoch_time"),
                 event="eval_completed",
                 avg_loss=train_trace_entry["avg_loss"],
-                sum_loss=train_trace_entry["sum_loss"],
+                num_examples=train_trace_entry["num_examples"],
             )
         )
