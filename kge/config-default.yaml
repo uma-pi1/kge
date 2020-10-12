@@ -230,6 +230,8 @@ train:
     # Names of child keys of optimizer will be set as parameter group name.
     # Parameters are named by their variable names and can be retrieved by:
     # model.named_parameters()
+    # or from a checkpoint by:
+    # kge dump checkpoint checkpoint_file.pt | grep parameter_names
     +++: +++
 
   # Learning rate scheduler to use. Any scheduler from torch.optim.lr_scheduler
