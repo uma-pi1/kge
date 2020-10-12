@@ -1,6 +1,9 @@
 from kge import Config, Configurable
 import torch.optim
 from torch.optim.lr_scheduler import _LRScheduler
+import re
+from operator import or_
+from functools import reduce
 
 
 class KgeOptimizer:
@@ -10,10 +13,10 @@ class KgeOptimizer:
     def create(config, model):
         """ Factory method for optimizer creation """
         try:
-            optimizer = getattr(torch.optim, config.get("train.optimizer"))
+            optimizer = getattr(torch.optim, config.get("train.optimizer.default.type"))
             return optimizer(
-                [p for p in model.parameters() if p.requires_grad],
-                **config.get("train.optimizer_args"),
+                KgeOptimizer._get_parameters_and_optimizer_args(config, model),
+                **config.get("train.optimizer.default.args"),
             )
         except AttributeError:
             # perhaps TODO: try class with specified name -> extensibility
@@ -21,6 +24,75 @@ class KgeOptimizer:
                 f"Could not create optimizer {config.get('train.optimizer')}. "
                 f"Please specify an optimizer provided in torch.optim"
             )
+
+    @staticmethod
+    def _get_parameters_and_optimizer_args(config, model):
+        """
+        Group named parameters by regex strings provided with optimizer args.
+        Constructs a list of dictionaries of the form:
+        [
+            {
+                "name": name of parameter group
+                "params": list of parameters to optimize
+                # parameter specific options as for example learning rate
+                ...
+            },
+            ...
+        ]
+        """
+
+        named_parameters = dict(model.named_parameters())
+        optimizer_settings = config.get("train.optimizer")
+        parameter_names_per_search = dict()
+        # filter named parameters by regex string
+        for group_name, parameter_group in optimizer_settings.items():
+            if group_name == "default":
+                continue
+            if "type" in parameter_group.keys():
+                raise NotImplementedError("Multiple optimizer types are not yet supported.")
+            search_pattern = re.compile(parameter_group["regex"])
+            filtered_named_parameters = set(
+                filter(search_pattern.match, named_parameters.keys())
+            )
+            parameter_names_per_search[group_name] = filtered_named_parameters
+
+        # check if something was matched by multiple strings
+        parameter_values = list(parameter_names_per_search.values())
+        for i, (group_name, param) in enumerate(parameter_names_per_search.items()):
+            for j in range(i + 1, len(parameter_names_per_search)):
+                intersection = set.intersection(param, parameter_values[j])
+                if len(intersection) > 0:
+                    raise ValueError(
+                        f"The parameters {intersection}, were matched by the optimizer "
+                        f"group {group_name} and {list(parameter_names_per_search.keys())[j]}"
+                    )
+        resulting_parameters = []
+        for group_name, params in parameter_names_per_search.items():
+            optimizer_settings[group_name]["args"]["params"] = [
+                named_parameters[param] for param in params
+            ]
+            optimizer_settings[group_name]["args"]["name"] = group_name
+            resulting_parameters.append(optimizer_settings[group_name]["args"])
+
+        # add unmatched parameters to default group
+        if len(parameter_names_per_search) > 0:
+            default_parameter_names = set.difference(
+                set(named_parameters.keys()),
+                reduce(or_, list(parameter_names_per_search.values())),
+            )
+            default_parameters = [
+                named_parameters[default_parameter_name]
+                for default_parameter_name in default_parameter_names
+            ]
+            resulting_parameters.append(
+                {"params": default_parameters, "name": "default"}
+            )
+        else:
+            # no parameters matched, add everything to default group
+            resulting_parameters.append(
+                {"params": model.parameters(), "name": "default"}
+            )
+        return resulting_parameters
 
 
 class KgeLRScheduler(Configurable):
@@ -61,7 +133,6 @@ class KgeLRScheduler(Configurable):
                         "Error: {}"
                     ).format(name, args, e)
                 )
-
 
     def step(self, metric=None):
         if self._lr_scheduler is None:
