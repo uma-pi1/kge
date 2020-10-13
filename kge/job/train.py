@@ -312,7 +312,7 @@ class TrainingJob(TrainingOrEvaluationJob):
             epoch=self.epoch,
             split=self.train_split,
             batches=len(self.loader),
-            num_examples=self.num_examples,
+            size=self.num_examples,
         )
         if not self.is_forward_only:
             self.current_trace["epoch"].update(
