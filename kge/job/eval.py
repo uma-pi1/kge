@@ -202,7 +202,7 @@ class TrainingLossEvaluationJob(EvaluationJob):
             dict(
                 epoch_time=train_trace_entry.get("epoch_time"),
                 event="eval_completed",
-                num_examples=train_trace_entry["num_examples"],
+                size=train_trace_entry["size"],
                 avg_loss=train_trace_entry["avg_loss"],
                 avg_penalty=train_trace_entry["avg_penalty"],
                 avg_cost=train_trace_entry["avg_cost"],
