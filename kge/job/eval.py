@@ -81,7 +81,6 @@ class EvaluationJob(TrainingOrEvaluationJob):
         trace_entry = self.trace(
             **self.current_trace["epoch"], echo=False, echo_prefix="  ", log=True
         )
-        self.config.log(format_trace_entry("eval_epoch", trace_entry, self.config))
         self.current_trace["epoch"] = None
 
         # reset model and return metrics
