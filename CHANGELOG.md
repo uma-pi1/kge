@@ -1,3 +1,6 @@
+#### October 2020
+- PR [#152](https://github.com/uma-pi1/kge/pull/152): Added training loss evaluation job
+
 #### September 2020
 - PR [#147](https://github.com/uma-pi1/kge/pull/147): Support both minimization and maximization of metrics
 - PR [#144](https://github.com/uma-pi1/kge/pull/144): Support to tune subbatch size automatically
