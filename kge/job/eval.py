@@ -84,7 +84,7 @@ class EvaluationJob(TrainingOrEvaluationJob):
 
         # output the trace, then clear it
         trace_entry = self.trace(
-            **self.current_trace["epoch"], echo=False, echo_prefix="  ", log=True
+            **self.current_trace["epoch"], echo=True, echo_prefix="  ", log=True
         )
         self.current_trace["epoch"] = None
 
