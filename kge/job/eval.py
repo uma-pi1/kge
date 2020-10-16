@@ -10,7 +10,7 @@ from typing import Dict, Optional, Any
 
 
 class EvaluationJob(TrainingOrEvaluationJob):
-    def __init__(self, config, dataset, parent_job, model):
+    def __init__(self, config: Config, dataset: Dataset, parent_job, model):
         super().__init__(config, dataset, parent_job)
 
         self.config = config
@@ -83,8 +83,9 @@ class EvaluationJob(TrainingOrEvaluationJob):
             f(self)
 
         # output the trace, then clear it
-        trace_entry = self.trace(
-            **self.current_trace["epoch"], echo=True, echo_prefix="  ", log=True
+        trace_entry = self.trace(**self.current_trace["epoch"], echo=False, log=True)
+        self.config.log(
+            format_trace_entry("eval_epoch", trace_entry, self.config), prefix="  "
         )
         self.current_trace["epoch"] = None
 

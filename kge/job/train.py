@@ -61,7 +61,7 @@ class TrainingJob(TrainingOrEvaluationJob):
         dataset: Dataset,
         parent_job: Job = None,
         model=None,
-        forward_only=False
+        forward_only=False,
     ) -> None:
         from kge.job import EvaluationJob
 
@@ -117,7 +117,7 @@ class TrainingJob(TrainingOrEvaluationJob):
         dataset: Dataset,
         parent_job: Job = None,
         model=None,
-        forward_only=False
+        forward_only=False,
     ) -> "TrainingJob":
         """Factory method to create a training job."""
         if config.get("train.type") == "KvsAll":
@@ -261,8 +261,7 @@ class TrainingJob(TrainingOrEvaluationJob):
         self.config.log("Saving checkpoint to {}...".format(filename))
         checkpoint = self.save_to({})
         torch.save(
-            checkpoint,
-            filename,
+            checkpoint, filename,
         )
 
     def save_to(self, checkpoint: Dict) -> Dict:
@@ -292,9 +291,7 @@ class TrainingJob(TrainingOrEvaluationJob):
         self.model.train()
         self.resumed_from_job_id = checkpoint.get("job_id")
         self.trace(
-            event="job_resumed",
-            epoch=self.epoch,
-            checkpoint_file=checkpoint["file"],
+            event="job_resumed", epoch=self.epoch, checkpoint_file=checkpoint["file"],
         )
         self.config.log(
             "Resuming training from {} of job {}".format(
@@ -544,10 +541,10 @@ class TrainingJob(TrainingOrEvaluationJob):
             f(self)
 
         # output the trace, then clear it
-        trace_entry = self.trace(
-            **self.current_trace["epoch"], echo=False, echo_prefix="  ", log=True
+        trace_entry = self.trace(**self.current_trace["epoch"], echo=False, log=True)
+        self.config.log(
+            format_trace_entry("train_epoch", trace_entry, self.config), prefix="  "
         )
-        self.config.log(format_trace_entry("train_epoch", trace_entry, self.config))
         self.current_trace["epoch"] = None
 
         return trace_entry
@@ -600,11 +597,7 @@ class TrainingJob(TrainingOrEvaluationJob):
         raise NotImplementedError
 
     def _process_subbatch(
-        self,
-        batch_index,
-        batch,
-        subbatch_slice,
-        result: _ProcessBatchResult,
+        self, batch_index, batch, subbatch_slice, result: _ProcessBatchResult,
     ):
         """Run forward and backward pass on the given subbatch.
 
@@ -627,8 +620,12 @@ class TrainingJobKvsAll(TrainingJob):
 
     from kge.indexing import KvsAllIndex
 
-    def __init__(self, config, dataset, parent_job=None, model=None, forward_only=False):
-        super().__init__(config, dataset, parent_job, model=model, forward_only=forward_only)
+    def __init__(
+        self, config, dataset, parent_job=None, model=None, forward_only=False
+    ):
+        super().__init__(
+            config, dataset, parent_job, model=model, forward_only=forward_only
+        )
         self.label_smoothing = config.check_range(
             "KvsAll.label_smoothing", float("-inf"), 1.0, max_inclusive=False
         )
@@ -769,9 +766,7 @@ class TrainingJobKvsAll(TrainingJob):
                         break
                     start = end
 
-                queries_batch[
-                    batch_index,
-                ] = queries[example_index]
+                queries_batch[batch_index,] = queries[example_index]
                 start = label_offsets[example_index]
                 end = label_offsets[example_index + 1]
                 size = end - start
@@ -895,12 +890,15 @@ class TrainingJobKvsAll(TrainingJob):
 
 
 class TrainingJobNegativeSampling(TrainingJob):
-    def __init__(self, config, dataset, parent_job=None, model=None, forward_only=False):
-        super().__init__(config, dataset, parent_job, model=model, forward_only=forward_only)
+    def __init__(
+        self, config, dataset, parent_job=None, model=None, forward_only=False
+    ):
+        super().__init__(
+            config, dataset, parent_job, model=model, forward_only=forward_only
+        )
         self._sampler = KgeSampler.create(config, "negative_sampling", dataset)
         self._implementation = self.config.check(
-            "negative_sampling.implementation",
-            ["triple", "all", "batch", "auto"],
+            "negative_sampling.implementation", ["triple", "all", "batch", "auto"],
         )
         if self._implementation == "auto":
             max_nr_of_negs = max(self._sampler.num_samples)
@@ -1014,10 +1012,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             result.forward_time -= time.time()
             scores = torch.empty((subbatch_size, num_samples + 1), device=self.device)
             scores[:, 0] = self.model.score_spo(
-                triples[:, S],
-                triples[:, P],
-                triples[:, O],
-                direction=SLOT_STR[slot],
+                triples[:, S], triples[:, P], triples[:, O], direction=SLOT_STR[slot],
             )
             result.forward_time += time.time()
             scores[:, 1:] = batch_negative_samples[slot].score(
@@ -1044,8 +1039,12 @@ class TrainingJobNegativeSampling(TrainingJob):
 class TrainingJob1vsAll(TrainingJob):
     """Samples SPO pairs and queries sp_ and _po, treating all other entities as negative."""
 
-    def __init__(self, config, dataset, parent_job=None, model=None, forward_only=False):
-        super().__init__(config, dataset, parent_job, model=model, forward_only=forward_only)
+    def __init__(
+        self, config, dataset, parent_job=None, model=None, forward_only=False
+    ):
+        super().__init__(
+            config, dataset, parent_job, model=model, forward_only=forward_only
+        )
         config.log("Initializing spo training job...")
         self.type_str = "1vsAll"
 
