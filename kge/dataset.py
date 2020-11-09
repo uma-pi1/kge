@@ -173,7 +173,9 @@ class Dataset(Configurable):
             if triples is not None:
                 return triples
 
-        triples = np.loadtxt(filename, usecols=range(0, 3), dtype=np.int32)
+        # numpy loadtxt is very slow, use python read instead
+        with open(filename) as f:
+            triples = np.array([line.strip().split(delimiter)[:3] for line in f], dtype=np.int32)
         triples = torch.from_numpy(triples)
         if use_pickle:
             Dataset._pickle_dump_atomic(triples, pickle_filename)
