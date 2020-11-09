@@ -6,6 +6,7 @@ import uuid
 import torch
 from torch import Tensor
 import numpy as np
+import pandas as pd
 import pickle
 import inspect
 
@@ -177,11 +178,10 @@ class Dataset(Configurable):
             if triples is not None:
                 return triples
 
-        # numpy loadtxt is very slow, use python read instead
-        with open(filename) as f:
-            triples = np.array(
-                [line.strip().split(delimiter)[:3] for line in f], dtype=np.int32
-            )
+        # numpy loadtxt is very slow, use pandas instead
+        triples = pd.read_csv(
+            filename, sep=delimiter, dtype=np.int32, header=None, usecols=range(0, 3)
+        ).to_numpy()
         triples = torch.from_numpy(triples)
         if use_pickle:
             Dataset._pickle_dump_atomic(triples, pickle_filename)
