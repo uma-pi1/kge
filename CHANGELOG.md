@@ -1,3 +1,6 @@
+#### November 2020
+- PR [#155](https://github.com/uma-pi1/kge/pull/155): Faster reading of triple files
+
 #### October 2020
 - [d275419](https://github.com/uma-pi1/kge/commit/d275419bbd1e2eea6872d733fc10f30c171e9f45), [87c5463](https://github.com/uma-pi1/kge/commit/87c54630807e7ecf71ad05c042d3b1c953c44807): Support parameter groups with group-specific optimizer args
 - PR [#152](https://github.com/uma-pi1/kge/pull/152): Added training loss evaluation job
