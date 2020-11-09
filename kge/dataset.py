@@ -80,7 +80,11 @@ class Dataset(Configurable):
         if filename is None:
             raise IOError("Filename for key {} not specified in config".format(key))
         if not os.path.exists(os.path.join(self.folder, filename)):
-            raise IOError("File {} for key {} could not be found".format(os.path.join(self.folder, filename), key))
+            raise IOError(
+                "File {} for key {} could not be found".format(
+                    os.path.join(self.folder, filename), key
+                )
+            )
 
     @staticmethod
     def create(config: Config, preload_data: bool = True, folder: Optional[str] = None):
@@ -175,7 +179,9 @@ class Dataset(Configurable):
 
         # numpy loadtxt is very slow, use python read instead
         with open(filename) as f:
-            triples = np.array([line.strip().split(delimiter)[:3] for line in f], dtype=np.int32)
+            triples = np.array(
+                [line.strip().split(delimiter)[:3] for line in f], dtype=np.int32
+            )
         triples = torch.from_numpy(triples)
         if use_pickle:
             Dataset._pickle_dump_atomic(triples, pickle_filename)
