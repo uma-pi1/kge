@@ -446,7 +446,7 @@ PRs to this list are welcome.
 
 ## How to cite
 
-If you use LibKGE, please cite the following publication:
+Please cite the following publication to refer to the experimental study about the impact of training methods on KGE performance:
 
 ```
 @inproceedings{
@@ -456,5 +456,25 @@ If you use LibKGE, please cite the following publication:
   booktitle={International Conference on Learning Representations},
   year={2020},
   url={https://openreview.net/forum?id=BkxSmlBFvr}
+}
+```
+
+If you use LibKGE, please cite the following publication:
+
+```
+@inproceedings{broscheit-etal-2020-libkge,
+    title = "{L}ib{KGE} - A knowledge graph embedding library for reproducible research",
+    author = "Broscheit, Samuel  and
+      Ruffinelli, Daniel  and
+      Kochsiek, Adrian  and
+      Betz, Patrick  and
+      Gemulla, Rainer",
+    booktitle = "Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing: System Demonstrations",
+    month = oct,
+    year = "2020",
+    address = "Online",
+    publisher = "Association for Computational Linguistics",
+    url = "https://www.aclweb.org/anthology/2020.emnlp-demos.22",
+    pages = "165--174",
 }
 ```
