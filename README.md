@@ -164,10 +164,10 @@ The result given below was found by the same automatic hyperparameter search use
 
 CoDEx is a Wikidata-based KG completion benchmark recently introduced at EMNLP 2020. 
 CoDEx offers three knowledge graph datasets (**CoDEx-S**, **CoDEx-M**, and **CoDEx-L**) of 36K, 206K, and 612K triples respectively.
-The CoDEx-S and CoDEx-L datasets also contain **hard negative** triples for the task of triple classification.
+The CoDEx-S and CoDEx-M datasets also contain **hard negative** triples for the task of triple classification.
 Note that CoDEx is also linked to various textual data from Wikipedia, which can be accessed [in the CoDEx GitHub repository](https://github.com/tsafavi/codex).
 
-The pretrained CoDEx models were run on a (slightly) reduced version of the automatic hyperparameter search used for the Freebase and WordNet datasets; we used the same hyperparameter ranges, but fewer epochs and Ax trials for CoDEx-M and CoDEx-L. 
+For model selection on CoDEx, we ran a (slightly) reduced version of the automatic hyperparameter search used for the Freebase and WordNet datasets; we used the same hyperparameter ranges, but fewer epochs and Ax trials for CoDEx-M and CoDEx-L. 
 The <a href="https://arxiv.org/pdf/2009.07810.pdf" target="_blank">CoDEx paper</a> provides full details on hyperparameter tuning. 
 
 ##### CoDEx-S
