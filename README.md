@@ -162,13 +162,15 @@ The result given below was found by the same automatic hyperparameter search use
 
 #### CoDEx
 
-<a href="https://arxiv.org/pdf/2009.07810.pdf" target="_blank">CoDEx</a> is a Wikidata-based KG completion benchmark recently introduced at EMNLP 2020. 
+CoDEx is a Wikidata-based KG completion benchmark recently introduced at EMNLP 2020. 
 CoDEx offers three knowledge graph datasets (**CoDEx-S**, **CoDEx-M**, and **CoDEx-L**) of 36K, 206K, and 612K triples respectively.
 The CoDEx-S and CoDEx-L datasets also contain **hard negative** triples for the task of triple classification.
-Note that
-CoDEx is also linked to various textual data from Wikipedia, which can be accessed [in the CoDEx GitHub repository](https://github.com/tsafavi/codex).
+Note that CoDEx is also linked to various textual data from Wikipedia, which can be accessed [in the CoDEx GitHub repository](https://github.com/tsafavi/codex).
 
-##### CoDEx-S (link prediction)
+The pretrained CoDEx models were run on a (slightly) reduced version of the automatic hyperparameter search used for the Freebase and WordNet datasets; we used the same hyperparameter ranges, but fewer epochs and Ax trials for CoDEx-M and CoDEx-L. 
+The <a href="https://arxiv.org/pdf/2009.07810.pdf" target="_blank">CoDEx paper</a> provides full details on hyperparameter tuning. 
+
+##### CoDEx-S
 
 |  | MRR | Hits@1 | Hits@3 | Hits@10 | Config file | Pretrained model |
 |---------|----:|----:|-------:|--------:|------------:|-----------------:|
@@ -178,7 +180,7 @@ CoDEx is also linked to various textual data from Wikipedia, which can be access
 | ConvE | 0.444 | 0.343 | 0.4926  | 0.635 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-s/conve/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/atvu77pzed6mcgh/codex-s-lp-conve.pt?dl=0) |
 | TuckER | 0.444 | 0.339 | 0.4975 | 0.638 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-s/tucker/config.yaml) | [KvsAll-kl](https://www.dropbox.com/s/f87xloe2g3f4fvy/codex-s-lp-tucker.pt?dl=0) 
 
-##### CoDEx-M (link prediction)
+##### CoDEx-M
 
 |  | MRR | Hits@1 | Hits@3 |Hits@10 | Config file | Pretrained model |
 |---------|----:|----:|-------:|--------:|------------:|-----------------:|
@@ -189,7 +191,7 @@ CoDEx is also linked to various textual data from Wikipedia, which can be access
 | TuckER | 0.328 | 0.259 | 0.3599 | 0.458 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-m/tucker/config.yaml) | [KvsAll-kl](https://www.dropbox.com/s/so5l2owtx7wcos1/codex-m-lp-tucker.pt?dl=0) |
 
 
-##### CoDEx-L (link prediction)
+##### CoDEx-L
 
 |  | MRR | Hits@1 | Hits@3 | Hits@10 | Config file | Pretrained model |
 |---------|----:|----:|-------:|--------:|------------:|-----------------:|
@@ -199,25 +201,6 @@ CoDEx is also linked to various textual data from Wikipedia, which can be access
 | ConvE | 0.303 | 0.240 | 0.3298 | 0.420 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-l/conve/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/qcfjy6i1sqbec0z/codex-l-lp-conve.pt?dl=0) |
 | TuckER | 0.309 | 0.244 | 0.3395 | 0.430 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-l/tucker/config.yaml) | [KvsAll-kl](https://www.dropbox.com/s/j8u4nqwzz3v7jw1/codex-l-lp-tucker.pt?dl=0) |
 
-##### CoDEx-S (triple classification)
-
-|  | Acc | F1 | Config file | Pretrained model |
-|--------|----:|---:|------------:|-----------------:|
-| RESCAL | 0.843 | 0.852 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/triple-classification/codex-s/rescal/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/qedwhaus6gwyf1z/codex-s-tc-rescal.pt?dl=0) |
-| TransE | 0.829 | 0.837 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/triple-classification/codex-s/transe/config.yaml) | [NegSamp-kl](https://www.dropbox.com/s/jkp6oxcgt28ki42/codex-s-tc-transe.pt?dl=0) |
-| ComplEx | 0.836 | 0.846 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/triple-classification/codex-s/complex/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/2d8clm7em6ygida/codex-s-tc-complex.pt?dl=0) |
-| ConvE | 0.841 | 0.846 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/triple-classification/codex-s/conve/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/4rnexlf56x5qwvs/codex-s-tc-conve.pt?dl=0) |
-| TuckER | 0.840 | 0.846 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/triple-classification/codex-s/tucker/config.yaml) | [KvsAll-kl](https://www.dropbox.com/s/xrlfygg6ck2z3ue/codex-s-tc-tucker.pt?dl=0) |
-
-#### CoDEx-M (triple classification)
-
-|  | Acc | F1 | Config file | Pretrained model |
-|--------|----:|---:|------------:|-----------------:|
-| RESCAL | 0.818 | 0.815 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/triple-classification/codex-m/rescal/config.yaml) | [KvsAll-kl](https://www.dropbox.com/s/366h6xwccbvqkm8/codex-m-tc-rescal.pt?dl=0) |
-| TransE | 0.797 | 0.803 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/triple-classification/codex-m/transe/config.yaml) | [NegSamp-kl](https://www.dropbox.com/s/0uil6mrrtadtqoe/codex-m-tc-transe.pt?dl=0) |
-| ComplEx | 0.824 | 0.818 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/triple-classification/codex-m/complex/config.yaml) | [KvsAll-kl](https://www.dropbox.com/s/0yh95rtgvv12qxs/codex-m-tc-complex.pt?dl=0) |
-| ConvE | 0.826 | 0.829 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/triple-classification/codex-m/conve/config.yaml) | [KvsAll-kl](https://www.dropbox.com/s/s9fwf1v57mm23l8/codex-m-tc-conve.pt?dl=0) |
-| TuckER | 0.823 | 0.816 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/triple-classification/codex-m/tucker/config.yaml) | [KvsAll-kl](https://www.dropbox.com/s/jj09uah9cjkukl0/codex-m-tc-tucker.pt?dl=0) |
 
 ## Quick start
 
