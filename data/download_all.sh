@@ -17,7 +17,7 @@ else
     echo toy already present
 fi
 if [ ! -f "$BASEDIR/toy/dataset.yaml" ]; then
-        python preprocess.py toy
+    python preprocess.py toy
 else
     echo toy already prepared
 fi
@@ -244,4 +244,47 @@ if [ ! -f "$BASEDIR/umls/dataset.yaml" ]; then
   python preprocess.py umls
 else
     echo umls already prepared
+fi
+
+# CoDEx (full text-linked dataset available at https://github.com/tsafavi/codex)
+if [ ! -d "$BASEDIR/codex-s" ]; then
+    echo Downloading CoDEx-S
+    cd $BASEDIR
+    curl -L https://www.dropbox.com/s/gzwn7w1pncm3ezg/codex-s.tar.gz?dl=1 -o codex-s.tar.gz
+    tar xvf codex-s.tar.gz
+else
+    echo CoDEx-S already present
+fi
+if [ ! -f "$BASEDIR/codex-s/dataset.yaml" ]; then
+    python preprocess.py codex-s
+else
+    echo CoDEx-S already prepared
+fi
+
+if [ ! -d "$BASEDIR/codex-m" ]; then
+    echo Downloading CoDEx-M
+    cd $BASEDIR
+    curl -L https://www.dropbox.com/s/c0fbzxfpxidmk5h/codex-m.tar.gz?dl=1 -o codex-m.tar.gz
+    tar xvf codex-m.tar.gz
+else
+    echo CoDEx-M already present
+fi
+if [ ! -f "$BASEDIR/codex-m/dataset.yaml" ]; then
+    python preprocess.py codex-m
+else
+    echo CoDEx-M already prepared
+fi
+
+if [ ! -d "$BASEDIR/codex-l" ]; then
+    echo Downloading CoDEx-L
+    cd $BASEDIR
+    curl -L https://www.dropbox.com/s/z94eck49rhmr4nk/codex-l.tar.gz?dl=1 -o codex-l.tar.gz
+    tar xvf codex-l.tar.gz
+else
+    echo CoDEx-L already present
+fi
+if [ ! -f "$BASEDIR/codex-l/dataset.yaml" ]; then
+    python preprocess.py codex-l
+else
+    echo CoDEx-L already prepared
 fi
