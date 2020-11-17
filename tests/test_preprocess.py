@@ -6,14 +6,15 @@ import os
 from os import path
 
 sys.path.append(path.join(kge_base_dir(), "data/preprocess"))
-from data.preprocess.util import analyze_splits
+from data.preprocess.util import analyze_raw_splits
 from data.preprocess.util import RawDataset
-from data.preprocess.util import DerivedSplitBase
-from data.preprocess.util import DerivedSplitSample
-from data.preprocess.util import DerivedSplitFiltered
 from data.preprocess.util import Split
-from data.preprocess.util import write_dataset_config
+from data.preprocess.util import SampledSplit
+from data.preprocess.util import FilteredSplit
+from data.preprocess.util import RawSplit
+from data.preprocess.util import write_dataset_yaml
 from data.preprocess.util import process_splits
+
 import yaml
 
 
@@ -26,28 +27,28 @@ class TestPreprocess(unittest.TestCase):
         self.remove_del_files()
 
     def test_analyze_splits(self):
-        splits = TestPreprocess.get_splits()
-        dataset: RawDataset = analyze_splits(
-            splits=list(splits.values()), folder=self.dataset_folder,
+        raw_splits = TestPreprocess.get_raw_splits()
+        raw_dataset: RawDataset = analyze_raw_splits(
+            raw_splits=list(raw_splits.values()), folder=self.dataset_folder,
         )
 
         # check if objects are collected correctly
         self.assertTrue(
             all(
                 [
-                    rel in dataset.all_relations.keys()
+                    rel in raw_dataset.relation_map.keys()
                     for rel in ["r1", "r2", "r3", "r4"]
                 ]
             )
         )
         self.assertTrue(
-            all([ent in dataset.all_entities.keys() for ent in ["a", "b", "c", "d"]])
+            all([ent in raw_dataset.entity_map.keys() for ent in ["a", "b", "c", "d"]])
         )
 
         # check entity/relation index for uniqueness
-        entity_index = list(dataset.all_entities.values())
+        entity_index = list(raw_dataset.entity_map.values())
         self.assertEqual(entity_index, list(set(entity_index)))
-        relation_index = list(dataset.all_relations.values())
+        relation_index = list(raw_dataset.relation_map.values())
         self.assertEqual(relation_index, list(set(relation_index)))
 
         # check entity/relation index for completeness and erroneous entries
@@ -65,26 +66,26 @@ class TestPreprocess(unittest.TestCase):
         )
 
         # check sizes of the raw data
-        self.assertTrue(splits["train"].size == 6)
-        self.assertTrue(splits["valid"].size == 5)
-        self.assertTrue(splits["test"].size == 4)
+        self.assertTrue(raw_splits["train"].size == 6)
+        self.assertTrue(raw_splits["valid"].size == 5)
+        self.assertTrue(raw_splits["test"].size == 4)
 
     def test_write_splits(self):
-        splits = TestPreprocess.get_splits()
-        dataset: RawDataset = analyze_splits(
-            splits=list(splits.values()), folder=self.dataset_folder,
+        raw_splits = TestPreprocess.get_raw_splits()
+        raw_dataset: RawDataset = analyze_raw_splits(
+            raw_splits=list(raw_splits.values()), folder=self.dataset_folder,
         )
-        self.set_derived_splits(splits["train"], splits["valid"], splits["test"])
+        self.set_splits(raw_splits["train"], raw_splits["valid"], raw_splits["test"])
 
         # write and check all files have been created and sizes are tracked correctly
-        for split in dataset.splits:
-            self._test_write_splits(split, dataset)
+        for split in raw_dataset.raw_splits:
+            self._test_write_splits(split, raw_dataset)
 
         # explicitly check if filtering is correct
-        test = splits["test"]
-        for derived_split in test.derived_splits:
-            if isinstance(derived_split, DerivedSplitFiltered):
-                options = derived_split.options
+        test = raw_splits["test"]
+        for split in test.splits:
+            if isinstance(split, FilteredSplit):
+                options = split.options
                 filename = options["filename"]
                 f_path = os.path.join(self.dataset_folder, filename)
         with open(f_path, "r") as f:
@@ -97,27 +98,27 @@ class TestPreprocess(unittest.TestCase):
                 self.assertFalse(triple[2] == 3)
 
     def _test_write_splits(self, split, dataset):
-        split.write_splits(dataset.all_entities, dataset.all_relations, dataset.folder)
-        for derived_split in split.derived_splits:
-            filename = derived_split.options["filename"]
+        split.write_splits(dataset.entity_map, dataset.relation_map, dataset.folder)
+        for split in split.splits:
+            filename = split.options["filename"]
             f_path = os.path.join(self.dataset_folder, filename)
             # check correct file has been written
             self.assertTrue(os.path.isfile(f_path))
             with open(f_path, "r") as f:
                 # check the correct size has been tracked
                 data = f.readlines()
-                self.assertTrue(derived_split.options["size"] == len(data))
+                self.assertTrue(split.options["size"] == len(data))
 
     def test_write_dataset_config(self):
         # check if the dataset.yaml file has been written as expected
-        splits = TestPreprocess.get_splits()
-        dataset: RawDataset = analyze_splits(
-            splits=list(splits.values()), folder=self.dataset_folder,
+        raw_splits = TestPreprocess.get_raw_splits()
+        raw_dataset: RawDataset = analyze_raw_splits(
+            raw_splits=list(raw_splits.values()), folder=self.dataset_folder,
         )
-        self.set_derived_splits(splits["train"], splits["valid"], splits["test"])
-        process_splits(dataset)
+        self.set_splits(raw_splits["train"], raw_splits["valid"], raw_splits["test"])
+        process_splits(raw_dataset)
         # write config
-        write_dataset_config(dataset.config, self.dataset_folder)
+        write_dataset_yaml(raw_dataset.config, self.dataset_folder)
         # check file has been written
         yaml_path = os.path.join(self.dataset_folder, "dataset.yaml")
         self.assertTrue(os.path.isfile(yaml_path))
@@ -142,29 +143,28 @@ class TestPreprocess(unittest.TestCase):
                 os.remove(os.path.join(self.dataset_folder, item))
 
     @staticmethod
-    def get_splits():
+    def get_raw_splits():
         S, P, O = 0, 1, 2
 
-        train = Split(
+        train_raw = RawSplit(
             file="train.txt",
-            SPO={"S": S, "P": P, "O": O},
+            field_map={"S": S, "P": P, "O": O},
             collect_entities=True,
             collect_relations=True,
         )
-        valid = Split(file="valid.txt", SPO={"S": S, "P": P, "O": O},)
-        test = Split(file="test.txt", SPO={"S": S, "P": P, "O": O},)
+        valid_raw = RawSplit(file="valid.txt", field_map={"S": S, "P": P, "O": O},)
+        test_raw = RawSplit(file="test.txt", field_map={"S": S, "P": P, "O": O},)
 
-        return {"train": train, "valid": valid, "test": test}
+        return {"train": train_raw, "valid": valid_raw, "test": test_raw}
 
-    def set_derived_splits(self, train: Split, valid: Split, test: Split):
-        train_derived = DerivedSplitBase(
-            parent_split=train,
+    def set_splits(self, train_raw: RawSplit, valid_raw: RawSplit, test_raw: RawSplit):
+        train = Split(
+            raw_split=train_raw,
             key="train",
             options={"type": "triples", "filename": "train.del", "split_type": "train"},
         )
-
-        train_derived_sample = DerivedSplitSample(
-            parent_split=train,
+        train_sample = SampledSplit(
+            raw_split=train_raw,
             key="train_sample",
             sample_size=3,
             options={
@@ -173,43 +173,38 @@ class TestPreprocess(unittest.TestCase):
                 "split_type": "train",
             },
         )
+        train_raw.splits.extend([train, train_sample])
 
-        train.derived_splits.extend([train_derived, train_derived_sample])
-
-        valid_derived = DerivedSplitBase(
-            parent_split=valid,
+        valid = Split(
+            raw_split=valid_raw,
             key="valid",
             options={"type": "triples", "filename": "valid.del", "split_type": "valid"},
         )
-
-        valid_derived_wo_unseen = DerivedSplitFiltered(
-            parent_split=valid,
+        valid_wo_unseen = FilteredSplit(
+            raw_split=valid_raw,
             key="valid_without_unseen",
-            filter_with=train,
+            filter_with=train_raw,
             options={
                 "type": "triples",
                 "filename": "valid_without_unseen.del",
                 "split_type": "valid",
             },
         )
+        valid_raw.splits.extend([valid, valid_wo_unseen])
 
-        valid.derived_splits.extend([valid_derived, valid_derived_wo_unseen])
-
-        test_derived = DerivedSplitBase(
-            parent_split=test,
+        test = Split(
+            raw_split=test_raw,
             key="test",
             options={"type": "triples", "filename": "test.del", "split_type": "test"},
         )
-
-        test_derived_wo_unseen = DerivedSplitFiltered(
-            parent_split=test,
+        test_wo_unseen = FilteredSplit(
+            raw_split=test_raw,
             key="test_without_unseen",
-            filter_with=train,
+            filter_with=train_raw,
             options={
                 "type": "triples",
                 "filename": "test_without_unseen.del",
                 "split_type": "test",
             },
         )
-
-        test.derived_splits.extend([test_derived, test_derived_wo_unseen])
+        test_raw.splits.extend([test, test_wo_unseen])
