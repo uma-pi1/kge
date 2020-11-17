@@ -6,7 +6,7 @@ from kge.misc import kge_base_dir
 def create_config(test_dataset_name: str, model: str = "complex") -> Config:
     config = Config()
     config.folder = None
-    config.set("verbose", False)
+    config.set("console.quiet", True)
     config.set("model", model)
     config._import(model)
     config.set("dataset.name", test_dataset_name)
