@@ -504,19 +504,13 @@ Please cite the following publication to refer to the experimental study about t
 If you use LibKGE, please cite the following publication:
 
 ```
-@inproceedings{broscheit-etal-2020-libkge,
-    title = "{L}ib{KGE} - A knowledge graph embedding library for reproducible research",
-    author = "Broscheit, Samuel  and
-      Ruffinelli, Daniel  and
-      Kochsiek, Adrian  and
-      Betz, Patrick  and
-      Gemulla, Rainer",
-    booktitle = "Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing: System Demonstrations",
-    month = oct,
-    year = "2020",
-    address = "Online",
-    publisher = "Association for Computational Linguistics",
-    url = "https://www.aclweb.org/anthology/2020.emnlp-demos.22",
-    pages = "165--174",
+@inproceedings{
+  libkge,
+  title="{L}ib{KGE} - {A} Knowledge Graph Embedding Library for Reproducible Research",
+  author={Samuel Broscheit and Daniel Ruffinelli and Adrian Kochsiek and Patrick Betz and Rainer Gemulla}",
+  booktitle={Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing: System Demonstrations},
+  year={2020},
+  url={https://www.aclweb.org/anthology/2020.emnlp-demos.22},
+  pages = "165--174",
 }
 ```
