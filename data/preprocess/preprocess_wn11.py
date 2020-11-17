@@ -29,7 +29,7 @@ if __name__ == "__main__":
     )
 
     # create splits: TRAIN
-    train = util.FullSplit(
+    train = util.Split(
         raw_split=train_raw,
         key="train",
         options={"type": "triples", "filename": "train.del", "split_type": "train"},
@@ -37,14 +37,14 @@ if __name__ == "__main__":
     train_sample = util.SampledSplit(
         raw_split=train_raw,
         key="train_sample",
-        sample_size=len(valid_raw.raw_data),
+        sample_size=len(valid_raw.data),
         options={
             "type": "triples",
             "filename": "train_sample.del",
             "split_type": "train",
         },
     )
-    train_raw.derived_splits.extend([train, train_sample])
+    train_raw.splits.extend([train, train_sample])
 
     # create splits: VALID
     valid_pos = util.LabeledSplit(
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     valid_pos_wo_unseen = util.FilteredLabeledSplit(
         raw_split=valid_raw,
         key="valid_without_unseen",
-        filter_with=train,
+        filter_with=train_raw,
         options={
             "type": "triples",
             "filename": "valid_without_unseen.del",
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     valid_neg_wo_unseen = util.FilteredLabeledSplit(
         raw_split=valid_raw,
         key="valid_without_unseen_negatives",
-        filter_with=train,
+        filter_with=train_raw,
         options={
             "type": "triples",
             "filename": "valid_without_unseen_negatives.del",
@@ -85,7 +85,7 @@ if __name__ == "__main__":
         },
         label=-1,
     )
-    valid_raw.derived_splits.extend(
+    valid_raw.splits.extend(
         [valid_pos, valid_neg, valid_pos_wo_unseen, valid_neg_wo_unseen,]
     )
 
@@ -109,7 +109,7 @@ if __name__ == "__main__":
     test_pos_wo_unseen = util.FilteredLabeledSplit(
         raw_split=test_raw,
         key="test_without_unseen",
-        filter_with=train,
+        filter_with=train_raw,
         options={
             "type": "triples",
             "filename": "test_without_unseen.del",
@@ -120,7 +120,7 @@ if __name__ == "__main__":
     test_neg_wo_unseen = util.FilteredLabeledSplit(
         raw_split=test_raw,
         key="test_without_unseen_negatives",
-        filter_with=train,
+        filter_with=train_raw,
         options={
             "type": "triples",
             "filename": "test_without_unseen_negatives.del",
@@ -128,7 +128,7 @@ if __name__ == "__main__":
         },
         label=-1,
     )
-    test_raw.derived_splits.extend(
+    test_raw.splits.extend(
         [test_pos, test_neg, test_pos_wo_unseen, test_neg_wo_unseen,]
     )
 
