@@ -6,6 +6,7 @@ import uuid
 import torch
 from torch import Tensor
 import numpy as np
+import pandas as pd
 import pickle
 import inspect
 
@@ -80,7 +81,11 @@ class Dataset(Configurable):
         if filename is None:
             raise IOError("Filename for key {} not specified in config".format(key))
         if not os.path.exists(os.path.join(self.folder, filename)):
-            raise IOError("File {} for key {} could not be found".format(os.path.join(self.folder, filename), key))
+            raise IOError(
+                "File {} for key {} could not be found".format(
+                    os.path.join(self.folder, filename), key
+                )
+            )
 
     @staticmethod
     def create(config: Config, preload_data: bool = True, folder: Optional[str] = None):
@@ -173,7 +178,10 @@ class Dataset(Configurable):
             if triples is not None:
                 return triples
 
-        triples = np.loadtxt(filename, usecols=range(0, 3), dtype=np.int32)
+        # numpy loadtxt is very slow, use pandas instead
+        triples = pd.read_csv(
+            filename, sep=delimiter, dtype=np.int32, header=None, usecols=range(0, 3)
+        ).to_numpy()
         triples = torch.from_numpy(triples)
         if use_pickle:
             Dataset._pickle_dump_atomic(triples, pickle_filename)

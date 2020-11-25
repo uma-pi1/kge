@@ -1,0 +1,4 @@
+c	r1	a
+c	r2	d
+a	r3	d
+a	r4	c
