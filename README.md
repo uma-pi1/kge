@@ -47,7 +47,7 @@ kge start examples/toy-complex-train.yaml --job.device cpu
 2. [Results and pretrained models](#results-and-pretrained-models)
 3. [Using LibKGE](#using-libkge)
 4. [Currently supported KGE models](#currently-supported-kge-models)
-5. [Adding a new model](#adding-a-new-model)
+6. [Adding a new model or embedder](#adding-a-new-model-or-embedder)
 6. [Known issues](#known-issues)
 7. [Changelog](CHANGELOG.md)
 8. [Other KGE frameworks](#other-kge-frameworks)
@@ -445,6 +445,12 @@ We welcome contributions to expand the list of supported models! Please see [CON
 
 ## Adding a new model or embedder
 
+Before adding a model or embedder, you need to decide if you want to add them in a separate package or within LibKGE itself.
+Which of those two options is more suited depends on your use case. 
+Implementing it within LibKGE makes sense if you are implementing a model that you think could/should be added to this repository.
+It also makes more sense if you don't plan on publishing what you create at all, for example if you just want to play around with the code. 
+A separate package might be more appropriate if you want to develop one or more models/embedders, that for whatever reason should not be part of this repository, but that you still want to publish.
+
 To add a new model to LibKGE, extend the
 [KgeModel](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L243)
 class. A model is made up of a
@@ -460,6 +466,10 @@ The model implementation should be stored under
 The embdedder implementation should be stored under
 `<kge-home>/kge/model/embedder/<embedder-name>.py`, its configuration options under
 `<kge-home>/kge/model/embedder/<embedder-name>.yaml` and its import has to be added to `<kge-home>/kge/model/__init__.py`.
+
+If you are developing in a separate package, the models/embedders can be in any python module.
+All you need to do is make sure that any module from which models and embedders must be loaded is present under the `modules` key in the config file.
+
 
 ## Known issues
 

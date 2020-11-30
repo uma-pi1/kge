@@ -10,8 +10,7 @@ import sys
 from enum import Enum
 
 import yaml
-from typing import Any, Dict, Optional, Union
-
+from typing import Any, List, Dict, Optional, Union
 
 class Config:
     """Configuration options.
@@ -238,22 +237,23 @@ class Config:
     def _import(self, module_name: str):
         """Imports the specified module configuration.
 
-        Adds the configuration options from kge/model/<module_name>.yaml to
+        Adds the configuration options from <module_name>.yaml to
         the configuration. Retains existing module configurations, but verifies
         that fields and their types are correct.
 
         """
-        import kge.model, kge.model.embedder
-        from kge.misc import filename_in_module
 
         # load the module_name
         module_config = Config(load_default=False)
-        module_config.load(
-            filename_in_module(
-                [kge.model, kge.model.embedder], "{}.yaml".format(module_name)
-            ),
-            create=True,
-        )
+
+        # add the importing config's modules to the imported config
+        module_names = self.get_default("modules")
+        module_config.set("modules", module_names, create=True)
+
+        from kge.misc import filename_in_module
+        filename = filename_in_module(self.modules(), f"{module_name}.yaml")
+        module_config.load(filename, create=True)
+
         if "import" in module_config.options:
             del module_config.options["import"]
 
@@ -319,6 +319,13 @@ class Config:
         self, new_options, create=False, overwrite=Overwrite.Yes, allow_deprecated=True
     ):
         "Like `load`, but loads from an options object obtained from `yaml.load`."
+
+        # check for modules first, so if it's necessary we can import from them.
+        if "modules" in new_options:
+            modules = set(self.options.get("modules", []))
+            modules = modules.union(new_options.get("modules"))
+            self.set("modules", list(modules), create=True)
+            del new_options["modules"]
         # import model configurations
         if "model" in new_options:
             model = new_options.get("model")
@@ -568,6 +575,10 @@ class Config:
             return os.path.join(folder, "trace.yaml")
         else:
             return os.devnull
+
+    def modules(self) -> List[types.ModuleType]:
+        import importlib
+        return [importlib.import_module(m) for m in self.get("modules")]
 
 
 class Configurable:

@@ -9,7 +9,7 @@ import os
 
 import kge
 from kge import Config, Configurable, Dataset
-from kge.misc import filename_in_module
+from kge.misc import filename_in_module, init_from
 from kge.util import load_checkpoint
 from typing import Any, Dict, List, Optional, Union, Tuple
 
@@ -270,26 +270,23 @@ class KgeEmbedder(KgeBase):
         try:
             embedder_type = config.get_default(configuration_key + ".type")
             class_name = config.get(embedder_type + ".class_name")
-            module = importlib.import_module("kge.model")
         except:
             raise Exception("Can't find {}.type in config".format(configuration_key))
 
         try:
-            embedder = getattr(module, class_name)(
+            embedder = init_from(
+                class_name,
+                config.get("modules"),
                 config,
                 dataset,
                 configuration_key,
                 vocab_size,
                 init_for_load_only=init_for_load_only,
             )
-            return embedder
-        except ImportError:
-            # perhaps TODO: try class with specified name -> extensibility
-            raise ValueError(
-                "Can't find class {} in 'kge.model' for embedder {}".format(
-                    class_name, embedder_type
-                )
-            )
+            return embedder 
+        except:
+            config.log(f"Failed to create embedder {embedder_type}.")
+            raise
 
     def _intersect_ids_with_pretrained_embedder(
         self, pretrained_embedder: "KgeEmbedder"
@@ -481,19 +478,19 @@ class KgeModel(KgeBase):
         init_for_load_only=False,
     ) -> "KgeModel":
         """Factory method for model creation."""
-
         try:
             if configuration_key is not None:
                 model_name = config.get(configuration_key + ".type")
             else:
                 model_name = config.get("model")
             class_name = config.get(model_name + ".class_name")
-            module = importlib.import_module("kge.model")
         except:
             raise Exception("Can't find {}.type in config".format(configuration_key))
 
         try:
-            model = getattr(module, class_name)(
+            model = init_from(
+                class_name, 
+                config.get("modules"),
                 config=config,
                 dataset=dataset,
                 configuration_key=configuration_key,
@@ -501,13 +498,9 @@ class KgeModel(KgeBase):
             )
             model.to(config.get("job.device"))
             return model
-        except ImportError:
-            # perhaps TODO: try class with specified name -> extensibility
-            raise ValueError(
-                "Can't find class {} in 'kge.model' for model {}".format(
-                    class_name, model_name
-                )
-            )
+        except:
+            config.log(f"Failed to create model {model_name}.")
+            raise
 
     @staticmethod
     def create_default(

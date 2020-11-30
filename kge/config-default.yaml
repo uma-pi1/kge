@@ -1,3 +1,4 @@
+
 # config-default.yaml: LibKGE's default configuration options
 
 # Control output is printed to the console.
@@ -122,6 +123,14 @@ dataset:
 
   # Additional dataset specific keys can be added as needed
   +++: +++
+
+## MODULES #####################################################################
+
+# Python modules that should be searched when loading models, embedders, etc.
+# The modules are searched in order, if there are multiple components with the 
+# same name the first match is used.
+modules: [ kge.model, kge.model.embedder ]
+
 
 ## MODEL #######################################################################
 
