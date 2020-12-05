@@ -132,3 +132,4 @@ class OLPDataset(Dataset):
     def relation_mentions_to_token_ids(self):
         self._mentions_to_token_ids["relations"] = torch.zeros([self._num_relations, self._max_tokens_per_entity])
 
+
