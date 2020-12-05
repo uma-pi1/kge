@@ -10,6 +10,7 @@ from kge import Dataset
 from kge import Config
 from kge.job import Job
 from kge.misc import get_git_revision_short_hash, kge_base_dir, is_number
+from kge.olp_dataset import OLPDataset
 from kge.util.dump import add_dump_parsers, dump
 from kge.util.io import get_checkpoint_file, load_checkpoint
 from kge.util.package import package_model, add_package_parser
@@ -296,7 +297,7 @@ def main():
             config.log("Job created successfully.")
         else:
             # load data
-            dataset = Dataset.create(config)
+            dataset = OLPDataset.create(config)
 
             # let's go
             if args.command == "resume":
