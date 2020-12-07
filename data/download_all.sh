@@ -267,7 +267,7 @@ fi
 if [ ! -d "$BASEDIR/codex-s" ]; then
     echo Downloading CoDEx-S
     cd $BASEDIR
-    curl -O https://tsafavi.github.io/assets/data/codex-s.tar.gz
+    curl -L https://zenodo.org/record/4281094/files/codex-s.tar.gz?download=1 -o codex-s.tar.gz
     tar xvf codex-s.tar.gz
 else
     echo CoDEx-S already present
@@ -281,7 +281,7 @@ fi
 if [ ! -d "$BASEDIR/codex-m" ]; then
     echo Downloading CoDEx-M
     cd $BASEDIR
-    curl -O https://tsafavi.github.io/assets/data/codex-m.tar.gz
+    curl -L https://zenodo.org/record/4281094/files/codex-m.tar.gz?download=1 -o codex-m.tar.gz
     tar xvf codex-m.tar.gz
 else
     echo CoDEx-M already present
@@ -295,7 +295,7 @@ fi
 if [ ! -d "$BASEDIR/codex-l" ]; then
     echo Downloading CoDEx-L
     cd $BASEDIR
-    curl -O https://tsafavi.github.io/assets/data/codex-l.tar.gz
+    curl -L https://zenodo.org/record/4281094/files/codex-l.tar.gz?download=1 -o codex-l.tar.gz
     tar xvf codex-l.tar.gz
 else
     echo CoDEx-L already present
