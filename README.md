@@ -23,18 +23,35 @@ For link prediction tasks, rule-based systems such as
 [AnyBURL](http://web.informatik.uni-mannheim.de/AnyBURL/) are a competitive
 alternative to KGE.
 
+## Quick start
+
+```sh
+# retrieve and install project in development mode
+git clone https://github.com/uma-pi1/kge.git
+cd kge
+pip install -e .
+
+# download and preprocess datasets
+cd data
+sh download_all.sh
+cd ..
+
+# train an example model on toy dataset (you can omit '--job.device cpu' when you have a gpu)
+kge start examples/toy-complex-train.yaml --job.device cpu
+
+```
+
 ## Table of contents
 
 1. [Features](#features)
 2. [Results and pretrained models](#results-and-pretrained-models)
-3. [Quick start](#quick-start)
-4. [Using LibKGE](#using-libkge)
-5. [Currently supported KGE models](#currently-supported-kge-models)
-6. [Adding a new model](#adding-a-new-model)
-7. [Known issues](#known-issues)
-8. [Changelog](CHANGELOG.md)
-9. [Other KGE frameworks](#other-kge-frameworks)
-10. [How to cite](#how-to-cite)
+3. [Using LibKGE](#using-libkge)
+4. [Currently supported KGE models](#currently-supported-kge-models)
+5. [Adding a new model](#adding-a-new-model)
+6. [Known issues](#known-issues)
+7. [Changelog](CHANGELOG.md)
+8. [Other KGE frameworks](#other-kge-frameworks)
+9. [How to cite](#how-to-cite)
 
 ## Features
 
@@ -198,25 +215,6 @@ paper](https://arxiv.org/pdf/2009.07810.pdf) (EMNLP 2020) for details.
 | ComplEx | 0.294 | 0.237 | 0.3179 | 0.400 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-l/complex/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/jqubvr77og2pvzv/codex-l-lp-complex.pt?dl=0) |
 | ConvE | 0.303 | 0.240 | 0.3298 | 0.420 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-l/conve/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/qcfjy6i1sqbec0z/codex-l-lp-conve.pt?dl=0) |
 | TuckER | 0.309 | 0.244 | 0.3395 | 0.430 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-l/tucker/config.yaml) | [KvsAll-kl](https://www.dropbox.com/s/j8u4nqwzz3v7jw1/codex-l-lp-tucker.pt?dl=0) |
-
-
-## Quick start
-
-```sh
-# retrieve and install project in development mode
-git clone https://github.com/uma-pi1/kge.git
-cd kge
-pip install -e .
-
-# download and preprocess datasets
-cd data
-sh download_all.sh
-cd ..
-
-# train an example model on toy dataset (you can omit '--job.device cpu' when you have a gpu)
-kge start examples/toy-complex-train.yaml --job.device cpu
-
-```
 
 ## Using LibKGE
 
