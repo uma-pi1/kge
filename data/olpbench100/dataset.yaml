@@ -7,6 +7,10 @@ dataset:
   files.entity_token_ids.type: map
   files.relation_token_ids.filename: relation_token_id_map.del
   files.relation_token_ids.type: map
+  files.entity_id_token_ids.filename: entity_id_tokens_ids_map.del
+  files.entity_id_token_ids.type: sequence_map
+  files.relation_id_token_ids.filename: relation_id_tokens_ids_map.del
+  files.relation_id_token_ids.type: sequence_map
 
 
   name: olpbench100
@@ -15,7 +19,7 @@ dataset:
   num_tokens_entities: 191
   num_tokens_relations: 99
   max_tokens_per_entity: 10
-  max_tokens_per_relation: 10
+  max_tokens_per_relation: 14
 
 
 
@@ -25,20 +29,22 @@ dataset:
 
   files.test.filename: test.del
   files.test.size: 152
-  files.test.type: triples
-  files.test_without_unseen.filename: test.del
-  files.test_without_unseen.size: 152
-  files.test_without_unseen.type: triples
+  files.test.type: quintuples
   files.train.filename: train_basic.del
   files.train.size: 4565
   files.train.type: triples
+  files.valid.filename: validation_linked.del
+  files.valid.size: 109
+  files.valid.type: quintuples
+
+
+  files.test_without_unseen.filename: test.del
+  files.test_without_unseen.size: 152
+  files.test_without_unseen.type: quintuples
   files.train_sample.filename: train_basic.del
   files.train_sample.size: 109
   files.train_sample.type: triples
-  files.valid.filename: validation_linked.del
-  files.valid.size: 109
-  files.valid.type: triples
   files.valid_without_unseen.filename: validation_linked.del
   files.valid_without_unseen.size: 109
-  files.valid_without_unseen.type: triples
+  files.valid_without_unseen.type: quintuples
 
