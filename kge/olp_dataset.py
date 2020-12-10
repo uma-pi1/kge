@@ -66,7 +66,7 @@ class OLPDataset(Dataset):
         self._alternative_subject_mentions: Dict[str, Tensor] = {}
         self._alternative_object_mentions: Dict[str, Tensor] = {}
 
-        #TODO: Check indexing and whether it comes up in the remaining pipeline. Necessary?
+        #TODO: Check indexing and how it comes up in the remaining pipeline. Create new indizes as necessary.
 
     # overwrite static method to create an OLPDataset
     @staticmethod
