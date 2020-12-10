@@ -79,7 +79,7 @@ class OLPDataset(Dataset):
             config.load(os.path.join(folder, "dataset.yaml"))
 
         dataset = OLPDataset(config, folder)
-        dataset2 = dataset.shallow_copy()
+
         if preload_data:
             # create mappings of ids to respective strings for mentions and tokens
             dataset.entity_ids()
@@ -230,7 +230,7 @@ class OLPDataset(Dataset):
         """
         return self.load_quintuples(split)
 
-    def load_quintuples(self, key: str) -> Tensor:
+    def load_quintuples(self, key: str) -> Tuple[Tensor, Tensor, Tensor]:
         "Load or return the triples and alternative mentions with the specified key."
         if key not in self._triples:
             self.ensure_available(key)
