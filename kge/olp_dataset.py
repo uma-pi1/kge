@@ -66,12 +66,7 @@ class OLPDataset(Dataset):
         self._alternative_subject_mentions: Dict[str, Tensor] = {}
         self._alternative_object_mentions: Dict[str, Tensor] = {}
 
-        #TODO: Understand / Check if necessary
-        #: functions that compute and add indexes as needed; arguments are dataset and
-        #: key. Index functions are expected to not recompute an index that is already
-        #: present. Indexed by key (same key as in self._indexes)
-        # self.index_functions: Dict[str, Callable] = {}
-        # create_default_index_functions(self)
+        #TODO: Check indexing and whether it comes up in the remaining pipeline. Necessary?
 
     # overwrite static method to create an OLPDataset
     @staticmethod
@@ -84,6 +79,7 @@ class OLPDataset(Dataset):
             config.load(os.path.join(folder, "dataset.yaml"))
 
         dataset = OLPDataset(config, folder)
+        dataset2 = dataset.shallow_copy()
         if preload_data:
             # create mappings of ids to respective strings for mentions and tokens
             dataset.entity_ids()
@@ -94,19 +90,38 @@ class OLPDataset(Dataset):
             dataset.entity_mentions_to_token_ids()
             dataset.relation_mentions_to_token_ids()
 
-            #TODO: add alternative mentions for validation and test
             for split in ["train", "valid", "test"]:
                 dataset.split(split)
 
         return dataset
 
-
-    # TP: Return the number of tokens in the OLP dataset
-    def num_tokens(self) -> int:
+    # Return the number of tokens for entities in the OLP dataset
+    def num_tokens_entities(self) -> int:
         "Return the number of tokens in the OLP dataset."
-        if not self._num_tokens:
-            self._num_tokens = 0  # TODO: finish function
-        return self._num_tokens
+        if not self._num_tokens_entities:
+            self._num_tokens_entities = len(self.entity_token_ids())
+        return self._num_tokens_entities
+
+    # Return the number of tokens for relations in the OLP dataset
+    def num_tokens_relations(self) -> int:
+        "Return the number of tokens in the OLP dataset."
+        if not self._num_tokens_relations:
+            self._num_tokens_relations = len(self.relation_token_ids())
+        return self._num_tokens_relations
+
+    # Return the max number of tokens per entity mention in the OLP dataset
+    def max_tokens_per_entity(self) -> int:
+        "Return the number of tokens in the OLP dataset."
+        if not self._max_tokens_per_entity:
+            self.entity_mentions_to_token_ids()
+        return self._max_tokens_per_entity
+
+    # Return the max number of tokens per entity mention in the OLP dataset
+    def max_tokens_per_relation(self) -> int:
+        "Return the number of tokens in the OLP dataset."
+        if not self._max_tokens_per_relation:
+            self.relation_mentions_to_token_ids()
+        return self._max_tokens_per_relation
 
     # adjusted super method to get token id mappings for entities
     def entity_token_ids(
@@ -128,38 +143,20 @@ class OLPDataset(Dataset):
         """
         return self.map_indexes(indexes, "relation_token_ids")
 
-    # super method to get token id sequences of entity mention ids
-    # first use this result to then map it to Tensors
-    def entity_id_token_ids(
-        self, indexes: Optional[Union[int, Tensor]] = None
-    ) -> Union[str, List[str], np.ndarray]:
-        """Decode indexes to entity ids.
-
-        See `Dataset#map_indexes` for a description of the `indexes` argument.
-        """
-        return self.map_indexes(indexes, "entity_id_token_ids")
-
-    # super method to get token id sequences of entity mention ids
-    # first use this result to then map it to Tensors
-    def relation_id_token_ids(
-            self, indexes: Optional[Union[int, Tensor]] = None
-    ) -> Union[str, List[str], np.ndarray]:
-        """Decode indexes to entity ids.
-
-        See `Dataset#map_indexes` for a description of the `indexes` argument.
-        """
-        return self.map_indexes(indexes, "relation_id_token_ids")
-
     # create mappings of entity mentions to a series of token ids
     def entity_mentions_to_token_ids(self):
-        map_ = self.load_token_sequences("entity_id_token_ids", self._num_entities, self._max_tokens_per_entity)
-        self._mentions_to_token_ids["entities"] = torch.from_numpy(map_)
+        if "entities" not in self._alternative_object_mentions:
+            map_, actual_max = self.load_token_sequences("entity_id_token_ids", self._num_entities, self._max_tokens_per_entity)
+            self._mentions_to_token_ids["entities"] = torch.from_numpy(map_)
+            self._max_tokens_per_entity = actual_max
         return self._mentions_to_token_ids["entities"]
 
     # create mappings of relation mentions to a series of token ids
     def relation_mentions_to_token_ids(self):
-        map_ = self.load_token_sequences("relation_id_token_ids", self._num_relations, self._max_tokens_per_relation)
-        self._mentions_to_token_ids["relations"] = torch.from_numpy(map_)
+        if "relations" not in self._alternative_object_mentions:
+            map_, actual_max = self.load_token_sequences("relation_id_token_ids", self._num_relations, self._max_tokens_per_relation)
+            self._mentions_to_token_ids["relations"] = torch.from_numpy(map_)
+            self._max_tokens_per_relation = actual_max
         return self._mentions_to_token_ids["relations"]
 
     def load_token_sequences(
@@ -170,7 +167,7 @@ class OLPDataset(Dataset):
         id_delimiter: str = "\t",
         token_delimiter: str = " "
         # TODO: add pickle support
-    ) -> np.array:
+    ) -> Tuple[np.array, int]:
         """ Load a sequence of token ids associated with different mentions for a given key
 
         If duplicates are found, raise a key error as duplicates cannot be handled with the
@@ -221,7 +218,7 @@ class OLPDataset(Dataset):
 
         self.config.log(f"Loaded {map_.shape[0]} token sequences from {key}")
 
-        return map_
+        return map_, actual_max
 
     def split(self, split: str) -> Tuple[Tensor, Tensor, Tensor]:
         """Return the split and the alternative mentions of the specified name.
@@ -302,3 +299,29 @@ class OLPDataset(Dataset):
 
         return torch.from_numpy(triples), torch.from_numpy(alternative_subject_mentions), torch.from_numpy(alternative_object_mentions)
 
+    # adjusted super method to also copy new OLPDataset variables
+    def shallow_copy(self):
+        """Returns a dataset that shares the underlying splits and indexes.
+
+        Changes to splits and indexes are also reflected on this and the copied dataset.
+        """
+        copy = OLPDataset(self.config, self.folder)
+        copy._num_entities = self.num_entities()
+        copy._num_relations = self.num_relations()
+        copy._num_tokens_entities = self.num_tokens_entities()
+        copy._num_tokens_relations = self.num_tokens_relations()
+        copy._max_tokens_per_entity = self.max_tokens_per_entity()
+        copy._max_tokens_per_relation = self.max_tokens_per_relation()
+        copy._triples = self._triples
+        copy._mentions_to_token_ids = self._mentions_to_token_ids
+        copy._alternative_subject_mentions = self._alternative_subject_mentions
+        copy._alternative_object_mentions = self._alternative_object_mentions
+        copy._meta = self._meta
+        copy._indexes = self._indexes
+        copy.index_functions = self.index_functions
+        return copy
+
+    # TODO: methods that have not been adjusted (as not necessary atm or will be understood better later on):
+    # - create from and save_to (loads/saves a dataset from/to a checkpoint)
+    # - pickle-related methods
+    # - indexing functions
