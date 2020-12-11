@@ -66,7 +66,7 @@ class OLPDataset(Dataset):
         self._alternative_subject_mentions: Dict[str, Tensor] = {}
         self._alternative_object_mentions: Dict[str, Tensor] = {}
 
-        #TODO: Check indexing and how it comes up in the remaining pipeline. Create new indizes as necessary.
+        # TODO: Check indexing and how it comes up in the remaining pipeline. Create new indizes as necessary.
 
     # overwrite static method to create an OLPDataset
     @staticmethod
@@ -125,7 +125,7 @@ class OLPDataset(Dataset):
 
     # adjusted super method to get token id mappings for entities
     def entity_token_ids(
-        self, indexes: Optional[Union[int, Tensor]] = None
+            self, indexes: Optional[Union[int, Tensor]] = None
     ) -> Union[str, List[str], np.ndarray]:
         """Decode indexes to entity ids.
 
@@ -135,7 +135,7 @@ class OLPDataset(Dataset):
 
     # adjusted super method to get token id mappings for relations
     def relation_token_ids(
-        self, indexes: Optional[Union[int, Tensor]] = None
+            self, indexes: Optional[Union[int, Tensor]] = None
     ) -> Union[str, List[str], np.ndarray]:
         """Decode indexes to entity ids.
 
@@ -146,7 +146,8 @@ class OLPDataset(Dataset):
     # create mappings of entity mentions to a series of token ids
     def entity_mentions_to_token_ids(self):
         if "entities" not in self._alternative_object_mentions:
-            map_, actual_max = self.load_token_sequences("entity_id_token_ids", self._num_entities, self._max_tokens_per_entity)
+            map_, actual_max = self.load_token_sequences("entity_id_token_ids", self._num_entities,
+                                                         self._max_tokens_per_entity)
             self._mentions_to_token_ids["entities"] = torch.from_numpy(map_)
             self._max_tokens_per_entity = actual_max
         return self._mentions_to_token_ids["entities"]
@@ -154,19 +155,20 @@ class OLPDataset(Dataset):
     # create mappings of relation mentions to a series of token ids
     def relation_mentions_to_token_ids(self):
         if "relations" not in self._alternative_object_mentions:
-            map_, actual_max = self.load_token_sequences("relation_id_token_ids", self._num_relations, self._max_tokens_per_relation)
+            map_, actual_max = self.load_token_sequences("relation_id_token_ids", self._num_relations,
+                                                         self._max_tokens_per_relation)
             self._mentions_to_token_ids["relations"] = torch.from_numpy(map_)
             self._max_tokens_per_relation = actual_max
         return self._mentions_to_token_ids["relations"]
 
     def load_token_sequences(
-        self,
-        key: str,
-        num_ids: int,
-        max_tokens: int,
-        id_delimiter: str = "\t",
-        token_delimiter: str = " "
-        # TODO: add pickle support
+            self,
+            key: str,
+            num_ids: int,
+            max_tokens: int,
+            id_delimiter: str = "\t",
+            token_delimiter: str = " "
+            # TODO: add pickle support
     ) -> Tuple[np.array, int]:
         """ Load a sequence of token ids associated with different mentions for a given key
 
@@ -255,12 +257,12 @@ class OLPDataset(Dataset):
 
     @staticmethod
     def _load_quintuples(
-        filename: str,
-        filetype: str,
-        col_delimiter="\t",
-        id_delimiter=" ",
-        use_pickle=False) -> Tuple[Tensor, Tensor, Tensor]:
-        #TODO: add pickle support
+            filename: str,
+            filetype: str,
+            col_delimiter="\t",
+            id_delimiter=" ",
+            use_pickle=False) -> Tuple[Tensor, Tensor, Tensor]:
+        # TODO: add pickle support
 
         """
         Read the tuples and alternative mentions from the specified file.
@@ -268,8 +270,22 @@ class OLPDataset(Dataset):
         If filetype is triples (no alternative mentions available), save the correct answer
         within the alternative mentions tensor.
         """
-
-        # numpy loadtxt is very slow, use pandas instead
+        if use_pickle:
+            # check if there is a pickled, up-to-date version of the file
+            pickle_suffix = Dataset._to_valid_filename(f"-{col_delimiter}.pckl")
+            pickle_filename = filename + pickle_suffix
+            alternative_subject_mention_pickle_filename = pickle_filename.replace(".pckl", "-asm.pckl")
+            alternative_object_mention_pickle_filename = pickle_filename.replace(".pckl", "-aom.pckl")
+            triples = Dataset._pickle_load_if_uptodate(None, pickle_filename, filename)
+            alternative_subject_mentions = Dataset._pickle_load_if_uptodate(None,
+                                                                            alternative_subject_mention_pickle_filename,
+                                                                            filename)
+            alternative_object_mentions = Dataset._pickle_load_if_uptodate(None,
+                                                                           alternative_subject_mention_pickle_filename,
+                                                                           filename)
+            if triples is not None and alternative_subject_mentions is not None and alternative_object_mentions is not None:
+                return triples, alternative_subject_mentions, alternative_object_mentions
+                # numpy loadtxt is very slow, use pandas instead
         data = pd.read_csv(
             filename, sep=col_delimiter, header=None, usecols=range(0, 5)
         )
@@ -297,7 +313,13 @@ class OLPDataset(Dataset):
                 alternative_subject_mentions[i][0:len(subject_mention)] = subject_mention
                 alternative_object_mentions[i][0:len(object_mention)] = object_mention
 
-        return torch.from_numpy(triples), torch.from_numpy(alternative_subject_mentions), torch.from_numpy(alternative_object_mentions)
+        if use_pickle:
+            Dataset._pickle_dump_atomic(triples, pickle_filename)
+            Dataset._pickle_dump_atomic(alternative_subject_mentions, alternative_subject_mention_pickle_filename)
+            Dataset._pickle_dump_atomic(alternative_object_mentions, alternative_object_mention_pickle_filename)
+
+        return torch.from_numpy(triples), torch.from_numpy(alternative_subject_mentions), torch.from_numpy(
+            alternative_object_mentions)
 
     # adjusted super method to also copy new OLPDataset variables
     def shallow_copy(self):

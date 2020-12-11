@@ -21,6 +21,8 @@ class KvsAllIndex:
         key_cols: List,
         value_col: int,
         default_factory: type,
+        alternative_subject_mentions: torch.Tensor = None,
+        alternative_object_mentions: torch.Tensor = None,
     ):
         """
         Args:
@@ -128,6 +130,8 @@ def index_KvsAll(dataset: "Dataset", split: str, key: str):
     name = split + "_" + key + "_to_" + value
     if not dataset._indexes.get(name):
         triples = dataset.split(split)
+        if type(triples) == tuple:
+            triples, alternative_subject_mentions, alternative_object_mentions = triples
         dataset._indexes[name] = KvsAllIndex(triples, key_cols, value_col, list)
 
     dataset.config.log(
@@ -284,7 +288,7 @@ def _invert_ids(dataset, obj: str):
 
 
 def create_default_index_functions(dataset: "Dataset"):
-    for split in dataset.files_of_type("triples"):
+    for split in dataset.files_of_type("triples") + dataset.files_of_type("quintuples"):
         for key, value in [("sp", "o"), ("po", "s"), ("so", "p")]:
             # self assignment needed to capture the loop var
             dataset.index_functions[f"{split}_{key}_to_{value}"] = IndexWrapper(
