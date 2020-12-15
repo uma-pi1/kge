@@ -13,7 +13,7 @@ import inspect
 from kge import Config, Configurable
 import kge.indexing
 from kge.indexing import create_default_index_functions
-from kge.misc import kge_base_dir
+from kge.misc import module_base_dir
 
 from typing import Dict, List, Any, Callable, Union, Optional
 
@@ -96,11 +96,18 @@ class Dataset(Configurable):
 
         """
         name = config.get("dataset.name")
+            
+        root_modules = list(set(m.split(".")[0] for m in config.get("modules")))
         if folder is None:
-            folder = os.path.join(kge_base_dir(), "data", name)
-        if os.path.isfile(os.path.join(folder, "dataset.yaml")):
-            config.log("Loading configuration of dataset " + name + "...")
-            config.load(os.path.join(folder, "dataset.yaml"))
+            for m in root_modules:
+                folder = os.path.join(module_base_dir(m), "data", name)
+                if os.path.isfile(os.path.join(folder, "dataset.yaml")):
+                    break
+            else:
+                raise ValueError(f"Dataset with name {name} could not be found.")
+
+        config.log(f"Loading configuration of dataset {name} from {folder} ...")
+        config.load(os.path.join(folder, "dataset.yaml"))
 
         dataset = Dataset(config, folder)
         if preload_data:

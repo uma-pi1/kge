@@ -123,6 +123,15 @@ dataset:
   # Additional dataset specific keys can be added as needed
   +++: +++
 
+
+## MODULES #####################################################################
+
+# Python modules that should be searched for models, embedders, etc. LibKGE may
+# not respect the module order specified here, so make sure to use unique
+# model/embedder names.
+modules: [ kge.model, kge.model.embedder ]
+
+
 ## MODEL #######################################################################
 
 # Which KGE model to use. Examples include "rescal", "complex", "distmult",

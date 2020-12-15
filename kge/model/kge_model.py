@@ -9,7 +9,7 @@ import os
 
 import kge
 from kge import Config, Configurable, Dataset
-from kge.misc import filename_in_module
+from kge.misc import filename_in_module, init_from
 from kge.util import load_checkpoint
 from typing import Any, Dict, List, Optional, Union, Tuple
 
@@ -76,10 +76,11 @@ class KgeBase(torch.nn.Module, Configurable):
         # Automatically set arg a (lower bound) for uniform_ if not given
         if initialize == "uniform_" and "a" not in initialize_args:
             initialize_args["a"] = initialize_args["b"] * -1
-            config.set_option(initialize_args_key + ".a", initialize_args["a"], log=True)
+            config.set_option(
+                initialize_args_key + ".a", initialize_args["a"], log=True
+            )
 
         KgeBase._initialize(what, initialize, initialize_args)
-
 
     def prepare_job(self, job: "Job", **kwargs):
         r"""Prepares the given job to work with this model.
@@ -256,7 +257,6 @@ class KgeEmbedder(KgeBase):
 
         self.dim: int = self.get_option("dim")
 
-
     @staticmethod
     def create(
         config: Config,
@@ -270,12 +270,13 @@ class KgeEmbedder(KgeBase):
         try:
             embedder_type = config.get_default(configuration_key + ".type")
             class_name = config.get(embedder_type + ".class_name")
-            module = importlib.import_module("kge.model")
         except:
             raise Exception("Can't find {}.type in config".format(configuration_key))
 
         try:
-            embedder = getattr(module, class_name)(
+            embedder = init_from(
+                class_name,
+                config.get("modules"),
                 config,
                 dataset,
                 configuration_key,
@@ -283,13 +284,9 @@ class KgeEmbedder(KgeBase):
                 init_for_load_only=init_for_load_only,
             )
             return embedder
-        except ImportError:
-            # perhaps TODO: try class with specified name -> extensibility
-            raise ValueError(
-                "Can't find class {} in 'kge.model' for embedder {}".format(
-                    class_name, embedder_type
-                )
-            )
+        except:
+            config.log(f"Failed to create embedder {embedder_type} (class {class_name}).")
+            raise
 
     def _intersect_ids_with_pretrained_embedder(
         self, pretrained_embedder: "KgeEmbedder"
@@ -481,19 +478,19 @@ class KgeModel(KgeBase):
         init_for_load_only=False,
     ) -> "KgeModel":
         """Factory method for model creation."""
-
         try:
             if configuration_key is not None:
                 model_name = config.get(configuration_key + ".type")
             else:
                 model_name = config.get("model")
             class_name = config.get(model_name + ".class_name")
-            module = importlib.import_module("kge.model")
         except:
             raise Exception("Can't find {}.type in config".format(configuration_key))
 
         try:
-            model = getattr(module, class_name)(
+            model = init_from(
+                class_name,
+                config.get("modules"),
                 config=config,
                 dataset=dataset,
                 configuration_key=configuration_key,
@@ -501,13 +498,9 @@ class KgeModel(KgeBase):
             )
             model.to(config.get("job.device"))
             return model
-        except ImportError:
-            # perhaps TODO: try class with specified name -> extensibility
-            raise ValueError(
-                "Can't find class {} in 'kge.model' for model {}".format(
-                    class_name, model_name
-                )
-            )
+        except:
+            config.log(f"Failed to create model {model_name} (class {class_name}).")
+            raise
 
     @staticmethod
     def create_default(
@@ -597,7 +590,9 @@ class KgeModel(KgeBase):
         self._relation_embedder.prepare_job(job, **kwargs)
 
         from kge.job import TrainingOrEvaluationJob
+
         if isinstance(job, TrainingOrEvaluationJob):
+
             def append_num_parameter(job):
                 job.current_trace["epoch"]["num_parameters"] = sum(
                     map(lambda p: p.numel(), job.model.parameters())
@@ -622,7 +617,8 @@ class KgeModel(KgeBase):
                         (triples[:, S].view(-1, 1), triples[:, O].view(-1, 1)), dim=1
                     )
                 entity_penalty_result = self.get_s_embedder().penalty(
-                    indexes=entity_indexes, **kwargs,
+                    indexes=entity_indexes,
+                    **kwargs,
                 )
                 if not weighted:
                     # backwards compatibility
