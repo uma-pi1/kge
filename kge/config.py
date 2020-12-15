@@ -12,6 +12,7 @@ from enum import Enum
 import yaml
 from typing import Any, List, Dict, Optional, Union
 
+
 class Config:
     """Configuration options.
 
@@ -31,9 +32,9 @@ class Config:
             self.options = {}
 
         self.folder = folder  # main folder (config file, checkpoints, ...)
-        self.log_folder: Optional[str] = (
-            None  # None means use self.folder; used for kge.log, trace.yaml
-        )
+        self.log_folder: Optional[
+            str
+        ] = None  # None means use self.folder; used for kge.log, trace.yaml
         self.log_prefix: str = None
 
     # -- ACCESS METHODS ----------------------------------------------------------------
@@ -251,8 +252,9 @@ class Config:
         module_config.set("modules", module_names, create=True)
 
         from kge.misc import filename_in_module
-        filename = filename_in_module(self.modules(), f"{module_name}.yaml")
-        module_config.load(filename, create=True)
+
+        config_filename = filename_in_module(self.modules(), f"{module_name}.yaml")
+        module_config.load(config_filename, create=True)
 
         if "import" in module_config.options:
             del module_config.options["import"]
@@ -326,6 +328,7 @@ class Config:
             modules = modules.union(new_options.get("modules"))
             self.set("modules", list(modules), create=True)
             del new_options["modules"]
+
         # import model configurations
         if "model" in new_options:
             model = new_options.get("model")
@@ -333,6 +336,8 @@ class Config:
             # search with model as a search parameter
             if model:
                 self._import(model)
+
+        # import explicit imports
         if "import" in new_options:
             imports = new_options.get("import")
             if not isinstance(imports, list):
@@ -578,6 +583,7 @@ class Config:
 
     def modules(self) -> List[types.ModuleType]:
         import importlib
+
         return [importlib.import_module(m) for m in self.get("modules")]
 
 

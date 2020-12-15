@@ -29,7 +29,7 @@ def init_from(class_name: str, module_names: List[str], *args, **kwargs):
         if hasattr(module, class_name):
             return getattr(module, class_name)(*args, **kwargs)
     else:
-        raise ValueError(f"Can't find class {class_name} in modules: {module_names}")
+        raise ValueError(f"Can't find class {class_name} in modules {module_names}")
 
 def is_number(s, number_type):
     """ Returns True is string is a number. """
