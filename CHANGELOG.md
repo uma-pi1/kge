@@ -1,4 +1,5 @@
 #### December 2020
+- PR [#158](https://github.com/uma-pi1/kge/pull/158): Add a plugin mechanism (thanks @sfschouten)
 - PR [#157](https://github.com/uma-pi1/kge/pull/157): Add CoDEx datasets and pretrained models (thanks @tsafavi)
 
 #### November 2020

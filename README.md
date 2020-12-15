@@ -47,7 +47,7 @@ kge start examples/toy-complex-train.yaml --job.device cpu
 2. [Results and pretrained models](#results-and-pretrained-models)
 3. [Using LibKGE](#using-libkge)
 4. [Currently supported KGE models](#currently-supported-kge-models)
-6. [Adding a new model or embedder](#adding-a-new-model-or-embedder)
+6. [Extending LibKGE](#extending-libkge)
 6. [Known issues](#known-issues)
 7. [Changelog](CHANGELOG.md)
 8. [Other KGE frameworks](#other-kge-frameworks)
@@ -443,33 +443,26 @@ The [examples](examples) folder contains some configuration files as examples of
 
 We welcome contributions to expand the list of supported models! Please see [CONTRIBUTING](CONTRIBUTING.md) for details and feel free to initially open an issue.
 
-## Adding a new model or embedder
+## Extending LibKGE
 
-Before adding a model or embedder, you need to decide if you want to add them in a separate package or within LibKGE itself.
-Which of those two options is more suited depends on your use case. 
-Implementing it within LibKGE makes sense if you are implementing a model that you think could/should be added to this repository.
-It also makes more sense if you don't plan on publishing what you create at all, for example if you just want to play around with the code. 
-A separate package might be more appropriate if you want to develop one or more models/embedders, that for whatever reason should not be part of this repository, but that you still want to publish.
+LibKGE models implement the `KgeModel` class and generally consist of a
+`KgeEmbedder` to associate each subject, relation and object to an embedding and
+a `KgeScorer` to score triples given their embeddings. You may add new models,
+embedders, or scorers by extending the respective classes. All these base
+classes are defined in [kge_model.py](kge/model/kge_model.py).
 
-To add a new model to LibKGE, extend the
-[KgeModel](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L243)
-class. A model is made up of a
-[KgeEmbedder](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L170)
-to associate each subject, relation and object to an embedding, and a
-[KgeScorer](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L76)
-to score triples given their embeddings.
+Your implementation should be stored in file `<model-name>.py` and its
+configuration options in file `<model-name>.yaml` (see [here](kge/model/)).
+You may store these files directly in the LibKGE module folders (i.e.,
+`<kge-home>/kge/model` or `<kge-home>/kge/model/embedder`) or in your own
+module. In the former case, make sure to import your code in the ``__init.py__``
+files in these folders. In the latter case, add your module to the `modules` key
+in the configuration file so that LibKGE finds it (see
+[config-default.yaml](kge/config-default.yaml)).
 
-The model implementation should be stored under
-`<kge-home>/kge/model/<model-name>.py`, its configuration options under
-`<kge-home>/kge/model/<model-name>.yaml` and its import has to be added to `<kge-home>/kge/model/__init__.py`.
-
-The embdedder implementation should be stored under
-`<kge-home>/kge/model/embedder/<embedder-name>.py`, its configuration options under
-`<kge-home>/kge/model/embedder/<embedder-name>.yaml` and its import has to be added to `<kge-home>/kge/model/__init__.py`.
-
-If you are developing in a separate package, the models/embedders can be in any python module.
-All you need to do is make sure that any module from which models and embedders must be loaded is present under the `modules` key in the config file.
-
+If you plan to contribute your code to LibKGE, we suggest to directly develop in
+the LibKGE module folders. If you just want to play around or publish your code
+separately from LibKGE, use your own module.
 
 ## Known issues
 
