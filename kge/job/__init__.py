@@ -2,7 +2,11 @@ from kge.job.trace import Trace
 from kge.job.job import Job
 from kge.job.job import TrainingOrEvaluationJob
 from kge.job.train import TrainingJob
+from kge.job.train import TrainingJob1vsAll
+from kge.job.train import TrainingJobKvsAll
+from kge.job.train import TrainingJobNegativeSampling
 from kge.job.eval import EvaluationJob
+from kge.job.eval import TrainingLossEvaluationJob
 from kge.job.grid_search import GridSearchJob
 from kge.job.search import SearchJob
 from kge.job.manual_search import ManualSearchJob

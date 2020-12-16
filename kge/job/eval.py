@@ -5,6 +5,7 @@ from kge import Config, Dataset
 from kge.job import Job, TrainingOrEvaluationJob, TrainingJob
 from kge.model import KgeModel
 from kge.job.trace import format_trace_entry
+from kge.misc import init_from
 
 from typing import Dict, Optional, Any
 
@@ -34,21 +35,17 @@ class EvaluationJob(TrainingOrEvaluationJob):
     @staticmethod
     def create(config, dataset, parent_job=None, model=None):
         """Factory method to create an evaluation job """
-        from kge.job import EntityRankingJob, EntityPairRankingJob
 
-        # create the job
-        if config.get("eval.type") == "entity_ranking":
-            return EntityRankingJob(config, dataset, parent_job=parent_job, model=model)
-        elif config.get("eval.type") == "entity_pair_ranking":
-            return EntityPairRankingJob(
-                config, dataset, parent_job=parent_job, model=model
-            )
-        elif config.get("eval.type") == "training_loss":
-            return TrainingLossEvaluationJob(
-                config, dataset, parent_job=parent_job, model=model
-            )
-        else:
-            raise ValueError("eval.type")
+        eval_type = config.get("eval.type")
+        class_name = config.get_default(f"{eval_type}.class_name")
+        return init_from(
+            class_name,
+            config.modules(),
+            config,
+            dataset,
+            parent_job=parent_job,
+            model=model,
+        )
 
     def _prepare(self):
         """Prepare this job for running.
