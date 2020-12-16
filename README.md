@@ -445,20 +445,30 @@ We welcome contributions to expand the list of supported models! Please see [CON
 
 ## Extending LibKGE
 
+LibKGE can be extended with new training, evaluation, or search jobs as well as
+new models and embedders.
+
 LibKGE models implement the `KgeModel` class and generally consist of a
 `KgeEmbedder` to associate each subject, relation and object to an embedding and
-a `KgeScorer` to score triples given their embeddings. You may add new models,
-embedders, or scorers by extending the respective classes. All these base
-classes are defined in [kge_model.py](kge/model/kge_model.py).
+a `KgeScorer` to score triples given their embeddings. All these base classes
+are defined in [kge_model.py](kge/model/kge_model.py). Base classes for LibKGE
+jobs are defined in [job.py](kge/job/job.py), [train.py](kge/job/train.py),
+[eval.py](kge/job/eval.py), and [search.py](kge/job/search.py).
 
-Your implementation should be stored in file `<model-name>.py` and its
-configuration options in file `<model-name>.yaml` (see [here](kge/model/)).
-You may store these files directly in the LibKGE module folders (i.e.,
-`<kge-home>/kge/model` or `<kge-home>/kge/model/embedder`) or in your own
-module. In the former case, make sure to import your code in the ``__init.py__``
-files in these folders. In the latter case, add your module to the `modules` key
-in the configuration file so that LibKGE finds it (see
-[config-default.yaml](kge/config-default.yaml)).
+To add a component, say `mycomp` with implementation `MyClass`, you need to:
+
+1. Create a configuration file `mycomp.yaml`. You may store this file directly
+   in the LibKGE module folders (e.g., `<kge-home>/kge/model/`) or in your own
+   module folder. In the latter case, add your module to the `modules` key and
+   add `mycomp` to the `import` key in any configuration that uses your
+   component. See [config-default.yaml](kge/config-default.yaml) for a
+   description of those keys.
+2. In `mycomp.yaml`, add at least a key `mycomp.class_name` with value
+   `MyClass`. Ensure that `MyClass` is exported by one of the modules listed
+   under `modules` in any configuration that uses your component. If you follow
+   LibKGE's directory structure (`mycomp.yaml` for configuration and `mycomp.py`
+   for implementation), then ensure that `MyClass` is imported in `__init__.py`
+   (e.g., as [here](kge/model/__init__.py)).
 
 If you plan to contribute your code to LibKGE, we suggest to directly develop in
 the LibKGE module folders. If you just want to play around or publish your code
