@@ -1,19 +1,24 @@
-from typing import List
+from typing import List, Union
 
 from torch import nn as nn
 import os
 from path import Path
 import inspect
 import subprocess
+import types
 
 import importlib
 
-def init_from(class_name: str, module_names: List[str], *args, **kwargs):
+
+def init_from(
+    class_name: str, modules: List[Union[str, types.ModuleType]], *args, **kwargs
+):
     """Initializes class from its name and list of module names it might be part of.
 
     Args:
         class_name: the name of the class that is to be initialized.
-        module_names: the list of module names that are to be searched for the class.
+        modules: the list of modules or module names that are to be searched for
+                 the class.
         *args: the non-keyword arguments for the constructor of the given class.
         **kwargs: the keyword arguments for the constructor of the given class.
 
@@ -24,12 +29,18 @@ def init_from(class_name: str, module_names: List[str], *args, **kwargs):
     Raises:
         ValueError: If the given class cannot be found in any of the given modules.
     """
-    modules = [importlib.import_module(m) for m in module_names]
+    modules = [
+        m if isinstance(m, types.ModuleType) else importlib.import_module(m)
+        for m in modules
+    ]
     for module in modules:
         if hasattr(module, class_name):
             return getattr(module, class_name)(*args, **kwargs)
     else:
-        raise ValueError(f"Can't find class {class_name} in modules {module_names}")
+        raise ValueError(
+            f"Can't find class {class_name} in modules {[m.__name__ for m in modules]}"
+        )
+
 
 def is_number(s, number_type):
     """ Returns True is string is a number. """
@@ -38,6 +49,7 @@ def is_number(s, number_type):
         return True
     except ValueError:
         return False
+
 
 # from https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script
 def get_git_revision_hash():
@@ -95,8 +107,10 @@ def module_base_dir(module_name):
     module = importlib.import_module(module_name)
     return os.path.abspath(filename_in_module(module, ".."))
 
+
 def kge_base_dir():
     return module_base_dir("kge")
+
 
 def filename_in_module(module_or_module_list, filename):
     if not isinstance(module_or_module_list, list):
