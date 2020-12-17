@@ -8,13 +8,14 @@ def get_sp_po_coords_from_spo_batch(
     """Given a set of triples , lookup matches for (s,p,?) and (?,p,o).
 
     Each row in batch holds an (s,p,o) triple. Returns the non-zero coordinates
-    of a 2-way binary tensor with one row per triple and 2*num_entites columns.
+    of a 2-way binary tensor with one row per triple and 2*num_entities columns.
     The first half of the columns correspond to hits for (s,p,?); the second
     half for (?,p,o).
 
     """
     num_ones = 0
     NOTHING = torch.zeros([0], dtype=torch.long)
+
     for i, triple in enumerate(batch):
         s, p, o = triple[0].item(), triple[1].item(), triple[2].item()
         num_ones += len(sp_index.get((s, p), NOTHING))

@@ -34,13 +34,17 @@ class EvaluationJob(TrainingOrEvaluationJob):
     @staticmethod
     def create(config, dataset, parent_job=None, model=None):
         """Factory method to create an evaluation job """
-        from kge.job import EntityRankingJob, EntityPairRankingJob
+        from kge.job import EntityRankingJob, EntityPairRankingJob, OLPEntityRankingJob
 
         # create the job
         if config.get("eval.type") == "entity_ranking":
             return EntityRankingJob(config, dataset, parent_job=parent_job, model=model)
         elif config.get("eval.type") == "entity_pair_ranking":
             return EntityPairRankingJob(
+                config, dataset, parent_job=parent_job, model=model
+            )
+        elif config.get("eval.type") == "olp_entity_ranking":
+            return OLPEntityRankingJob(
                 config, dataset, parent_job=parent_job, model=model
             )
         elif config.get("eval.type") == "training_loss":

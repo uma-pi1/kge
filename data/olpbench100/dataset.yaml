@@ -12,7 +12,6 @@ dataset:
   files.relation_id_token_ids.filename: relation_id_tokens_ids_map.del
   files.relation_id_token_ids.type: sequence_map
 
-
   name: olpbench100
   num_entities: 722
   num_relations: 351
@@ -21,19 +20,14 @@ dataset:
   max_tokens_per_entity: 10
   max_tokens_per_relation: 14
 
-
-
-
-
-
-
   files.test.filename: test.del
   files.test.size: 152
   files.test.type: quintuples
   files.train.filename: train_basic.del
   files.train.size: 4565
   files.train.type: triples
-  files.valid.filename: validation_linked.del
+  files.valid.filename: validation_all.del
+  #files.valid.filename: validation_linked.del
   files.valid.size: 109
   files.valid.type: quintuples
 

@@ -1,0 +1,9 @@
+import: [lookup_embedder]
+
+projection_embedder:
+  class_name: UnigramPoolingEmbedder
+  base_embedder:
+    type: token_embedder
+    +++: +++
+  # Dimensionality of the embedding
+  dim: 100

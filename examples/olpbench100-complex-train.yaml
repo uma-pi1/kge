@@ -19,3 +19,6 @@ lookup_embedder:
     normal_:
       mean: 0.0
       std: 0.1
+
+eval:
+  type: olp_entity_ranking

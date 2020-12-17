@@ -67,6 +67,8 @@ class OLPDataset(Dataset):
         self._alternative_object_mentions: Dict[str, Tensor] = {}
 
         # TODO: Check indexing and how it comes up in the remaining pipeline. Create new indizes as necessary.
+        self.index_functions: Dict[str, Callable] = {}
+        create_default_index_functions(self)
 
     # overwrite static method to create an OLPDataset
     @staticmethod
@@ -89,6 +91,10 @@ class OLPDataset(Dataset):
             # create mappings of entity ids to a series of token ids
             dataset.entity_mentions_to_token_ids()
             dataset.relation_mentions_to_token_ids()
+
+            # create shared list of all tokens for entities and relations
+            # TODO: decide about tokens:  None, ['unseen'], ['begin'], ['end']
+            dataset.all_tokens = list(set(dataset.entity_token_ids()[4:] + dataset.relation_token_ids()[4:]))
 
             for split in ["train", "valid", "test"]:
                 dataset.split(split)
@@ -249,9 +255,9 @@ class OLPDataset(Dataset):
                 use_pickle=self.config.get("dataset.pickle"),
             )
             self.config.log(f"Loaded {len(triples)} {key} {filetype}")
-            self._triples[key] = triples
-            self._alternative_subject_mentions[key] = alternative_subjects
-            self._alternative_object_mentions[key] = alternative_objects
+            self._triples[key] = torch.from_numpy(triples)
+            self._alternative_subject_mentions[key] = torch.from_numpy(alternative_subjects)
+            self._alternative_object_mentions[key] = torch.from_numpy(alternative_objects)
 
         return self._triples[key], self._alternative_subject_mentions[key], self._alternative_object_mentions[key]
 
@@ -281,7 +287,7 @@ class OLPDataset(Dataset):
                                                                             alternative_subject_mention_pickle_filename,
                                                                             filename)
             alternative_object_mentions = Dataset._pickle_load_if_uptodate(None,
-                                                                           alternative_subject_mention_pickle_filename,
+                                                                           alternative_object_mention_pickle_filename,
                                                                            filename)
             if triples is not None and alternative_subject_mentions is not None and alternative_object_mentions is not None:
                 return triples, alternative_subject_mentions, alternative_object_mentions
@@ -299,13 +305,19 @@ class OLPDataset(Dataset):
             max_subject_mentions = 0
             max_object_mentions = 0
             for i, (subject, object) in enumerate(data.iloc[:, [3, 4]].values.tolist()):
-                subject_split = subject.split(id_delimiter)
-                subject_mentions[i] = subject_split
-                max_subject_mentions = max(max_subject_mentions, len(subject_split))
-
-                object_split = object.split(id_delimiter)
-                object_mentions[i] = object_split
-                max_object_mentions = max(max_object_mentions, len(object_split))
+                # TODO: revise for validation_all and validation_linked
+                if isinstance(subject, str):
+                    subject = subject.split(id_delimiter)  # split in case alternative subjects or objects are strings
+                else:
+                    subject = [subject]
+                if isinstance(object, str):
+                    object = object.split(id_delimiter)
+                else:
+                    object = [object]
+                subject_mentions[i] = subject
+                max_subject_mentions = max(max_subject_mentions, len(subject))
+                object_mentions[i] = object
+                max_object_mentions = max(max_object_mentions, len(object))
 
             alternative_subject_mentions = np.zeros([triples.shape[0], max_subject_mentions], dtype=int)
             alternative_object_mentions = np.zeros([triples.shape[0], max_object_mentions], dtype=int)

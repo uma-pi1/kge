@@ -10,3 +10,5 @@ from kge.job.auto_search import AutoSearchJob
 from kge.job.ax_search import AxSearchJob
 from kge.job.entity_ranking import EntityRankingJob
 from kge.job.entity_pair_ranking import EntityPairRankingJob
+from kge.job.olp_entity_ranking import OLPEntityRankingJob
+
