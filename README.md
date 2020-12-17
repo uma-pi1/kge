@@ -465,11 +465,10 @@ implementation `MyClass`, you need to:
    around or publish your code separately from LibKGE, use your own module.
 
 2. Define all required options for your component, their default values, and
-   their types are defined in `mycomp.yaml`. We suggest to follow LibKGE's core
-   philosophy and define every option that can influence the outcome of an
-   experiment in this way. Please pay attention w.r.t. integer (`0`) vs. float
-   (`0.0`) values; e.g., `float_option: 0` is incorrect because is interpreted
-   as an integer.
+   their types in `mycomp.yaml`. We suggest to follow LibKGE's core philosophy
+   and define every option that can influence the outcome of an experiment in
+   this way. Please pay attention w.r.t. integer (`0`) vs. float (`0.0`) values;
+   e.g., `float_option: 0` is incorrect because is interpreted as an integer.
 
 3. Implement `MyClass` in a module of your choice. In `mycomp.yaml`, add key
    `mycomp.class_name` with value `MyClass`. If you follow LibKGE's directory
@@ -478,7 +477,7 @@ implementation `MyClass`, you need to:
    (e.g., as done [here](kge/model/__init__.py)).
 
 4. To use your component in an experiment, register your module via the
-   `modules` key and its configuration via `import` key in the experiment's
+   `modules` key and its configuration via the `import` key in the experiment's
    configuration file. See [config-default.yaml](kge/config-default.yaml) for a
    description of those keys. For example, in `myexp_config.yaml`, add:
 
