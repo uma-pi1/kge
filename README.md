@@ -453,42 +453,39 @@ KGE models implement the `KgeModel` class and generally consist of a
 a `KgeScorer` to score triples given their embeddings. All these base classes
 are defined in [kge_model.py](kge/model/kge_model.py). 
 
-Training, evaluation and hyper-parameter search are LibKGE `Job`s which are defined in 
-[job.py](kge/job/job.py), [train.py](kge/job/train.py), [eval.py](kge/job/eval.py), 
-and [search.py](kge/job/search.py).
+KGE jobs perform training, evaluation, and hyper-parameter search. The relevant base classes are [Job](kge/job/job.py), [TrainingJob](kge/job/train.py), [EvaluationJob](kge/job/eval.py), and [SearchJob](kge/job/search.py).
 
-To add a component, say `mycomp` with implementation `MyClass` in file `mycomp.py`, 
-you need to:
+To add a component, say `mycomp` (= a model, embedder, or job) with
+implementation `MyClass`, you need to:
 
-1. Create a configuration file `mycomp.yaml` which defines all possible options, 
-   the default values and the type of the default values for this component. Please pay 
-   attention with integer vs. float default values; f.ex. `learning_rate: 0` will be 
-   interpreted as an integer! LibKGE's core philosophy is to put every parameter that 
-   can influence the outcome of an experiment in this configuration.
-   
-2. In `mycomp.yaml`, add the key `mycomp.class_name` with value `MyClass`. The `mycomp.yaml` 
-   should be located in the same directory as `mycomp.py`.
+1. Create a configuration file `mycomp.yaml`. You may store this file directly
+   in the LibKGE module folders (e.g., `<kge-home>/kge/model/`) or in your own
+   module folder. If you plan to contribute your code to LibKGE, we suggest to
+   directly develop in the LibKGE module folders. If you just want to play
+   around or publish your code separately from LibKGE, use your own module.
 
-3. If you plan to contribute your code to LibKGE, you may store this file directly 
-   in the LibKGE module folders (e.g., `<kge-home>/kge/model/`). Also you have to ensure 
-   that `MyClass` is imported in `__init__.py` (e.g., as [here](kge/model/__init__.py)).
+2. Define all required options for your component, their default values, and
+   their types are defined in `mycomp.yaml`. We suggest to follow LibKGE's core
+   philosophy and define every option that can influence the outcome of an
+   experiment in this way. Please pay attention w.r.t. integer (`0`) vs. float
+   (`0.0`) values; e.g., `float_option: 0` is incorrect because is interpreted
+   as an integer.
 
-4. If you want to play around and don't want to deviate from the master branch, or if 
-   you want to publish your code separately from LibKGE, use your own module. In this 
-   case, any experiment configuration that uses your component has to add your module to 
-   the `modules` key 
-   
+3. Implement `MyClass` in a module of your choice. In `mycomp.yaml`, add key
+   `mycomp.class_name` with value `MyClass`. If you follow LibKGE's directory
+   structure (`mycomp.yaml` for configuration and `mycomp.py` for
+   implementation), then ensure that `MyClass` is imported in `__init__.py`
+   (e.g., as done [here](kge/model/__init__.py)).
+
+4. To use your component in an experiment, register your module via the
+   `modules` key and its configuration via `import` key in the experiment's
+   configuration file. See [config-default.yaml](kge/config-default.yaml) for a
+   description of those keys. For example, in `myexp_config.yaml`, add:
+
    ```yaml
-   modules: [ kge.model, kge.model.embedder, mymodule]
-   ```
-   and has to add `mycomp` to the `import` key  
-
-   ```yaml
+   modules: [ kge.model, kge.model.embedder, mymodule ]
    import: [ mycomp ]
    ```
-
-   See [config-default.yaml](kge/config-default.yaml) for a description of those keys.
-
 
 ## Known issues
 
