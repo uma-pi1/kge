@@ -1,16 +1,17 @@
 job.type: search
 dataset.name: toy
-train.optimizer: Adagrad
+
+train.optimizer.default.type: Adagrad
 model: complex
 
 search.type: ax
 ax_search:
   num_trials: 20
   parameters:
-    - name: train.optimizer_args.lr
+    - name: train.optimizer.default.args.lr
       type: range
       bounds: [0.0, 1.0]
-    - name: train.optimizer_args.weight_decay
+    - name: train.optimizer.default.args.weight_decay
       type: range
       bounds: [1.0e-8, 1.0]
       log_scale: True
