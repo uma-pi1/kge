@@ -1,0 +1,24 @@
+job.type: train
+dataset.name: olpbench_small
+
+train:
+  optimizer: Adagrad
+  optimizer_args:
+    lr: 0.2
+  lr_scheduler: ReduceLROnPlateau
+  lr_scheduler_args:
+    mode: max
+    patience: 4
+
+model: complex
+lookup_embedder:
+  dim: 100
+  regularize_weight: 0.8e-7
+  initialize: normal_
+  initialize_args:
+    normal_:
+      mean: 0.0
+      std: 0.1
+
+eval:
+  type: olp_entity_ranking

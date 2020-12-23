@@ -1,0 +1,6 @@
+total_entities: 367
+total_relations: 142
+num_tokens_entities: 488
+num_tokens_relations: 192
+max_tokens_per_entity: 7
+max_tokens_per_relation: 9
