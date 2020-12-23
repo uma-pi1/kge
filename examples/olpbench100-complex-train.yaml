@@ -21,4 +21,4 @@ lookup_embedder:
       std: 0.1
 
 eval:
-  type: olp_entity_ranking
+  type: entity_ranking

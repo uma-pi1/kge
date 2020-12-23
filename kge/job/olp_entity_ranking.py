@@ -13,6 +13,20 @@ class OLPEntityRankingJob(EntityRankingJob):
             for f in Job.job_created_hooks:
                 f(self)
 
+    def _prepare(self):
+        super()._prepare()
+        # load the olp quintuples
+        self.triples = self.dataset.split_olp(self.config.get("eval.split"))
+        self.loader = torch.utils.data.DataLoader(
+            self.triples,
+            collate_fn=self._collate,
+            shuffle=False,
+            batch_size=self.batch_size,
+            num_workers=self.config.get("eval.num_workers"),
+            pin_memory=self.config.get("eval.pin_memory"),
+        )
+
+
     def _collate(self, batch):
         "Looks up true triples for each triple in the batch"
         label_coords = []

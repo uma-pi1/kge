@@ -97,7 +97,7 @@ class OLPDataset(Dataset):
             dataset.all_tokens = list(set(dataset.entity_token_ids()[4:] + dataset.relation_token_ids()[4:]))
 
             for split in ["train", "valid", "test"]:
-                dataset.split(split)
+                dataset.split_olp(split)
 
         return dataset
 
@@ -228,7 +228,7 @@ class OLPDataset(Dataset):
 
         return map_, actual_max
 
-    def split(self, split: str) -> Tuple[Tensor, Tensor, Tensor]:
+    def split_olp(self, split: str) -> Tuple[Tensor, Tensor, Tensor]:
         """Return the split and the alternative mentions of the specified name.
 
         If the split is not yet loaded, load it. Returns an Nx3 IntTensor of
@@ -255,9 +255,9 @@ class OLPDataset(Dataset):
                 use_pickle=self.config.get("dataset.pickle"),
             )
             self.config.log(f"Loaded {len(triples)} {key} {filetype}")
-            self._triples[key] = torch.from_numpy(triples)
-            self._alternative_subject_mentions[key] = torch.from_numpy(alternative_subjects)
-            self._alternative_object_mentions[key] = torch.from_numpy(alternative_objects)
+            self._triples[key] = triples
+            self._alternative_subject_mentions[key] = alternative_subjects
+            self._alternative_object_mentions[key] = alternative_objects
 
         return self._triples[key], self._alternative_subject_mentions[key], self._alternative_object_mentions[key]
 
@@ -290,7 +290,8 @@ class OLPDataset(Dataset):
                                                                            alternative_object_mention_pickle_filename,
                                                                            filename)
             if triples is not None and alternative_subject_mentions is not None and alternative_object_mentions is not None:
-                return triples, alternative_subject_mentions, alternative_object_mentions
+                return torch.from_numpy(triples), torch.from_numpy(alternative_subject_mentions), torch.from_numpy(
+                    alternative_object_mentions)
                 # numpy loadtxt is very slow, use pandas instead
         data = pd.read_csv(
             filename, sep=col_delimiter, header=None, usecols=range(0, 5)

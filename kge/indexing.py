@@ -130,8 +130,6 @@ def index_KvsAll(dataset: "Dataset", split: str, key: str):
     name = split + "_" + key + "_to_" + value
     if not dataset._indexes.get(name):
         triples = dataset.split(split)
-        if type(triples) == tuple:
-            triples, alternative_subject_mentions, alternative_object_mentions = triples
         dataset._indexes[name] = KvsAllIndex(triples, key_cols, value_col, list)
 
     dataset.config.log(
