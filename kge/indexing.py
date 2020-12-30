@@ -1,7 +1,9 @@
 import torch
 import numba
 import numpy as np
-from typing import Iterator, List, Tuple
+from typing import Iterator, List, Tuple, Dict
+
+from kge.olp_dataset import OLPDataset
 
 
 class KvsAllIndex:
@@ -21,8 +23,6 @@ class KvsAllIndex:
         key_cols: List,
         value_col: int,
         default_factory: type,
-        alternative_subject_mentions: torch.Tensor = None,
-        alternative_object_mentions: torch.Tensor = None,
     ):
         """
         Args:
@@ -98,6 +98,50 @@ class KvsAllIndex:
             ]
         return torch.from_numpy(triples_sorted)
 
+class OLPKvsAllIndex(KvsAllIndex):
+    """Construct an index from keys (e.g., sp) to all its values (o), also considering alternative mentions.
+
+    Keys are tuples, values are PyTorch tensors.
+
+    Internally stores list of unique keys, list of values, and starting offset of each
+    key in values in PyTorch tensors. Access by key is enabled using an index on top of
+    these tensors.
+
+    """
+
+    def __init__(
+            self,
+            triples: torch.Tensor,
+            alternative_mentions: Dict,
+            length: int,
+            key_cols: List,
+            value_col: int,
+            default_factory: type
+    ):
+        """
+        Args:
+            triples: data
+            alternative_mentions: alternative mentions for the value_col
+            length: nr of alternative mentions
+            key_cols: the two columns used as keys
+            value_col: column used as value
+            default_factory: default return type
+        """
+        super.__init__(triples, key_cols, value_col, default_factory)
+
+        if length > self._values.size()[0]:
+            all_values = np.empty(length, dtype=int)
+            offsets = np.empty(self._values_offset.size()[0], dtype=int)
+            index = 0
+            for i in range(self._values_offset.size()[0] - 1):
+                offsets[i] = index
+                key = self._keys[i]
+                for j in range(i, self._values_offset[i + 1]):
+                    alternatives = alternative_mentions[tuple(key, self._values(i + j))]
+                    all_values[index:index + len(alternatives)] = alternatives
+                    index += len(alternatives)
+            self._values = all_values
+            self._values_offset = offsets
 
 def index_KvsAll(dataset: "Dataset", split: str, key: str):
     """Return an index for the triples in split (''train'', ''valid'', ''test'')
@@ -129,6 +173,16 @@ def index_KvsAll(dataset: "Dataset", split: str, key: str):
 
     name = split + "_" + key + "_to_" + value
     if not dataset._indexes.get(name):
+        # if isinstance(dataset, OLPDataset) and value_col != 1:
+        #     triples, alternative_subject_mentions, alternative_object_mentions = dataset.split_olp(split)
+        #     if value_col == 0:
+        #         alternative_mentions = alternative_subject_mentions
+        #         nr = dataset.nr_alternative_subjects(split)
+        #     else:
+        #         alternative_mentions = alternative_object_mentions
+        #         nr = dataset.nr_alternative_objects(split)
+        #     dataset._indexes[name] = OLPKvsAllIndex(triples, alternative_mentions, nr, key_cols, value_col, list)
+        # else:
         triples = dataset.split(split)
         dataset._indexes[name] = KvsAllIndex(triples, key_cols, value_col, list)
 

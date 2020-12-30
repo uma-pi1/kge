@@ -10,6 +10,7 @@ import pandas as pd
 import pickle
 import inspect
 from kge.dataset import Dataset
+import time
 
 from kge import Config, Configurable
 import kge.indexing
@@ -63,8 +64,10 @@ class OLPDataset(Dataset):
         self._mentions_to_token_ids: Dict[str, Tensor] = {}
 
         # Tensors containing the alternative mentions for subjects and objects
-        self._alternative_subject_mentions: Dict[str, Tensor] = {}
-        self._alternative_object_mentions: Dict[str, Tensor] = {}
+        self._alternative_subject_mentions: Dict[str, Dict] = {}
+        self._alternative_object_mentions: Dict[str, Dict] = {}
+        self._nr_alternative_subjects: Dict[str, Int] = {}
+        self._nr_alternative_objects: Dict[str, Int] = {}
 
         # TODO: Check indexing and how it comes up in the remaining pipeline. Create new indizes as necessary.
         self.index_functions: Dict[str, Callable] = {}
@@ -129,6 +132,23 @@ class OLPDataset(Dataset):
             self.relation_mentions_to_token_ids()
         return self._max_tokens_per_relation
 
+    # Return the number of alternative subject mentions for a key
+    def nr_alternative_subjects(self, key: str) -> int:
+        "Return the number of alternative subjects for the given key in the OLP dataset."
+        if not key in self._nr_alternative_subjects.keys() or self._nr_alternative_subjects[key] is None:
+            self._nr_alternative_subjects[key] = sum(
+                len(value) for value in self._alternative_subject_mentions[key].values())
+        return self._nr_alternative_subjects[key]
+
+        # Return the number of alternative object mentions for a key
+
+    def nr_alternative_objects(self, key: str) -> int:
+        "Return the number of alternative objects for the given key in the OLP dataset."
+        if not key in self._nr_alternative_objects.keys() or self._nr_alternative_objects[key] is None:
+            self._nr_alternative_objects[key] = sum(
+                len(value) for value in self._alternative_object_mentions[key].values())
+        return self._nr_alternative_objects[key]
+
     # adjusted super method to get token id mappings for entities
     def entity_token_ids(
             self, indexes: Optional[Union[int, Tensor]] = None
@@ -158,7 +178,7 @@ class OLPDataset(Dataset):
             self._max_tokens_per_entity = actual_max
         return self._mentions_to_token_ids["entities"]
 
-    # create mappings of relation mentions to a series of token ids
+    # create mappings of relation mentions to a series of token ids_nr_alternative_subjects
     def relation_mentions_to_token_ids(self):
         if "relations" not in self._alternative_object_mentions:
             map_, actual_max = self.load_token_sequences("relation_id_token_ids", self._num_relations,
@@ -249,26 +269,28 @@ class OLPDataset(Dataset):
                     "Unexpected file type: "
                     f"dataset.files.{key}.type='{filetype}', expected 'triples' or 'quintuples'"
                 )
-            triples, alternative_subjects, alternative_objects = OLPDataset._load_quintuples(
+            triples, alternative_subjects, alternative_objects, num_subjects, num_objects = OLPDataset._load_quintuples(
                 os.path.join(self.folder, filename),
-                filetype,
+                key,
                 use_pickle=self.config.get("dataset.pickle"),
             )
             self.config.log(f"Loaded {len(triples)} {key} {filetype}")
             self._triples[key] = triples
             self._alternative_subject_mentions[key] = alternative_subjects
             self._alternative_object_mentions[key] = alternative_objects
+            self._nr_alternative_subjects[key] = num_subjects
+            self._nr_alternative_objects[key] = num_objects
 
         return self._triples[key], self._alternative_subject_mentions[key], self._alternative_object_mentions[key]
 
     @staticmethod
     def _load_quintuples(
             filename: str,
-            filetype: str,
+            key: str,
             col_delimiter="\t",
             id_delimiter=" ",
-            use_pickle=False) -> Tuple[Tensor, Tensor, Tensor]:
-        # TODO: add pickle support
+            use_pickle=False) -> Tuple[Tensor, Dict, Dict, Int, Int]:
+        # TODO: revise pickle support for new alternative subjects / objects data structure
 
         """
         Read the tuples and alternative mentions from the specified file.
@@ -290,49 +312,42 @@ class OLPDataset(Dataset):
                                                                            alternative_object_mention_pickle_filename,
                                                                            filename)
             if triples is not None and alternative_subject_mentions is not None and alternative_object_mentions is not None:
-                return torch.from_numpy(triples), torch.from_numpy(alternative_subject_mentions), torch.from_numpy(
-                    alternative_object_mentions)
+                return torch.from_numpy(triples), alternative_subject_mentions, alternative_object_mentions, None, None
                 # numpy loadtxt is very slow, use pandas instead
         data = pd.read_csv(
             filename, sep=col_delimiter, header=None, usecols=range(0, 5)
         )
-        triples = data.iloc[:, [0, 1, 2]].to_numpy()
-        if filetype == "triples":
-            alternative_subject_mentions = triples[:, 0]
-            alternative_object_mentions = triples[:, 2]
-        else:
-            subject_mentions = [None] * len(data.index)
-            object_mentions = [None] * len(data.index)
-            max_subject_mentions = 0
-            max_object_mentions = 0
-            for i, (subject, object) in enumerate(data.iloc[:, [3, 4]].values.tolist()):
-                # TODO: revise for validation_all and validation_linked
-                if isinstance(subject, str):
-                    subject = subject.split(id_delimiter)  # split in case alternative subjects or objects are strings
-                else:
-                    subject = [subject]
-                if isinstance(object, str):
-                    object = object.split(id_delimiter)
-                else:
-                    object = [object]
-                subject_mentions[i] = subject
-                max_subject_mentions = max(max_subject_mentions, len(subject))
-                object_mentions[i] = object
-                max_object_mentions = max(max_object_mentions, len(object))
+        triples = np.empty((data.shape[0], 3), int)
 
-            alternative_subject_mentions = np.zeros([triples.shape[0], max_subject_mentions], dtype=int)
-            alternative_object_mentions = np.zeros([triples.shape[0], max_object_mentions], dtype=int)
-            for i, (subject_mention, object_mention) in enumerate(zip(subject_mentions, object_mentions)):
-                alternative_subject_mentions[i][0:len(subject_mention)] = subject_mention
-                alternative_object_mentions[i][0:len(object_mention)] = object_mention
+        alternative_subject_mentions: Dict[tuple, List] = {}
+        alternative_object_mentions: Dict[tuple, List] = {}
+        sum_subject_mentions = 0
+        sum_object_mentions = 0
+        i = 0
+        for (sub, pred, obj, alt_subject, alt_object) in zip(data[0], data[1], data[2], data[3], data[4]):
+            if isinstance(alt_subject, str):
+                alt_subjects = [int(i) for i in alt_subject.split(id_delimiter)]
+            else:
+                alt_subjects = [alt_subject]
+            if isinstance(alt_object, str):
+                alt_objects = [int(i) for i in alt_object.split(id_delimiter)]
+            else:
+                alt_objects = [alt_object]
+            entry = (sub, pred, obj)
+            triples[i] = entry
+            alternative_subject_mentions[entry] = alt_subjects
+            sum_subject_mentions += len(alt_subjects)
+            alternative_object_mentions[entry] = alt_objects
+            sum_object_mentions += len(alt_objects)
+            i += 1
 
         if use_pickle:
             Dataset._pickle_dump_atomic(triples, pickle_filename)
             Dataset._pickle_dump_atomic(alternative_subject_mentions, alternative_subject_mention_pickle_filename)
             Dataset._pickle_dump_atomic(alternative_object_mentions, alternative_object_mention_pickle_filename)
 
-        return torch.from_numpy(triples), torch.from_numpy(alternative_subject_mentions), torch.from_numpy(
-            alternative_object_mentions)
+        return torch.from_numpy(triples), alternative_subject_mentions, alternative_object_mentions, \
+               sum_subject_mentions, sum_object_mentions\
 
     # adjusted super method to also copy new OLPDataset variables
     def shallow_copy(self):
