@@ -23,22 +23,16 @@ class UnigramPoolingEmbedder(KgeEmbedder):
 
         self.dim = self.get_option("dim")
         self.sparse = self.get_option("sparse")
-        self.pooling = self.get_option("pooling")  # TODO: add several pooling options such as 'sum', max, etc.
+        self.pooling = self.get_option("pooling")
         # TODO: Add entity and relation dropout later
         #self.entity_dropout = entity_dropout if entity_dropout else dropout
         #self.relation_dropout = relation_dropout if relation_dropout else dropout
 
-        '''
-            if self.pool == 'max':
-            elif self.pool == 'mean':
-            if self.normalize == 'norm':
-            if self.normalize == 'batchnorm':
-        '''
-
-
-        # each token is mapped to an n-dimensional embedding vector
-        num_tokens = None   # TODO: get number of tokens
-        self._embeddings = torch.nn.Embedding(num_tokens, self.dim, sparse=self.sparse,)
+        if "relation" in self.configuration_key: # Todo: remove + 2 when tokens BOF (1) and EOF (2) are removed from dataset
+            self._embeddings = torch.nn.Embedding(self.dataset.num_tokens_relations(), self.dim + 2, sparse=self.sparse)
+        elif "entity" in self.configuration_key:
+            self._embeddings = torch.nn.Embedding(self.dataset.num_tokens_entities(), self.dim + 2, sparse=self.sparse)
+        #self._embeddings = torch.nn.Embedding(vocab_size, self.dim, sparse=self.sparse)
 
 
         dropout = self.get_option("dropout")
@@ -50,3 +44,48 @@ class UnigramPoolingEmbedder(KgeEmbedder):
                 )
                 dropout = 0
         self.dropout = torch.nn.Dropout(dropout)
+
+        # Training:
+        # input: quintuples s,r,o, s_a,o_a (indices)
+        # s,r,o -> s,r,o tokens
+        # pooling (max, sum,...)
+        # token embeddings
+
+        # embed input: subject indices
+        # How to distinguish entity and relation embedder?
+
+    def map_to_tokens(self, indexes: Tensor) -> Tensor:
+        if "relation" in self.configuration_key:
+            #token_indexes = self.dataset._mentions_to_token_ids['relations'][indexes]
+            token_indexes = self.dataset.relation_mentions_to_token_ids()[indexes]
+        elif "entity" in self.configuration_key:
+            token_indexes = self.dataset.entity_mentions_to_token_ids()[indexes]
+            #token_indexes = self.dataset._mentions_to_token_ids['entities'][indexes]
+        return token_indexes
+
+    def embed(self, indexes: Tensor) -> Tensor:
+        # Todo: check if 1 and 2 are omitted beforehand (in OLPDataset)
+        token_indexes = self.map_to_tokens(indexes) #[:,1:-1] # How to handle beginning and end for a relation([1,...2])? Omit for now
+        # lookup all tokens -> token embeddings with
+        # expected shape: 3D tensor (batch_size, max_tokens, dim=100)
+        token_embeddings = self._embeddings(token_indexes)
+
+        # pooling on token embeddings
+        if self.pooling == 'max':  # should reduce dimensions to (batch_size, dim)
+            token_embeddings = token_embeddings.max(dim=1).values
+        elif self.pooling == 'mean':
+            lengths = (token_indexes > 0).sum(dim=1)
+            token_embeddings = token_embeddings.sum(dim=1) / lengths.unsqueeze(1)
+        elif self.pooling == 'sum':
+            token_embeddings.sum(dim=1)
+        else:
+            raise NotImplementedError
+
+        #if self.normalize == 'norm':
+        #    token_embeddings = torch.nn.functional.normalize(token_embeddings, dim=1) # l_p normalization
+        #if self.normalize == 'batchnorm':
+        #if dropout > 0:
+        return token_embeddings
+
+    def embed_all(self) -> Tensor:
+        return None
