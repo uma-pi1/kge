@@ -91,11 +91,6 @@ class OLPDataset(Dataset):
             # create mappings of entity ids to a series of token ids
             dataset.entity_mentions_to_token_ids()
             dataset.relation_mentions_to_token_ids()
-
-            # create shared list of all tokens for entities and relations
-            # TODO: decide about tokens:  None, ['unseen'], ['begin'], ['end']
-            dataset.all_tokens = list(set(dataset.entity_token_ids()[4:] + dataset.relation_token_ids()[4:]))
-
             for split in ["train", "valid", "test"]:
                 dataset.split_olp(split)
 

@@ -1,9 +1,13 @@
 import: [lookup_embedder]
 
-projection_embedder:
+unigram_pooling_embedder:
   class_name: UnigramPoolingEmbedder
   base_embedder:
-    type: token_embedder
+    type: lookup_embedder
+    #type: token_embedder
     +++: +++
   # Dimensionality of the embedding
   dim: 100
+  sparse: False
+  pooling: "max"  # "max", "sum", "mean"
+  dropout: False
