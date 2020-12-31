@@ -528,7 +528,7 @@ If you use LibKGE, please cite the following publication:
 @inproceedings{
   libkge,
   title="{L}ib{KGE} - {A} Knowledge Graph Embedding Library for Reproducible Research",
-  author={Samuel Broscheit and Daniel Ruffinelli and Adrian Kochsiek and Patrick Betz and Rainer Gemulla}",
+  author={Samuel Broscheit and Daniel Ruffinelli and Adrian Kochsiek and Patrick Betz and Rainer Gemulla},
   booktitle={Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing: System Demonstrations},
   year={2020},
   url={https://www.aclweb.org/anthology/2020.emnlp-demos.22},
