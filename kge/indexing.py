@@ -109,7 +109,8 @@ class OLPKvsAllIndex(KvsAllIndex):
     def __init__(
             self,
             triples: torch.Tensor,
-            alternative_mentions: Dict,
+            triple_indexes: Dict,
+            alternative_mentions: List,
             length: int,
             key_cols: List,
             value_col: int,
@@ -150,9 +151,9 @@ class OLPKvsAllIndex(KvsAllIndex):
             for i in range(values_offset.size()[0] - 1):
                 offsets[i] = index
                 for j in range(values_offset[i], values_offset[i + 1]):
-                    alternatives = alternative_mentions[tuple(triples_sorted[j].numpy())]
-                    all_values[index:index + len(alternatives)] = alternatives
-                    index += len(alternatives)
+                    alternatives = alternative_mentions[triple_indexes[tuple(triples_sorted[j].numpy())]].view(-1, 4)[:, 3]
+                    all_values[index:index + alternatives.shape[0]] = alternatives.numpy()
+                    index += alternatives.shape[0]
             offsets[len(offsets) - 1] = index
             self._values_offset = torch.from_numpy(offsets)
             self._values = torch.from_numpy(all_values)
@@ -203,7 +204,7 @@ def index_KvsAll(dataset: "Dataset", split: str, key: str):
             else:
                 alternative_mentions = alternative_object_mentions
                 nr = dataset.nr_alternative_objects(split)
-            dataset._indexes[name] = OLPKvsAllIndex(triples, alternative_mentions, nr, key_cols, value_col, list)
+            dataset._indexes[name] = OLPKvsAllIndex(triples, dataset._triple_indexes[split], alternative_mentions, nr, key_cols, value_col, list)
         else:
             triples = dataset.split(split)
             dataset._indexes[name] = KvsAllIndex(triples, key_cols, value_col, list)
