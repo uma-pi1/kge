@@ -32,6 +32,8 @@ class OLPEntityRankingJob(EntityRankingJob):
 
     def _collate(self, batch):
         "Looks up true triples for each triple in the batch"
+        split = self.config.get("eval.split")
+
         label_coords = []
 
         batch_data = torch.index_select(self.triples, 0, torch.tensor(batch))
@@ -59,8 +61,8 @@ class OLPEntityRankingJob(EntityRankingJob):
         # batch_data = torch.cat(batch_data).reshape((-1, 3))
 
         alternative_subject_mentions = torch.cat(
-            itemgetter(*batch)(self.dataset._alternative_subject_mentions["valid"]))
-        alternative_object_mentions = torch.cat(itemgetter(*batch)(self.dataset._alternative_object_mentions["valid"]))
+            itemgetter(*batch)(self.dataset._alternative_subject_mentions[split]))
+        alternative_object_mentions = torch.cat(itemgetter(*batch)(self.dataset._alternative_object_mentions[split]))
 
         return batch_data, label_coords, test_label_coords, alternative_subject_mentions, alternative_object_mentions
 
