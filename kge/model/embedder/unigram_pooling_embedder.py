@@ -48,9 +48,9 @@ class UnigramPoolingEmbedder(KgeEmbedder):
 
     def embed(self, indexes: Tensor) -> Tensor:
         if "relation" in self.configuration_key:
-            token_indexes = self.dataset.relation_mentions_to_token_ids()[indexes]
+            token_indexes = self.dataset.relation_mentions_to_token_ids()[indexes].to(self.config.get("job.device"))
         elif "entity" in self.configuration_key:
-            token_indexes = self.dataset.entity_mentions_to_token_ids()[indexes]
+            token_indexes = self.dataset.entity_mentions_to_token_ids()[indexes].to(self.config.get("job.device"))
         else:
             raise NotImplementedError
         # Todo: check if 1 and 2 are omitted beforehand (in OLPDataset)
@@ -79,10 +79,10 @@ class UnigramPoolingEmbedder(KgeEmbedder):
     def embed_all(self) -> Tensor:
         # Todo: remove + 3 for tokens [Unseen]: 0, [begin]: 1 and [end]: 2
         if "relation" in self.configuration_key:
-            token_indexes = self.dataset._mentions_to_token_ids["relations"]
+            token_indexes = self.dataset._mentions_to_token_ids["relations"].to(self.config.get("job.device"))
 
         elif "entity" in self.configuration_key:
-            token_indexes = self.dataset._mentions_to_token_ids["entities"]
+            token_indexes = self.dataset._mentions_to_token_ids["entities"].to(self.config.get("job.device"))
         else:
             raise NotImplementedError
 
