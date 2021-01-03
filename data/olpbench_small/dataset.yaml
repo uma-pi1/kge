@@ -30,3 +30,5 @@ dataset:
   files.valid.filename: validation_data_linked.del
   files.valid.size: 10
   files.valid.type: quintuples
+
+  filter_start_and_end_token: false

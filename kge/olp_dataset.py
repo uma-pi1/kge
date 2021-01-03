@@ -228,6 +228,8 @@ class OLPDataset(Dataset):
                     raise KeyError(f"{filename} contains duplicated keys")
                 used_keys.add(key)
                 split_ = value.split(token_delimiter)
+                if self.config.get("dataset.filter_start_and_end_token"):
+                    split_ = split_[1:len(split_) - 1]
                 actual_max = max(actual_max, len(split_))
                 if num_ids and max_tokens:
                     map_[key][0:len(split_)] = split_
@@ -269,7 +271,7 @@ class OLPDataset(Dataset):
                 )
             triples, triple_indexes, alternative_subjects, alternative_objects, num_subjects, num_objects = OLPDataset._load_quintuples(
                 os.path.join(self.folder, filename),
-                key,
+                filetype,
                 use_pickle=self.config.get("dataset.pickle"),
             )
             self.config.log(f"Loaded {len(triples)} {key} {filetype}")
@@ -285,7 +287,7 @@ class OLPDataset(Dataset):
     @staticmethod
     def _load_quintuples(
             filename: str,
-            key: str,
+            filetype: str,
             col_delimiter="\t",
             id_delimiter=" ",
             use_pickle=False) -> Tuple[Tensor, Dict, List, List, Int, Int]:
@@ -312,49 +314,51 @@ class OLPDataset(Dataset):
                                                                            alternative_object_mention_pickle_filename,
                                                                            filename)
             if triples is not None and triple_indexes is not None and alternative_subject_mentions is not None and alternative_object_mentions is not None:
-                return torch.from_numpy(triples), triple_indexes, alternative_subject_mentions, alternative_object_mentions, None, None
+                    triples), triple_indexes, alternative_subject_mentions, alternative_object_mentions, None, None
                 # numpy loadtxt is very slow, use pandas instead
         data = pd.read_csv(
             filename, sep=col_delimiter, header=None, usecols=range(0, 5)
         )
-        triples = np.empty((data.shape[0], 3), int)
         triple_indexes: Dict[tuple, int] = {}
-
-        alternative_subject_mentions = [None] * data.shape[0]
-        alternative_object_mentions = [None] * data.shape[0]
-        sum_subject_mentions = 0
-        sum_object_mentions = 0
-        i = 0
-        for (sub, pred, obj, alt_subject, alt_object) in zip(data[0], data[1], data[2], data[3], data[4]):
-            if isinstance(alt_subject, str):
+        if filetype == "triples":
+            triples = torch.tensor(data.loc[:, 0:2].values)
+            alternative_subject_mentions = list(torch.split(torch.cat([triples, triples[:, 0].view(-1, 1)], dim=1), 1))
+            alternative_object_mentions = list(torch.split(torch.cat([triples, triples[:, 2].view(-1, 1)], dim=1), 1))
+            sum_subject_mentions = triples.shape[0]
+            sum_object_mentions = triples.shape[0]
+        else:
+            triples = np.empty((data.shape[0], 3), int)
+            alternative_subject_mentions = [None] * data.shape[0]
+            alternative_object_mentions = [None] * data.shape[0]
+            sum_subject_mentions = 0
+            sum_object_mentions = 0
+            i = 0
+            for (sub, pred, obj, alt_subject, alt_object) in zip(data[0], data[1], data[2], data[3], data[4]):
                 alt_subjects = [int(i) for i in alt_subject.split(id_delimiter)]
-            else:
-                alt_subjects = [alt_subject]
-            if isinstance(alt_object, str):
                 alt_objects = [int(i) for i in alt_object.split(id_delimiter)]
-            else:
-                alt_objects = [alt_object]
-            entry = (sub, pred, obj)
-            triples[i] = entry
-            triple_indexes[entry] = i
+                entry = (sub, pred, obj)
+                triples[i] = entry
+                triple_indexes[entry] = i
 
-            # build data structure for alternative mentions of Tensor (n * 4)
-            # n = nr triples, columns: subject, predicate, object, alternative mentions
-            if len(alt_subjects) == 1:
-                alternative_subject_mentions[i] = torch.tensor([sub, pred, obj, *alt_subjects], dtype=int).view(-1, 4)
-            else:
-                alternative_subject_mentions[i] = torch.cat(
-                    [torch.as_tensor(entry, dtype=int).repeat((len(alt_subjects), 1)),
-                     torch.as_tensor(alt_subjects).view(-1, 1)], dim=1)
-            sum_subject_mentions += len(alt_subjects)
-            if len(alt_objects) == 1:
-                alternative_object_mentions[i] = torch.tensor([sub, pred, obj, *alt_objects], dtype=int).view(-1, 4)
-            else:
-                alternative_object_mentions[i] = torch.cat(
-                    [torch.as_tensor(entry, dtype=int).repeat((len(alt_objects), 1)),
-                     torch.as_tensor(alt_objects).view(-1, 1)], dim=1)
-            sum_object_mentions += len(alt_objects)
-            i += 1
+                # build data structure for alternative mentions of Tensor (n * 4)
+                # n = nr triples, columns: subject, predicate, object, alternative mentions
+                if len(alt_subjects) == 1:
+                    alternative_subject_mentions[i] = torch.tensor([sub, pred, obj, *alt_subjects], dtype=int).view(-1,
+                                                                                                                    4)
+                else:
+                    alternative_subject_mentions[i] = torch.cat(
+                        [torch.as_tensor(entry, dtype=int).repeat((len(alt_subjects), 1)),
+                         torch.as_tensor(alt_subjects).view(-1, 1)], dim=1)
+                sum_subject_mentions += len(alt_subjects)
+                if len(alt_objects) == 1:
+                    alternative_object_mentions[i] = torch.tensor([sub, pred, obj, *alt_objects], dtype=int).view(-1, 4)
+                else:
+                    alternative_object_mentions[i] = torch.cat(
+                        [torch.as_tensor(entry, dtype=int).repeat((len(alt_objects), 1)),
+                         torch.as_tensor(alt_objects).view(-1, 1)], dim=1)
+                sum_object_mentions += len(alt_objects)
+                i += 1
+            triples = torch.from_numpy(triples)
 
         if use_pickle:
             Dataset._pickle_dump_atomic(triples, pickle_filename)
@@ -362,8 +366,7 @@ class OLPDataset(Dataset):
             Dataset._pickle_dump_atomic(alternative_subject_mentions, alternative_subject_mention_pickle_filename)
             Dataset._pickle_dump_atomic(alternative_object_mentions, alternative_object_mention_pickle_filename)
 
-        return torch.from_numpy(triples), triple_indexes, alternative_subject_mentions, alternative_object_mentions, \
-               sum_subject_mentions, sum_object_mentions
+        return triples, triple_indexes, alternative_subject_mentions, alternative_object_mentions, sum_subject_mentions, sum_object_mentions
 
     # adjusted super method to also copy new OLPDataset variables
     def shallow_copy(self):
