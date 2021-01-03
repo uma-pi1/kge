@@ -24,10 +24,10 @@ class UnigramPoolingEmbedder(KgeEmbedder):
         #self.entity_dropout = entity_dropout if entity_dropout else dropout
         #self.relation_dropout = relation_dropout if relation_dropout else dropout
 
-        if "relation" in self.configuration_key: # Todo: remove + 3 for tokens [Unseen]: 0, [begin]: 1 and [end]: 2
-            self._embeddings = torch.nn.Embedding(self.dataset.num_tokens_relations() + 3, self.dim, sparse=self.sparse)
+        if "relation" in self.configuration_key:
+            self._embeddings = torch.nn.Embedding(self.dataset.num_tokens_relations(), self.dim, sparse=self.sparse)
         elif "entity" in self.configuration_key:
-            self._embeddings = torch.nn.Embedding(self.dataset.num_tokens_entities() + 3, self.dim, sparse=self.sparse)
+            self._embeddings = torch.nn.Embedding(self.dataset.num_tokens_entities(), self.dim, sparse=self.sparse)
 
 
         dropout = self.get_option("dropout")
@@ -53,8 +53,6 @@ class UnigramPoolingEmbedder(KgeEmbedder):
             token_indexes = self.dataset.entity_mentions_to_token_ids()[indexes].to(self.config.get("job.device"))
         else:
             raise NotImplementedError
-        # Todo: check if 1 and 2 are omitted beforehand (in OLPDataset)
-        #token_indexes = self.map_to_tokens(indexes) #[:,1:-1] # How to handle beginning and end for a relation([1,...2])? Omit for now
 
         # lookup all tokens -> token embeddings with expected shape: 3D tensor (batch_size, max_tokens, dim)
         token_embeddings = self._embed(token_indexes)
@@ -77,7 +75,6 @@ class UnigramPoolingEmbedder(KgeEmbedder):
 
     # return the pooled token entity/relation embedding vectors
     def embed_all(self) -> Tensor:
-        # Todo: remove + 3 for tokens [Unseen]: 0, [begin]: 1 and [end]: 2
         if "relation" in self.configuration_key:
             token_indexes = self.dataset._mentions_to_token_ids["relations"].to(self.config.get("job.device"))
 
@@ -96,4 +93,4 @@ class UnigramPoolingEmbedder(KgeEmbedder):
             pooled_embeddings = token_embeddings.sum(dim=1)
         else:
             raise NotImplementedError
-        return pooled_embeddings  # Todo: put to device with: .cuda()
+        return pooled_embeddings
