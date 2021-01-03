@@ -314,7 +314,7 @@ class OLPDataset(Dataset):
                                                                            alternative_object_mention_pickle_filename,
                                                                            filename)
             if triples is not None and triple_indexes is not None and alternative_subject_mentions is not None and alternative_object_mentions is not None:
-                    triples), triple_indexes, alternative_subject_mentions, alternative_object_mentions, None, None
+                return torch.from_numpy(triples), triple_indexes, alternative_subject_mentions, alternative_object_mentions, None, None
                 # numpy loadtxt is very slow, use pandas instead
         data = pd.read_csv(
             filename, sep=col_delimiter, header=None, usecols=range(0, 5)
