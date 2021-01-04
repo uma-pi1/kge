@@ -48,9 +48,9 @@ class UnigramPoolingEmbedder(KgeEmbedder):
 
     def embed(self, indexes: Tensor) -> Tensor:
         if "relation" in self.configuration_key:
-            token_indexes = self.dataset.relation_mentions_to_token_ids()[indexes].to(self.config.get("job.device"))
+            token_indexes = self.dataset._mentions_to_token_ids["relations"][indexes].to(self.config.get("job.device"))
         elif "entity" in self.configuration_key:
-            token_indexes = self.dataset.entity_mentions_to_token_ids()[indexes].to(self.config.get("job.device"))
+            token_indexes = self.dataset._mentions_to_token_ids["entities"][indexes].to(self.config.get("job.device"))
         else:
             raise NotImplementedError
 
