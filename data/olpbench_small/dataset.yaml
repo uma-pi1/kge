@@ -1,0 +1,34 @@
+dataset:
+  files.entity_ids.filename: entity_id_map.del
+  files.entity_ids.type: map
+  files.relation_ids.filename: relation_id_map.del
+  files.relation_ids.type: map
+  files.entity_token_ids.filename: entity_token_id_map.del
+  files.entity_token_ids.type: map
+  files.relation_token_ids.filename: relation_token_id_map.del
+  files.relation_token_ids.type: map
+  files.entity_id_token_ids.filename: entity_id_tokens_ids_map.del
+  files.entity_id_token_ids.type: sequence_map
+  files.relation_id_token_ids.filename: relation_id_tokens_ids_map.del
+  files.relation_id_token_ids.type: sequence_map
+
+  name: olpbench-small
+  num_entities: 367
+  num_relations: 142
+  num_tokens_entities: 491
+  num_tokens_relations: 195
+  max_tokens_per_entity: 7
+  max_tokens_per_relation: 9
+
+  files.test.filename: test_data.del
+  files.test.size: 10
+  files.test.type: quintuples
+  files.train.filename: train_data_basic.del
+  files.train.size: 126
+  files.train.type: triples
+  #files.valid.filename: validation_data_all.del
+  files.valid.filename: validation_data_linked.del
+  files.valid.size: 10
+  files.valid.type: quintuples
+
+  filter_start_and_end_token: true

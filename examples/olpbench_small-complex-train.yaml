@@ -1,5 +1,5 @@
 job.type: train
-dataset.name: olpbench100
+dataset.name: olpbench_small
 
 train:
   optimizer: Adagrad
@@ -21,4 +21,4 @@ lookup_embedder:
       std: 0.1
 
 eval:
-  type: entity_ranking
+  type: olp_entity_ranking

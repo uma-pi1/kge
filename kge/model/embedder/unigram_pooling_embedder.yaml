@@ -1,0 +1,24 @@
+import: [lookup_embedder]
+
+unigram_pooling_embedder:
+  class_name: UnigramPoolingEmbedder
+  base_embedder:
+    type: lookup_embedder
+    #type: token_embedder
+    +++: +++
+
+  # Dimensionality of the embeddings
+  # Todo: different dimensions for token embeddings
+  # token_emb_dim: 128
+  dim: 100
+  sparse: False
+  pooling: "max"  # "max", "sum", "mean"
+  dropout: False
+
+  # Todo: check if possible and required
+  regularize: 'lp'              # '', 'lp'
+  regularize_weight: 0.0
+  regularize_args:
+    p: 2.0
+    weighted: False
+    +++: +++

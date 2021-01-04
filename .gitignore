@@ -3,6 +3,8 @@
 local/*
 !local/README
 /data/*
+!/data/olpbench_small/
+/data/olpbench_small/*.pckl
 !data/olpbench100/
 /data/olpbench100/*.pckl
 !data/*.sh
@@ -21,3 +23,15 @@ docs/_build
 !/docs/examples/dump-example-search.csv
 /.projectile
 /tests/data/dataset_test/*.pckl
+data/olpbench100/.DS_Store
+data/olpbench100/entities.del
+data/olpbench100/id_mapping.py
+data/olpbench100/main.py
+data/olpbench100/relations.del
+data/olpbench100/test_data.del
+data/olpbench100/train_data_basic.del
+data/olpbench100/train_data_simple.del
+data/olpbench100/train_data_thorough.del
+data/olpbench100/validation_data_all.del
+data/olpbench100/validation_data_linked.del
+data/olpbench100/validation_data_linked_mention.del

@@ -1,10 +1,13 @@
-import: [lookup_embedder]
+#import: [lookup_embedder]
+import: [unigram_pooling_embedder]
 
 complex:
   class_name: ComplEx
   entity_embedder:
-    type: lookup_embedder
+    type: unigram_pooling_embedder
+    #type: lookup_embedder
     +++: +++
   relation_embedder:
-    type: lookup_embedder
+    type: unigram_pooling_embedder
+    #type: lookup_embedder
     +++: +++

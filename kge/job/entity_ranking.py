@@ -180,8 +180,7 @@ class EntityRankingJob(EvaluationJob):
 
             # compute true scores beforehand, since we can't get them from a chunked
             # score table
-            o_true_scores = self.model.score_spo(s, p, o, "o").view(-1)
-            s_true_scores = self.model.score_spo(s, p, o, "s").view(-1)
+            o_true_scores, s_true_scores = self.compute_true_scores(batch_coords)
 
             # default dictionary storing rank and num_ties for each key in rankings
             # as list of len 2: [rank, num_ties]
@@ -432,6 +431,13 @@ class EntityRankingJob(EvaluationJob):
         self.current_trace["epoch"].update(
             dict(epoch_time=epoch_time, event="eval_completed", **metrics,)
         )
+
+    def compute_true_scores(self, batch_coords):
+        batch = batch_coords[0].to(self.device)
+        s, p, o = batch[:, 0], batch[:, 1], batch[:, 2]
+        o_true_scores = self.model.score_spo(s, p, o, "o").view(-1)
+        s_true_scores = self.model.score_spo(s, p, o, "s").view(-1)
+        return o_true_scores, s_true_scores
 
     def _densify_chunk_of_labels(
         self, labels: torch.Tensor, chunk_start: int, chunk_end: int
