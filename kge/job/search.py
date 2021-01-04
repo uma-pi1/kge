@@ -201,14 +201,9 @@ def _run_train_job(sicnk, device=None):
 
         # record the best result of this job
         best["child_job_id"] = best["job_id"]
-        del (
-            best["job"],
-            best["job_id"],
-            best["type"],
-            best["parent_job_id"],
-            best["scope"],
-            best["event"],
-        )
+        for k in ["job", "job_id", "type", "parent_job_id", "scope", "event"]:
+            if k in best:
+                del best[k]
         search_job.trace(
             event="search_completed",
             echo=True,
