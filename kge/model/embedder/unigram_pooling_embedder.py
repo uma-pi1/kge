@@ -41,16 +41,16 @@ class UnigramPoolingEmbedder(KgeEmbedder):
         self.dropout = torch.nn.Dropout(dropout)
 
     def _embed(self, token_indexes: Tensor) -> Tensor:
-        return self._embeddings(token_indexes)
+        return self._embeddings(token_indexes.long())
 
     def _embeddings_all(self):
         return self._embeddings
 
     def embed(self, indexes: Tensor) -> Tensor:
         if "relation" in self.configuration_key:
-            token_indexes = self.dataset._mentions_to_token_ids["relations"][indexes].to(self.config.get("job.device"))
+            token_indexes = torch.nn.functional.embedding(indexes.long(), self.dataset._mentions_to_token_ids["relations"], 0, None, 0., False, True).view(indexes.size(0), -1)
         elif "entity" in self.configuration_key:
-            token_indexes = self.dataset._mentions_to_token_ids["entities"][indexes].to(self.config.get("job.device"))
+            token_indexes = torch.nn.functional.embedding(indexes.long(), self.dataset._mentions_to_token_ids["entities"], 0, None, 0., False, True).view(indexes.size(0), -1)
         else:
             raise NotImplementedError
 
