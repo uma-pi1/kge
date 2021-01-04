@@ -482,7 +482,7 @@ implementation `MyClass`, you need to:
    description of those keys. For example, in `myexp_config.yaml`, add:
 
    ```yaml
-   modules: [ kge.model, kge.model.embedder, mymodule ]
+   modules: [ kge.job, kge.model, kge.model.embedder, mymodule ]
    import: [ mycomp ]
    ```
 
