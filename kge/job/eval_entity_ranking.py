@@ -156,7 +156,7 @@ class EntityRankingJob(EvaluationJob):
 
             # construct a sparse label tensor of shape batch_size x 2*num_entities
             # entries are either 0 (false) or infinity (true)
-            # TODO add timing information
+
             batch = batch_coords[0].to(self.device)
             s, p, o = batch[:, 0], batch[:, 1], batch[:, 2]
             label_coords = batch_coords[1].to(self.device)
