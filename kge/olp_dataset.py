@@ -102,6 +102,14 @@ class OLPDataset(Dataset):
 
         return dataset
 
+    def vocab_size_entities(self) -> int:
+        "Return the number of embeddings for entities given the dataset."
+        return self.num_tokens_entities()
+
+    def vocab_size_relations(self) -> int:
+        "Return the number of embeddings for relations given the dataset."
+        return self.num_tokens_relations()
+
     # Return the number of tokens for entities in the OLP dataset
     def num_tokens_entities(self) -> int:
         "Return the number of tokens in the OLP dataset."
@@ -227,7 +235,7 @@ class OLPDataset(Dataset):
                 if used_keys.__contains__(key):
                     raise KeyError(f"{filename} contains duplicated keys")
                 used_keys.add(key)
-                split_ = value.split(token_delimiter)
+                split_ = [int(i) for i in value.split(token_delimiter)]
                 if self.config.get("dataset.filter_start_and_end_token"):
                     split_ = split_[1:len(split_) - 1]
                 actual_max = max(actual_max, len(split_))

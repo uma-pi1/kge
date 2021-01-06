@@ -441,6 +441,14 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
             self._num_relations = len(self.relation_ids())
         return self._num_relations
 
+    def vocab_size_entities(self) -> int:
+        "Return the number of embeddings for entities given the dataset."
+        return self.num_entities()
+
+    def vocab_size_relations(self) -> int:
+        "Return the number of relations for entities given the dataset."
+        return self.num_relations()
+
     def split(self, split: str) -> Tensor:
         """Return the split of the specified name.
 

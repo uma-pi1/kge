@@ -1,0 +1,27 @@
+# Stores explicitly an embedding for each object in a lookup table. See
+# https://pytorch.org/docs/stable/nn.html#torch.nn.Embedding
+unigram_lookup_embedder:
+  class_name: UnigramLookupEmbedder
+
+  # which pooling algorithm to use
+  pooling: "max"  # "max", "sum", "mean"
+
+  # for explanations of the following attributes, see lookup_embedder.yaml
+  dim: 100
+  initialize: normal_
+  initialize_args:
+    +++: +++
+  pretrain:
+      model_filename: ""
+      ensure_all: False
+  dropout: 0.
+  normalize:
+    p: -1.
+  regularize: 'lp'
+  regularize_weight: 0.0
+  regularize_args:
+    weighted: False
+    p: 2
+    +++: +++
+  sparse: False
+  round_dim_to: []
