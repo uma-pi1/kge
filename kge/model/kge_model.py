@@ -388,17 +388,16 @@ class KgeModel(KgeBase):
                 config,
                 dataset,
                 self.configuration_key + ".entity_embedder",
-                dataset.num_entities(),
+                dataset.vocab_size_entities(),
                 init_for_load_only=init_for_load_only,
             )
 
             #: Embedder used for relations
-            num_relations = dataset.num_relations()
             self._relation_embedder = KgeEmbedder.create(
                 config,
                 dataset,
                 self.configuration_key + ".relation_embedder",
-                num_relations,
+                dataset.vocab_size_relations(),
                 init_for_load_only=init_for_load_only,
             )
 

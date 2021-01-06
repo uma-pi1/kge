@@ -102,6 +102,14 @@ class OLPDataset(Dataset):
 
         return dataset
 
+    def vocab_size_entities(self) -> int:
+        "Return the number of embeddings for entities given the dataset."
+        return self.num_tokens_entities()
+
+    def vocab_size_relations(self) -> int:
+        "Return the number of embeddings for relations given the dataset."
+        return self.num_tokens_relations()
+
     # Return the number of tokens for entities in the OLP dataset
     def num_tokens_entities(self) -> int:
         "Return the number of tokens in the OLP dataset."

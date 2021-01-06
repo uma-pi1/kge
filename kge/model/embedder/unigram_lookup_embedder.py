@@ -32,7 +32,7 @@ class UnigramLookupEmbedder(MentionEmbedder):
         return pooled_embeddings
 
     def embed(self, indexes: Tensor) -> Tensor:
-        return self._pooling(super().embed(indexes), self._token_lookup)
+        return self._pooling(super().embed(indexes), self._token_lookup[indexes])
 
     # return the pooled token entity/relation embedding vectors
     def embed_all(self) -> Tensor:

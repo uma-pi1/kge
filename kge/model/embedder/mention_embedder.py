@@ -21,12 +21,6 @@ class MentionEmbedder(LookupEmbedder):
             vocab_size: int,
             init_for_load_only=False,
     ):
-
-        if "relation" in configuration_key:
-            vocab_size = dataset.num_tokens_relations()
-        elif "entity" in configuration_key:
-            vocab_size = dataset.num_tokens_entities()
-
         super().__init__(
             config, dataset, configuration_key, vocab_size, init_for_load_only=init_for_load_only)
 
@@ -34,7 +28,6 @@ class MentionEmbedder(LookupEmbedder):
             self._token_lookup = self.dataset._mentions_to_token_ids["relations"].to(self.config.get("job.device"))
         elif "entity" in self.configuration_key:
             self._token_lookup = self.dataset._mentions_to_token_ids["entities"].to(self.config.get("job.device"))
-
 
     def embed(self, indexes: Tensor) -> Tensor:
         token_indexes = self._token_lookup[indexes]
