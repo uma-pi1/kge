@@ -322,8 +322,8 @@ class OLPDataset(Dataset):
         triple_indexes: Dict[tuple, int] = {}
         if filetype == "triples":
             triples = torch.tensor(data.loc[:, 0:2].values)
-            alternative_subject_mentions = list(torch.split(torch.cat([triples, triples[:, 0].view(-1, 1)], dim=1), 1))
-            alternative_object_mentions = list(torch.split(torch.cat([triples, triples[:, 2].view(-1, 1)], dim=1), 1))
+            alternative_subject_mentions = []#list(torch.split(torch.cat([triples, triples[:, 0].view(-1, 1)], dim=1), 1))
+            alternative_object_mentions = []#list(torch.split(torch.cat([triples, triples[:, 2].view(-1, 1)], dim=1), 1))
             sum_subject_mentions = triples.shape[0]
             sum_object_mentions = triples.shape[0]
         else:
