@@ -67,7 +67,7 @@ class UnigramPoolingEmbedder(KgeEmbedder):
         token_indexes = self._token_lookup[indexes]
         # lookup all tokens -> token embeddings with expected shape: 3D tensor (batch_size, max_tokens, dim)
         token_embeddings = self._embed(token_indexes)
-        return self._pooling(token_embeddings, self._token_lookup)
+        return self._pooling(token_embeddings, token_indexes)
 
     # return the pooled token entity/relation embedding vectors
     def embed_all(self) -> Tensor:
