@@ -3,8 +3,6 @@ dataset.name: olpbench
 
 train:
   type: negative_sampling
-  batch_size: 4096
-  subbatch_auto_tune: True
   optimizer: Adagrad
   optimizer_args:
     lr: 0.2
@@ -12,19 +10,26 @@ train:
   lr_scheduler_args:
     mode: max
     patience: 4
+  batch_size: 4096
+  subbatch_auto_tune: True
 
 negative_sampling:
   implementation: batch
 
 model: complex
-lookup_embedder:
-  dim: 16
+unigram_pooling_embedder:
+  dim: 100
   regularize_weight: 0.8e-7
-  initialize: normal_
-  initialize_args:
-    normal_:
       mean: 0.0
       std: 0.1
 
+
 eval:
   type: olp_entity_ranking
+  batch_size: 500
+
+valid:
+  every: 1
+
+entity_ranking:
+  chunk_size: -1

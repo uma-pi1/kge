@@ -1,5 +1,6 @@
 import math
 import time
+import traceback
 
 import torch
 import kge.job
@@ -191,74 +192,103 @@ class EntityRankingJob(EvaluationJob):
                 ]
             )
 
-            # calculate scores in chunks to not have the complete score matrix in memory
-            # a chunk here represents a range of entity_values to score against
-            if self.config.get("entity_ranking.chunk_size") > -1:
-                chunk_size = self.config.get("entity_ranking.chunk_size")
-            else:
-                chunk_size = self.dataset.num_entities()
-
-            # process chunk by chunk
-            for chunk_number in range(math.ceil(num_entities / chunk_size)):
-                chunk_start = chunk_size * chunk_number
-                chunk_end = min(chunk_size * (chunk_number + 1), num_entities)
-
-                # compute scores of chunk
-                scores = self.model.score_sp_po(
-                    s, p, o, torch.arange(chunk_start, chunk_end).to(self.device)
-                )
-                scores_sp = scores[:, : chunk_end - chunk_start]
-                scores_po = scores[:, chunk_end - chunk_start :]
-
-                # replace the precomputed true_scores with the ones occurring in the
-                # scores matrix to avoid floating point issues
-                s_in_chunk_mask = (chunk_start <= s) & (s < chunk_end)
-                o_in_chunk_mask = (chunk_start <= o) & (o < chunk_end)
-                o_in_chunk = (o[o_in_chunk_mask] - chunk_start).long()
-                s_in_chunk = (s[s_in_chunk_mask] - chunk_start).long()
-                scores_sp[o_in_chunk_mask, o_in_chunk] = o_true_scores[o_in_chunk_mask]
-                scores_po[s_in_chunk_mask, s_in_chunk] = s_true_scores[s_in_chunk_mask]
-
-                # now compute the rankings (assumes order: None, _filt, _filt_test)
-                for ranking in rankings:
-                    if labels_for_ranking[ranking] is None:
-                        labels_chunk = None
+            done = False
+            while not done:
+                try:
+                    # calculate scores in chunks to not have the complete score matrix in memory
+                    # a chunk here represents a range of entity_values to score against
+                    if self.config.get("entity_ranking.chunk_size") > -1:
+                        chunk_size = self.config.get("entity_ranking.chunk_size")
                     else:
-                        # densify the needed part of the sparse labels tensor
-                        labels_chunk = self._densify_chunk_of_labels(
-                            labels_for_ranking[ranking], chunk_start, chunk_end
+                        chunk_size = self.dataset.num_entities()
+
+                    # process chunk by chunk
+                    for chunk_number in range(math.ceil(num_entities / chunk_size)):
+                        chunk_start = chunk_size * chunk_number
+                        chunk_end = min(chunk_size * (chunk_number + 1), num_entities)
+
+                        # compute scores of chunk
+                        scores = self.model.score_sp_po(
+                            s, p, o, torch.arange(chunk_start, chunk_end).to(self.device)
                         )
+                        scores_sp = scores[:, : chunk_end - chunk_start]
+                        scores_po = scores[:, chunk_end - chunk_start :]
 
-                        # remove current example from labels
-                        labels_chunk[o_in_chunk_mask, o_in_chunk] = 0
-                        labels_chunk[
-                            s_in_chunk_mask, s_in_chunk + (chunk_end - chunk_start)
-                        ] = 0
+                        # replace the precomputed true_scores with the ones occurring in the
+                        # scores matrix to avoid floating point issues
+                        s_in_chunk_mask = (chunk_start <= s) & (s < chunk_end)
+                        o_in_chunk_mask = (chunk_start <= o) & (o < chunk_end)
+                        o_in_chunk = (o[o_in_chunk_mask] - chunk_start).long()
+                        s_in_chunk = (s[s_in_chunk_mask] - chunk_start).long()
+                        scores_sp[o_in_chunk_mask, o_in_chunk] = o_true_scores[o_in_chunk_mask]
+                        scores_po[s_in_chunk_mask, s_in_chunk] = s_true_scores[s_in_chunk_mask]
 
-                    # compute partial ranking and filter the scores (sets scores of true
-                    # labels to infinity)
-                    (
-                        s_rank_chunk,
-                        s_num_ties_chunk,
-                        o_rank_chunk,
-                        o_num_ties_chunk,
-                        scores_sp_filt,
-                        scores_po_filt,
-                    ) = self._filter_and_rank(
-                        scores_sp, scores_po, labels_chunk, o_true_scores, s_true_scores
+                        # now compute the rankings (assumes order: None, _filt, _filt_test)
+                        for ranking in rankings:
+                            if labels_for_ranking[ranking] is None:
+                                labels_chunk = None
+                            else:
+                                # densify the needed part of the sparse labels tensor
+                                labels_chunk = self._densify_chunk_of_labels(
+                                    labels_for_ranking[ranking], chunk_start, chunk_end
+                                )
+
+                                # remove current example from labels
+                                labels_chunk[o_in_chunk_mask, o_in_chunk] = 0
+                                labels_chunk[
+                                    s_in_chunk_mask, s_in_chunk + (chunk_end - chunk_start)
+                                ] = 0
+
+                            # compute partial ranking and filter the scores (sets scores of true
+                            # labels to infinity)
+                            (
+                                s_rank_chunk,
+                                s_num_ties_chunk,
+                                o_rank_chunk,
+                                o_num_ties_chunk,
+                                scores_sp_filt,
+                                scores_po_filt,
+                            ) = self._filter_and_rank(
+                                scores_sp, scores_po, labels_chunk, o_true_scores, s_true_scores
+                            )
+
+                            # from now on, use filtered scores
+                            scores_sp = scores_sp_filt
+                            scores_po = scores_po_filt
+
+                            # update rankings
+                            ranks_and_ties_for_ranking["s" + ranking][0] += s_rank_chunk
+                            ranks_and_ties_for_ranking["s" + ranking][1] += s_num_ties_chunk
+                            ranks_and_ties_for_ranking["o" + ranking][0] += o_rank_chunk
+                            ranks_and_ties_for_ranking["o" + ranking][1] += o_num_ties_chunk
+
+                    # we are done with the chunk
+                    done = True
+                except RuntimeError as e:
+                    # is it a CUDA OOM exception and are we allowed to reduce the
+                    # subbatch size on such an error? if not, raise the exception again
+                    if "CUDA out of memory" not in str(e):
+                        raise e
+
+                    # try rerunning with smaller subbatch size
+                    tb = traceback.format_exc()
+                    self.config.log(tb)
+                    self.config.log(
+                        "Caught OOM exception when running a valuation; "
+                        "trying to reduce the chunk size..."
                     )
 
-                    # from now on, use filtered scores
-                    scores_sp = scores_sp_filt
-                    scores_po = scores_po_filt
+                    if chunk_size <= 1:
+                        self.config.log(
+                            "Cannot reduce chunk size "
+                            f"(current value: {chunk_size})"
+                        )
+                        raise e  # cannot reduce further
 
-                    # update rankings
-                    ranks_and_ties_for_ranking["s" + ranking][0] += s_rank_chunk
-                    ranks_and_ties_for_ranking["s" + ranking][1] += s_num_ties_chunk
-                    ranks_and_ties_for_ranking["o" + ranking][0] += o_rank_chunk
-                    ranks_and_ties_for_ranking["o" + ranking][1] += o_num_ties_chunk
-
-                # we are done with the chunk
+                    chunk_size //= 2
+                    self.config.set(
+                        "entity_ranking.chunk_size", chunk_size, log=True
+                    )
 
             # We are done with all chunks; calculate final ranks from counts
             s_ranks = self._get_ranks(

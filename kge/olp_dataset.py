@@ -342,8 +342,8 @@ class OLPDataset(Dataset):
             sum_object_mentions = 0
             i = 0
             for (sub, pred, obj, alt_subject, alt_object) in zip(data[0], data[1], data[2], data[3], data[4]):
-                alt_subjects = [int(i) for i in alt_subject.split(id_delimiter)]
-                alt_objects = [int(i) for i in alt_object.split(id_delimiter)]
+                alt_subjects = [int(i) for i in alt_subject.split(id_delimiter) if not int(i) < 0]
+                alt_objects = [int(i) for i in alt_object.split(id_delimiter) if not int(i) < 0]
                 entry = (sub, pred, obj)
                 triples[i] = entry
                 triple_indexes[entry] = i
