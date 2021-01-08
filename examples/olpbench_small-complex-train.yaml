@@ -1,6 +1,6 @@
 job.type: train
 dataset.name: olpbench_small
-
+job.device: "cpu"
 train:
   type: negative_sampling
   optimizer: Adagrad
@@ -12,8 +12,8 @@ train:
     patience: 4
 
 model: complex
-unigram_lookup_embedder:
-  dim: 100
+transformer_lookup_embedder:
+  dim: 128
   regularize_weight: 0.8e-7
   initialize: normal_
   initialize_args:

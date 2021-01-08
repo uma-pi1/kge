@@ -7,6 +7,9 @@ from kge.model.embedder.tucker3_relation_embedder import Tucker3RelationEmbedder
 from kge.model.embedder.unigram_pooling_embedder import UnigramPoolingEmbedder
 from kge.model.embedder.mention_embedder import MentionEmbedder
 from kge.model.embedder.unigram_lookup_embedder import UnigramLookupEmbedder
+from kge.model.embedder.lstm_lookup_embedder import LstmLookupEmbedder
+from kge.model.embedder.transformer_lookup_embedder import TransformerLookupEmbedder
+
 
 # models
 from kge.model.complex import ComplEx
