@@ -183,18 +183,18 @@ class EntityRankingJob(EvaluationJob):
             # score table
             o_true_scores, s_true_scores = self.compute_true_scores(batch_coords)
 
-            # default dictionary storing rank and num_ties for each key in rankings
-            # as list of len 2: [rank, num_ties]
-            ranks_and_ties_for_ranking = defaultdict(
-                lambda: [
-                    torch.zeros(s.size(0), dtype=torch.long).to(self.device),
-                    torch.zeros(s.size(0), dtype=torch.long).to(self.device),
-                ]
-            )
-
             done = False
+
             while not done:
                 try:
+                    # default dictionary storing rank and num_ties for each key in rankings
+                    # as list of len 2: [rank, num_ties]
+                    ranks_and_ties_for_ranking = defaultdict(
+                        lambda: [
+                            torch.zeros(s.size(0), dtype=torch.long).to(self.device),
+                            torch.zeros(s.size(0), dtype=torch.long).to(self.device),
+                        ]
+                    )
                     # calculate scores in chunks to not have the complete score matrix in memory
                     # a chunk here represents a range of entity_values to score against
                     if self.config.get("entity_ranking.chunk_size") > -1:
