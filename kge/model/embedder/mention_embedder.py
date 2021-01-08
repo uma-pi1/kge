@@ -30,10 +30,17 @@ class MentionEmbedder(LookupEmbedder):
             self._token_lookup = self.dataset._mentions_to_token_ids["entities"].to(self.config.get("job.device"))
 
     def embed(self, indexes: Tensor) -> Tensor:
+        self.embed_all()
         token_indexes = self._token_lookup[indexes]
         # lookup all tokens -> token embeddings with expected shape: 3D tensor (batch_size, max_tokens, dim)
-        return super().embed(token_indexes)
+        embeddings = self._token_embed(self._embeddings(token_indexes.long()), token_indexes)
+        return self._postprocess(embeddings)
 
     # return the pooled token entity/relation embedding vectors
     def embed_all(self) -> Tensor:
-        return super().embed(self._token_lookup)
+        embeddings = self._token_embed(self._embeddings(self._token_lookup.long()), self._token_lookup)
+        return self._postprocess(embeddings)
+
+    def _token_embed(self, token_embeddings: Tensor, token_indexes: Tensor):
+        "Combine token embeddings to one embedding for a mention."
+        raise NotImplementedError
