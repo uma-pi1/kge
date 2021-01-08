@@ -31,4 +31,4 @@ dataset:
   files.valid.size: 10
   files.valid.type: quintuples
 
-  filter_start_and_end_token: true
+  filter_start_and_end_token: False
