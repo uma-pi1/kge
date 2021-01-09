@@ -29,6 +29,12 @@ class MentionEmbedder(LookupEmbedder):
         elif "entity" in self.configuration_key:
             self._token_lookup = self.dataset._mentions_to_token_ids["entities"].to(self.config.get("job.device"))
 
+    def lookup_tokens(self, indexes: Tensor) -> Tensor:
+        return self._token_lookup[indexes]
+
+    def embed_tokens(self, token_indexes: Tensor) -> Tensor:
+        return super().embed(token_indexes)
+
     def embed(self, indexes: Tensor) -> Tensor:
         token_indexes = self._token_lookup[indexes]
         # lookup all tokens -> token embeddings with expected shape: 3D tensor (batch_size, max_tokens, dim)

@@ -1,0 +1,29 @@
+job.type: train
+dataset.name: olpbench
+
+train:
+  type: negative_sampling #KvsAll
+  optimizer: Adagrad
+  optimizer_args:
+    lr: 0.2
+  lr_scheduler: ReduceLROnPlateau
+  lr_scheduler_args:
+    mode: max
+    patience: 4
+  batch_size: 4096
+
+model: complex
+bigram_lookup_embedder:
+  dim: 512
+  regularize_weight: 0.8e-7
+  initialize: normal_
+  initialize_args:
+    normal_:
+      mean: 0.0
+      std: 0.1
+
+negative_sampling:
+  implementation: batch
+
+eval:
+  type: olp_entity_ranking
