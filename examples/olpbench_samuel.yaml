@@ -48,12 +48,14 @@ train:
 
 # settings for negative sampling
 # use number of replacements equal to the batch size to approximate Samuel's negative sampling algorithm
+# num_samples describes the length of individual samples, not the number of samples. e.g. num_sample: 4 -> [rand, rand, rand, rand]; num_sample:3 -> [rand, rand, rand]
+#!!! look into how to reproduce Samuel's negative sampling alogrithm
 negative_sampling:
   implementation: batch
-  num_samples:
-    s: 4096
-    p: 0          # -1 means: same as s
-    o: -1
+#  num_samples:
+#    s: 4096
+#    p: 0          # -1 means: same as s
+#    o: -1
 
 
 # settings for the evaluation job

@@ -36,7 +36,7 @@ class MentionEmbedder(LookupEmbedder):
         return super().embed(token_indexes)
 
     def embed(self, indexes: Tensor) -> Tensor:
-        self.embed_all()
+        #self.embed_all()
         token_indexes = self._token_lookup[indexes]
         # lookup all tokens -> token embeddings with expected shape: 3D tensor (batch_size, max_tokens, dim)
         embeddings = self._token_embed(self._embeddings(token_indexes.long()), token_indexes)
