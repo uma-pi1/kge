@@ -1,0 +1,66 @@
+import: [unigram_lookup_embedder]                                         #!!! adjust if model is changed
+
+# general settings for the hyperparameter optimization job
+job.type: search
+search.type: grid
+valid.metric: mean_reciprocal_rank_filtered
+
+grid_search:
+  parameters:
+    train.optimizer.default.args:
+      lr: [0.05, 0.1, 0.2]
+      weight_decay: [1e-6, 1e-10]
+    unigram_lookup_embedder:                                              #!!! adjust if model is changed
+      dim: [256, 512]
+      dropout: [0., 0.1]
+
+
+# settings for the dataset to use
+dataset:
+  name: olpbench
+  files.valid.filename: validation_linked.del
+
+
+# settings for ComplEx and the respective embedders
+model: complex
+
+complex:
+  entity_embedder.type: unigram_lookup_embedder                           #!!! adjust if model is changed
+  relation_embedder.type: unigram_lookup_embedder                         #!!! adjust if model is changed
+
+unigram_lookup_embedder:                                                  #!!! adjust if model is changed (incl. parameters of the model)
+  pooling: "sum"
+  initialize: xavier_uniform_ # is Glorot initialization
+
+
+# settings for the training job of each hyperparameter combination
+train:
+  type: negative_sampling
+  max_epochs: 10
+  batch_size: 4096
+  subbatch_auto_tune: True
+  optimizer: Adagrad
+#  lr_scheduler: ReduceLROnPlateau
+#  lr_scheduler_args:
+#    mode: max
+#    patience: 4'
+
+
+# settings for negative sampling
+# use number of replacements equal to the batch size to approximate Samuel's negative sampling algorithm
+# num_samples describes the length of individual samples, not the number of samples. e.g. num_sample: 4 -> [rand, rand, rand, rand]; num_sample:3 -> [rand, rand, rand]
+#!!! look into how to reproduce Samuel's negative sampling alogrithm
+negative_sampling:
+  shared: True
+  with_replacement: False
+  implementation: batch
+  num_samples:
+    s: 4096
+    p: 0          # -1 means: same as s
+    o: -1
+
+
+# settings for the evaluation job
+eval:
+  type: olp_entity_ranking
+  batch_size: 500
