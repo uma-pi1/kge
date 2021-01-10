@@ -12,7 +12,7 @@ train:
     patience: 4
 
 model: complex
-lstm_lookup_embedder:
+transformer_lookup_embedder:
   dim: 128
   regularize_weight: 0.8e-7
   initialize: normal_

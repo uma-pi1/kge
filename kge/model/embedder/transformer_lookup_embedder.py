@@ -22,14 +22,15 @@ class TransformerLookupEmbedder(MentionEmbedder):
         encoder_layer = torch.nn.TransformerEncoderLayer(d_model=self._dimensions, nhead=self.get_option("nhead"))
         self._encoder_transformer = torch.nn.TransformerEncoder(encoder_layer, self.get_option("num_layers"))
 
-    def _forward(self, token_embeddings, token_indexes):
+    def _token_embed(self, token_indexes):
         #switch batch and sequence dimension to match input format
+        token_embeddings = self.embed_tokens(token_indexes.long())
         transformer_input = token_embeddings.permute(1, 0, 2)
         return self._encoder_transformer(transformer_input)[token_indexes[0].size()[0] - 1]
 
-    def embed(self, indexes: Tensor) -> Tensor:
-        return self._forward(super().embed(indexes), self._token_lookup[indexes])
+    #def embed(self, indexes: Tensor) -> Tensor:
+    #    return self._forward(super().embed(indexes), self._token_lookup[indexes])
 
     # return the pooled token entity/relation embedding vectors
-    def embed_all(self) -> Tensor:
-        return self._forward(super().embed_all(), self._token_lookup)
+   # def embed_all(self) -> Tensor:
+   #     return self._forward(super().embed_all(), self._token_lookup)
