@@ -226,31 +226,31 @@ class OLPDataset(Dataset):
             max_id = 0
             used_keys = set()
             for line in file:
-                key, value = line.split(id_delimiter, maxsplit=1)
+                k, value = line.split(id_delimiter, maxsplit=1)
                 value = value.rstrip("\n")
                 try:
-                    key = int(key)
+                    k = int(k)
                 except ValueError:
                     raise TypeError(f"{filename} contains non-integer keys")
-                if used_keys.__contains__(key):
+                if used_keys.__contains__(k):
                     raise KeyError(f"{filename} contains duplicated keys")
-                used_keys.add(key)
+                used_keys.add(k)
                 split_ = [int(i) for i in value.split(token_delimiter)]
                 if self.config.get("dataset.filter_start_and_end_token"):
                     split_ = split_[1:len(split_) - 1]
                 actual_max = max(actual_max, len(split_))
                 if num_ids and max_tokens:
-                    map_[key][0:len(split_)] = split_
+                    map_[k][0:len(split_)] = split_
                 else:
-                    dictionary[key] = split_
-                    max_id = max(max_id, key)
+                    dictionary[k] = split_
+                    max_id = max(max_id, k)
 
         if num_ids and max_tokens:
             map_ = np.delete(map_, np.s_[actual_max:map_.shape[1]], 1)
         else:
             map_ = np.zeros([max_id + 1, actual_max], dtype=int)
-            for key, split_ in dictionary.items():
-                map_[key][0:len(split_)] = split_
+            for k, split_ in dictionary.items():
+                map_[k][0:len(split_)] = split_
 
         self.config.log(f"Loaded {map_.shape[0]} token sequences from {key}")
 
@@ -342,8 +342,8 @@ class OLPDataset(Dataset):
             sum_object_mentions = 0
             i = 0
             for (sub, pred, obj, alt_subject, alt_object) in zip(data[0], data[1], data[2], data[3], data[4]):
-                alt_subjects = [int(i) for i in alt_subject.split(id_delimiter)]
-                alt_objects = [int(i) for i in alt_object.split(id_delimiter)]
+                alt_subjects = [int(i) for i in alt_subject.split(id_delimiter) if not int(i) < 0]
+                alt_objects = [int(i) for i in alt_object.split(id_delimiter) if not int(i) < 0]
                 entry = (sub, pred, obj)
                 triples[i] = entry
                 triple_indexes[entry] = i
