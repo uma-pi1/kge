@@ -4,7 +4,7 @@ bigram_lookup_embedder:
   class_name: BigramLookupEmbedder
 
   # which pooling algorithm to use
-  pooling: "max"  # "max", "sum", "mean"
+  pooling: "max"  # "max", "sum"
 
   # for explanations of the following attributes, see lookup_embedder.yaml
   dim: 100
