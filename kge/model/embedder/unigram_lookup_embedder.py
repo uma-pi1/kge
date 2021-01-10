@@ -18,7 +18,8 @@ class UnigramLookupEmbedder(MentionEmbedder):
             config, dataset, configuration_key, vocab_size, init_for_load_only=init_for_load_only)
         self.pooling = self.get_option("pooling")
 
-    def _token_embed(self, token_embeddings, token_indexes):
+    def _token_embed(self, token_indexes):
+        token_embeddings = self.embed_tokens(token_indexes.long())
         # pooling on token embeddings
         if self.pooling == 'max':  # should reduce dimensions to (batch_size, dim)
             pooled_embeddings = token_embeddings.max(dim=1).values

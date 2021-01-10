@@ -28,9 +28,9 @@ complex:
   entity_embedder.type: unigram_lookup_embedder                           #!!! adjust if model is changed
   relation_embedder.type: unigram_lookup_embedder                         #!!! adjust if model is changed
 
-unigram_lookup_embedder:                                                  #!!! adjust if model is changed
-  pooling: "max"
-  initialize: xavier_uniform_ # Glorot initialization
+unigram_lookup_embedder:                                                  #!!! adjust if model is changed (incl. parameters of the model)
+  pooling: "sum"
+  initialize: xavier_uniform_ # is Glorot initialization
 
 
 # settings for the training job of each hyperparameter combination
@@ -40,10 +40,10 @@ train:
   batch_size: 4096
   subbatch_auto_tune: True
   optimizer: Adagrad
-  lr_scheduler: ReduceLROnPlateau
-  lr_scheduler_args:
-    mode: max
-    patience: 4
+#  lr_scheduler: ReduceLROnPlateau
+#  lr_scheduler_args:
+#    mode: max
+#    patience: 4'
 
 
 # settings for negative sampling
@@ -51,11 +51,13 @@ train:
 # num_samples describes the length of individual samples, not the number of samples. e.g. num_sample: 4 -> [rand, rand, rand, rand]; num_sample:3 -> [rand, rand, rand]
 #!!! look into how to reproduce Samuel's negative sampling alogrithm
 negative_sampling:
+  shared: True
+  with_replacement: False
   implementation: batch
-#  num_samples:
-#    s: 4096
-#    p: 0          # -1 means: same as s
-#    o: -1
+  num_samples:
+    s: 4096
+    p: 0          # -1 means: same as s
+    o: -1
 
 
 # settings for the evaluation job
