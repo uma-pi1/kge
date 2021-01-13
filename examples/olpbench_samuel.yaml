@@ -55,7 +55,7 @@ negative_sampling:
   with_replacement: False
   implementation: batch
   num_samples:
-    s: 4096
+    s: 8192
     p: 0          # -1 means: same as s
     o: -1
 
