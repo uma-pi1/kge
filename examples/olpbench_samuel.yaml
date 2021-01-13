@@ -1,4 +1,4 @@
-import: [unigram_lookup_embedder]                                         #!!! adjust if model is changed
+import: [lstm_lookup_embedder]                                         #!!! adjust if model is changed
 
 # general settings for the hyperparameter optimization job
 job.type: search
@@ -10,7 +10,7 @@ grid_search:
     train.optimizer.default.args:
       lr: [0.05, 0.1, 0.2]
       weight_decay: [1e-6, 1e-10]
-    unigram_lookup_embedder:                                              #!!! adjust if model is changed
+    lstm_lookup_embedder:                                              #!!! adjust if model is changed
       dim: [256, 512]
       dropout: [0., 0.1]
 
@@ -18,18 +18,15 @@ grid_search:
 # settings for the dataset to use
 dataset:
   name: olpbench
-  files.valid.filename: validation_linked.del
-
 
 # settings for ComplEx and the respective embedders
 model: complex
 
 complex:
-  entity_embedder.type: unigram_lookup_embedder                           #!!! adjust if model is changed
-  relation_embedder.type: unigram_lookup_embedder                         #!!! adjust if model is changed
+  entity_embedder.type: lstm_lookup_embedder                           #!!! adjust if model is changed
+  relation_embedder.type: lstm_lookup_embedder                         #!!! adjust if model is changed
 
-unigram_lookup_embedder:                                                  #!!! adjust if model is changed (incl. parameters of the model)
-  pooling: "sum"
+lstm_lookup_embedder:                                                  #!!! adjust if model is changed (incl. parameters of the model)
   initialize: xavier_uniform_ # is Glorot initialization
 
 

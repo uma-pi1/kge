@@ -1,0 +1,43 @@
+dataset:
+  files.entity_ids.filename: entity_ids.del
+  files.entity_ids.type: map
+  files.relation_ids.filename: relation_ids.del
+  files.relation_ids.type: map
+  files.entity_token_ids.filename: entity_token_id_map.del
+  files.entity_token_ids.type: map
+  files.relation_token_ids.filename: relation_token_id_map.del
+  files.relation_token_ids.type: map
+  files.entity_id_token_ids.filename: entity_id_tokens_ids_map.del
+  files.entity_id_token_ids.type: sequence_map
+  files.relation_id_token_ids.filename: relation_id_tokens_ids_map.del
+  files.relation_id_token_ids.type: sequence_map
+
+  name: olpbench
+  num_entities: 2473409
+  num_relations: 961262
+  num_tokens_entities: 196007
+  num_tokens_relations: 39302
+  max_tokens_per_entity: 13
+  max_tokens_per_relation: 14
+
+  files.train.filename: train_thorough.del
+  files.train.size: 30650783
+  files.train.type: triples
+  files.valid.filename: validation_linked.del
+  files.valid.size: 9959
+  files.valid.type: quintuples
+  files.test.filename: test.del
+  files.test.size: 9973
+  files.test.type: quintuples
+
+
+  #files.train.filename: train_basic.del
+  #files.train.size: 31022420
+  #files.train.type: triples
+  #files.valid.filename: validation_all.del
+  #files.valid.size: 9959
+  #files.valid.type: triples
+
+  pickle: false
+
+  filter_start_and_end_token: false

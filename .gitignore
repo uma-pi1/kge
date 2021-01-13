@@ -3,6 +3,7 @@
 local/*
 !local/README
 /data/*
+!/data/olpbench/
 !/data/olpbench_small/
 /data/olpbench_small/*.pckl
 !data/olpbench100/

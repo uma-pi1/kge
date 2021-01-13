@@ -18,20 +18,16 @@ class LstmLookupEmbedder(MentionEmbedder):
         super().__init__(
             config, dataset, configuration_key, vocab_size, init_for_load_only=init_for_load_only)
 
-        self._dimensions = self.get_option("dim")
-        self._encoder_lstm = torch.nn.LSTM(input_size=self._dimensions, hidden_size=self._dimensions,
-                                           batch_first=True, dropout=0)
+        if self.get_option("emb_dim_as_hidden_dim"):
+            self.hidden_dim = self.dim
+        else:
+            self.hidden_dim = self.get_option("hidden_dim")
+        self._encoder_lstm = torch.nn.LSTM(input_size=self.dim, hidden_size=self.hidden_dim, dropout=0)
 
     def _token_embed(self, token_indexes):
-        # switch batch and sequence dimension to match input format
         token_embeddings = self.embed_tokens(token_indexes.long())
-        lstm_input = token_embeddings.permute(1, 0, 2)
-        lstm_output, hn = self._encoder_lstm(lstm_input)
-        num_tokens = (token_indexes > 0).sum(dim=1)
-        # Use Output after last token instead of sequence end
-        #test = lstm_output.permute(1, 0, 2)
-        #test2 = test[torch.arange(test.size(0)), num_tokens - 1]
-        #return test2
+        lstm_output, hn = self._encoder_lstm(token_embeddings.permute(1, 0, 2))
+        #num_tokens = (token_indexes > 0).sum(dim=1)
         return lstm_output[token_indexes[0].size()[0] - 1, :, :]
 
     #def _token_embed(self, indexes: Tensor):

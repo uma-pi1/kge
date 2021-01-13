@@ -3,6 +3,8 @@
 lstm_lookup_embedder:
   class_name: LstmLookupEmbedder
 
+  emb_dim_as_hidden_dim: True
+  hidden_dim: 0
 
   # for explanations of the following attributes, see lookup_embedder.yaml
   dim: 100
