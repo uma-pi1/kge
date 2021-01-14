@@ -297,7 +297,10 @@ def main():
             config.log("Job created successfully.")
         else:
             # load data
-            dataset = OLPDataset.create(config)
+            if config.get("dataset.type") == "olp":
+                dataset = OLPDataset.create(config)
+            else:
+                dataset = Dataset.create(config)
 
             # let's go
             if args.command == "resume":

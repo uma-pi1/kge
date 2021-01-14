@@ -1,5 +1,7 @@
 job.type: train
-dataset.name: olpbench
+dataset:
+  name: olpbench
+  type: olp
 
 train:
   type: negative_sampling #KvsAll

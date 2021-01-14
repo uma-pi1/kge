@@ -6,6 +6,7 @@ from kge.job import Job, Trace
 from kge.config import _process_deprecated_options
 from kge.util.io import get_checkpoint_file, load_checkpoint
 from kge.util.metric import Metric
+import gc
 
 
 class SearchJob(Job):
@@ -228,6 +229,11 @@ def _run_train_job(sicnk, device=None):
             scope="train",
             **best,
         )
+
+        # Fix gpu memory leak in grid search
+        del job
+        gc.collect()
+
 
         return (train_job_index, best, best_metric)
     except BaseException as e:

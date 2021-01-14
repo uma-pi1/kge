@@ -17,6 +17,7 @@ grid_search:
 
 # settings for the dataset to use
 dataset:
+  type: olp
   name: olpbench
 
 # settings for ComplEx and the respective embedders
@@ -46,7 +47,7 @@ train:
 # settings for negative sampling
 # use number of replacements equal to the batch size to approximate Samuel's negative sampling algorithm
 # num_samples describes the length of individual samples, not the number of samples. e.g. num_sample: 4 -> [rand, rand, rand, rand]; num_sample:3 -> [rand, rand, rand]
-#!!! look into how to reproduce Samuel's negative sampling alogrithm
+#!!! look into how to reproduce Samuel's negative sampling algorithm
 negative_sampling:
   shared: True
   with_replacement: False
