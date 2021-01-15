@@ -12,7 +12,7 @@ from kge import Config, Configurable, Dataset
 from kge.misc import filename_in_module
 from kge.util import load_checkpoint
 from typing import Any, Dict, List, Optional, Union, Tuple
-
+from operator import itemgetter
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -683,7 +683,7 @@ class KgeModel(KgeBase):
         o = self.get_o_embedder().embed(o)
         return self._scorer.score_emb(s, p, o, combine="spo").view(-1)
 
-    def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
+    def score_sp(self, s: Tensor, p: Tensor, embeddings: Dict, o: Tensor = None) -> Tensor:
         r"""Compute scores for triples formed from a set of sp-pairs and all (or a subset of the) objects.
 
         `s` and `p` are vectors of common size :math:`n`, holding the indexes of the
@@ -696,16 +696,44 @@ class KgeModel(KgeBase):
         If `o` is not None, it is a vector holding the indexes of the objects to score.
 
         """
-        s = self.get_s_embedder().embed(s)
-        p = self.get_p_embedder().embed(p)
-        if o is None:
-            o = self.get_o_embedder().embed_all()
+        if self.config.options['negative_sampling']['samples_within_batch']:
+            it = 0
+            for key in s.numpy():
+
+                if (it == 0):
+                    s = embeddings.get(key)
+                    it += 1
+                else:
+                    s = torch.cat((s, embeddings.get(key)), 0)
+
+            s = s.view(-1, 128)
+            s = s.type(torch.FloatTensor)
+            it = 0
+            for key in o.numpy():
+
+                if (it == 0):
+                    o = embeddings.get(key)
+                    it += 1
+                else:
+                    o = torch.cat((o, embeddings.get(key)), 0)
+
+            o = o.view(-1, 128)
+            o = o.type(torch.FloatTensor)
+            p = self.get_p_embedder().embed(p)
         else:
-            o = self.get_o_embedder().embed(o)
+            s = self.get_s_embedder().embed(s)
+            p = self.get_p_embedder().embed(p)
+            if o is None:
+                o = self.get_o_embedder().embed_all()
+            else:
+                o = self.get_o_embedder().embed(o)
 
         return self._scorer.score_emb(s, p, o, combine="sp_")
 
-    def score_po(self, p: Tensor, o: Tensor, s: Tensor = None) -> Tensor:
+    def entity_embeddings(self, s: Tensor, o: Tensor):
+        embeddings = dict(zip(torch.cat((s, o), 0).numpy(), self.get_s_embedder().embed(torch.cat((s, o), 0))))
+        return embeddings
+    def score_po(self, p: Tensor, o: Tensor, embeddings: Dict, s: Tensor = None) -> Tensor:
         r"""Compute scores for triples formed from a set of po-pairs and (or a subset of the) subjects.
 
         `p` and `o` are vectors of common size :math:`n`, holding the indexes of the
@@ -719,12 +747,40 @@ class KgeModel(KgeBase):
 
         """
 
-        if s is None:
-            s = self.get_s_embedder().embed_all()
+        #embeddings = dict(zip(torch.cat((s,o),0).numpy(), self.get_s_embedder().embed(torch.cat((s,o),0))))
+        if self.config.options['negative_sampling']['samples_within_batch']:
+            it = 0
+            for key in s.numpy():
+
+                if(it == 0):
+                    s = embeddings.get(key)
+                    it+=1
+                else:
+                    s = torch.cat((s,embeddings.get(key)),0)
+
+
+            s = s.view(-1,128)
+            s = s.type(torch.FloatTensor)
+            it=0
+            for key in o.numpy():
+
+                if (it == 0):
+                    o = embeddings.get(key)
+                    it+=1
+                else:
+                    o = torch.cat((o, embeddings.get(key)), 0)
+
+
+            o = o.view(-1, 128)
+            o = o.type(torch.FloatTensor)
+            p = self.get_p_embedder().embed(p)
         else:
-            s = self.get_s_embedder().embed(s)
-        o = self.get_o_embedder().embed(o)
-        p = self.get_p_embedder().embed(p)
+            if s is None:
+                s = self.get_s_embedder().embed_all()
+            else:
+                s = self.get_s_embedder().embed(s)
+            o = self.get_o_embedder().embed(o)
+            p = self.get_p_embedder().embed(p)
 
         return self._scorer.score_emb(s, p, o, combine="_po")
 
@@ -741,6 +797,7 @@ class KgeModel(KgeBase):
         If `p` is not None, it is a vector holding the indexes of the relations to score.
 
         """
+
         s = self.get_s_embedder().embed(s)
         o = self.get_o_embedder().embed(o)
         if p is None:
