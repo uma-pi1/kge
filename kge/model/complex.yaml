@@ -1,18 +1,19 @@
 #import: [lookup_embedder]
-import: [unigram_lookup_embedder]
+#import: [unigram_lookup_embedder]
 #import: [transformer_lookup_embedder]
+import: [lstm_lookup_embedder]
 
 complex:
   class_name: ComplEx
   entity_embedder:
-    type: unigram_lookup_embedder
-    #type: lstm_lookup_embedder
+    #type: unigram_lookup_embedder
+    type: lstm_lookup_embedder
     #type: lookup_embedder
     #type: transformer_lookup_embedder
     +++: +++
   relation_embedder:
-    type: unigram_lookup_embedder
-    #type: lstm_lookup_embedder
+    #type: unigram_lookup_embedder
+    type: lstm_lookup_embedder
     #type: lookup_embedder
     #type: transformer_lookup_embedder
     +++: +++

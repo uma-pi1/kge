@@ -367,6 +367,8 @@ negative_sampling:
   # 'triple' (e.g., for TransE or RotatE in the current implementation).
   implementation: triple
 
+  samples_within_batch: False
+
 ## VALIDATION AND EVALUATION ###################################################
 
 # Options used for all evaluation jobs (job.type=="eval"). Also used during

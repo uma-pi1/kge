@@ -70,7 +70,7 @@ class KgeSampler(Configurable):
         """Factory method for sampler creation."""
         sampling_type = config.get(configuration_key + ".sampling_type")
         if sampling_type == "uniform":
-            return KgeUniformSampler(config, configuration_key, dataset)
+            return KgeUniformSamuelSampler(config, configuration_key, dataset) #KgeUniformSampler(config, configuration_key, dataset) # Todo: change back from SamuelSampler to UniformSampler
         elif sampling_type == "frequency":
             return KgeFrequencySampler(config, configuration_key, dataset)
         else:
@@ -585,6 +585,229 @@ class DefaultSharedNegativeSample(BatchNegativeSample):
         return self
 
 
+# Todo: Change back from SamuelSampler
+class SamuelSampler(BatchNegativeSample):
+    def __init__(
+        self,
+        config: Config,
+        configuration_key: str,
+        positive_triples: torch.Tensor,
+        slot: int,
+        num_samples: int,
+        unique_samples: torch.Tensor,
+        drop_index: torch.Tensor,
+        repeat_indexes: torch.Tensor,
+    ):
+        super().__init__(config, configuration_key, positive_triples, slot, num_samples)
+        self._unique_samples = unique_samples
+        self._drop_index = drop_index
+        self._repeat_indexes = repeat_indexes
+
+    '''
+    def samples(self, indexes=None) -> torch.Tensor:
+        num_samples = self.num_samples
+        triples = (
+            self.positive_triples
+            if indexes is None
+            else self.positive_triples[indexes, :]
+        )
+        drop_index = self._drop_index if indexes is None else self._drop_index[indexes]
+        chunk_size = len(triples)
+
+        # create output tensor
+        device = self.positive_triples.device
+        num_unique = len(self._unique_samples) - 1
+        negative_samples = torch.empty(
+            chunk_size, num_unique, dtype=torch.long, device=device
+        )
+
+        # Add the first num_distinct samples for each positive. Dropping is
+        # performed by copying the last shared sample over the dropped sample
+        negative_samples[:, :] = self._unique_samples[:-1]
+        drop_rows = torch.nonzero(drop_index != num_unique, as_tuple=False).squeeze()
+        negative_samples[drop_rows, drop_index[drop_rows]] = self._unique_samples[-1]
+
+        # repeat indexes as needed for WR sampling
+        if num_unique != num_samples:
+            negative_samples = negative_samples[
+                :,
+                torch.cat(
+                    (torch.arange(num_unique, device=device), self._repeat_indexes)
+                ),
+            ]
+
+        return negative_samples
+    '''
+
+    def score(self, model, indexes=None) -> torch.Tensor:
+        if self._implementation != "batch":
+            return super().score(model, indexes)
+
+        # for batch, we have a faster implementation that avoids creating the full
+        # sample tensor
+        self.prepare_time = 0.0
+        self.forward_time = 0.0
+        slot = self.slot
+        unique_targets = self._unique_samples
+        num_unique = len(unique_targets) - 1
+        triples = (
+            self.positive_triples[indexes, :] if indexes else self.positive_triples
+        )
+        drop_index = self._drop_index[indexes] if indexes else self._drop_index
+        drop_rows = torch.nonzero(drop_index != num_unique, as_tuple=False).squeeze()
+        chunk_size = len(triples)
+
+        # compute scores for all unique targets for slot
+        self.forward_time -= time.time()
+        all_scores = self._score_unique_targets(model, slot, triples, unique_targets)
+
+        # create the complete scoring matrix
+        device = self.positive_triples.device
+        scores = torch.empty(chunk_size, num_unique, device=device)
+
+        # fill in the unique negative scores. first column is left empty
+        # to hold positive scores
+        scores[:, :] = all_scores[:, :-1]
+        scores[drop_rows, drop_index[drop_rows]] = all_scores[drop_rows, -1]
+
+        # repeat scores as needed for WR sampling
+        '''
+        if num_unique != self.num_samples:
+            scores = scores[
+                :,
+                torch.cat(
+                    (torch.arange(num_unique, device=device), self._repeat_indexes)
+                ),
+            ]
+        '''
+        self.forward_time += time.time()
+
+        return scores
+
+
+class KgeUniformSamuelSampler(KgeSampler):
+
+    def __init__(self, config: Config, configuration_key: str, dataset: Dataset):
+        super().__init__(config, configuration_key, dataset)
+
+    def _init_num_samples(self, num_unique, drop_index=True):
+        self.num_samples[0] = num_unique - 1 if drop_index else num_unique
+        self.num_samples[2] = num_unique - 1 if drop_index else num_unique
+        #self.vocabulary_size[slot] = (
+        #        dataset.num_relations() if slot == P else dataset.num_entities()
+        #    )
+
+    def _sample_shared(
+        self, positive_triples: torch.Tensor, slot: int, num_samples: int
+    ):
+        # For shared_type=naive, produces:
+        # - a tensor `unique_samples` of size U holding a list of unique negative
+        # samples.
+        # - a tensor `repeat_indexes` of size `num_samples-U` holding the indexes of
+        #   repeated unique samples
+        #
+        # For shared_type=default, additionally produces:
+        # - one more negative sample in `unique_samples`
+        # - a tensor `drop_index` that indicates for each positive triple, which unique
+        #   sample is not used for that positive. The dropped sample should be replaced
+        #   with the last entry in `unique_samples`. The option to drop a negative
+        #   sample is used to avoid using the true positive from `positive_triples` as a
+        #   negative sample: when that true positive is `unique_samples`, it should be
+        #   ignored.
+        #
+        # In both case, the data structures are wrapped in the corresponding subclass of
+        # BatchNegativeSample.
+        batch_size = len(positive_triples)
+
+        # determine number of distinct negative samples for each positive
+        if self.with_replacement:
+            # Simple way to get a sample from the distribution of number of distinct
+            # values in the negative sample (for "default" type: WR sampling except the
+            # positive, hence the - 1)
+            num_unique = len(
+                np.unique(
+                    np.random.choice(
+                        self.vocabulary_size[slot]
+                        if self.shared_type == "naive"
+                        else self.vocabulary_size[slot] - 1,
+                        num_samples,
+                        replace=True,
+                    )
+                )
+            )
+        else:  # WOR -> all samples distinct
+            unique_entities = positive_triples[:,[0,2]].unique()
+            num_unique = len(unique_entities)
+            self._init_num_samples(num_unique)
+
+        # Take the WOR sample. For default, take one more WOR sample than necessary
+        # (used to replace sampled positives). Numpy is horribly slow for large
+        # vocabulary sizes, so we use random.sample instead.
+        #
+        # SLOW:
+        # unique_samples = np.random.choice(
+        #     self.vocabulary_size[slot], num_unique, replace=False
+        # )
+
+        unique_samples = unique_entities.tolist()
+        repeat_indexes = torch.empty(0)  # WOR or WR when all samples unique
+
+        # for naive shared sampling, we are done
+        '''
+        if self.shared_type == "naive":
+            return NaiveSharedNegativeSample(
+                self.config,
+                self.configuration_key,
+                positive_triples,
+                slot,
+                num_samples,
+                torch.tensor(unique_samples, dtype=torch.long),
+                repeat_indexes,
+            )
+        '''
+
+        # For default, we now filter the positives. For each row i (positive triple),
+        # select a sample to drop. For rows that contain its positive as a negative
+        # example, drop that positive. For all other rows, drop a random position. Here
+        # we start with random drop position for each row and then update the ones that
+        # contain its positive in the negative samples
+        positives = positive_triples[:, slot].numpy()
+        drop_index = np.random.choice(num_unique + 1, batch_size, replace=True)
+        # TODO can we do the following quicker?
+        unique_samples_index = {s: j for j, s in enumerate(unique_samples)}
+        for i, v in [
+            (i, unique_samples_index.get(positives[i]))
+            for i in range(batch_size)
+            if positives[i] in unique_samples_index
+        ]:
+            drop_index[i] = v
+
+        # now we are done for default
+        # Todo: Change back from SamuelSampler
+        if self.get_option("samples_within_batch"):
+            return SamuelSampler(self.config,
+                self.configuration_key,
+                positive_triples,
+                slot,
+                len(unique_samples), #num_samples,
+                torch.tensor(unique_samples, dtype=torch.long),
+                torch.tensor(drop_index),
+                repeat_indexes,
+            )
+        else:
+            return DefaultSharedNegativeSample(
+                self.config,
+                self.configuration_key,
+                positive_triples,
+                slot,
+                num_samples,
+                torch.tensor(unique_samples, dtype=torch.long),
+                torch.tensor(drop_index),
+                repeat_indexes,
+            )
+
+
+
 class KgeUniformSampler(KgeSampler):
     def __init__(self, config: Config, configuration_key: str, dataset: Dataset):
         super().__init__(config, configuration_key, dataset)
@@ -686,16 +909,28 @@ class KgeUniformSampler(KgeSampler):
             drop_index[i] = v
 
         # now we are done for default
-        return DefaultSharedNegativeSample(
-            self.config,
-            self.configuration_key,
-            positive_triples,
-            slot,
-            num_samples,
-            torch.tensor(unique_samples, dtype=torch.long),
-            torch.tensor(drop_index),
-            repeat_indexes,
-        )
+        # Todo: Change back from SamuelSampler
+        if self.get_option("samples_within_batch"):
+            return SamuelSampler(self.config,
+                self.configuration_key,
+                positive_triples,
+                slot,
+                num_samples,
+                torch.tensor(unique_samples, dtype=torch.long),
+                torch.tensor(drop_index),
+                repeat_indexes,
+            )
+        else:
+            return DefaultSharedNegativeSample(
+                self.config,
+                self.configuration_key,
+                positive_triples,
+                slot,
+                num_samples,
+                torch.tensor(unique_samples, dtype=torch.long),
+                torch.tensor(drop_index),
+                repeat_indexes,
+            )
 
     def _filter_and_resample_fast(
         self, negative_samples: torch.Tensor, slot: int, positive_triples: torch.Tensor

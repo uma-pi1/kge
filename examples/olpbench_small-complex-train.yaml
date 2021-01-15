@@ -1,7 +1,10 @@
 job.type: train
-dataset.name: olpbench_small
-job.device: "cpu"
+dataset:
+  name: olpbench_small
+  type: olp
 train:
+  batch_size: 4096
+  subbatch_auto_tune: True
   type: negative_sampling
   optimizer: Adagrad
   optimizer_args:
@@ -12,7 +15,7 @@ train:
     patience: 4
 
 model: complex
-transformer_lookup_embedder:
+lstm_lookup_embedder:
   dim: 128
   regularize_weight: 0.8e-7
   initialize: normal_
@@ -23,6 +26,10 @@ transformer_lookup_embedder:
 
 negative_sampling:
   implementation: batch
+  shared: True
+  with_replacement: False
+  samples_within_batch: True
 
 eval:
   type: olp_entity_ranking
+
