@@ -3,7 +3,7 @@ dataset:
   name: olpbench_small
   type: olp
 train:
-  batch_size: 4096
+  batch_size: 10
   subbatch_auto_tune: True
   type: negative_sampling
   optimizer: Adagrad

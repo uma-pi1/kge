@@ -698,7 +698,7 @@ class KgeModel(KgeBase):
         """
         if self.config.options['negative_sampling']['samples_within_batch']:
             it = 0
-            for key in s.numpy():
+            for key in s.cpu().numpy():
 
                 if (it == 0):
                     s = embeddings.get(key)
@@ -706,10 +706,10 @@ class KgeModel(KgeBase):
                 else:
                     s = torch.cat((s, embeddings.get(key)), 0)
 
-            s = s.view(-1, 128)
-            s = s.type(torch.FloatTensor)
+            s = s.view(-1, self._entity_embedder.dim)
+            s = s.type(torch.FloatTensor).to(self.config.get("job.device"))
             it = 0
-            for key in o.numpy():
+            for key in o.cpu().numpy():
 
                 if (it == 0):
                     o = embeddings.get(key)
@@ -717,8 +717,8 @@ class KgeModel(KgeBase):
                 else:
                     o = torch.cat((o, embeddings.get(key)), 0)
 
-            o = o.view(-1, 128)
-            o = o.type(torch.FloatTensor)
+            o = o.view(-1, self._entity_embedder.dim)
+            o = o.type(torch.FloatTensor).to(self.config.get("job.device"))
             p = self.get_p_embedder().embed(p)
         else:
             s = self.get_s_embedder().embed(s)
@@ -731,7 +731,7 @@ class KgeModel(KgeBase):
         return self._scorer.score_emb(s, p, o, combine="sp_")
 
     def entity_embeddings(self, s: Tensor, o: Tensor):
-        embeddings = dict(zip(torch.cat((s, o), 0).numpy(), self.get_s_embedder().embed(torch.cat((s, o), 0))))
+        embeddings = dict(zip(torch.cat((s, o), 0).cpu().numpy(), self.get_s_embedder().embed(torch.cat((s, o), 0))))
         return embeddings
     def score_po(self, p: Tensor, o: Tensor, embeddings: Dict, s: Tensor = None) -> Tensor:
         r"""Compute scores for triples formed from a set of po-pairs and (or a subset of the) subjects.
@@ -750,7 +750,7 @@ class KgeModel(KgeBase):
         #embeddings = dict(zip(torch.cat((s,o),0).numpy(), self.get_s_embedder().embed(torch.cat((s,o),0))))
         if self.config.options['negative_sampling']['samples_within_batch']:
             it = 0
-            for key in s.numpy():
+            for key in s.cpu().numpy():
 
                 if(it == 0):
                     s = embeddings.get(key)
@@ -759,10 +759,10 @@ class KgeModel(KgeBase):
                     s = torch.cat((s,embeddings.get(key)),0)
 
 
-            s = s.view(-1,128)
-            s = s.type(torch.FloatTensor)
+            s = s.view(-1,self._entity_embedder.dim)
+            s = s.type(torch.FloatTensor).to(self.config.get("job.device"))
             it=0
-            for key in o.numpy():
+            for key in o.cpu().numpy():
 
                 if (it == 0):
                     o = embeddings.get(key)
@@ -771,8 +771,8 @@ class KgeModel(KgeBase):
                     o = torch.cat((o, embeddings.get(key)), 0)
 
 
-            o = o.view(-1, 128)
-            o = o.type(torch.FloatTensor)
+            o = o.view(-1, self._entity_embedder.dim)
+            o = o.type(torch.FloatTensor).to(self.config.get("job.device"))
             p = self.get_p_embedder().embed(p)
         else:
             if s is None:

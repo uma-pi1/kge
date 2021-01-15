@@ -52,10 +52,11 @@ negative_sampling:
   shared: True
   with_replacement: False
   implementation: batch
-  num_samples:
-    s: 8192
-    p: 0          # -1 means: same as s
-    o: -1
+  samples_within_batch: True
+  #num_samples:
+   # s: 8192
+   # p: 0          # -1 means: same as s
+   # o: -1
 
 
 # settings for the evaluation job
