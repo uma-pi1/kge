@@ -751,8 +751,18 @@ class KgeModel(KgeBase):
         return self._scorer.score_emb(s, p, o, combine="s_o")
 
     def score_olp_neg_sampling(self, s: Tensor, o: Tensor, p: Tensor, unique_targets: Tensor):
+
+        t3 = time.time()
+        neg_samps = self.get_s_embedder().embed(unique_targets)
+        s = self.get_s_embedder().embed(s)
+        o = self.get_s_embedder().embed(o)
+        t4 = time.time()
+        #print("RUN 2: ", t4-t3)
+
+        '''
         t1 = time.time()
         embeddings = dict(zip(torch.cat((s, o), 0).cpu().numpy(), self.get_s_embedder().embed(torch.cat((s, o), 0))))
+
         s_flag = True
         o_flag = True
         neg_samps_flag = True
@@ -772,29 +782,24 @@ class KgeModel(KgeBase):
             else:
                 o = torch.cat((o, embeddings.get(key)), 0)
         for key in embeddings :
-            r''' if (key in s.detach().cpu().numpy()):
-                if(s_flag):
-                    s = embeddings.get(key)
-                    s_flag = False
-                else:
-                    s = torch.cat((s, embeddings.get(key)), 0)
-
-            if (key in o.detach().cpu().numpy()):
-                if (o_flag):
-                    o = embeddings.get(key)
-                    o_flag = False
-                else:
-                    o = torch.cat((o, embeddings.get(key)), 0)'''
             if(neg_samps_flag):
                 neg_samps = embeddings.get(key)
                 neg_samps_flag = False
             else:
                 neg_samps = torch.cat((neg_samps,embeddings.get(key)),0)
+
         s = s.view(-1, self._entity_embedder.dim).type(torch.FloatTensor).to(self.config.get("job.device"))
         o = o.view(-1, self._entity_embedder.dim).type(torch.FloatTensor).to(self.config.get("job.device"))
         neg_samps = neg_samps.view(-1,self._entity_embedder.dim).type(torch.FloatTensor).to(self.config.get("job.device"))
+
+        t2 = time.time()
+        print("RUN 1: ", t2-t1)
+
+        x = 0
+        '''
+
         p = self.get_p_embedder().embed(p)
-        print("Time_to_emb:",time.time()-t1)
+        #print("Time_to_emb:",time.time()-t1)
         return self._scorer.score_emb(s, p, neg_samps, combine="sp_"), self._scorer.score_emb(s, p, o, combine="spo").view(-1), self._scorer.score_emb(neg_samps, p, o, combine="_po")
 
     def score_sp_po(

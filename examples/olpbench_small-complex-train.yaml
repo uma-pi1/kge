@@ -1,6 +1,6 @@
 job.type: train
 dataset:
-  name: olpbench_small
+  name: olpbench
   type: olp
 train:
   batch_size: 4096
@@ -16,7 +16,7 @@ train:
 
 model: complex
 lstm_lookup_embedder:
-  dim: 128
+  dim: 512
   regularize_weight: 0.8e-7
   initialize: normal_
   initialize_args:
@@ -29,6 +29,8 @@ negative_sampling:
   shared: True
   with_replacement: False
   samples_within_batch: True
+  num_samples:
+    s: 126
 
 eval:
   type: olp_entity_ranking

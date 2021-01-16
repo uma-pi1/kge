@@ -26,7 +26,7 @@ lstm_lookup_embedder:                                                  #!!! adju
 # settings for the training job of each hyperparameter combination
 train:
   type: negative_sampling
-  max_epochs: 10
+  max_epochs: 1
   batch_size: 4096
   subbatch_auto_tune: True
   optimizer: Adagrad
@@ -49,6 +49,9 @@ negative_sampling:
     #s: 8192
     #p: 0          # -1 means: same as s
     #o: -1
+
+valid:
+  every: 1
 
 
 # settings for the evaluation job

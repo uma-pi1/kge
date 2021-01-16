@@ -70,7 +70,10 @@ class KgeSampler(Configurable):
         """Factory method for sampler creation."""
         sampling_type = config.get(configuration_key + ".sampling_type")
         if sampling_type == "uniform":
-            return KgeUniformSamuelSampler(config, configuration_key, dataset) #KgeUniformSampler(config, configuration_key, dataset) # Todo: change back from SamuelSampler to UniformSampler
+            if config.get(configuration_key + ".samples_within_batch"):
+                return KgeUniformSamuelSampler(config, configuration_key, dataset) # Todo: change from SamuelSampler to different name
+            else:
+                return KgeUniformSampler(config, configuration_key, dataset)
         elif sampling_type == "frequency":
             return KgeFrequencySampler(config, configuration_key, dataset)
         else:

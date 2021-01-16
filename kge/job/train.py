@@ -1051,10 +1051,13 @@ class TrainingJobNegativeSampling(TrainingJob):
         subbatch_size = len(triples)
         result.prepare_time += time.time()
         labels = batch["labels"]  # reuse b/w subbatches
+
+
         t1 = time.time()
         pre_scores = batch_negative_samples[0].pre_score(self.model, indexes=subbatch_slice)
         t2 = time.time()
         print("Embeddings_score:", t2-t1)
+
         # process the subbatch for each slot separately
         for slot in [S, P, O]:
             num_samples = self._sampler.num_samples[slot]
