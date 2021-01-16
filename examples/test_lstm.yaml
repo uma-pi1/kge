@@ -1,0 +1,57 @@
+import: [lstm_lookup_embedder]                                         #!!! adjust if model is changed
+
+# general settings for the hyperparameter optimization job
+job.type: search
+search.type: grid
+valid.metric: mean_reciprocal_rank_filtered
+
+
+# settings for the dataset to use
+dataset:
+  type: olp
+  name: olpbench
+
+# settings for ComplEx and the respective embedders
+model: complex
+
+complex:
+  entity_embedder.type: lstm_lookup_embedder                           #!!! adjust if model is changed
+  relation_embedder.type: lstm_lookup_embedder                         #!!! adjust if model is changed
+
+lstm_lookup_embedder:                                                  #!!! adjust if model is changed (incl. parameters of the model)
+  initialize: xavier_uniform_ # is Glorot initialization
+  dim: 512
+
+
+# settings for the training job of each hyperparameter combination
+train:
+  type: negative_sampling
+  max_epochs: 10
+  batch_size: 4096
+  subbatch_auto_tune: True
+  optimizer: Adagrad
+#  lr_scheduler: ReduceLROnPlateau
+#  lr_scheduler_args:
+#    mode: max
+#    patience: 4'
+
+
+# settings for negative sampling
+# use number of replacements equal to the batch size to approximate Samuel's negative sampling algorithm
+# num_samples describes the length of individual samples, not the number of samples. e.g. num_sample: 4 -> [rand, rand, rand, rand]; num_sample:3 -> [rand, rand, rand]
+#!!! look into how to reproduce Samuel's negative sampling algorithm
+negative_sampling:
+  shared: True
+  with_replacement: False
+  implementation: batch
+  samples_within_batch: True
+  #num_samples:
+    #s: 8192
+    #p: 0          # -1 means: same as s
+    #o: -1
+
+
+# settings for the evaluation job
+eval:
+  type: olp_entity_ranking
+  batch_size: 500
