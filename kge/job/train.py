@@ -973,7 +973,7 @@ class TrainingJobNegativeSampling(TrainingJob):
         result.size = len(batch["triples"])
         result.prepare_time += time.time()
 
-    r""" def _process_subbatch(
+    r"""def _process_subbatch(
         self,
         batch_index,
         batch,
@@ -988,7 +988,6 @@ class TrainingJobNegativeSampling(TrainingJob):
         subbatch_size = len(triples)
         result.prepare_time += time.time()
         labels = batch["labels"]  # reuse b/w subbatches
-
 
         # process the subbatch for each slot separately
         for slot in [S, P, O]:
@@ -1017,7 +1016,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             )
             result.forward_time += time.time()
             scores[:, 1:] = batch_negative_samples[slot].score(
-                self.model, indexes = subbatch_slice
+                self.model, indexes=subbatch_slice
             )
             result.forward_time += batch_negative_samples[slot].forward_time
             result.prepare_time += batch_negative_samples[slot].prepare_time
@@ -1044,6 +1043,7 @@ class TrainingJobNegativeSampling(TrainingJob):
         result: TrainingJob._ProcessBatchResult,
     ):
         # prepare
+        t4 = time.time()
         result.prepare_time -= time.time()
         triples = batch["triples"][subbatch_slice]
         batch_negative_samples = batch["negative_samples"]
@@ -1051,7 +1051,10 @@ class TrainingJobNegativeSampling(TrainingJob):
         subbatch_size = len(triples)
         result.prepare_time += time.time()
         labels = batch["labels"]  # reuse b/w subbatches
+        t1 = time.time()
         pre_scores = batch_negative_samples[0].pre_score(self.model, indexes=subbatch_slice)
+        t2 = time.time()
+        print("Embeddings_score:", t2-t1)
         # process the subbatch for each slot separately
         for slot in [S, P, O]:
             num_samples = self._sampler.num_samples[slot]
@@ -1077,7 +1080,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             scores[:, 0] = pre_scores[1]
             result.forward_time += time.time()
             scores[:, 1:] = batch_negative_samples[slot].score(
-                self.model, pre_scores[slot], indexes = subbatch_slice
+                self.model, pre_scores, indexes = subbatch_slice
             )
             result.forward_time += batch_negative_samples[slot].forward_time
             result.prepare_time += batch_negative_samples[slot].prepare_time
@@ -1093,9 +1096,12 @@ class TrainingJobNegativeSampling(TrainingJob):
             # backward pass for this slot in the subbatch
             result.backward_time -= time.time()
             if not self.is_forward_only:
-                loss_value_torch.backward()
+                if(slot!=O):
+                    loss_value_torch.backward(retain_graph=True)
+                else:
+                    loss_value_torch.backward()
             result.backward_time += time.time()
-
+        print("Actual Batch Time:", time.time()-t4)
 
 class TrainingJob1vsAll(TrainingJob):
     """Samples SPO pairs and queries sp_ and _po, treating all other entities as negative."""
@@ -1142,6 +1148,7 @@ class TrainingJob1vsAll(TrainingJob):
         subbatch_slice,
         result: TrainingJob._ProcessBatchResult,
     ):
+
         # prepare
         result.prepare_time -= time.time()
         triples = batch["triples"][subbatch_slice].to(self.device)

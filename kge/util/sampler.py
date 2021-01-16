@@ -345,7 +345,6 @@ class BatchNegativeSample(Configurable):
 
     @staticmethod
     def _score_unique_targets(model, slot, triples, unique_targets) -> torch.Tensor:
-
         if slot == S:
             all_scores = model.score_po(triples[:, P], triples[:, O], unique_targets)
         elif slot == P:
