@@ -345,14 +345,11 @@ class BatchNegativeSample(Configurable):
 
     @staticmethod
     def _score_unique_targets(model, slot, triples, unique_targets) -> torch.Tensor:
-        entity_emb = model.entity_embeddings(triples[:, S], triples[:, O])
         if slot == S:
-            #entity_emb
             all_scores = model.score_po(triples[:, P], triples[:, O], unique_targets)
         elif slot == P:
             all_scores = model.score_so(triples[:, S], triples[:, O], unique_targets)
         elif slot == O:
-            #entity_emb
             all_scores = model.score_sp(triples[:, S], triples[:, P], unique_targets)
         else:
             raise NotImplementedError
