@@ -973,7 +973,7 @@ class TrainingJobNegativeSampling(TrainingJob):
         result.size = len(batch["triples"])
         result.prepare_time += time.time()
 
-    def _process_subbatch(
+    r""" def _process_subbatch(
         self,
         batch_index,
         batch,
@@ -989,9 +989,6 @@ class TrainingJobNegativeSampling(TrainingJob):
         result.prepare_time += time.time()
         labels = batch["labels"]  # reuse b/w subbatches
 
-        sp_scores, po_scores, spo_scores = batch_negative_samples.score(
-                self.model, indexes=subbatch_slice
-            )
 
         # process the subbatch for each slot separately
         for slot in [S, P, O]:
@@ -1020,7 +1017,7 @@ class TrainingJobNegativeSampling(TrainingJob):
             )
             result.forward_time += time.time()
             scores[:, 1:] = batch_negative_samples[slot].score(
-                self.model, indexes=subbatch_slice
+                self.model, indexes = subbatch_slice
             )
             result.forward_time += batch_negative_samples[slot].forward_time
             result.prepare_time += batch_negative_samples[slot].prepare_time
@@ -1037,9 +1034,9 @@ class TrainingJobNegativeSampling(TrainingJob):
             result.backward_time -= time.time()
             if not self.is_forward_only:
                 loss_value_torch.backward()
-            result.backward_time += time.time()
+            result.backward_time += time.time()"""
 
-    def _process_olp_subbatch(
+    def _process_subbatch(
         self,
         batch_index,
         batch,
@@ -1054,7 +1051,7 @@ class TrainingJobNegativeSampling(TrainingJob):
         subbatch_size = len(triples)
         result.prepare_time += time.time()
         labels = batch["labels"]  # reuse b/w subbatches
-
+        pre_scores = batch_negative_samples[0].pre_score(self.model, indexes=subbatch_slice)
         # process the subbatch for each slot separately
         for slot in [S, P, O]:
             num_samples = self._sampler.num_samples[slot]
@@ -1077,12 +1074,10 @@ class TrainingJobNegativeSampling(TrainingJob):
             # compute the scores
             result.forward_time -= time.time()
             scores = torch.empty((subbatch_size, num_samples + 1), device=self.device)
-            scores[:, 0] = self.model.score_spo(
-                triples[:, S], triples[:, P], triples[:, O], direction=SLOT_STR[slot],
-            )
+            scores[:, 0] = pre_scores[1]
             result.forward_time += time.time()
             scores[:, 1:] = batch_negative_samples[slot].score(
-                self.model, indexes=subbatch_slice
+                self.model, pre_scores[slot], indexes = subbatch_slice
             )
             result.forward_time += batch_negative_samples[slot].forward_time
             result.prepare_time += batch_negative_samples[slot].prepare_time

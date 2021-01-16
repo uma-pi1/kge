@@ -794,7 +794,7 @@ class KgeModel(KgeBase):
         neg_samps = neg_samps.view(-1,self._entity_embedder.dim).type(torch.FloatTensor).to(self.config.get("job.device"))
         p = self.get_p_embedder().embed(p)
 
-        return self._scorer.score_emb(s, p, neg_samps, combine="sp_"), self._scorer.score_emb(neg_samps, p, o, combine="_po"), self._scorer.score_emb(s, p, o, combine="spo").view(-1)
+        return self._scorer.score_emb(s, p, neg_samps, combine="sp_"), self._scorer.score_emb(s, p, o, combine="spo").view(-1), self._scorer.score_emb(neg_samps, p, o, combine="_po")
 
     def score_sp_po(
         self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None
