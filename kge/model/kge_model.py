@@ -6,7 +6,7 @@ from torch import Tensor
 import torch.nn
 import numpy as np
 import os
-
+import time
 import kge
 from kge import Config, Configurable, Dataset
 from kge.misc import filename_in_module
@@ -751,6 +751,7 @@ class KgeModel(KgeBase):
         return self._scorer.score_emb(s, p, o, combine="s_o")
 
     def score_olp_neg_sampling(self, s: Tensor, o: Tensor, p: Tensor, unique_targets: Tensor):
+        t1 = time.time()
         embeddings = dict(zip(torch.cat((s, o), 0).cpu().numpy(), self.get_s_embedder().embed(torch.cat((s, o), 0))))
         s_flag = True
         o_flag = True
@@ -793,7 +794,7 @@ class KgeModel(KgeBase):
         o = o.view(-1, self._entity_embedder.dim).type(torch.FloatTensor).to(self.config.get("job.device"))
         neg_samps = neg_samps.view(-1,self._entity_embedder.dim).type(torch.FloatTensor).to(self.config.get("job.device"))
         p = self.get_p_embedder().embed(p)
-
+        print("Time_to_emb:",time.time()-t1)
         return self._scorer.score_emb(s, p, neg_samps, combine="sp_"), self._scorer.score_emb(s, p, o, combine="spo").view(-1), self._scorer.score_emb(neg_samps, p, o, combine="_po")
 
     def score_sp_po(
