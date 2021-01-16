@@ -696,7 +696,6 @@ class KgeModel(KgeBase):
         If `o` is not None, it is a vector holding the indexes of the objects to score.
 
         """
-
         s = self.get_s_embedder().embed(s)
         p = self.get_p_embedder().embed(p)
         if o is None:
@@ -706,8 +705,7 @@ class KgeModel(KgeBase):
 
         return self._scorer.score_emb(s, p, o, combine="sp_")
 
-
-    def score_po(self, p: Tensor, o: Tensor, embeddings: Dict, s: Tensor = None) -> Tensor:
+    def score_po(self, p: Tensor, o: Tensor, s: Tensor = None) -> Tensor:
         r"""Compute scores for triples formed from a set of po-pairs and (or a subset of the) subjects.
 
         `p` and `o` are vectors of common size :math:`n`, holding the indexes of the
@@ -720,7 +718,6 @@ class KgeModel(KgeBase):
         If `s` is not None, it is a vector holding the indexes of the objects to score.
 
         """
-
 
         if s is None:
             s = self.get_s_embedder().embed_all()
@@ -744,7 +741,6 @@ class KgeModel(KgeBase):
         If `p` is not None, it is a vector holding the indexes of the relations to score.
 
         """
-
         s = self.get_s_embedder().embed(s)
         o = self.get_o_embedder().embed(o)
         if p is None:
@@ -754,36 +750,51 @@ class KgeModel(KgeBase):
 
         return self._scorer.score_emb(s, p, o, combine="s_o")
 
-    def score_olp_neg_sampling(self, s: Tensor, o: Tensor, p: Tensor):
+    def score_olp_neg_sampling(self, s: Tensor, o: Tensor, p: Tensor, unique_targets: Tensor):
         embeddings = dict(zip(torch.cat((s, o), 0).cpu().numpy(), self.get_s_embedder().embed(torch.cat((s, o), 0))))
-        it_s = True
-        it_o = True
-        it_neg_samps = True
-        for key in embeddings :
+        s_flag = True
+        o_flag = True
+        neg_samps_flag = True
+        s_it = s.detach().cpu().numpy()
+        o_it = o.detach().cpu().numpy()
 
-            if (key in s.detach().cpu().numpy()):
-                if(it_s):
-                    s_emb = embeddings.get(key)
-                    it_s = False
+        for key in s_it:
+            if (s_flag):
+                s = embeddings.get(key)
+                s_flag = False
+            else:
+                s = torch.cat((s, embeddings.get(key)), 0)
+        for key in o_it:
+            if (o_flag):
+                o = embeddings.get(key)
+                o_flag = False
+            else:
+                o = torch.cat((o, embeddings.get(key)), 0)
+        for key in embeddings :
+            r''' if (key in s.detach().cpu().numpy()):
+                if(s_flag):
+                    s = embeddings.get(key)
+                    s_flag = False
                 else:
-                    s_emb = torch.cat((s_emb, embeddings.get(key)), 0)
+                    s = torch.cat((s, embeddings.get(key)), 0)
 
             if (key in o.detach().cpu().numpy()):
-                if (it_o):
-                    o_emb = embeddings.get(key)
-                    it_o = False
+                if (o_flag):
+                    o = embeddings.get(key)
+                    o_flag = False
                 else:
-                    o_emb = torch.cat((o_emb, embeddings.get(key)), 0)
-            if(it_neg_samps):
+                    o = torch.cat((o, embeddings.get(key)), 0)'''
+            if(neg_samps_flag):
                 neg_samps = embeddings.get(key)
-                it_neg_samps = False
+                neg_samps_flag = False
             else:
                 neg_samps = torch.cat((neg_samps,embeddings.get(key)),0)
-        s_emb = s_emb.view(-1, self._entity_embedder.dim).type(torch.FloatTensor).to(self.config.get("job.device"))
-        o_emb = o_emb.view(-1, self._entity_embedder.dim).type(torch.FloatTensor).to(self.config.get("job.device"))
+        s = s.view(-1, self._entity_embedder.dim).type(torch.FloatTensor).to(self.config.get("job.device"))
+        o = o.view(-1, self._entity_embedder.dim).type(torch.FloatTensor).to(self.config.get("job.device"))
         neg_samps = neg_samps.view(-1,self._entity_embedder.dim).type(torch.FloatTensor).to(self.config.get("job.device"))
         p = self.get_p_embedder().embed(p)
-        return embeddings
+
+        return self._scorer.score_emb(s, p, neg_samps, combine="sp_"), self._scorer.score_emb(neg_samps, p, o, combine="_po"), self._scorer.score_emb(s, p, o, combine="spo").view(-1)
 
     def score_sp_po(
         self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None

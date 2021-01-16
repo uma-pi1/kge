@@ -345,6 +345,7 @@ class BatchNegativeSample(Configurable):
 
     @staticmethod
     def _score_unique_targets(model, slot, triples, unique_targets) -> torch.Tensor:
+
         if slot == S:
             all_scores = model.score_po(triples[:, P], triples[:, O], unique_targets)
         elif slot == P:
@@ -355,6 +356,9 @@ class BatchNegativeSample(Configurable):
             raise NotImplementedError
         return all_scores
 
+    @staticmethod
+    def _score_unique_targets_olp(model, slot, triples, unique_targets) -> torch.Tensor:
+        return model.score_olp_neg_sampling(triples[:, S], triples[:, O], triples[:,P], unique_targets)
 
 class DefaultBatchNegativeSample(BatchNegativeSample):
     """Default implementation that stores all negative samples as a tensor."""
@@ -659,16 +663,26 @@ class SamuelSampler(BatchNegativeSample):
 
         # compute scores for all unique targets for slot
         self.forward_time -= time.time()
-        all_scores = self._score_unique_targets(model, slot, triples, unique_targets)
+        all_sp_scores, all_po_scores, all_spo_scores = self._score_unique_targets_olp(model, slot, triples, unique_targets)
+        #all_scores = self._score_unique_targets(model, slot, triples, unique_targets)
 
         # create the complete scoring matrix
         device = self.positive_triples.device
-        scores = torch.empty(chunk_size, num_unique, device=device)
+        sp_scores = torch.empty(chunk_size, num_unique, device=device)
+        po_scores = torch.empty(chunk_size, num_unique, device=device)
+        spo_scores = torch.empty(chunk_size, num_unique, device=device)
+        #scores = torch.empty(chunk_size, num_unique, device=device)
 
         # fill in the unique negative scores. first column is left empty
         # to hold positive scores
-        scores[:, :] = all_scores[:, :-1]
-        scores[drop_rows, drop_index[drop_rows]] = all_scores[drop_rows, -1]
+        sp_scores[:, :] = all_sp_scores[:, :-1]
+        sp_scores[drop_rows, drop_index[drop_rows]] = all_sp_scores[drop_rows, -1]
+        po_scores[:, :] = all_po_scores[:, :-1]
+        po_scores[drop_rows, drop_index[drop_rows]] = all_po_scores[drop_rows, -1]
+        spo_scores[:, :] = all_spo_scores[:, :-1]
+        spo_scores[drop_rows, drop_index[drop_rows]] = all_spo_scores[drop_rows, -1]
+        #scores[:, :] = all_scores[:, :-1]
+        #scores[drop_rows, drop_index[drop_rows]] = all_scores[drop_rows, -1]
 
         # repeat scores as needed for WR sampling
         '''
@@ -682,7 +696,7 @@ class SamuelSampler(BatchNegativeSample):
         '''
         self.forward_time += time.time()
 
-        return scores
+        return sp_scores, po_scores, spo_scores
 
 
 class KgeUniformSamuelSampler(KgeSampler):
