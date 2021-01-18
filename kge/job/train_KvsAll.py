@@ -219,10 +219,11 @@ class TrainingJobKvsAll(TrainingJob):
         subbatch_slice,
         result: TrainingJob._ProcessBatchResult,
     ):
+        batch_size = result.size
+
         # prepare
         result.prepare_time -= time.time()
         queries_subbatch = batch["queries"][subbatch_slice].to(self.device)
-        batch_size = len(batch["queries"])
         subbatch_size = len(queries_subbatch)
         label_coords_batch = batch["label_coords"]
         query_type_indexes_subbatch = batch["query_type_indexes"][subbatch_slice]

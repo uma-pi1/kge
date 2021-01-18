@@ -102,11 +102,12 @@ class TrainingJobNegativeSampling(TrainingJob):
         subbatch_slice,
         result: TrainingJob._ProcessBatchResult,
     ):
+        batch_size = result.size
+
         # prepare
         result.prepare_time -= time.time()
         triples = batch["triples"][subbatch_slice]
         batch_negative_samples = batch["negative_samples"]
-        batch_size = len(batch["triples"])
         subbatch_size = len(triples)
         result.prepare_time += time.time()
         labels = batch["labels"]  # reuse b/w subbatches
