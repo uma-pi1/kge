@@ -52,10 +52,11 @@ class TrainingJob1vsAll(TrainingJob):
         subbatch_slice,
         result: TrainingJob._ProcessBatchResult,
     ):
+        batch_size = result.size
+
         # prepare
         result.prepare_time -= time.time()
         triples = batch["triples"][subbatch_slice].to(self.device)
-        batch_size = len(triples)
         result.prepare_time += time.time()
 
         # forward/backward pass (sp)
