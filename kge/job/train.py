@@ -22,6 +22,9 @@ from typing import Any, Callable, Dict, List, Optional
 import kge.job.util
 from kge.util.metric import Metric
 
+# Todo: remove
+from kge.util.sampler import SamuelSampler
+
 SLOTS = [0, 1, 2]
 S, P, O = SLOTS
 SLOT_STR = ["s", "p", "o"]
@@ -330,8 +333,16 @@ class TrainingJob(TrainingOrEvaluationJob):
         backward_time = 0.0
         optimizer_time = 0.0
 
+        # Todo: remove (memory leak)
+        #from pytorch_memlab import profile_every, MemReporter
+        #reporter = MemReporter()
+
         # process each batch
         for batch_index, batch in enumerate(self.loader):
+
+            #if batch_index % 10 == 0:
+            #    reporter.report(device=torch.device(0), verbose=True)
+
             # create initial batch trace (yet incomplete)
             self.current_trace["batch"] = {
                 "type": self.type_str,
@@ -436,16 +447,16 @@ class TrainingJob(TrainingOrEvaluationJob):
             #     self.config.log("Exported compute graph to " + f + ".{gv,pdf}")
 
             # print memory stats
-            if self.epoch == 1 and batch_index == 0:
-                if self.device.startswith("cuda"):
-                    self.config.log(
-                        "CUDA memory after first batch: allocated={:14,} "
-                        "reserved={:14,} max_allocated={:14,}".format(
-                            torch.cuda.memory_allocated(self.device),
-                            torch.cuda.memory_reserved(self.device),
-                            torch.cuda.max_memory_allocated(self.device),
-                        )
+            #if self.epoch == 1 and batch_index == 0:
+            if self.device.startswith("cuda"):
+                self.config.log(
+                    "CUDA memory after first batch: allocated={:14,} "
+                    "reserved={:14,} max_allocated={:14,}".format(
+                        torch.cuda.memory_allocated(self.device),
+                        torch.cuda.memory_reserved(self.device),
+                        torch.cuda.max_memory_allocated(self.device),
                     )
+                )
 
             # update parameters
             batch_optimizer_time = -time.time()
@@ -973,7 +984,8 @@ class TrainingJobNegativeSampling(TrainingJob):
         result.size = len(batch["triples"])
         result.prepare_time += time.time()
 
-    r"""def _process_subbatch(
+    '''
+    def _process_subbatch(
         self,
         batch_index,
         batch,
@@ -1033,7 +1045,61 @@ class TrainingJobNegativeSampling(TrainingJob):
             result.backward_time -= time.time()
             if not self.is_forward_only:
                 loss_value_torch.backward()
-            result.backward_time += time.time()"""
+            result.backward_time += time.time()
+        '''
+
+    def _process_subbatch_(
+        self,
+        batch_index,
+        batch,
+        subbatch_slice,
+        result: TrainingJob._ProcessBatchResult,
+    ):
+        # prepare
+        result.prepare_time -= time.time()
+        triples = batch["triples"][subbatch_slice]
+        batch_negative_samples = batch["negative_samples"]
+        batch_size = len(batch["triples"])
+        subbatch_size = len(triples)
+        result.prepare_time += time.time()
+
+        # embed prefix, suffix and batch embeddings -> batch_size true answers
+        sp_, spo, _po = SamuelSampler.pre_score_(self.model, triples)
+        num_samples = self._sampler.num_samples[S]
+        labels = torch.zeros(subbatch_size * 2, 1 + num_samples, device=self.device)
+        result.prepare_time -= time.time()
+        labels[:,0] = 1
+        scores = torch.empty(subbatch_size * 2, num_samples + 1, device=self.device)
+        result.prepare_time += time.time()
+
+        # compute the scores
+        result.forward_time -= time.time()
+        scores[:, 0] = spo.repeat(2)
+        result.forward_time += time.time()
+
+        # Todo: pass right indices
+        scores[subbatch_size:, 1:] = batch_negative_samples[S].score(self.model, _po, indexes=subbatch_slice)
+        scores[:subbatch_size, 1:] = batch_negative_samples[O].score(self.model, sp_, indexes=subbatch_slice)
+
+        result.forward_time += batch_negative_samples[S].forward_time
+        result.prepare_time += batch_negative_samples[S].prepare_time
+        result.forward_time += batch_negative_samples[O].forward_time
+        result.prepare_time += batch_negative_samples[O].prepare_time
+
+        # compute loss for slot in subbatch (concluding the forward pass)
+        result.forward_time -= time.time()
+        loss_value_torch = (
+            self.loss(scores, labels, num_negatives=num_samples) / batch_size
+        )
+        result.avg_loss += loss_value_torch.item()
+        result.forward_time += time.time()
+
+        # backward pass for this slot in the subbatch
+        result.backward_time -= time.time()
+        if not self.is_forward_only:
+            loss_value_torch.backward()
+        result.backward_time += time.time()
+
 
     def _process_subbatch(
         self,
@@ -1054,9 +1120,13 @@ class TrainingJobNegativeSampling(TrainingJob):
 
 
         t1 = time.time()
-        pre_scores = batch_negative_samples[0].pre_score(self.model, indexes=subbatch_slice)
+        sp_, spo, _po = SamuelSampler.pre_score_(self.model, triples)
+        pre_scores = [_po, spo, sp_]
         t2 = time.time()
         print("Embeddings_score:", t2-t1)
+
+        # Todo: Delete!
+        loss_value = {}
 
         # process the subbatch for each slot separately
         for slot in [S, P, O]:
@@ -1083,28 +1153,30 @@ class TrainingJobNegativeSampling(TrainingJob):
             scores[:, 0] = pre_scores[1]
             result.forward_time += time.time()
             scores[:, 1:] = batch_negative_samples[slot].score(
-                self.model, pre_scores, indexes = subbatch_slice
+                self.model, pre_scores[slot], indexes = subbatch_slice
             )
             result.forward_time += batch_negative_samples[slot].forward_time
             result.prepare_time += batch_negative_samples[slot].prepare_time
 
             # compute loss for slot in subbatch (concluding the forward pass)
             result.forward_time -= time.time()
-            loss_value_torch = (
-                self.loss(scores, labels[slot], num_negatives=num_samples) / batch_size
-            )
-            result.avg_loss += loss_value_torch.item()
+            #loss_value_torch\
+            loss_value[slot] = (self.loss(scores, labels[slot], num_negatives=num_samples) / batch_size)
+
+            result.avg_loss += loss_value[slot].item()
             result.forward_time += time.time()
 
-            # backward pass for this slot in the subbatch
-            result.backward_time -= time.time()
-            if not self.is_forward_only:
-                if(slot!=O):
-                    loss_value_torch.backward(retain_graph=True)
-                else:
-                    loss_value_torch.backward()
-            result.backward_time += time.time()
-        print("Actual Batch Time:", time.time()-t4)
+
+        loss_value_torch = sum(loss_value.values())
+
+        # backward pass for this slot in the subbatch
+        result.backward_time -= time.time()
+        if not self.is_forward_only:
+            loss_value_torch.backward()
+        result.backward_time += time.time()
+        #print("Actual Batch Time:", time.time()-t4)
+
+
 
 class TrainingJob1vsAll(TrainingJob):
     """Samples SPO pairs and queries sp_ and _po, treating all other entities as negative."""

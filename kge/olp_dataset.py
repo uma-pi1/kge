@@ -20,6 +20,11 @@ from kge.misc import kge_base_dir
 from typing import Dict, List, Any, Callable, Union, Optional, Tuple
 
 
+# Todo: remove (memory leak)
+from pytorch_memlab import profile_every, MemReporter
+reporter = MemReporter()
+
+
 # TP: class to contain all information on an OLP dataset
 class OLPDataset(Dataset):
 
@@ -285,8 +290,14 @@ class OLPDataset(Dataset):
             self.config.log(f"Loaded {len(triples)} {key} {filetype}")
             self._triples[key] = triples
             self._triple_indexes[key] = triple_indexes
+
+            #reporter.report(verbose=True)
+
             self._alternative_subject_mentions[key] = alternative_subjects
             self._alternative_object_mentions[key] = alternative_objects
+
+            #reporter.report(verbose=True)
+
             self._nr_alternative_subjects[key] = num_subjects
             self._nr_alternative_objects[key] = num_objects
 
@@ -352,14 +363,14 @@ class OLPDataset(Dataset):
                 # n = nr triples, columns: subject, predicate, object, alternative mentions
                 if len(alt_subjects) == 1:
                     alternative_subject_mentions[i] = torch.tensor([sub, pred, obj, *alt_subjects], dtype=int).view(-1,
-                                                                                                                    4)
+                                                                                                                    4).cpu()
                 else:
                     alternative_subject_mentions[i] = torch.cat(
                         [torch.as_tensor(entry, dtype=int).repeat((len(alt_subjects), 1)),
                          torch.as_tensor(alt_subjects).view(-1, 1)], dim=1)
                 sum_subject_mentions += len(alt_subjects)
                 if len(alt_objects) == 1:
-                    alternative_object_mentions[i] = torch.tensor([sub, pred, obj, *alt_objects], dtype=int).view(-1, 4)
+                    alternative_object_mentions[i] = torch.tensor([sub, pred, obj, *alt_objects], dtype=int).view(-1, 4).cpu()
                 else:
                     alternative_object_mentions[i] = torch.cat(
                         [torch.as_tensor(entry, dtype=int).repeat((len(alt_objects), 1)),
