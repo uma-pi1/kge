@@ -47,7 +47,7 @@ class BaseTestModel:
         p = torch.arange(num_relations).repeat(num_entities)
         # print(self.model)
         # self.model.score_spo(s, p, s, direction="o")
-        score_sp = self.model.score_sp(s, p)
+        score_sp = self.model.score_sp(s, p).contiguous()
         self.assertTrue(
             torch.allclose(
                 score_spo_o.view(-1), score_sp.view(-1), atol=1e-5, rtol=1e-4
@@ -167,3 +167,9 @@ class TestTransE(BaseTestModel, unittest.TestCase):
     def __init__(self, methodName="runTest"):
         unittest.TestCase.__init__(self, methodName=methodName)
         BaseTestModel.__init__(self, "transe")
+
+
+class TestTransH(BaseTestModel, unittest.TestCase):
+    def __init__(self, methodName="runTest"):
+        unittest.TestCase.__init__(self, methodName=methodName)
+        BaseTestModel.__init__(self, "transh")
