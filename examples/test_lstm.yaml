@@ -45,8 +45,8 @@ negative_sampling:
   with_replacement: False
   implementation: batch
   samples_within_batch: True
-  #num_samples:
-    #s: 8192
+  num_samples: # can be ignored if samples_within_batch is True
+    s: 100
     #p: 0          # -1 means: same as s
     #o: -1
 

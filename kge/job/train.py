@@ -21,9 +21,7 @@ from kge.job.trace import format_trace_entry
 from typing import Any, Callable, Dict, List, Optional
 import kge.job.util
 from kge.util.metric import Metric
-
-# Todo: remove
-from kge.util.sampler import SamuelSampler
+from kge.util.sampler import OlpNegativeSample
 
 SLOTS = [0, 1, 2]
 S, P, O = SLOTS
@@ -596,7 +594,10 @@ class TrainingJob(TrainingOrEvaluationJob):
             # determine data used for this subbatch
             subbatch_end = min(subbatch_start + max_subbatch_size, batch_size)
             subbatch_slice = slice(subbatch_start, subbatch_end)
-            self._process_subbatch(batch_index, batch, subbatch_slice, result)
+            if self.config.get("negative_sampling.samples_within_batch"):
+                self._process_subbatch_batch_sampling(batch_index, batch, subbatch_slice, result)
+            else:
+                self._process_subbatch(batch_index, batch, subbatch_slice, result)
 
         return result
 
@@ -984,7 +985,7 @@ class TrainingJobNegativeSampling(TrainingJob):
         result.size = len(batch["triples"])
         result.prepare_time += time.time()
 
-    '''
+
     def _process_subbatch(
         self,
         batch_index,
@@ -1046,9 +1047,9 @@ class TrainingJobNegativeSampling(TrainingJob):
             if not self.is_forward_only:
                 loss_value_torch.backward()
             result.backward_time += time.time()
-        '''
 
-    def _process_subbatch_(
+
+    def _process_subbatch_batch_sampling(
         self,
         batch_index,
         batch,
@@ -1056,60 +1057,6 @@ class TrainingJobNegativeSampling(TrainingJob):
         result: TrainingJob._ProcessBatchResult,
     ):
         # prepare
-        result.prepare_time -= time.time()
-        triples = batch["triples"][subbatch_slice]
-        batch_negative_samples = batch["negative_samples"]
-        batch_size = len(batch["triples"])
-        subbatch_size = len(triples)
-        result.prepare_time += time.time()
-
-        # embed prefix, suffix and batch embeddings -> batch_size true answers
-        sp_, spo, _po = SamuelSampler.pre_score_(self.model, triples)
-        num_samples = self._sampler.num_samples[S]
-        labels = torch.zeros(subbatch_size * 2, 1 + num_samples, device=self.device)
-        result.prepare_time -= time.time()
-        labels[:,0] = 1
-        scores = torch.empty(subbatch_size * 2, num_samples + 1, device=self.device)
-        result.prepare_time += time.time()
-
-        # compute the scores
-        result.forward_time -= time.time()
-        scores[:, 0] = spo.repeat(2)
-        result.forward_time += time.time()
-
-        # Todo: pass right indices
-        scores[subbatch_size:, 1:] = batch_negative_samples[S].score(self.model, _po, indexes=subbatch_slice)
-        scores[:subbatch_size, 1:] = batch_negative_samples[O].score(self.model, sp_, indexes=subbatch_slice)
-
-        result.forward_time += batch_negative_samples[S].forward_time
-        result.prepare_time += batch_negative_samples[S].prepare_time
-        result.forward_time += batch_negative_samples[O].forward_time
-        result.prepare_time += batch_negative_samples[O].prepare_time
-
-        # compute loss for slot in subbatch (concluding the forward pass)
-        result.forward_time -= time.time()
-        loss_value_torch = (
-            self.loss(scores, labels, num_negatives=num_samples) / batch_size
-        )
-        result.avg_loss += loss_value_torch.item()
-        result.forward_time += time.time()
-
-        # backward pass for this slot in the subbatch
-        result.backward_time -= time.time()
-        if not self.is_forward_only:
-            loss_value_torch.backward()
-        result.backward_time += time.time()
-
-
-    def _process_subbatch(
-        self,
-        batch_index,
-        batch,
-        subbatch_slice,
-        result: TrainingJob._ProcessBatchResult,
-    ):
-        # prepare
-        t4 = time.time()
         result.prepare_time -= time.time()
         triples = batch["triples"][subbatch_slice]
         batch_negative_samples = batch["negative_samples"]
@@ -1118,14 +1065,7 @@ class TrainingJobNegativeSampling(TrainingJob):
         result.prepare_time += time.time()
         labels = batch["labels"]  # reuse b/w subbatches
 
-
-        t1 = time.time()
-        sp_, spo, _po = SamuelSampler.pre_score_(self.model, triples)
-        pre_scores = [_po, spo, sp_]
-        t2 = time.time()
-        print("Embeddings_score:", t2-t1)
-
-        # Todo: Delete!
+        pre_scores = OlpNegativeSample.pre_score_(self.model, triples)  # pre_scores = [_po, spo, sp_]
         loss_value = {}
 
         # process the subbatch for each slot separately
@@ -1153,19 +1093,17 @@ class TrainingJobNegativeSampling(TrainingJob):
             scores[:, 0] = pre_scores[1]
             result.forward_time += time.time()
             scores[:, 1:] = batch_negative_samples[slot].score(
-                self.model, pre_scores[slot], indexes = subbatch_slice
+                self.model, pre_scores[slot], indexes=subbatch_slice
             )
             result.forward_time += batch_negative_samples[slot].forward_time
             result.prepare_time += batch_negative_samples[slot].prepare_time
 
             # compute loss for slot in subbatch (concluding the forward pass)
             result.forward_time -= time.time()
-            #loss_value_torch\
             loss_value[slot] = (self.loss(scores, labels[slot], num_negatives=num_samples) / batch_size)
 
             result.avg_loss += loss_value[slot].item()
             result.forward_time += time.time()
-
 
         loss_value_torch = sum(loss_value.values())
 
@@ -1174,7 +1112,6 @@ class TrainingJobNegativeSampling(TrainingJob):
         if not self.is_forward_only:
             loss_value_torch.backward()
         result.backward_time += time.time()
-        #print("Actual Batch Time:", time.time()-t4)
 
 
 
