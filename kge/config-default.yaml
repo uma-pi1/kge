@@ -389,7 +389,7 @@ negative_sampling:
   # 'batch' or 'auto' is recommended (faster) for models which have efficient
   # implementations to score many targets at once. For all other models, use
   # 'triple' (e.g., for TransE or RotatE in the current implementation).
-  implementation: triple
+  implementation: auto
 
 ## VALIDATION AND EVALUATION ###################################################
 

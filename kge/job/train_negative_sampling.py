@@ -28,8 +28,11 @@ class TrainingJobNegativeSampling(TrainingJob):
                 self._implementation = "batch"
             elif max_nr_of_negs <= 30:
                 self._implementation = "triple"
-            elif max_nr_of_negs > 30:
+            else:
                 self._implementation = "batch"
+            self.config.set(
+                "negative_sampling.implementation", self._implementation, log=True 
+            )
 
         config.log(
             "Initializing negative sampling training job with "
