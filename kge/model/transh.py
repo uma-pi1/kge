@@ -123,7 +123,7 @@ class TransH(KgeModel):
                 F.relu(
                     (
                         torch.sum(rel_emb * norm_vec_emb, dim=-1)
-                        / (torch.norm(rel_emb, dim=1) + eps)
+                        / torch.norm(rel_emb, dim=1)
                     )
                     ** 2
                     - eps ** 2
