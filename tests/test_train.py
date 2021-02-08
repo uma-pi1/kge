@@ -33,14 +33,8 @@ class BaseTestTrain:
     def test_subbatches(self):
         avg_losses = torch.empty(2)
         for i, subbatch_size in enumerate([-1, 3]):
-            random.seed(0)
-            torch.manual_seed(1)
-            numpy.random.seed(2)
-
-            @numba.njit
-            def seed_numba(seed):
-                np.random.seed(seed)
-            seed_numba(3)
+            from kge.util.seed import seed_all
+            seed_all(0)
 
             with tempfile.TemporaryDirectory() as tmpdirname:
                 config = self.config.clone()
