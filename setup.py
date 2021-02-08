@@ -22,7 +22,9 @@ setup(
         # see http://numba.pydata.org/numba-doc/0.50.1/reference/pysupported.html
         "numba==0.50.*",
     ],
-    python_requires='>=3.7',  # ax 0.1.10 requires python 3.7
+    # Ax 0.1.10 requires python 3.7. Numba does not yet support for Python 3.9:
+    # https://github.com/numba/numba/issues/6345
+    python_requires=">=3.7,<3.9",
     zip_safe=False,
     entry_points={"console_scripts": ["kge = kge.cli:main",],},
 )
