@@ -119,11 +119,13 @@ class TransH(KgeModel):
                 self._relation_embedder.embed_all(), 2, dim=1
             )
             eps = 1e-6  # paper is silent on how to set this
+            # NOTE PR #176: added eps to denominator to prevent
+            # blow-up due to division by very small numbers
             p_rel = torch.sum(
                 F.relu(
                     (
                         torch.sum(rel_emb * norm_vec_emb, dim=-1)
-                        / torch.norm(rel_emb, dim=1)
+                        / (torch.norm(rel_emb, dim=1) + eps)
                     )
                     ** 2
                     - eps ** 2
