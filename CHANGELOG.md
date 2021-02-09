@@ -2,8 +2,9 @@
 - PR [#176](https://github.com/uma-pi1/kge/pull/176): Add TransH model (thanks Mayo42)
 
 #### December 2020
-- PR [#159](https://github.com/uma-pi1/kge/pull/159): Add a plugin mechanism (thanks sfschouten)
-- PR [#157](https://github.com/uma-pi1/kge/pull/157): Add CoDEx datasets and pretrained models (thanks tsafavi)
+- PR [#164](https://github.com/uma-pi1/kge/pull/164): Allow to easily add custom training/evaluation/search jobs
+- PR [#159](https://github.com/uma-pi1/kge/pull/159): Add a plugin mechanism (thanks @sfschouten)
+- PR [#157](https://github.com/uma-pi1/kge/pull/157): Add CoDEx datasets and pretrained models (thanks @tsafavi)
 
 #### November 2020
 - PR [#155](https://github.com/uma-pi1/kge/pull/155): Faster reading of triple files

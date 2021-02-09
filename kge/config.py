@@ -28,6 +28,9 @@ class Config:
 
             with open(filename_in_module(kge, "config-default.yaml"), "r") as file:
                 self.options: Dict[str, Any] = yaml.load(file, Loader=yaml.SafeLoader)
+
+            for m in self.get("import"):
+                self._import(m)
         else:
             self.options = {}
 
@@ -736,6 +739,11 @@ def _process_deprecated_options(options: Dict[str, Any]):
                 if rename_value(key, old_value, new_value):
                     renamed_keys.add(key)
         return renamed_keys
+
+    # 15.12.20
+    rename_value("search.type", "ax", "ax_search")
+    rename_value("search.type", "manual", "manual_search")
+    rename_value("search.type", "grid", "grid_search")
 
     # 09.10.20
     rename_key("train.optimizer", "train.optimizer.default.type")

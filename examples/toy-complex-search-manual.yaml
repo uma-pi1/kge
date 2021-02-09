@@ -1,0 +1,10 @@
+job.type: search
+dataset.name: toy
+
+train.optimizer.default.type: Adagrad
+model: complex
+
+search.type: manual
+manual_search.configurations:
+  - { folder: 'lr01_dim50', train.optimizer.default.args.lr: 0.1, lookup_embedder.dim: 50 }
+  - { folder: 'lr02_dropout05', train.optimizer.default.args.lr: 0.2, lookup_embedder.dropout: 0.5 }
