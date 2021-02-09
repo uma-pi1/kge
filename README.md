@@ -58,7 +58,7 @@ kge start examples/toy-complex-train.yaml --job.device cpu
  - **Training**
    - Training types: negative sampling, 1vsAll, KvsAll
    - Losses: binary cross entropy (BCE), Kullback-Leibler divergence (KL),
-     margin ranking (MR)
+     margin ranking (MR), squared error (SE)
    - All optimizers and learning rate schedulers of PyTorch supported
    - Early stopping
    - Checkpointing
