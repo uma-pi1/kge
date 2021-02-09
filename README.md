@@ -66,6 +66,7 @@ kge start examples/toy-complex-train.yaml --job.device cpu
    - Early stopping
    - Checkpointing
    - Stop (e.g., via `Ctrl-C`) and resume at any time
+   - Automatic memory management to support large batch sizes (see config key `train.subbatch_auto_tune`)
  - **Hyperparameter tuning**
    - Grid search, manual search, quasi-random search (using
      [Ax](https://ax.dev/)), Bayesian optimization (using [Ax](https://ax.dev/))
