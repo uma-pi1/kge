@@ -5,6 +5,7 @@ import torch.utils.data
 from kge.job import Job
 from kge.job.train import TrainingJob, _generate_worker_init_fn
 from kge.util import KgeSampler
+from kge.model.transe import TransEScorer
 
 SLOTS = [0, 1, 2]
 S, P, O = SLOTS
@@ -24,7 +25,9 @@ class TrainingJobNegativeSampling(TrainingJob):
         )
         if self._implementation == "auto":
             max_nr_of_negs = max(self._sampler.num_samples)
-            if self._sampler.shared:
+            if isinstance(self.model._scorer, TransEScorer):
+                self._implementation = "triple"
+            elif self._sampler.shared:
                 self._implementation = "batch"
             elif max_nr_of_negs <= 30:
                 self._implementation = "triple"

@@ -382,9 +382,11 @@ negative_sampling:
   #           out of the resulting score matrix
   # - batch : Scores against all targets contained in batch (or chunk) and
   #           filters relevant scores out of the resulting score matrix.
-  # - auto  : Chooses best implementation based on num_samples.
+  # - auto  : Chooses best implementation heuristically
   #           'batch' if shared sampling is activated or max(num_samples.s,
-  #           num_samples.p, num_samples.o) > 30. 'triple' otherwise.
+  #           num_samples.p, num_samples.o) > 30.
+  #           'triple' if the TransE scorer is used or max(num_samples.s,
+  #           num_samples.p, num_samples.o) <= 30.
   #
   # 'batch' or 'auto' is recommended (faster) for models which have efficient
   # implementations to score many targets at once. For all other models, use
