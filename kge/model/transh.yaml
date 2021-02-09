@@ -1,0 +1,14 @@
+import: [lookup_embedder]
+
+transh:
+  class_name: TransH
+  entity_embedder:
+    type: lookup_embedder
+    +++: +++
+  relation_embedder:
+    type: lookup_embedder
+    dim: -1  # determine automatically
+    +++: +++
+
+  l_norm: 1.
+  C: 0.      # weight of penalty for soft constraints

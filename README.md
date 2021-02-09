@@ -58,7 +58,7 @@ kge start examples/toy-complex-train.yaml --job.device cpu
  - **Training**
    - Training types: negative sampling, 1vsAll, KvsAll
    - Losses: binary cross entropy (BCE), Kullback-Leibler divergence (KL),
-     margin ranking (MR)
+     margin ranking (MR), squared error (SE)
    - All optimizers and learning rate schedulers of PyTorch supported
    - Early stopping
    - Checkpointing
@@ -78,6 +78,7 @@ kge start examples/toy-complex-train.yaml --job.device cpu
    - All models can be used with or without reciprocal relations
    - [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) ([code](kge/model/rescal.py), [config](kge/model/rescal.yaml))
    - [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) ([code](kge/model/transe.py), [config](kge/model/transe.yaml))
+   - [TransH](https://ojs.aaai.org/index.php/AAAI/article/view/8870) ([code](kge/model/transh.py), [config](kge/model/transh.yaml))
    - [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) ([code](kge/model/distmult.py), [config](kge/model/distmult.yaml))
    - [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) ([code](kge/model/complex.py), [config](kge/model/complex.yaml))
    - [ConvE](https://arxiv.org/abs/1707.01476)  ([code](kge/model/conve.py), [config](kge/model/conve.yaml))
@@ -430,6 +431,7 @@ LibKGE currently implements the following KGE models:
 
 - [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) ([code](kge/model/rescal.py), [config](kge/model/rescal.yaml))
 - [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) ([code](kge/model/transe.py), [config](kge/model/transe.yaml))
+- [TransH](https://ojs.aaai.org/index.php/AAAI/article/view/8870) ([code](kge/model/transh.py), [config](kge/model/transh.yaml))
 - [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) ([code](kge/model/distmult.py), [config](kge/model/distmult.yaml))
 - [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) ([code](kge/model/complex.py), [config](kge/model/complex.yaml))
 - [ConvE](https://arxiv.org/abs/1707.01476)  ([code](kge/model/conve.py), [config](kge/model/conve.yaml))
