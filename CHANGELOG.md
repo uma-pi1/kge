@@ -1,4 +1,5 @@
 #### Februar 2021
+- Add Transformer model
 - PR [#176](https://github.com/uma-pi1/kge/pull/176): Add TransH model (thanks Mayo42)
 
 #### December 2020

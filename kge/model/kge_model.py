@@ -76,9 +76,6 @@ class KgeBase(torch.nn.Module, Configurable):
         # Automatically set arg a (lower bound) for uniform_ if not given
         if initialize == "uniform_" and "a" not in initialize_args:
             initialize_args["a"] = initialize_args["b"] * -1
-            config.set_option(
-                initialize_args_key + ".a", initialize_args["a"], log=True
-            )
 
         KgeBase._initialize(what, initialize, initialize_args)
 
@@ -256,6 +253,7 @@ class KgeEmbedder(KgeBase):
                 )
 
         self.dim: int = self.get_option("dim")
+
 
     @staticmethod
     def create(
@@ -483,6 +481,7 @@ class KgeModel(KgeBase):
                 model_name = config.get(configuration_key + ".type")
             else:
                 model_name = config.get("model")
+            config._import(model_name)
             class_name = config.get(model_name + ".class_name")
         except:
             raise Exception("Can't find {}.type in config".format(configuration_key))

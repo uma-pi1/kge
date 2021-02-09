@@ -88,6 +88,9 @@ class TrainingJob(TrainingOrEvaluationJob):
             self.model.train()
             self.optimizer = KgeOptimizer.create(config, self.model)
             self.kge_lr_scheduler = KgeLRScheduler(config, self.optimizer)
+            self._lr_warmup = self.config.get("train.lr_warmup")
+            for group in self.optimizer.param_groups:
+                group["initial_lr"]=group["lr"]
 
             self.valid_trace: List[Dict[str, Any]] = []
             valid_conf = config.clone()
@@ -190,6 +193,11 @@ class TrainingJob(TrainingOrEvaluationJob):
                 self.config.log("Maximum number of epochs reached.")
                 break
 
+            # update learning rate if warmup is used
+            if self.epoch < self._lr_warmup:
+                for group in self.optimizer.param_groups:
+                    group["lr"] = group["initial_lr"] * (self.epoch+1) / self._lr_warmup
+
             # start a new epoch
             self.epoch += 1
             self.config.log("Starting epoch {}...".format(self.epoch))
@@ -202,7 +210,8 @@ class TrainingJob(TrainingOrEvaluationJob):
             self.model.meta["train_config"] = self.config
             self.model.meta["train_trace_entry"] = trace_entry
 
-            # validate and update learning rate
+            # validate
+            lr_metric = None
             if (
                 self.config.get("valid.every") > 0
                 and self.epoch % self.config.get("valid.every") == 0
@@ -213,11 +222,13 @@ class TrainingJob(TrainingOrEvaluationJob):
                 for f in self.post_valid_hooks:
                     f(self)
                 self.model.meta["valid_trace_entry"] = trace_entry
+                lr_metric = trace_entry[metric_name]
 
-                # metric-based scheduler step
-                self.kge_lr_scheduler.step(trace_entry[metric_name])
-            else:
-                self.kge_lr_scheduler.step()
+            # update learning rate after warmup
+            if self.epoch >= self._lr_warmup:
+                # note: lr_metric is None if no validation has been performed in this
+                # epoch. This is handled by the optimizers
+                self.kge_lr_scheduler.step(lr_metric)
 
             # create checkpoint and delete old one, if necessary
             self.save(self.config.checkpoint_file(self.epoch))

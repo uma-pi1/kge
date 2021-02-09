@@ -1,0 +1,30 @@
+import: [lookup_embedder]
+
+# Should only be used with reciprocal relations:
+# - model: reciprocal_relations_model
+# - reciprocal_relations_model.base_model.type: transformer
+
+transformer:
+  class_name: Transformer
+  entity_embedder:
+    type: lookup_embedder
+    +++: +++
+  relation_embedder:
+    type: lookup_embedder
+    +++: +++
+  encoder:
+    # see torch.nn.TransformerEncodeLayer
+    nhead: 8                     # the number of heads
+    dim_feedforward: 1280        # the dimension of the feedforward network model
+    dropout: 0.1
+    activation: relu             # relu or gelu
+
+    # see torch.nn.TransformerEncoder
+    num_layers: 3                # the number of sub-encoder-layers in the encoder
+
+  # Initialization for transformer layers, CLS embedding and type embeddings.
+  initialize: 'normal_'
+  initialize_args:
+    mean: 0.0
+    std: 0.02
+    +++: +++

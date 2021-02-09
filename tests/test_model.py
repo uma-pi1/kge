@@ -86,7 +86,17 @@ class TestConvE(BaseTestModel, unittest.TestCase):
         BaseTestModel.__init__(
             self,
             "reciprocal_relations_model",
-            options={"reciprocal_relations_model.base_model.type": "conve",},
+            options={"reciprocal_relations_model.base_model.type": "conve"},
+        )
+
+
+class TestTransformer(BaseTestModel, unittest.TestCase):
+    def __init__(self, methodName="runTest"):
+        unittest.TestCase.__init__(self, methodName=methodName)
+        BaseTestModel.__init__(
+            self,
+            "reciprocal_relations_model",
+            options={"reciprocal_relations_model.base_model.type": "transformer"},
         )
 
 

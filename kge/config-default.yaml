@@ -251,6 +251,11 @@ train:
     # kge dump checkpoint checkpoint_file.pt | grep parameter_names
     +++: +++
 
+  # If >0, linearly increase learning rate over this many epochs to
+  # optimizer.<group>.args.lr for each group. Only then use the specified
+  # learning rate scheduler.
+  lr_warmup: 0                # disabled
+
   # Learning rate scheduler to use. Any scheduler from torch.optim.lr_scheduler
   # can be used (e.g., ReduceLROnPlateau). When left empty, no LR scheduler is
   # used.
