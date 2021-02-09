@@ -20,14 +20,21 @@ class TrainingJobNegativeSampling(TrainingJob):
             config, dataset, parent_job, model=model, forward_only=forward_only
         )
         self._sampler = KgeSampler.create(config, "negative_sampling", dataset)
+        self.type_str = "negative_sampling"
+
+        if self.__class__ == TrainingJobNegativeSampling:
+            for f in Job.job_created_hooks:
+                f(self)
+
+    def _prepare(self):
+        super()._prepare()
+        # get negative sampling implementation
         self._implementation = self.config.check(
             "negative_sampling.implementation", ["triple", "all", "batch", "auto"],
         )
         if self._implementation == "auto":
             max_nr_of_negs = max(self._sampler.num_samples)
-            if isinstance(self.model._scorer, TransEScorer):
-                self._implementation = "triple"
-            elif self._sampler.shared:
+            if self._sampler.shared:
                 self._implementation = "batch"
             elif max_nr_of_negs <= 30:
                 self._implementation = "triple"
@@ -37,20 +44,12 @@ class TrainingJobNegativeSampling(TrainingJob):
                 "negative_sampling.implementation", self._implementation, log=True 
             )
 
-        config.log(
+        self.config.log(
             "Initializing negative sampling training job with "
             "'{}' scoring function ...".format(self._implementation)
         )
-        self.type_str = "negative_sampling"
 
-        if self.__class__ == TrainingJobNegativeSampling:
-            for f in Job.job_created_hooks:
-                f(self)
-
-    def _prepare(self):
-        """Construct dataloader"""
-        super()._prepare()
-
+        # construct dataloader
         self.num_examples = self.dataset.split(self.train_split).size(0)
         self.loader = torch.utils.data.DataLoader(
             range(self.num_examples),
