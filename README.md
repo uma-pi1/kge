@@ -502,6 +502,7 @@ Other KGE frameworks:
  - [AmpliGraph](https://github.com/Accenture/AmpliGraph)
  - [OpenKE](https://github.com/thunlp/OpenKE)
  - [PyKEEN](https://github.com/SmartDataAnalytics/PyKEEN)
+ - [Pykg2vec](https://github.com/Sujit-O/pykg2vec)
 
 KGE projects for publications that also implement a few models:
  - [ConvE](https://github.com/TimDettmers/ConvE)
