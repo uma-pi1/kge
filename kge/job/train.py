@@ -144,7 +144,7 @@ class TrainingJob(TrainingOrEvaluationJob):
                 f"{self.__class__.__name__} was initialized for forward only. You can only call run_epoch()"
             )
         if self.epoch == 0:
-            self.save(self.config.checkpoint_file("init"))
+            self.save(self.config.checkpoint_file(0))
 
         self.config.log("Starting training...")
         checkpoint_every = self.config.get("train.checkpoint.every")

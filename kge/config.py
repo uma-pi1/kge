@@ -487,7 +487,7 @@ class Config:
             tried_epoch += 1
             if os.path.exists(self.checkpoint_file(tried_epoch)):
                 found_epoch = tried_epoch
-        if found_epoch > 0:
+        if found_epoch >= 0:
             return found_epoch
         else:
             return None

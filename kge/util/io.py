@@ -22,10 +22,7 @@ def get_checkpoint_file(config: Config, checkpoint_argument: str = "default"):
         else:
             last_epoch = config.last_checkpoint_number()
             if last_epoch is None:
-                if os.path.exists(config.checkpoint_file("init")):
-                    checkpoint_file = config.checkpoint_file("init")
-                else:
-                    checkpoint_file = None
+                checkpoint_file = None
             else:
                 checkpoint_file = config.checkpoint_file(last_epoch)
     elif is_number(checkpoint_argument, int) or checkpoint_argument == "best":
