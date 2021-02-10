@@ -5,6 +5,7 @@ import torch.utils.data
 from kge.job import Job
 from kge.job.train import TrainingJob, _generate_worker_init_fn
 from kge.util import KgeSampler
+from kge.model.transe import TransEScorer
 
 SLOTS = [0, 1, 2]
 S, P, O = SLOTS
@@ -19,6 +20,15 @@ class TrainingJobNegativeSampling(TrainingJob):
             config, dataset, parent_job, model=model, forward_only=forward_only
         )
         self._sampler = KgeSampler.create(config, "negative_sampling", dataset)
+        self.type_str = "negative_sampling"
+
+        if self.__class__ == TrainingJobNegativeSampling:
+            for f in Job.job_created_hooks:
+                f(self)
+
+    def _prepare(self):
+        super()._prepare()
+        # select negative sampling implementation
         self._implementation = self.config.check(
             "negative_sampling.implementation", ["triple", "all", "batch", "auto"],
         )
@@ -28,23 +38,18 @@ class TrainingJobNegativeSampling(TrainingJob):
                 self._implementation = "batch"
             elif max_nr_of_negs <= 30:
                 self._implementation = "triple"
-            elif max_nr_of_negs > 30:
+            else:
                 self._implementation = "batch"
+            self.config.set(
+                "negative_sampling.implementation", self._implementation, log=True
+            )
 
-        config.log(
-            "Initializing negative sampling training job with "
+        self.config.log(
+            "Preparing negative sampling training job with "
             "'{}' scoring function ...".format(self._implementation)
         )
-        self.type_str = "negative_sampling"
 
-        if self.__class__ == TrainingJobNegativeSampling:
-            for f in Job.job_created_hooks:
-                f(self)
-
-    def _prepare(self):
-        """Construct dataloader"""
-        super()._prepare()
-
+        # construct dataloader
         self.num_examples = self.dataset.split(self.train_split).size(0)
         self.loader = torch.utils.data.DataLoader(
             range(self.num_examples),

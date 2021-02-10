@@ -235,7 +235,13 @@ class Config:
         # all fine, set value
         data[splits[-1]] = value
         if log:
-            self.log("Set {}={}".format(key, value))
+            self.log(
+                "Set {}={} (was {})".format(
+                    key,
+                    repr(value),
+                    repr(current_value) if current_value is not None else "unset",
+                )
+            )
         return value
 
     def _import(self, module_name: str):
