@@ -50,9 +50,7 @@ class TransE(KgeModel):
 
         if (
             isinstance(job, TrainingJobNegativeSampling)
-            and self.config.get("negative_sampling.implementation") == "auto"
+            and job.config.get("negative_sampling.implementation") == "auto"
         ):
-            # TransE only works with "triple"
-            self.config.set(
-                "negative_sampling.implementation", "triple", log=True
-            )
+            # TransE with batch currently tends to run out of memory, so we use triple.
+            job.config.set("negative_sampling.implementation", "triple", log=True)

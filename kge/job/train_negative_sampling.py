@@ -28,7 +28,7 @@ class TrainingJobNegativeSampling(TrainingJob):
 
     def _prepare(self):
         super()._prepare()
-        # get negative sampling implementation
+        # select negative sampling implementation
         self._implementation = self.config.check(
             "negative_sampling.implementation", ["triple", "all", "batch", "auto"],
         )
@@ -41,11 +41,11 @@ class TrainingJobNegativeSampling(TrainingJob):
             else:
                 self._implementation = "batch"
             self.config.set(
-                "negative_sampling.implementation", self._implementation, log=True 
+                "negative_sampling.implementation", self._implementation, log=True
             )
 
         self.config.log(
-            "Initializing negative sampling training job with "
+            "Preparing negative sampling training job with "
             "'{}' scoring function ...".format(self._implementation)
         )
 
