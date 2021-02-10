@@ -75,9 +75,11 @@ kge start examples/toy-complex-train.yaml --job.device cpu
  - **Evaluation**
    - Entity ranking metrics: Mean Reciprocal Rank (MRR), HITS@k with/without filtering
    - Drill-down by: relation type, relation frequency, head or tail
- - **Extensive logging**
-   - Logging for training, hyper-parameter tuning and evaluation in machine
-     readable formats to facilitate analysis
+ - **Extensive logging and tracing**
+   - Detailed progress information about training, hyper-parameter tuning, and evaluation 
+     is recorded in machine readable formats
+   - Quick export of all/selected parts of the traced data into CSV or YAML files to 
+     facilitate analysis
  - **KGE models**
    - All models can be used with or without reciprocal relations
    - [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) ([code](kge/model/rescal.py), [config](kge/model/rescal.yaml))
