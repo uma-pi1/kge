@@ -256,6 +256,9 @@ train:
     # Keep this many most recent additional checkpoints.
     keep: 3
 
+    # keep checkpoint containing initialized model for reproducibility
+    keep_init: False
+
   # When set, LibKGE automatically corrects certain invalid configuration
   # options. Each such change is logged. When not set and the configuration is
   # invalid, LibKGE raises an error.

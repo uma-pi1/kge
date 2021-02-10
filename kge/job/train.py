@@ -226,6 +226,9 @@ class TrainingJob(TrainingOrEvaluationJob):
 
             # create checkpoint and delete old one, if necessary
             self.save(self.config.checkpoint_file(self.epoch))
+            if self.epoch == 1 and not self.config.get("train.checkpoint.keep_init"):
+                # delete init checkpoint after first epoch
+                self._delete_checkpoint(0)
             if self.epoch > 1:
                 delete_checkpoint_epoch = -1
                 if checkpoint_every == 0:
@@ -240,23 +243,27 @@ class TrainingJob(TrainingOrEvaluationJob):
                         self.epoch - 1 - checkpoint_every * checkpoint_keep
                     )
                 if delete_checkpoint_epoch > 0:
-                    if os.path.exists(
-                        self.config.checkpoint_file(delete_checkpoint_epoch)
-                    ):
-                        self.config.log(
-                            "Removing old checkpoint {}...".format(
-                                self.config.checkpoint_file(delete_checkpoint_epoch)
-                            )
-                        )
-                        os.remove(self.config.checkpoint_file(delete_checkpoint_epoch))
-                    else:
-                        self.config.log(
-                            "Could not delete old checkpoint {}, does not exits.".format(
-                                self.config.checkpoint_file(delete_checkpoint_epoch)
-                            )
-                        )
+                    self._delete_checkpoint(delete_checkpoint_epoch)
 
         self.trace(event="train_completed")
+
+    def _delete_checkpoint(self, checkpoint_id):
+        """Try to delete checkpoint specified by id"""
+        if os.path.exists(
+                self.config.checkpoint_file(checkpoint_id)
+        ):
+            self.config.log(
+                "Removing old checkpoint {}...".format(
+                    self.config.checkpoint_file(checkpoint_id)
+                )
+            )
+            os.remove(self.config.checkpoint_file(checkpoint_id))
+        else:
+            self.config.log(
+                "Could not delete old checkpoint {}, does not exits.".format(
+                    self.config.checkpoint_file(checkpoint_id)
+                )
+            )
 
     def save(self, filename) -> None:
         """Save current state to specified file"""
