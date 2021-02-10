@@ -7,6 +7,7 @@ import os
 import time
 import uuid
 import sys
+import re
 from enum import Enum
 
 import yaml
@@ -480,13 +481,12 @@ class Config:
 
     def last_checkpoint_number(self) -> Optional[int]:
         "Return number (epoch) of latest checkpoint"
-        # stupid implementation, but works
-        tried_epoch = 0
-        found_epoch = 0
-        while tried_epoch < found_epoch + 500:
-            tried_epoch += 1
-            if os.path.exists(self.checkpoint_file(tried_epoch)):
-                found_epoch = tried_epoch
+        found_epoch = -1
+        for f in os.listdir(self.folder):
+            if re.match("checkpoint_\d{5}\.pt", f):
+                new_found_epoch = int(f.split("_")[1].split(".")[0])
+                if new_found_epoch > found_epoch:
+                    found_epoch = new_found_epoch
         if found_epoch >= 0:
             return found_epoch
         else:
