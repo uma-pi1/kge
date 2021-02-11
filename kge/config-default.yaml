@@ -256,8 +256,9 @@ train:
     # Keep this many most recent additional checkpoints.
     keep: 3
 
-    # keep checkpoint containing initialized model for reproducibility
-    keep_init: False
+    # Whether to always keep checkpoint containing initialized model
+    # ('checkpoint_00000.pt') for reproducibility.
+    keep_init: True
 
   # When set, LibKGE automatically corrects certain invalid configuration
   # options. Each such change is logged. When not set and the configuration is
