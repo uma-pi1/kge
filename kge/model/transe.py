@@ -1,5 +1,6 @@
 import torch
 from kge import Config, Dataset
+from kge.job import Job
 from kge.model.kge_model import RelationalScorer, KgeModel
 from torch.nn import functional as F
 
@@ -41,3 +42,15 @@ class TransE(KgeModel):
             configuration_key=configuration_key,
             init_for_load_only=init_for_load_only,
         )
+
+    def prepare_job(self, job: Job, **kwargs):
+        super().prepare_job(job, **kwargs)
+
+        from kge.job import TrainingJobNegativeSampling
+
+        if (
+            isinstance(job, TrainingJobNegativeSampling)
+            and job.config.get("negative_sampling.implementation") == "auto"
+        ):
+            # TransE with batch currently tends to run out of memory, so we use triple.
+            job.config.set("negative_sampling.implementation", "triple", log=True)

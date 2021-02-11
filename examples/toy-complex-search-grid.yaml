@@ -1,12 +1,13 @@
 job.type: search
 dataset.name: toy
-train.optimizer: Adagrad
+
+train.optimizer.default.type: Adagrad
 model: complex
 
 search.type: grid
 grid_search.parameters:
     # can be specified flattened
-    train.optimizer_args.lr: [ 0.01, 0.1 ]
+    train.optimizer.default.args.lr: [ 0.01, 0.1 ]
 
     # or nested
     lookup_embedder: { dim: [ 10, 20 ] }

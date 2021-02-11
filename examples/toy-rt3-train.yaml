@@ -7,24 +7,22 @@ relational_tucker3:
     dim: 50
     dropout: 0.02
     regularize: 'lp'
-    regularize_args:
-      weight: 4e-12
+    regularize_weight: 4e-12
 
   relation_embedder:
     dropout: 0.3
     regularize: 'lp'
-    regularize_args:
-      weight: 6e-16
+    regularize_weight: 6e-16
     base_embedder:
       dim: 50
       dropout: 0.3
       regularize: 'lp'
-      regularize_args:
-        weight: 6e-12
+      regularize_weight: 6e-12
 
 train:
   max_epochs: 50
-  optimizer: Adagrad
-  optimizer_args:
-    lr: 0.1
-    # weight_decay: 0.4e-7
+  optimizer.default:
+    type: Adagrad
+    args:
+      lr: 0.1
+      # weight_decay: 0.4e-7

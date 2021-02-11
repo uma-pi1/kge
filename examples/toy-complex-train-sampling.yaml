@@ -4,10 +4,11 @@ model: complex
 
 train:
   type: negative_sampling
-  optimizer: Adagrad
-  optimizer_args:
-    lr: 0.6
-    weight_decay: 0.4e-7
+  optimizer.default:
+    type: Adagrad
+    args:
+      lr: 0.6
+      weight_decay: 0.4e-7
   loss: margin_ranking
   loss_arg: 2.0  # margin
   batch_size: 512

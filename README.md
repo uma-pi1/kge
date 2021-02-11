@@ -23,29 +23,50 @@ For link prediction tasks, rule-based systems such as
 [AnyBURL](http://web.informatik.uni-mannheim.de/AnyBURL/) are a competitive
 alternative to KGE.
 
+## Quick start
+
+```sh
+# retrieve and install project in development mode
+git clone https://github.com/uma-pi1/kge.git
+cd kge
+pip install -e .
+
+# download and preprocess datasets
+cd data
+sh download_all.sh
+cd ..
+
+# train an example model on toy dataset (you can omit '--job.device cpu' when you have a gpu)
+kge start examples/toy-complex-train.yaml --job.device cpu
+
+```
+
 ## Table of contents
 
 1. [Features](#features)
 2. [Results and pretrained models](#results-and-pretrained-models)
-3. [Quick start](#quick-start)
-4. [Using LibKGE](#using-libkge)
-5. [Currently supported KGE models](#currently-supported-kge-models)
-6. [Adding a new model](#adding-a-new-model)
-7. [Known issues](#known-issues)
-8. [Changelog](CHANGELOG.md)
-9. [Other KGE frameworks](#other-kge-frameworks)
-10. [How to cite](#how-to-cite)
+3. [Using LibKGE](#using-libkge)
+4. [Currently supported KGE models](#currently-supported-kge-models)
+6. [Extending LibKGE](#extending-libkge)
+6. [Known issues](#known-issues)
+7. [Changelog](CHANGELOG.md)
+8. [Other KGE frameworks](#other-kge-frameworks)
+9. [How to cite](#how-to-cite)
 
 ## Features
 
  - **Training**
    - Training types: negative sampling, 1vsAll, KvsAll
    - Losses: binary cross entropy (BCE), Kullback-Leibler divergence (KL),
-     margin ranking (MR)
-   - All optimizers and learning rate schedulers of PyTorch supported
+     margin ranking (MR), squared error (SE)
+   - All optimizers and learning rate schedulers of PyTorch supported and can be
+     chosen individually for different parameters (e.g., different for entity
+     and for relation embeddings)
+   - Learning rate warmup
    - Early stopping
    - Checkpointing
    - Stop (e.g., via `Ctrl-C`) and resume at any time
+   - Automatic memory management to support large batch sizes (see config key `train.subbatch_auto_tune`)
  - **Hyperparameter tuning**
    - Grid search, manual search, quasi-random search (using
      [Ax](https://ax.dev/)), Bayesian optimization (using [Ax](https://ax.dev/))
@@ -54,13 +75,16 @@ alternative to KGE.
  - **Evaluation**
    - Entity ranking metrics: Mean Reciprocal Rank (MRR), HITS@k with/without filtering
    - Drill-down by: relation type, relation frequency, head or tail
- - **Extensive logging**
-   - Logging for training, hyper-parameter tuning and evaluation in machine
-     readable formats to facilitate analysis
+ - **Extensive logging and tracing**
+   - Detailed progress information about training, hyper-parameter tuning, and evaluation 
+     is recorded in machine readable formats
+   - Quick export of all/selected parts of the traced data into CSV or YAML files to 
+     facilitate analysis
  - **KGE models**
    - All models can be used with or without reciprocal relations
    - [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) ([code](kge/model/rescal.py), [config](kge/model/rescal.yaml))
    - [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) ([code](kge/model/transe.py), [config](kge/model/transe.yaml))
+   - [TransH](https://ojs.aaai.org/index.php/AAAI/article/view/8870) ([code](kge/model/transh.py), [config](kge/model/transh.yaml))
    - [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) ([code](kge/model/distmult.py), [config](kge/model/distmult.yaml))
    - [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) ([code](kge/model/complex.py), [config](kge/model/complex.yaml))
    - [ConvE](https://arxiv.org/abs/1707.01476)  ([code](kge/model/conve.py), [config](kge/model/conve.yaml))
@@ -68,6 +92,7 @@ alternative to KGE.
    - [CP](https://arxiv.org/abs/1806.07297) ([code](kge/model/cp.py), [config](kge/model/cp.yaml))
    - [SimplE](https://arxiv.org/abs/1802.04868) ([code](kge/model/simple.py), [config](kge/model/simple.yaml))
    - [RotatE](https://arxiv.org/abs/1902.10197) ([code](kge/model/rotate.py), [config](kge/model/rotate.yaml))
+   - [Transformer ("No context" model)](https://arxiv.org/abs/2008.12813) ([code](kge/model/transformer.py), [config](kge/model/transformer.yaml))
  - **Embedders**
    - Lookup embedder ([code](kge/model/embedder/lookup_embedder.py), [config](kge/model/embedder/lookup_embedder.yaml))
    - Projection embedder ([code](kge/model/embedder/projection_embedder.py), [config](kge/model/embedder/projection_embedder.yaml))
@@ -160,23 +185,44 @@ The result given below was found by the same automatic hyperparameter search use
 |-------------------------------------------------------------|------:|-------:|-------:|--------:|-----------------------------------------------------------------------------------------------:|--------------------------------------------------------------------------------------------:|
 | [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.551 |  0.476 |  0.596 |   0.682 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/yago3-10-complex.yaml) | [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/yago3-10-complex.pt) |
 
-## Quick start
+#### CoDEx
 
-```sh
-# retrieve and install project in development mode
-git clone https://github.com/uma-pi1/kge.git
-cd kge
-pip install -e .
+[CoDEx](https://github.com/tsafavi/codex) is a Wikidata-based KG completion
+benchmark. The results here have been obtained using the automatic
+hyperparameter search used for the Freebase and WordNet datasets, but with fewer
+epochs and Ax trials for CoDEx-M and CoDEx-L. See the [CoDEx
+paper](https://arxiv.org/pdf/2009.07810.pdf) (EMNLP 2020) for details.
 
-# download and preprocess datasets
-cd data
-sh download_all.sh
-cd ..
+##### CoDEx-S
 
-# train an example model on toy dataset (you can omit '--job.device cpu' when you have a gpu)
-kge start examples/toy-complex-train.yaml --job.device cpu
+|  | MRR | Hits@1 | Hits@3 | Hits@10 | Config file | Pretrained model |
+|---------|----:|----:|-------:|--------:|------------:|-----------------:|
+| RESCAL | 0.404 | 0.293 | 0.4494 | 0.623 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-s/rescal/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/v209jchl93mmeuv/codex-s-lp-rescal.pt?dl=0) |
+| TransE | 0.354 | 0.219 | 0.4218 | 0.634 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-s/transe/config.yaml) | [NegSamp-kl](https://www.dropbox.com/s/8brqhb4bd5gnktc/codex-s-lp-transe.pt?dl=0) |
+| ComplEx | 0.465 | 0.372 | 0.5038 | 0.646 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-s/complex/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/kk3pgdnyddsdzn9/codex-s-lp-complex.pt?dl=0) |
+| ConvE | 0.444 | 0.343 | 0.4926  | 0.635 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-s/conve/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/atvu77pzed6mcgh/codex-s-lp-conve.pt?dl=0) |
+| TuckER | 0.444 | 0.339 | 0.4975 | 0.638 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-s/tucker/config.yaml) | [KvsAll-kl](https://www.dropbox.com/s/f87xloe2g3f4fvy/codex-s-lp-tucker.pt?dl=0) 
 
-```
+##### CoDEx-M
+
+|  | MRR | Hits@1 | Hits@3 |Hits@10 | Config file | Pretrained model |
+|---------|----:|----:|-------:|--------:|------------:|-----------------:|
+| RESCAL | 0.317 | 0.244 | 0.3477 | 0.456 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-m/rescal/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/e3kp3eu4nnknn5b/codex-m-lp-rescal.pt?dl=0) |
+| TransE | 0.303 | 0.223 | 0.3363 | 0.454 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-m/transe/config.yaml) | [NegSamp-kl](https://www.dropbox.com/s/y8uucaajpofct3x/codex-m-lp-transe.pt?dl=0) |
+| ComplEx | 0.337 | 0.262 | 0.3701 | 0.476 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-m/complex/config.yaml) | [KvsAll-kl](https://www.dropbox.com/s/psy21fvbn5pbmw6/codex-m-lp-complex.pt?dl=0) |
+| ConvE | 0.318 | 0.239 | 0.3551 | 0.464 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-m/conve/config.yaml) | [NegSamp-kl](https://www.dropbox.com/s/awjhlrfjrgz9phi/codex-m-lp-conve.pt?dl=0) |
+| TuckER | 0.328 | 0.259 | 0.3599 | 0.458 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-m/tucker/config.yaml) | [KvsAll-kl](https://www.dropbox.com/s/so5l2owtx7wcos1/codex-m-lp-tucker.pt?dl=0) |
+
+
+##### CoDEx-L
+
+|  | MRR | Hits@1 | Hits@3 | Hits@10 | Config file | Pretrained model |
+|---------|----:|----:|-------:|--------:|------------:|-----------------:|
+| RESCAL | 0.304 | 0.242 | 0.3313 | 0.419 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-l/rescal/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/wvbef9u98vmkbi8/codex-l-lp-rescal.pt?dl=0) |
+| TransE | 0.187 | 0.116 | 0.2188 | 0.317 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-l/transe/config.yaml) | [NegSamp-kl](https://www.dropbox.com/s/s9d682b49tuq5mc/codex-l-lp-transe.pt?dl=0) |
+| ComplEx | 0.294 | 0.237 | 0.3179 | 0.400 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-l/complex/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/jqubvr77og2pvzv/codex-l-lp-complex.pt?dl=0) |
+| ConvE | 0.303 | 0.240 | 0.3298 | 0.420 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-l/conve/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/qcfjy6i1sqbec0z/codex-l-lp-conve.pt?dl=0) |
+| TuckER | 0.309 | 0.244 | 0.3395 | 0.430 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-l/tucker/config.yaml) | [KvsAll-kl](https://www.dropbox.com/s/j8u4nqwzz3v7jw1/codex-l-lp-tucker.pt?dl=0) |
 
 ## Using LibKGE
 
@@ -388,40 +434,54 @@ For other scoring functions (score_sp, score_po, score_so, score_spo), see [KgeM
 
 ## Currently supported KGE models
 
-LibKGE currently implements the following KGE models:
-
-- [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf) ([code](kge/model/rescal.py), [config](kge/model/rescal.yaml))
-- [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) ([code](kge/model/transe.py), [config](kge/model/transe.yaml))
-- [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf) ([code](kge/model/distmult.py), [config](kge/model/distmult.yaml))
-- [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) ([code](kge/model/complex.py), [config](kge/model/complex.yaml))
-- [ConvE](https://arxiv.org/abs/1707.01476)  ([code](kge/model/conve.py), [config](kge/model/conve.yaml))
-- [RelationalTucker3](https://arxiv.org/abs/1902.00898) ([code](kge/model/relational_tucker3.py), [config](kge/model/relational_tucker3.yaml))
-- [CP](https://arxiv.org/abs/1806.07297) ([code](kge/model/cp.py), [config](kge/model/cp.yaml))
-- [SimplE](https://arxiv.org/abs/1802.04868) ([code](kge/model/simple.py), [config](kge/model/simple.yaml))
-- [RelationalTucker3](https://arxiv.org/abs/1902.00898)/[TuckER](https://arxiv.org/abs/1901.09590) ([code](kge/model/relational_tucker3.py), [config](kge/model/relational_tucker3.yaml))
-- [RotatE](https://arxiv.org/abs/1902.10197) ([code](kge/model/rotate.py), [config](kge/model/rotate.yaml))
+LibKGE currently implements the KGE models listed in [features](#features).
 
 The [examples](examples) folder contains some configuration files as examples of how to train these models.
 
 We welcome contributions to expand the list of supported models! Please see [CONTRIBUTING](CONTRIBUTING.md) for details and feel free to initially open an issue.
 
-## Adding a new model or embedder
+## Extending LibKGE
 
-To add a new model to LibKGE, extend the
-[KgeModel](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L243)
-class. A model is made up of a
-[KgeEmbedder](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L170)
-to associate each subject, relation and object to an embedding, and a
-[KgeScorer](https://github.com/uma-pi1/kge/blob/1c69d8a6579d10e9d9c483994941db97e04f99b3/kge/model/kge_model.py#L76)
-to score triples given their embeddings.
+LibKGE can be extended with new training, evaluation, or search jobs as well as
+new models and embedders.
 
-The model implementation should be stored under
-`<kge-home>/kge/model/<model-name>.py`, its configuration options under
-`<kge-home>/kge/model/<model-name>.yaml` and its import has to be added to `<kge-home>/kge/model/__init__.py`.
+KGE models implement the `KgeModel` class and generally consist of a
+`KgeEmbedder` to associate each subject, relation and object to an embedding and
+a `KgeScorer` to score triples given their embeddings. All these base classes
+are defined in [kge_model.py](kge/model/kge_model.py). 
 
-The embdedder implementation should be stored under
-`<kge-home>/kge/model/embedder/<embedder-name>.py`, its configuration options under
-`<kge-home>/kge/model/embedder/<embedder-name>.yaml` and its import has to be added to `<kge-home>/kge/model/__init__.py`.
+KGE jobs perform training, evaluation, and hyper-parameter search. The relevant base classes are [Job](kge/job/job.py), [TrainingJob](kge/job/train.py), [EvaluationJob](kge/job/eval.py), and [SearchJob](kge/job/search.py).
+
+To add a component, say `mycomp` (= a model, embedder, or job) with
+implementation `MyClass`, you need to:
+
+1. Create a configuration file `mycomp.yaml`. You may store this file directly
+   in the LibKGE module folders (e.g., `<kge-home>/kge/model/`) or in your own
+   module folder. If you plan to contribute your code to LibKGE, we suggest to
+   directly develop in the LibKGE module folders. If you just want to play
+   around or publish your code separately from LibKGE, use your own module.
+
+2. Define all required options for your component, their default values, and
+   their types in `mycomp.yaml`. We suggest to follow LibKGE's core philosophy
+   and define every option that can influence the outcome of an experiment in
+   this way. Please pay attention w.r.t. integer (`0`) vs. float (`0.0`) values;
+   e.g., `float_option: 0` is incorrect because is interpreted as an integer.
+
+3. Implement `MyClass` in a module of your choice. In `mycomp.yaml`, add key
+   `mycomp.class_name` with value `MyClass`. If you follow LibKGE's directory
+   structure (`mycomp.yaml` for configuration and `mycomp.py` for
+   implementation), then ensure that `MyClass` is imported in `__init__.py`
+   (e.g., as done [here](kge/model/__init__.py)).
+
+4. To use your component in an experiment, register your module via the
+   `modules` key and its configuration via the `import` key in the experiment's
+   configuration file. See [config-default.yaml](kge/config-default.yaml) for a
+   description of those keys. For example, in `myexp_config.yaml`, add:
+
+   ```yaml
+   modules: [ kge.job, kge.model, kge.model.embedder, mymodule ]
+   import: [ mycomp ]
+   ```
 
 ## Known issues
 
@@ -437,6 +497,7 @@ Other KGE frameworks:
  - [AmpliGraph](https://github.com/Accenture/AmpliGraph)
  - [OpenKE](https://github.com/thunlp/OpenKE)
  - [PyKEEN](https://github.com/SmartDataAnalytics/PyKEEN)
+ - [Pykg2vec](https://github.com/Sujit-O/pykg2vec)
 
 KGE projects for publications that also implement a few models:
  - [ConvE](https://github.com/TimDettmers/ConvE)
@@ -446,7 +507,7 @@ PRs to this list are welcome.
 
 ## How to cite
 
-If you use LibKGE, please cite the following publication:
+Please cite the following publication to refer to the experimental study about the impact of training methods on KGE performance:
 
 ```
 @inproceedings{
@@ -456,5 +517,19 @@ If you use LibKGE, please cite the following publication:
   booktitle={International Conference on Learning Representations},
   year={2020},
   url={https://openreview.net/forum?id=BkxSmlBFvr}
+}
+```
+
+If you use LibKGE, please cite the following publication:
+
+```
+@inproceedings{
+  libkge,
+  title="{L}ib{KGE} - {A} Knowledge Graph Embedding Library for Reproducible Research",
+  author={Samuel Broscheit and Daniel Ruffinelli and Adrian Kochsiek and Patrick Betz and Rainer Gemulla},
+  booktitle={Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing: System Demonstrations},
+  year={2020},
+  url={https://www.aclweb.org/anthology/2020.emnlp-demos.22},
+  pages = "165--174",
 }
 ```

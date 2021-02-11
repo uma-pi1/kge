@@ -1,3 +1,15 @@
+#### Februar 2021
+- [9e88117](https://github.com/uma-pi1/kge/commit/9e88117b3bf3f91b1c22f17d88eae2f77b5e3d3e): Add Transformer model and learning rate warmup (thanks nluedema)
+- PR [#176](https://github.com/uma-pi1/kge/pull/176): Add TransH model (thanks Mayo42)
+
+#### December 2020
+- PR [#164](https://github.com/uma-pi1/kge/pull/164): Allow to easily add custom training/evaluation/search jobs
+- PR [#159](https://github.com/uma-pi1/kge/pull/159): Add a plugin mechanism (thanks @sfschouten)
+- PR [#157](https://github.com/uma-pi1/kge/pull/157): Add CoDEx datasets and pretrained models (thanks @tsafavi)
+
+#### November 2020
+- PR [#155](https://github.com/uma-pi1/kge/pull/155): Faster reading of triple files
+
 #### October 2020
 - [d275419](https://github.com/uma-pi1/kge/commit/d275419bbd1e2eea6872d733fc10f30c171e9f45), [87c5463](https://github.com/uma-pi1/kge/commit/87c54630807e7ecf71ad05c042d3b1c953c44807): Support parameter groups with group-specific optimizer args
 - PR [#152](https://github.com/uma-pi1/kge/pull/152): Added training loss evaluation job

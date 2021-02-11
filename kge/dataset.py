@@ -6,13 +6,14 @@ import uuid
 import torch
 from torch import Tensor
 import numpy as np
+import pandas as pd
 import pickle
 import inspect
 
 from kge import Config, Configurable
 import kge.indexing
 from kge.indexing import create_default_index_functions
-from kge.misc import kge_base_dir
+from kge.misc import module_base_dir
 
 from typing import Dict, List, Any, Callable, Union, Optional
 
@@ -80,7 +81,11 @@ class Dataset(Configurable):
         if filename is None:
             raise IOError("Filename for key {} not specified in config".format(key))
         if not os.path.exists(os.path.join(self.folder, filename)):
-            raise IOError("File {} for key {} could not be found".format(os.path.join(self.folder, filename), key))
+            raise IOError(
+                "File {} for key {} could not be found".format(
+                    os.path.join(self.folder, filename), key
+                )
+            )
 
     @staticmethod
     def create(config: Config, preload_data: bool = True, folder: Optional[str] = None):
@@ -91,11 +96,18 @@ class Dataset(Configurable):
 
         """
         name = config.get("dataset.name")
+            
+        root_modules = list(set(m.split(".")[0] for m in config.get("modules")))
         if folder is None:
-            folder = os.path.join(kge_base_dir(), "data", name)
-        if os.path.isfile(os.path.join(folder, "dataset.yaml")):
-            config.log("Loading configuration of dataset " + name + "...")
-            config.load(os.path.join(folder, "dataset.yaml"))
+            for m in root_modules:
+                folder = os.path.join(module_base_dir(m), "data", name)
+                if os.path.isfile(os.path.join(folder, "dataset.yaml")):
+                    break
+            else:
+                raise ValueError(f"Dataset with name {name} could not be found.")
+
+        config.log(f"Loading configuration of dataset {name} from {folder} ...")
+        config.load(os.path.join(folder, "dataset.yaml"))
 
         dataset = Dataset(config, folder)
         if preload_data:
@@ -173,7 +185,10 @@ class Dataset(Configurable):
             if triples is not None:
                 return triples
 
-        triples = np.loadtxt(filename, usecols=range(0, 3), dtype=np.int32)
+        # numpy loadtxt is very slow, use pandas instead
+        triples = pd.read_csv(
+            filename, sep=delimiter, dtype=np.int32, header=None, usecols=range(0, 3)
+        ).to_numpy()
         triples = torch.from_numpy(triples)
         if use_pickle:
             Dataset._pickle_dump_atomic(triples, pickle_filename)
