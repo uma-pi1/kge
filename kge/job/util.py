@@ -1,9 +1,10 @@
 import torch
 from torch import Tensor
+from typing import List, Union
 
 
 def get_sp_po_coords_from_spo_batch(
-    batch: Tensor, num_entities: int, sp_index: dict, po_index: dict
+    batch: Union[Tensor, List[Tensor]], num_entities: int, sp_index: dict, po_index: dict
 ) -> torch.Tensor:
     """Given a set of triples , lookup matches for (s,p,?) and (?,p,o).
 
@@ -13,27 +14,17 @@ def get_sp_po_coords_from_spo_batch(
     half for (?,p,o).
 
     """
-    num_ones = 0
-    NOTHING = torch.zeros([0], dtype=torch.long)
-    for i, triple in enumerate(batch):
-        s, p, o = triple[0].item(), triple[1].item(), triple[2].item()
-        num_ones += len(sp_index.get((s, p), NOTHING))
-        num_ones += len(po_index.get((p, o), NOTHING))
-
-    coords = torch.zeros([num_ones, 2], dtype=torch.long)
-    current_index = 0
-    for i, triple in enumerate(batch):
-        s, p, o = triple[0].item(), triple[1].item(), triple[2].item()
-
-        objects = sp_index.get((s, p), NOTHING)
-        coords[current_index : (current_index + len(objects)), 0] = i
-        coords[current_index : (current_index + len(objects)), 1] = objects
-        current_index += len(objects)
-
-        subjects = po_index.get((p, o), NOTHING) + num_entities
-        coords[current_index : (current_index + len(subjects)), 0] = i
-        coords[current_index : (current_index + len(subjects)), 1] = subjects
-        current_index += len(subjects)
+    if type(batch) is list:
+        batch = torch.cat(batch).reshape((-1, 3)).int()
+    sp_coords = sp_index.get_all(batch[:, [0, 1]])
+    po_coords = po_index.get_all(batch[:, [1, 2]])
+    po_coords[:, 1] += num_entities
+    coords = torch.cat(
+        (
+            sp_coords,
+            po_coords
+        )
+    )
 
     return coords
 
