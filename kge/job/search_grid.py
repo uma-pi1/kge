@@ -62,7 +62,7 @@ class GridSearchJob(Job):
             search_configs.append(search_config.options)
 
         # create configuration file of search job
-        self.config.set("search.type", "manual")
+        self.config.set("search.type", "manual_search")
         self.config.set("manual_search.configurations", search_configs)
         self.config.save(os.path.join(self.config.folder, "config.yaml"))
 
