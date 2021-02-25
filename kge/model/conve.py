@@ -25,8 +25,8 @@ class ConvEScorer(RelationalScorer):
             self.emb_height = rounded_height
             self.emb_width = self.emb_height * aspect_ratio
             self.emb_dim = self.emb_height * self.emb_width
-            self.set_option("entity_embedder.dim", self.emb_dim + 1)
-            self.set_option("relation_embedder.dim", self.emb_dim + 1)
+            self.set_option("entity_embedder.dim", self.emb_dim + 1, log=True)
+            self.set_option("relation_embedder.dim", self.emb_dim + 1, log=True)
             config.log(
                 "Rounded embedding dimension up to {} to match given aspect ratio.".format(
                     self.emb_dim
@@ -34,9 +34,11 @@ class ConvEScorer(RelationalScorer):
             )
         elif self.emb_dim % self.emb_height or self.emb_dim % self.emb_width:
             raise Exception(
-                "Aspect ratio {} does not produce 2D integers for dimension {}.".format(
-                    aspect_ratio, self.emb_dim
-                )
+                (
+                    "Embedding dimension {} incompatible with aspect ratio {}; "
+                    "width ({}) or height ({}) is not integer. "
+                    "Adapt dimension or set conve.round_dim=true"
+                ).format(self.emb_dim, aspect_ratio, self.emb_width, self.emb_height)
             )
 
         self.filter_size = self.get_option("filter_size")
@@ -71,6 +73,11 @@ class ConvEScorer(RelationalScorer):
         self.non_linear = torch.nn.ReLU()
 
     def score_emb(self, s_emb, p_emb, o_emb, combine: str):
+        if combine not in ["sp_", "spo"]:
+            raise Exception(
+                "Combine {} not supported in ConvE's score function".format(combine)
+            )
+
         batch_size = p_emb.size(0)
         s_emb_2d = s_emb[:, 1:].view(-1, 1, int(self.emb_height), int(self.emb_width))
         p_emb_2d = p_emb[:, 1:].view(-1, 1, int(self.emb_height), int(self.emb_width))
@@ -86,12 +93,9 @@ class ConvEScorer(RelationalScorer):
         out = self.non_linear(out)
         if combine == "sp_":
             out = torch.mm(out, o_emb[:, 1:].transpose(1, 0))
-        elif combine == "spo":
-            out = (out * o_emb[:, 1:]).sum(-1)
         else:
-            raise Exception(
-                "Combine {} not supported in ConvE's score function".format(combine)
-            )
+            assert combine == "spo"
+            out = (out * o_emb[:, 1:]).sum(-1)
         out += o_emb[:, 0]
 
         return out.view(batch_size, -1)

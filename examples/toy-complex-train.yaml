@@ -2,9 +2,10 @@ job.type: train
 dataset.name: toy
 
 train:
-  optimizer: Adagrad
-  optimizer_args:
-    lr: 0.2
+  optimizer.default:
+    type: Adagrad
+    args:
+      lr: 0.2
   lr_scheduler: ReduceLROnPlateau
   lr_scheduler_args:
     mode: max

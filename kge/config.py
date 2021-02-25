@@ -7,10 +7,11 @@ import os
 import time
 import uuid
 import sys
+import re
 from enum import Enum
 
 import yaml
-from typing import Any, Dict, Optional, Union
+from typing import Any, List, Dict, Optional, Union
 
 
 class Config:
@@ -28,13 +29,16 @@ class Config:
 
             with open(filename_in_module(kge, "config-default.yaml"), "r") as file:
                 self.options: Dict[str, Any] = yaml.load(file, Loader=yaml.SafeLoader)
+
+            for m in self.get("import"):
+                self._import(m)
         else:
             self.options = {}
 
         self.folder = folder  # main folder (config file, checkpoints, ...)
-        self.log_folder: Optional[str] = (
-            None  # None means use self.folder; used for kge.log, trace.yaml
-        )
+        self.log_folder: Optional[
+            str
+        ] = None  # None means use self.folder; used for kge.log, trace.yaml
         self.log_prefix: str = None
 
     # -- ACCESS METHODS ----------------------------------------------------------------
@@ -232,28 +236,36 @@ class Config:
         # all fine, set value
         data[splits[-1]] = value
         if log:
-            self.log("Set {}={}".format(key, value))
+            self.log(
+                "Set {}={} (was {})".format(
+                    key,
+                    repr(value),
+                    repr(current_value) if current_value is not None else "unset",
+                )
+            )
         return value
 
     def _import(self, module_name: str):
         """Imports the specified module configuration.
 
-        Adds the configuration options from kge/model/<module_name>.yaml to
+        Adds the configuration options from <module_name>.yaml to
         the configuration. Retains existing module configurations, but verifies
         that fields and their types are correct.
 
         """
-        import kge.model, kge.model.embedder
-        from kge.misc import filename_in_module
 
         # load the module_name
         module_config = Config(load_default=False)
-        module_config.load(
-            filename_in_module(
-                [kge.model, kge.model.embedder], "{}.yaml".format(module_name)
-            ),
-            create=True,
-        )
+
+        # add the importing config's modules to the imported config
+        module_names = self.get_default("modules")
+        module_config.set("modules", module_names, create=True)
+
+        from kge.misc import filename_in_module
+
+        config_filename = filename_in_module(self.modules(), f"{module_name}.yaml")
+        module_config.load(config_filename, create=True)
+
         if "import" in module_config.options:
             del module_config.options["import"]
 
@@ -319,6 +331,14 @@ class Config:
         self, new_options, create=False, overwrite=Overwrite.Yes, allow_deprecated=True
     ):
         "Like `load`, but loads from an options object obtained from `yaml.load`."
+
+        # check for modules first, so if it's necessary we can import from them.
+        if "modules" in new_options:
+            modules = set(self.options.get("modules", []))
+            modules = modules.union(new_options.get("modules"))
+            self.set("modules", list(modules), create=True)
+            del new_options["modules"]
+
         # import model configurations
         if "model" in new_options:
             model = new_options.get("model")
@@ -326,6 +346,8 @@ class Config:
             # search with model as a search parameter
             if model:
                 self._import(model)
+
+        # import explicit imports
         if "import" in new_options:
             imports = new_options.get("import")
             if not isinstance(imports, list):
@@ -480,14 +502,13 @@ class Config:
 
     def last_checkpoint_number(self) -> Optional[int]:
         "Return number (epoch) of latest checkpoint"
-        # stupid implementation, but works
-        tried_epoch = 0
-        found_epoch = 0
-        while tried_epoch < found_epoch + 500:
-            tried_epoch += 1
-            if os.path.exists(self.checkpoint_file(tried_epoch)):
-                found_epoch = tried_epoch
-        if found_epoch > 0:
+        found_epoch = -1
+        for f in os.listdir(self.folder):
+            if re.match("checkpoint_\d{5}\.pt", f):
+                new_found_epoch = int(f.split("_")[1].split(".")[0])
+                if new_found_epoch > found_epoch:
+                    found_epoch = new_found_epoch
+        if found_epoch >= 0:
             return found_epoch
         else:
             return None
@@ -568,6 +589,11 @@ class Config:
             return os.path.join(folder, "trace.yaml")
         else:
             return os.devnull
+
+    def modules(self) -> List[types.ModuleType]:
+        import importlib
+
+        return [importlib.import_module(m) for m in self.get("modules")]
 
 
 class Configurable:
@@ -719,6 +745,11 @@ def _process_deprecated_options(options: Dict[str, Any]):
                 if rename_value(key, old_value, new_value):
                     renamed_keys.add(key)
         return renamed_keys
+
+    # 15.12.20
+    rename_value("search.type", "ax", "ax_search")
+    rename_value("search.type", "manual", "manual_search")
+    rename_value("search.type", "grid", "grid_search")
 
     # 09.10.20
     rename_key("train.optimizer", "train.optimizer.default.type")

@@ -74,6 +74,7 @@ class EntityRankingJob(EvaluationJob):
     def _collate(self, batch):
         "Looks up true triples for each triple in the batch"
         label_coords = []
+        batch = torch.cat(batch).reshape((-1, 3))
         for split in self.filter_splits:
             split_label_coords = kge.job.util.get_sp_po_coords_from_spo_batch(
                 batch,
@@ -94,7 +95,6 @@ class EntityRankingJob(EvaluationJob):
         else:
             test_label_coords = torch.zeros([0, 2], dtype=torch.long)
 
-        batch = torch.cat(batch).reshape((-1, 3))
         return batch, label_coords, test_label_coords
 
     @torch.no_grad()
@@ -187,8 +187,8 @@ class EntityRankingJob(EvaluationJob):
             # as list of len 2: [rank, num_ties]
             ranks_and_ties_for_ranking = defaultdict(
                 lambda: [
-                    torch.zeros(s.size(0), dtype=torch.long).to(self.device),
-                    torch.zeros(s.size(0), dtype=torch.long).to(self.device),
+                    torch.zeros(s.size(0), dtype=torch.long, device=self.device),
+                    torch.zeros(s.size(0), dtype=torch.long, device=self.device),
                 ]
             )
 
@@ -206,7 +206,7 @@ class EntityRankingJob(EvaluationJob):
 
                 # compute scores of chunk
                 scores = self.model.score_sp_po(
-                    s, p, o, torch.arange(chunk_start, chunk_end).to(self.device)
+                    s, p, o, torch.arange(chunk_start, chunk_end, device=self.device)
                 )
                 scores_sp = scores[:, : chunk_end - chunk_start]
                 scores_po = scores[:, chunk_end - chunk_start :]
@@ -469,6 +469,9 @@ class EntityRankingJob(EvaluationJob):
         indices_chunk = torch.cat((indices_sp_chunk, indices_po_chunk), dim=1)
         dense_labels = torch.sparse.LongTensor(
             indices_chunk,
+            # since all sparse label tensors have the same value we could also
+            # create a new tensor here without indexing with:
+            # torch.full([indices_chunk.shape[1]], float("inf"), device=self.device)
             labels._values()[mask_sp | mask_po],
             torch.Size([labels.size()[0], (chunk_end - chunk_start) * 2]),
         ).to_dense()
@@ -613,14 +616,13 @@ def hist_all(hists, s, p, o, s_ranks, o_ranks, job, **kwargs):
         hist_tail = hists["tail"]
 
     hist = hists["all"]
-    for r in o_ranks:
-        hist[r] += 1
-        if job.head_and_tail:
-            hist_tail[r] += 1
-    for r in s_ranks:
-        hist[r] += 1
-        if job.head_and_tail:
-            hist_head[r] += 1
+    o_ranks_unique, o_ranks_count = torch.unique(o_ranks, return_counts=True)
+    s_ranks_unique, s_ranks_count = torch.unique(s_ranks, return_counts=True)
+    hist.index_add_(0, o_ranks_unique, o_ranks_count.float())
+    hist.index_add_(0, s_ranks_unique, s_ranks_count.float())
+    if job.head_and_tail:
+        hist_tail.index_add_(0, o_ranks_unique, o_ranks_count.float())
+        hist_head.index_add_(0, s_ranks_unique, s_ranks_count.float())
 
 
 def hist_per_relation_type(hists, s, p, o, s_ranks, o_ranks, job, **kwargs):

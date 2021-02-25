@@ -13,6 +13,7 @@ from kge.misc import get_git_revision_short_hash, kge_base_dir, is_number
 from kge.util.dump import add_dump_parsers, dump
 from kge.util.io import get_checkpoint_file, load_checkpoint
 from kge.util.package import package_model, add_package_parser
+from kge.util.seed import seed_from_config
 
 
 def argparse_bool_type(v):
@@ -256,40 +257,7 @@ def main():
         config.log("git commit: {}".format(get_git_revision_short_hash()), prefix="  ")
 
         # set random seeds
-        def get_seed(what):
-            seed = config.get(f"random_seed.{what}")
-            if seed < 0 and config.get(f"random_seed.default") >= 0:
-                import hashlib
-
-                # we add an md5 hash to the default seed so that different PRNGs get a
-                # different seed
-                seed = (
-                    config.get(f"random_seed.default")
-                    + int(hashlib.md5(what.encode()).hexdigest(), 16)
-                ) % 0xFFFF  # stay 32-bit
-
-            return seed
-
-        if get_seed("python") > -1:
-            import random
-
-            random.seed(get_seed("python"))
-        if get_seed("torch") > -1:
-            import torch
-
-            torch.manual_seed(get_seed("torch"))
-        if get_seed("numpy") > -1:
-            import numpy.random
-
-            numpy.random.seed(get_seed("numpy"))
-        if get_seed("numba") > -1:
-            import numpy as np, numba
-
-            @numba.njit
-            def seed_numba(seed):
-                np.random.seed(seed)
-
-            seed_numba(get_seed("numba"))
+        seed_from_config(config)
 
         # let's go
         if args.command == "start" and not args.run:

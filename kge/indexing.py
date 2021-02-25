@@ -1,7 +1,7 @@
 import torch
 import numba
 import numpy as np
-from typing import Iterator, List, Tuple
+from typing import Iterator, List, Tuple, Dict
 
 
 class KvsAllIndex:
@@ -39,10 +39,9 @@ class KvsAllIndex:
         )
         values_offset = np.append(values_offset, len(triples_sorted))
 
-        # create disctionary from key (as a tuple) to key index
-        self._index_of_key = dict()
-        for key_index, key in enumerate(keys):
-            self._index_of_key[tuple(key)] = key_index
+        # create dictionary from key (as a tuple) to key index
+        self.default_index_of_key = -1
+        self._index_of_key = self._create_index_of_key_dict(keys)
 
         # convert data structures to pytorch and keep them
         self._keys = torch.from_numpy(keys)
@@ -53,25 +52,105 @@ class KvsAllIndex:
 
         self.default_factory = default_factory
 
+    @staticmethod
+    @numba.njit()
+    def _create_index_of_key_dict(keys: np.ndarray) -> Dict[Tuple[int, int], int]:
+        """
+        Creates a dictionary mapping keys to the key_index needed for value-lookup
+        Args:
+            keys: [n, 2], int32, Tensor containing keys
+
+        Returns:
+            Dictionary with key-tuple as key and key_index as value
+        """
+        keys = keys.astype(np.int32)
+        index_of_key = dict()
+        for key_index in range(len(keys)):
+            index_of_key[(keys[key_index, 0].item(), keys[key_index, 1].item())] = key_index
+        return index_of_key
+
+    def __getstate__(self):
+        """We can not pickle a numba dict. Remove from state dict"""
+        state = self.__dict__.copy()
+        del state["_index_of_key"]
+        return state
+
+    def __setstate__(self, state):
+        """Numba dict was not pickled. Restore here"""
+        self.__dict__.update(state)
+        self._index_of_key = self._create_index_of_key_dict(self._keys.numpy())
+
     def __getitem__(self, key, default_return_value=None) -> torch.Tensor:
-        try:
-            key_index = self._index_of_key[key]
-            return self._values_of(key_index)
-        except KeyError:
+        key_index = self._index_of_key.get(key, self.default_index_of_key)
+        if key_index < 0:
             if default_return_value is None:
                 return self.default_factory()
             return default_return_value
+        return self._values_of(key_index.item())
 
     def _values_of(self, key_index) -> torch.Tensor:
         start = self._values_offset[key_index]
         end = self._values_offset[key_index + 1]
         return self._values[start:end]
 
+    @staticmethod
+    @numba.njit()
+    def _get_all_impl(
+            keys: np.ndarray,
+            index_of_key: Dict[Tuple[int, int], int],
+            values: np.ndarray,
+            values_offset: np.ndarray
+    ):
+        """
+        Looks up all values corresponding to keys and outputs them in a single tensor
+        Args:
+            keys: [n, 2] Tensors with keys to look up
+            index_of_key: dict mapping keys to key_index. Provide self._index_of_keys
+            values: [n,] Tensor containing values. Provide self._values.numpy()
+            values_offset: [n,] Tensor mapping key_index to offset in value tensor.
+                Provide self._values_offset.numpy()
+
+        Returns: Tensor[m, 2] with all values for all keys concatenated in [:, 1] and
+            the corresponding input position of the key in [:, 0]
+
+        """
+        key_index = np.empty((len(keys)), dtype=np.int32)
+        total_length = 0
+        for i in range(len(keys)):
+            index = index_of_key.get((keys[i, 0].item(), keys[i, 1].item()), -1)
+            key_index[i] = index
+            if index < 0:
+                continue
+            total_length += len(
+                values[values_offset[key_index[i].item()]:values_offset[key_index[i].item()+1]]
+            )
+        result = np.empty((total_length, 2), dtype=np.int32)
+        current_index = 0
+        for i in range(len(key_index)):
+            if key_index[i].item() < 0:
+                continue
+            res = (values[values_offset[key_index[i]]:values_offset[key_index[i]+1]])
+            len_res = len(res)
+            result[current_index: current_index+len_res, 0] = i
+            result[current_index: current_index + len_res, 1] = res
+            current_index += len_res
+        return result
+
     def __len__(self):
         return len(self._keys)
 
     def get(self, key, default_return_value=None) -> torch.Tensor:
         return self.__getitem__(key, default_return_value)
+
+    def get_all(self, keys):
+        # keys need to be int32 otherwise numba won't find any matches in the dict
+        keys = keys.int()
+        return torch.from_numpy(
+            self._get_all_impl(
+                keys.numpy(), self._index_of_key,
+                self._values.numpy(), self._values_offset.numpy()
+            )
+        )
 
     def keys(self) -> Iterator[Tuple[int, int]]:
         return self._index_of_key.keys()

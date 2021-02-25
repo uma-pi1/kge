@@ -6,6 +6,7 @@ from kge.job import Job, Trace
 from kge.config import _process_deprecated_options
 from kge.util.io import get_checkpoint_file, load_checkpoint
 from kge.util.metric import Metric
+from kge.misc import init_from
 
 
 class SearchJob(Job):
@@ -49,21 +50,9 @@ class SearchJob(Job):
     def create(config, dataset, parent_job=None):
         """Factory method to create a search job."""
 
-        if config.get("search.type") == "manual":
-            from kge.job import ManualSearchJob
-
-            return ManualSearchJob(config, dataset, parent_job)
-        elif config.get("search.type") == "grid":
-            from kge.job import GridSearchJob
-
-            return GridSearchJob(config, dataset, parent_job)
-        elif config.get("search.type") == "ax":
-            from kge.job import AxSearchJob
-
-            return AxSearchJob(config, dataset, parent_job)
-        else:
-            # perhaps TODO: try class with specified name -> extensibility
-            raise ValueError("search.type")
+        search_type = config.get("search.type")
+        class_name = config.get_default(f"{search_type}.class_name")
+        return init_from(class_name, config.modules(), config, dataset, parent_job)
 
     def submit_task(self, task, task_arg, wait_when_full=True):
         """Runs the given task with the given argument.
@@ -212,14 +201,9 @@ def _run_train_job(sicnk, device=None):
 
         # record the best result of this job
         best["child_job_id"] = best["job_id"]
-        del (
-            best["job"],
-            best["job_id"],
-            best["type"],
-            best["parent_job_id"],
-            best["scope"],
-            best["event"],
-        )
+        for k in ["job", "job_id", "type", "parent_job_id", "scope", "event"]:
+            if k in best:
+                del best[k]
         search_job.trace(
             event="search_completed",
             echo=True,

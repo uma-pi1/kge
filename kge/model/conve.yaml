@@ -1,5 +1,8 @@
 import: [lookup_embedder]
 
+# Should only be used with reciprocal relations:
+# - model: reciprocal_relations_model
+# - reciprocal_relations_model.base_model.type: conve
 conve:
   class_name: ConvE
   round_dim: False

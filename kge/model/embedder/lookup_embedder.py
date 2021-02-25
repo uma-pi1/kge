@@ -48,7 +48,7 @@ class LookupEmbedder(KgeEmbedder):
         if dropout < 0:
             if config.get("train.auto_correct"):
                 config.log(
-                    "Setting {}.dropout to 0, "
+                    "Setting {}.dropout to 0., "
                     "was set to {}.".format(configuration_key, dropout)
                 )
                 dropout = 0

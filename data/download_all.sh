@@ -262,3 +262,48 @@ if [ ! -f "$BASEDIR/wn11/dataset.yaml" ]; then
 else
     echo wn11 already prepared
 fi
+
+# CoDEx (full text-linked dataset available at https://github.com/tsafavi/codex)
+if [ ! -d "$BASEDIR/codex-s" ]; then
+    echo Downloading CoDEx-S
+    cd $BASEDIR
+    curl -L https://zenodo.org/record/4281094/files/codex-s.tar.gz?download=1 -o codex-s.tar.gz
+    tar xvf codex-s.tar.gz
+else
+    echo CoDEx-S already present
+fi
+if [ ! -f "$BASEDIR/codex-s/dataset.yaml" ]; then
+    python preprocess/preprocess_default.py codex-s
+else
+    echo CoDEx-S already prepared
+fi
+
+if [ ! -d "$BASEDIR/codex-m" ]; then
+    echo Downloading CoDEx-M
+    cd $BASEDIR
+    curl -L https://zenodo.org/record/4281094/files/codex-m.tar.gz?download=1 -o codex-m.tar.gz
+    tar xvf codex-m.tar.gz
+else
+    echo CoDEx-M already present
+fi
+if [ ! -f "$BASEDIR/codex-m/dataset.yaml" ]; then
+    python preprocess/preprocess_default.py codex-m
+else
+    echo CoDEx-M already prepared
+fi
+
+if [ ! -d "$BASEDIR/codex-l" ]; then
+    echo Downloading CoDEx-L
+    cd $BASEDIR
+    curl -L https://zenodo.org/record/4281094/files/codex-l.tar.gz?download=1 -o codex-l.tar.gz
+    tar xvf codex-l.tar.gz
+else
+    echo CoDEx-L already present
+fi
+if [ ! -f "$BASEDIR/codex-l/dataset.yaml" ]; then
+    python preprocess/preprocess_default.py codex-l
+else
+    echo CoDEx-L already prepared
+fi
+
+
