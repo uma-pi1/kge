@@ -1,4 +1,5 @@
 import copy
+import gc
 import os
 import torch.multiprocessing
 import concurrent.futures
@@ -212,6 +213,10 @@ def _run_train_job(sicnk, device=None):
             scope="train",
             **best,
         )
+
+        # force releasing the GPU memory of the job to avoid memory leakage
+        del job
+        gc.collect()
 
         return (train_job_index, best, best_metric)
     except BaseException as e:
