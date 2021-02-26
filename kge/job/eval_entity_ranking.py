@@ -577,7 +577,7 @@ num_ties for each true score.
         )
 
         hits_at_k = (
-            (torch.cumsum(rank_hist[: max(self.hits_at_k_s)], dim=0) / n).tolist()
+            (torch.cumsum(rank_hist[: max(self.hits_at_k_s)], dim=0, dtype=torch.float64) / n).tolist()
             if n > 0.0
             else [0.0] * max(self.hits_at_k_s)
         )
