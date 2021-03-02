@@ -45,7 +45,7 @@ class KvsAllIndex:
 
         # convert data structures to pytorch and keep them
         self._keys = torch.from_numpy(keys)
-        self._values_offset = torch.from_numpy(values_offset)
+        self._values_offset = torch.from_numpy(values_offset).int()
         self._values = triples_sorted[
             :, self.value_col
         ].clone()  # to drop reference to triples_sorted
