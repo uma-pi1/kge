@@ -254,7 +254,6 @@ class KgeEmbedder(KgeBase):
 
         self.dim: int = self.get_option("dim")
 
-
     @staticmethod
     def create(
         config: Config,
@@ -283,7 +282,9 @@ class KgeEmbedder(KgeBase):
             )
             return embedder
         except:
-            config.log(f"Failed to create embedder {embedder_type} (class {class_name}).")
+            config.log(
+                f"Failed to create embedder {embedder_type} (class {class_name})."
+            )
             raise
 
     def _intersect_ids_with_pretrained_embedder(
@@ -316,6 +317,32 @@ class KgeEmbedder(KgeBase):
         _, self_intersect_ind, pretrained_intersect_ind = np.intersect1d(
             self_ids, pretrained_ids, return_indices=True
         )
+        if (
+            "reciprocal_relations_model" in self.config.get("model")
+            and "relation_embedder" in self.configuration_key
+        ):
+            if "reciprocal_relations_model" not in pretrained_embedder.config.get(
+                "model"
+            ):
+                raise ValueError(
+                    "Can only initialize a reciprocal relations model "
+                    "with another reciprocal relations model"
+                )
+            # add indexes for reciprocal relations
+            # during creation of a reciprocal model num_relations is already doubled
+            self_intersect_ind = np.concatenate(
+                (
+                    self_intersect_ind,
+                    self_intersect_ind + int(self.dataset.num_relations() / 2),
+                )
+            )
+            pretrained_intersect_ind = np.concatenate(
+                (
+                    pretrained_intersect_ind,
+                    pretrained_intersect_ind
+                    + int(pretrained_embedder.dataset.num_relations() / 2),
+                )
+            )
         if self.get_option("pretrain.ensure_all") and not len(
             self_intersect_ind
         ) == len(self_ids):
@@ -616,8 +643,7 @@ class KgeModel(KgeBase):
                         (triples[:, S].view(-1, 1), triples[:, O].view(-1, 1)), dim=1
                     )
                 entity_penalty_result = self.get_s_embedder().penalty(
-                    indexes=entity_indexes,
-                    **kwargs,
+                    indexes=entity_indexes, **kwargs,
                 )
                 if not weighted:
                     # backwards compatibility
