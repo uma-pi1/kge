@@ -431,6 +431,22 @@ print(model.dataset.entity_strings(o))
 
 For other scoring functions (score_sp, score_po, score_so, score_spo), see [KgeModel](kge/model/kge_model.py#L455).
 
+#### Use your own dataset
+
+To use your own dataset, create a subfolder `mydataset` (= dataset name) in the `data` folder. You can use your dataset later by specifying `dataset.name: mydataset` in your job's configuration file.
+
+Each dataset is described by a `dataset.yaml` file, which needs to be stored in the `mydataset` folder. After performing the [quickstart instructions](#quick-start), have a look at the provided toy example under `data/toy/dataset.yaml`. The configuration keys and file formats are documented  (https://github.com/uma-pi1/kge/blob/2b693e31c4c06c71336f1c553727419fe01d4aa6/kge/config-default.yaml#L48)[here].
+
+Your data can be automatically preprocessed and converted into the format required by LibKGE. Here is the relevant part for the `toy` dataset, which see:
+```sh
+# download
+curl -O http://web.informatik.uni-mannheim.de/pi1/kge-datasets/toy.tar.gz
+tar xvf toy.tar.gz
+
+# preprocess
+python preprocess/preprocess_default.py toy
+```
+
 
 ## Currently supported KGE models
 
