@@ -30,7 +30,6 @@ class ReciprocalRelationsModel(KgeModel):
             rel_id + "_reciprocal" for rel_id in alt_dataset.relation_ids()
         ]
         alt_dataset._meta["relation_ids"].extend(reciprocal_relation_ids)
-        alt_dataset.relation_ids()
         base_model = KgeModel.create(
             config=config,
             dataset=alt_dataset,
