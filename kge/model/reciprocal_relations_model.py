@@ -26,6 +26,10 @@ class ReciprocalRelationsModel(KgeModel):
         # Using a dataset with twice the number of relations to initialize base model
         alt_dataset = dataset.shallow_copy()
         alt_dataset._num_relations = dataset.num_relations() * 2
+        reciprocal_relation_ids = [
+            rel_id + "_reciprocal" for rel_id in alt_dataset.relation_ids()
+        ]
+        alt_dataset._meta["relation_ids"].extend(reciprocal_relation_ids)
         base_model = KgeModel.create(
             config=config,
             dataset=alt_dataset,

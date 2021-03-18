@@ -1,4 +1,7 @@
-#### Februar 2021
+#### March 2021
+- PR [#191](https://github.com/uma-pi1/kge/pull/191): Fix loading of pretrained embeddings with reciprocal relation models
+
+#### February 2021
 - [27e8a32](https://github.com/uma-pi1/kge/commit/27e8a323d208106d7b75f4e003ea4b73c1c5d58d): improve validation time by allowing bulk KvsAll index lookup and improved history computation
 - PR [#154](https://github.com/uma-pi1/kge/pull/154): store checkpoint containing the initialized model for reproducibility
 - [9e88117](https://github.com/uma-pi1/kge/commit/9e88117b3bf3f91b1c22f17d88eae2f77b5e3d3e): Add Transformer model and learning rate warmup (thanks nluedema)
