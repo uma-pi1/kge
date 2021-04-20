@@ -14,6 +14,7 @@ from kge.model.rescal import Rescal
 from kge.model.transe import TransE
 from kge.model.transformer import Transformer
 from kge.model.transh import TransH
+from kge.model.transd import TransD
 from kge.model.rotate import RotatE
 from kge.model.cp import CP
 from kge.model.simple import SimplE

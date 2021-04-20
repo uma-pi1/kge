@@ -183,3 +183,8 @@ class TestTransH(BaseTestModel, unittest.TestCase):
     def __init__(self, methodName="runTest"):
         unittest.TestCase.__init__(self, methodName=methodName)
         BaseTestModel.__init__(self, "transh")
+
+class TestTransD(BaseTestModel, unittest.TestCase):
+    def __init__(self, methodName="runTest"):
+        unittest.TestCase.__init__(self, methodName=methodName)
+        BaseTestModel.__init__(self, "transd")
