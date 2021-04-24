@@ -18,10 +18,12 @@ class TransDScorer(RelationalScorer):
         d = ent_norm_vec_emb.size(1)
         k = rel_norm_vec_emb.size(1)
 
-        return (
-            (rel_norm_vec_emb.view(-1, k, 1).bmm(ent_norm_vec_emb.view(-1, 1, d)) + torch.eye(k, d))
-            .bmm(ent_emb.view(-1, d, 1)).view(-1, k)
-        )
+        min_dim = min(d, k)
+
+        out = rel_norm_vec_emb * torch.sum(ent_norm_vec_emb * ent_emb, dim=-1, keepdim=True)
+        out[:, :min_dim] += ent_emb[:, :min_dim]
+
+        return out
 
     def score_emb(self, s_emb, p_emb, o_emb, combine: str):
         # split relation embeddings into "rel_emb" and "norm_vec_emb"
