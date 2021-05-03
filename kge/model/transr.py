@@ -24,9 +24,13 @@ class TransRScorer(RelationalScorer):
         return out.reshape(-1, d)
 
     def score_emb(self, s_emb, p_emb, o_emb, combine: str):
-        p_chunks = torch.chunk(p_emb, 129, dim=1)
+        rel_emb_conf_key = self.configuration_key + ".relation_embedder"
+        ent_emb_conf_key = rel_emb_conf_key.replace(
+            "relation_embedder", "entity_embedder"
+        )
+        p_chunks = torch.chunk(p_emb, self.config.get_default(ent_emb_conf_key + ".dim")+1, dim=1)
         rel_emb = p_chunks[0]
-        projection_matrix = torch.cat(p_chunks[-(len(p_chunks)-1):])
+        projection_matrix = torch.cat(p_chunks[-(len(p_chunks) - 1):])
 
         n = p_emb.size(0)
         if combine == "spo":
@@ -106,11 +110,13 @@ def transr_set_relation_embedder_dim(config, dataset, rel_emb_conf_key):
         "relation_embedder", "entity_embedder"
     )
     if ent_emb_conf_key == rel_emb_conf_key:
+        # TODO: change this error message
         raise ValueError(
             "Cannot determine relation embedding size. "
             "Please set manually to double the size of the "
             "entity embedder dimensionality."
         )
-    # TODO: ensure that ent_emb.dim modulo 2 is 0 -> otherwise the *64.5 will result in an error
-    dim = int(config.get_default(ent_emb_conf_key + ".dim") * 64.5)
+    # TODO: ensure that ent_emb.dim modulo 2 is 0 -> otherwise the *.5 will result in an error
+    dim = config.get_default(ent_emb_conf_key + ".dim")
+    dim = int(dim * (dim / 2 + .5))
     config.set(rel_emb_conf_key + ".dim", dim, log=True)
