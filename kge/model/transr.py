@@ -24,13 +24,8 @@ class TransRScorer(RelationalScorer):
         return out.reshape(-1, d)
 
     def score_emb(self, s_emb, p_emb, o_emb, combine: str):
-        rel_emb_conf_key = self.configuration_key + ".relation_embedder"
-        ent_emb_conf_key = rel_emb_conf_key.replace(
-            "relation_embedder", "entity_embedder"
-        )
-        p_chunks = torch.chunk(p_emb, self.config.get_default(ent_emb_conf_key + ".dim")+1, dim=1)
-        rel_emb = p_chunks[0]
-        projection_matrix = torch.cat(p_chunks[-(len(p_chunks) - 1):])
+        rel_emb, projection_matrix \
+            = torch.split(p_emb, [int(s_emb.size(1)/2), int(p_emb.size(1) - (s_emb.size(1)/2))], dim=1)
 
         n = p_emb.size(0)
         if combine == "spo":
