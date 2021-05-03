@@ -1,0 +1,38 @@
+job.type: train
+dataset.name: toy
+
+model: transr
+
+train:
+  type: negative_sampling
+  batch_size: 1024
+  loss: margin_ranking
+  loss_arg: 4.0
+  max_epochs: 200
+  optimizer.default:
+    type: Adagrad
+    args:
+      lr: 0.1
+
+valid:
+  early_stopping.patience: 5
+  every: 5
+  metric: mean_reciprocal_rank_filtered_with_test
+
+eval:
+  batch_size: 512
+
+negative_sampling:
+  num_samples.s: 3
+  sampling_type: uniform
+
+lookup_embedder:
+  dim: 128
+  regularize: lp
+  regularize_weight: 1.e-05
+  regularize_args:
+    p: 1
+    weighted: False
+
+transr:
+  l_norm: 2.

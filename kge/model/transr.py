@@ -24,8 +24,10 @@ class TransRScorer(RelationalScorer):
         return out.reshape(-1, d)
 
     def score_emb(self, s_emb, p_emb, o_emb, combine: str):
+        first_split_size = int(s_emb.size(1)/2)
+
         rel_emb, projection_matrix \
-            = torch.split(p_emb, [int(s_emb.size(1)/2), int(p_emb.size(1) - (s_emb.size(1)/2))], dim=1)
+            = torch.split(p_emb, [first_split_size, p_emb.size(1) - first_split_size], dim=1)
 
         n = p_emb.size(0)
         if combine == "spo":
