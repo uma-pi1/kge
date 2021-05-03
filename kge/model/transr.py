@@ -24,10 +24,9 @@ class TransRScorer(RelationalScorer):
         return out.reshape(-1, d)
 
     def score_emb(self, s_emb, p_emb, o_emb, combine: str):
-        test = torch.chunk(p_emb, 129, dim=1)
-
-        rel_emb = test[0]
-        projection_matrix = torch.cat(test[-(len(test)-1):])
+        p_chunks = torch.chunk(p_emb, 129, dim=1)
+        rel_emb = p_chunks[0]
+        projection_matrix = torch.cat(p_chunks[-(len(p_chunks)-1):])
 
         n = p_emb.size(0)
         if combine == "spo":
