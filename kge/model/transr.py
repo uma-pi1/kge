@@ -13,21 +13,22 @@ class TransRScorer(RelationalScorer):
 
     def _transfer(self, ent_emb, rel_emb, projection_matrix):
         n = rel_emb.size(0)
-        k = ent_emb.size(1)
-        d = rel_emb.size(1)
+        d = ent_emb.size(1)
+        k = rel_emb.size(1)
 
-        ent_emb = ent_emb.view(n, k, 1)
-        projection_matrix = projection_matrix.view(n, d, k)
+        ent_emb = ent_emb.view(n, d, 1)
+        projection_matrix = projection_matrix.view(n, k, d)
 
         out = torch.matmul(projection_matrix, ent_emb)
 
-        return out.reshape(-1, d)
+        return out.reshape(-1, k)
 
     def score_emb(self, s_emb, p_emb, o_emb, combine: str):
-        first_split_size = int(s_emb.size(1)/2)
+        d = s_emb.size(1)
+        # since we change k to k * (1 + d) we need to divide by 1 + d to retrieve the original k value
+        k = int(p_emb.size(1) / (1 + d))
 
-        rel_emb, projection_matrix \
-            = torch.split(p_emb, [first_split_size, p_emb.size(1) - first_split_size], dim=1)
+        rel_emb, projection_matrix = torch.split(p_emb, [k, p_emb.size(1) - k], dim=1)
 
         n = p_emb.size(0)
         if combine == "spo":
@@ -109,13 +110,14 @@ def transr_set_relation_embedder_dim(config, dataset, rel_emb_conf_key):
     if ent_emb_conf_key == rel_emb_conf_key:
         raise ValueError(
             "Cannot determine relation embedding size. "
-            "Please set it manually to 'd * (d/2 + 0.5)'. "
+            "Please set it manually to 'k * (1 + d)'. "
             "For d = entity embedder dimensionality. "
+            "For k = relation embedder dimensionality. "
         )
 
-    dim = config.get_default(ent_emb_conf_key + ".dim")
-    if dim % 2 != 0:
-        raise ValueError("Entity embedder dimensionality has to be an even number. "
-                         "Please adjust it manually in hte configuration.")
-    dim = int(dim * (dim / 2 + .5))
-    config.set(rel_emb_conf_key + ".dim", dim, log=True)
+    dim_d = config.get_default(ent_emb_conf_key + ".dim")
+    dim_k = config.get_default(rel_emb_conf_key + ".dim")
+
+    new_dim_k = dim_k * (1 + dim_d)
+
+    config.set(rel_emb_conf_key + ".dim", new_dim_k, log=True)
