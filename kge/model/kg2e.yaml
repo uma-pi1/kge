@@ -1,0 +1,14 @@
+import: [lookup_embedder]
+
+kg2e:
+  class_name: KG2E
+  entity_embedder:
+    type: lookup_embedder
+    +++: +++
+  relation_embedder:
+    type: lookup_embedder
+    dim: -1
+    +++: +++
+  score_function: KL
+  c_min: 0.1e-5
+  c_max: 1

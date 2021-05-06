@@ -183,3 +183,9 @@ class TestTransH(BaseTestModel, unittest.TestCase):
     def __init__(self, methodName="runTest"):
         unittest.TestCase.__init__(self, methodName=methodName)
         BaseTestModel.__init__(self, "transh")
+
+
+class TestKG2E(BaseTestModel, unittest.TestCase):
+    def __init__(self, methodName="runTest"):
+        unittest.TestCase.__init__(self, methodName=methodName)
+        BaseTestModel.__init__(self, "kg2e")
