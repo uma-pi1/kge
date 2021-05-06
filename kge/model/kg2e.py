@@ -63,10 +63,10 @@ class KG2E(KgeModel):
         init_for_load_only=False,
     ):
         self._init_configuration(config, configuration_key)
-        self._dim = self.get_option("entity_embedder.dim")
-        self.set_option("entity_embedder.dim", self._dim * 2, log=True)
+        self.dim = self.get_option("entity_embedder.dim")
+        self.set_option("entity_embedder.dim", self.dim * 2, log=True)
         if self.get_option("relation_embedder.dim") < 0:
-            self.set_option("relation_embedder.dim",  self._dim * 2, log=True)
+            self.set_option("relation_embedder.dim", self.dim * 2, log=True)
         self.c_min = self.get_option('c_min')
         self.c_max = self.get_option('c_max')
         super().__init__(
@@ -76,30 +76,29 @@ class KG2E(KgeModel):
             configuration_key=self.configuration_key,
             init_for_load_only=init_for_load_only,
         )
+        self._apply_constraints()
 
     @torch.no_grad()
     def _apply_constraints(self):
         # bound entity mean vectors to 1
-        ent_mean = self.get_s_embedder()._embeddings.weight.data[:, :self._dim]
+        ent_mean = self._entity_embedder._embeddings.weight.data[:, :self.dim]
         ent_mean = ent_mean.where(torch.norm(ent_mean, dim=1, keepdim=True) < 1, F.normalize(ent_mean, dim=1))
-        self.get_s_embedder()._embeddings.weight.data[:, :self._dim] = ent_mean
+        self._entity_embedder._embeddings.weight.data[:, :self.dim] = ent_mean
 
         # bound relation mean vectors to 1
-        rel_mean = self.get_p_embedder()._embeddings.weight.data[:, :self._dim]
+        rel_mean = self._relation_embedder._embeddings.weight.data[:, :self.dim]
         rel_mean = rel_mean.where(torch.norm(rel_mean, dim=1, keepdim=True) < 1, F.normalize(rel_mean, dim=1))
-        self.get_p_embedder()._embeddings.weight.data[:, :self._dim] = rel_mean
+        self._relation_embedder._embeddings.weight.data[:, :self.dim] = rel_mean
 
         # clamp entity cov between c_min and c_max
-        self.get_s_embedder()._embeddings.weight.data[:, self._dim:].clamp_(self.c_min, self.c_max)
+        self._entity_embedder._embeddings.weight.data[:, self.dim:].clamp_(self.c_min, self.c_max)
 
         # clamp relation cov between c_min and c_max
-        self.get_p_embedder()._embeddings.weight.data[:, self._dim:].clamp_(self.c_min, self.c_max)
+        self._relation_embedder._embeddings.weight.data[:, self.dim:].clamp_(self.c_min, self.c_max)
 
     def prepare_job(self, job: Job, **kwargs):
         from kge.job import TrainingJob
         super().prepare_job(job, **kwargs)
 
         if isinstance(job, TrainingJob):
-            job.pre_run_hooks.append(lambda job: self._apply_constraints())
-
             job.post_batch_hooks.append(lambda job: self._apply_constraints())

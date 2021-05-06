@@ -10,5 +10,5 @@ kg2e:
     dim: -1
     +++: +++
   score_function: KL
-  c_min: 0.1e-5
-  c_max: 1
+  c_min: 0.05
+  c_max: 5
