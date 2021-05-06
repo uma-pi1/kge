@@ -105,13 +105,6 @@ def transr_set_relation_embedder_dim(config, dataset, rel_emb_conf_key):
     ent_emb_conf_key = rel_emb_conf_key.replace(
         "relation_embedder", "entity_embedder"
     )
-    if ent_emb_conf_key == rel_emb_conf_key:
-        raise ValueError(
-            "Cannot determine relation embedding size. "
-            "Please set it manually to 'k * (1 + d)'. "
-            "For d = entity embedder dimensionality. "
-            "For k = relation embedder dimensionality. "
-        )
 
     dim_d = config.get_default(ent_emb_conf_key + ".dim")
     dim_k = config.get_default(rel_emb_conf_key + ".dim")
