@@ -12,7 +12,7 @@ class TransRScorer(RelationalScorer):
         self._norm = self.get_option("l_norm")
 
     @staticmethod
-    def _transfer(self, ent_emb, rel_emb, projection_matrix):
+    def _transfer(ent_emb, rel_emb, projection_matrix):
         n = rel_emb.size(0)
         d = ent_emb.size(1)
         k = rel_emb.size(1)
