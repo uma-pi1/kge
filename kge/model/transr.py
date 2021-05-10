@@ -86,7 +86,7 @@ class TransR(KgeModel):
         self._init_configuration(config, configuration_key)
 
         transr_set_relation_embedder_dim(
-            config, dataset, self.configuration_key + ".relation_embedder"
+            config, init_for_load_only, self.configuration_key + ".relation_embedder"
         )
 
         super().__init__(
@@ -98,17 +98,18 @@ class TransR(KgeModel):
         )
 
 
-def transr_set_relation_embedder_dim(config, dataset, rel_emb_conf_key):
+def transr_set_relation_embedder_dim(config, init_for_load_only, rel_emb_conf_key):
     """
     Set the relation embedder dimensionality for TransR in the config.
     """
-    ent_emb_conf_key = rel_emb_conf_key.replace(
-        "relation_embedder", "entity_embedder"
-    )
+    if not init_for_load_only:
+        ent_emb_conf_key = rel_emb_conf_key.replace(
+            "relation_embedder", "entity_embedder"
+        )
 
-    dim_d = config.get_default(ent_emb_conf_key + ".dim")
-    dim_k = config.get_default(rel_emb_conf_key + ".dim")
+        dim_d = config.get_default(ent_emb_conf_key + ".dim")
+        dim_k = config.get_default(rel_emb_conf_key + ".dim")
 
-    new_dim_k = dim_k * (1 + dim_d)
+        new_dim_k = dim_k * (1 + dim_d)
 
-    config.set(rel_emb_conf_key + ".dim", new_dim_k, log=True)
+        config.set(rel_emb_conf_key + ".dim", new_dim_k, log=True)
