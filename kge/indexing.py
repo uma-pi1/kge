@@ -86,7 +86,7 @@ class KvsAllIndex:
             if default_return_value is None:
                 return self.default_factory()
             return default_return_value
-        return self._values_of(key_index.item())
+        return self._values_of(key_index)
 
     def _values_of(self, key_index) -> torch.Tensor:
         start = self._values_offset[key_index]
@@ -207,7 +207,7 @@ def index_KvsAll(dataset: "Dataset", split: str, key: str):
     name = split + "_" + key + "_to_" + value
     if not dataset._indexes.get(name):
         triples = dataset.split(split)
-        dataset._indexes[name] = KvsAllIndex(triples, key_cols, value_col, list)
+        dataset._indexes[name] = KvsAllIndex(triples, key_cols, value_col, torch.IntTensor)
 
     dataset.config.log(
         "{} distinct {} pairs in {}".format(len(dataset._indexes[name]), key, split),
