@@ -37,7 +37,9 @@ class TransRScorer(RelationalScorer):
             s_emb_translated = self._transfer(s_emb, rel_emb, projection_matrix)
             o_emb_translated = self._transfer(o_emb, rel_emb, projection_matrix)
 
-            out = -f.pairwise_distance(s_emb_translated + rel_emb, o_emb_translated, p=self._norm)
+            out = -f.pairwise_distance(
+                s_emb_translated + rel_emb, o_emb_translated, p=self._norm
+            )
         elif combine == "sp_":
             # n = n_s = n_p != n_o = m
             m = o_emb.size(0)
@@ -51,7 +53,9 @@ class TransRScorer(RelationalScorer):
             o_emb = o_emb.repeat_interleave(n, 0)
             o_emb_translated = self._transfer(o_emb, rel_emb, projection_matrix)
 
-            out = -f.pairwise_distance(s_emb_translated + rel_emb, o_emb_translated, p=self._norm)
+            out = -f.pairwise_distance(
+                s_emb_translated + rel_emb, o_emb_translated, p=self._norm
+            )
             out = out.view(m, n).transpose(0, 1)
         elif combine == "_po":
             # m = n_s != n_p = n_o = n
@@ -66,7 +70,9 @@ class TransRScorer(RelationalScorer):
             s_emb = s_emb.repeat_interleave(n, 0)
             s_emb_translated = self._transfer(s_emb, rel_emb, projection_matrix)
 
-            out = -f.pairwise_distance(o_emb_translated - rel_emb, s_emb_translated, p=self._norm)
+            out = -f.pairwise_distance(
+                o_emb_translated - rel_emb, s_emb_translated, p=self._norm
+            )
             out = out.view(m, n).transpose(0, 1)
         else:
             return super().score_emb(s_emb, p_emb, o_emb, combine)
@@ -78,11 +84,11 @@ class TransR(KgeModel):
     r"""Implementation of the TransR KGE model."""
 
     def __init__(
-            self,
-            config: Config,
-            dataset: Dataset,
-            configuration_key=None,
-            init_for_load_only=False,
+        self,
+        config: Config,
+        dataset: Dataset,
+        configuration_key=None,
+        init_for_load_only=False,
     ):
         self._init_configuration(config, configuration_key)
 
