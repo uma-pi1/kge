@@ -20,7 +20,9 @@ class TransDScorer(RelationalScorer):
 
         min_dim = min(d, k)
 
-        out = rel_norm_vec_emb * torch.sum(ent_norm_vec_emb * ent_emb, dim=-1, keepdim=True)
+        out = rel_norm_vec_emb * torch.sum(
+            ent_norm_vec_emb * ent_emb, dim=-1, keepdim=True
+        )
         out[:, :min_dim] += ent_emb[:, :min_dim]
 
         return out
@@ -45,7 +47,9 @@ class TransDScorer(RelationalScorer):
         elif combine == "sp_":
             # n = n_s = n_p != n_o = m
             m = o_emb.shape[0]
-            s_translated = self._transfer(sub_emb, sub_norm_vec_emb, rel_norm_vec_emb) + rel_emb
+            s_translated = (
+                self._transfer(sub_emb, sub_norm_vec_emb, rel_norm_vec_emb) + rel_emb
+            )
             s_translated = s_translated.repeat(m, 1)
             # s_translated has shape [(m * n), dim d]
             rel_norm_vec_emb = rel_norm_vec_emb.repeat(m, 1)
@@ -64,7 +68,9 @@ class TransDScorer(RelationalScorer):
         elif combine == "_po":
             # m = n_s != n_p = n_o = n
             m = s_emb.shape[0]
-            o_translated = self._transfer(obj_emb, obj_norm_vec_emb, rel_norm_vec_emb) - rel_emb
+            o_translated = (
+                self._transfer(obj_emb, obj_norm_vec_emb, rel_norm_vec_emb) - rel_emb
+            )
             o_translated = o_translated.repeat(m, 1)
             # o_translated has shape [(m * n), dim]
             rel_norm_vec_emb = rel_norm_vec_emb.repeat(m, 1)
@@ -104,4 +110,3 @@ class TransD(KgeModel):
             configuration_key=self.configuration_key,
             init_for_load_only=init_for_load_only,
         )
-
