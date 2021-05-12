@@ -1,0 +1,616 @@
+# config-default.yaml: LibKGE's default configuration options
+
+# Control output is printed to the console.
+console:
+  # If set, no console output is produced
+  quiet: False
+
+  # Formatting of trace entries for console output after certain events, such as
+  # finishing an epoch. Each entry is a key-value pair, where the key refers to
+  # the type of event and the value is a Python expression (which may access
+  # variables "trace" and "config" as well as all trace entries). If no
+  # expression for a given key is specified or if the expression is empty, the
+  # full trace is produced.
+  #
+  # Supported keys: train_epoch, eval_epoch
+  #
+  # Example (one liners for train and eval):
+  # format:
+  #   train_epoch: 'f"{config.get(''train.type'')}-{config.get(''train.loss'')}: epoch={epoch:3d} avg_cost={avg_cost:.4E} avg_loss={avg_loss:.4E} avg_pens={sum(avg_penalties.values()):.4E} time={epoch_time:.2f}"'
+  #   eval_epoch: 'f"{config.get(''eval.type'')}: epoch={epoch:3d} {config.get(''valid.metric'')}={trace[config.get(''valid.metric'')]:.4E} time={epoch_time:.2f}"'
+  format: {}
+
+
+# Job-level configuration options.
+job:
+  # Type of job to run. Possible values are "train", "eval", and "search". See
+  # the corresponding configuration keys for mode information.
+  type: train
+
+  # Main device to use for this job (e.g., 'cpu', 'cuda', 'cuda:0')
+  device: 'cuda'
+
+# The seeds of the PRNGs can be set manually for (increased) reproducibility.
+# Use -1 to disable explicit seeding.
+random_seed:
+  # Seed used to initialize each of the PRNGs below in case they do not have
+  # their own seed specified. The actual seed used computed from the value given
+  # here and the name of the PRNG (e.g., python, torch, ...). If -1, disable
+  # default seeding.
+  default: -1
+
+  python: -1
+  torch: -1
+  numpy: -1
+  numba: -1
+
+
+## DATASET #####################################################################
+
+dataset:
+  # Specify a dataset here. There must be a folder of that name under "data/".
+  # If this folder contains a dataset.yaml file, it overrides the defaults
+  # specified below.
+  name: 'wordcraft_data'
+
+  # Number of entities. If set to -1, automatically determined from the
+  # entity_ids file (see below).
+  num_entities: -1
+
+  # Number of relations. If set to -1, automatically determined from the
+  # relation_ids file (see below).
+  num_relations: -1
+
+  # A list of files associated with this dataset, each associated with a key.
+  # Each entry must contain at least the filename and the type fields.
+  files:
+    # train, valid, and test are the keys used for the splits in training and
+    # evaluation.
+    #
+    # The files are of type "triples" and contain tab-separated fields:
+    # - 0: subject index
+    # - 1: # relation index
+    # - 2: object index
+    # - 3-...: arbitrary metadata fields
+    #
+    # Indexes are assumed to be dense throughout.
+    train:
+      filename: train.del
+      type: triples
+    valid:
+      filename: valid.del
+      type: triples
+    test:
+      filename: test.del
+      type: triples
+
+    # Entity and relation ids files, which store the externally used ids for
+    # each entity/relation. These files are optional for many models if
+    # 'dataset.num_entitites' and 'dataset.num_relations' is specified.
+    #
+    # The map format uses two fields that are tab-separated:
+    # - 0: internal entity/relation index (as in train/valid/test)
+    # - 1: external id (interpreted as string)
+    entity_ids:
+      filename: entity_ids.del
+      type: map
+    relation_ids:
+      filename: relation_ids.del
+      type: map
+
+    # Files that store human-readble string representations of each
+    # entity/relation. These files are optional.
+    #
+    # Type can be map (field 0 is internal index) or idmap (field 0 is external
+    # id).
+    entity_strings:
+      filename: entity_ids.del  # default to id file
+      type: map
+    relation_strings:
+      filename: relation_ids.del  # default to id file
+      type: map
+
+    # Additional files can be added as needed
+    +++: +++
+
+  # Whether to store processed dataset files and indexes as binary files in the
+  # dataset directory. This enables faster loading at the cost of storage space.
+  # LibKGE will ensure that pickled files are only used when not outdated. Note
+  # that the value specified here may be overwritten by dataset-specific choices
+  # (in dataset.yaml).
+  pickle: True
+
+  # Additional dataset specific keys can be added as needed
+  +++: +++
+
+
+## EXTENSIONS ###################################################################
+
+# Python modules that should be searched for models, embedders, jobs, etc.
+# LibKGE may not respect the module order specified here, so make sure to use
+# unique names. See also options 'import' and 'model' below.
+modules: [ kge.job, kge.model, kge.model.embedder ]
+
+# Names of additional configuration files to import. When this entry contains
+# entry NAME, then the modules above are searched for a file NAME.yaml, and this
+# file is imported into the configuration. By convention, NAME.yaml should have
+# a single top-level key NAME. Note that the configuration specified under
+# 'model' below is automatically imported in this way.
+import: []
+
+
+## MODEL #######################################################################
+
+# Which KGE model to use. Examples include "rescal", "complex", "distmult",
+# "transe", or "conve". For available models, see the project homepage and/or
+# configuration files under kge.model.
+model: 'complex'
+
+
+## TRAINING ####################################################################
+
+# Options of training jobs (job.type=="train")
+train:
+  # Split used for training (specified under 'dataset.files').
+  split: train
+
+  # Type of training job (see respective configuration key). LibKGE ships with
+  # the following jobs:
+  # - KvsAll: scores each unique sp/po/so pair along with all possible completions.
+  # - negative_sampling: scores each unique spo triple along with sampled corrupted
+  #   triples
+  # - 1vsAll: scores each spo triples against the complete set of s/p-corrputed triples
+  #   (all treated negative)
+  type: KvsAll
+
+  # Loss used for training (bce, kl, or margin_ranking).
+  #
+  # KL divergence / cross entropy (kl, all training types): Take softmax over a
+  # set of scores, then compute KL divergence between the so-obtained model
+  # distribution and data distribution. Computed once for each positive triple
+  # and slot (i.e., separately for the subject, relation, and object slots).
+  # Equivalent to cross-entropy loss often found in the literature.
+  #
+  # Margin ranking (margin_ranking, negative_sampling only): Compute margin
+  # between score of positive triple and score of one of its negative triples.
+  # Computed once per negative triple. See loss_arg for parameters.
+  #
+  # Binary cross entropy (bce, all training types): Apply logistic function to
+  # score of triple, then compute binary cross entropy w.r.t. the respective
+  # true label. Computed once for each positive and once for each negative
+  # triple in the batch. See loss_arg for parameters.
+  #
+  # Squared error (se, all training types): Calculate squared error between
+  # the score of a triple and its true value (0, 1). Computed once for each
+  # positive and once for each negative triple in the batch.
+  #
+  # Generally, the loss values are averaged over the batch elements (e.g.,
+  # positive triple for 1vsAll and negative_sampling, sp- or po-pair for
+  # KvsAll). If multiple loss values arise for each batch element (e.g., when
+  # BCE is used), these individual losses are summed up.
+  #
+  # LibKGE also supports some other losses, which we do not recommend to use.
+  # See kge/loss.py for details.
+  loss: kl
+
+  # Argument of loss function (if any). If .nan is specified, a default value is
+  # used (as stated in parenthesis below).
+  #
+  # - margin_ranking (1.0): margin to use
+  # - bce (0.0): offset to add to raw model scores before appyling the logistic
+  #              function. This is useful esp. when the model only outputs negative
+  #              scores (e.g., TransE, RotatE).
+  loss_arg: .nan
+
+  # Maximum number of epochs used for training
+  max_epochs: 20
+
+  # Batch size used for training.
+  batch_size: 100
+
+  # If specified, split the batch into subbatches of at most this size and run
+  # the forward/backward passes separately on each subbatch. This reduces memory
+  # consumption but may increase runtime. This setting allows to simulate larger
+  # batch sizes when the GPU has insufficient memory. An alternative is to
+  # reduce the batch size directly.
+  subbatch_size: -1            # default: no subbatches
+
+  # If set and a batch runs out of memory, repeatedly half the subbatch size
+  # until the batch succeeds. The reduced subbatch size will be used for all
+  # future batches.
+  subbatch_auto_tune: False
+
+  # Number of workers used to construct batches. Leave at 0 for default (no
+  # separate workers). On Windows, only 0 is supported.
+  num_workers: 0
+
+  # Optimizer used for training.
+  optimizer:
+    default:
+      type: Adagrad           # sgd, adagrad, adam
+
+      # Additional arguments for the optimizer. Arbitrary key-value pairs can be
+      # added here and will be passed along to the optimizer. E.g., use entry lr:0.1
+      # to set the learning rate to 0.1.
+      args:
+        +++: +++
+
+    # Specific optimizer options for parameters matched with regex expressions can be
+    # overwritten. Allows for example to define a separate learning rate for all relation
+    # parameters.
+    # Example:
+    # optimizer:
+    #   relation:
+    #     regex: .*_relation_embedder.*
+    #     args:
+    #       lr: 0.1
+    # Names of child keys of optimizer will be set as parameter group name.
+    # Parameters are named by their variable names and can be retrieved by:
+    # model.named_parameters()
+    # or from a checkpoint by:
+    # kge dump checkpoint checkpoint_file.pt | grep parameter_names
+    +++: +++
+
+  # If >0, linearly increase learning rate over this many epochs to
+  # optimizer.<group>.args.lr for each group. Only then use the specified
+  # learning rate scheduler.
+  lr_warmup: 0                # disabled
+
+  # Learning rate scheduler to use. Any scheduler from torch.optim.lr_scheduler
+  # can be used (e.g., ReduceLROnPlateau). When left empty, no LR scheduler is
+  # used.
+  lr_scheduler: ""
+
+  # Additional arguments for the scheduler.
+  lr_scheduler_args:
+    +++: +++
+
+  # When to write entries to the trace file.
+  trace_level: epoch           # batch, epoch
+
+  # When to create checkpoints
+  checkpoint:
+    # In addition the the checkpoint of the last epoch (which is transient),
+    # create an additional checkpoint every this many epochs. Disable additional
+    # checkpoints with 0.
+    every: 5
+
+    # Keep this many most recent additional checkpoints.
+    keep: 3
+
+    # Whether to always keep checkpoint containing initialized model
+    # ('checkpoint_00000.pt') for reproducibility.
+    keep_init: True
+
+  # When set, LibKGE automatically corrects certain invalid configuration
+  # options. Each such change is logged. When not set and the configuration is
+  # invalid, LibKGE raises an error.
+  auto_correct: False
+
+  # Abort training (with an error) when the value of the cost function becomes
+  # not a number.
+  abort_on_nan: True
+
+  # If set, create a PDF of the compute graph (of first batch of first epoch).
+  visualize_graph: False
+
+  # Other options
+  pin_memory: False
+
+# Options for 1vsAll training (train.type=="1vsAll")
+1vsAll:
+  class_name: TrainingJob1vsAll
+
+# Options for KvsAll training (train.type=="KvsAll")
+KvsAll:
+  class_name: TrainingJobKvsAll
+
+  # Amount of label smoothing (disabled when 0) for sp_ and _po queries.
+  # Disencourages models to perform extreme predictions (0 or 1).
+  #
+  # Technically, reduces all labels by fraction given by this value and
+  # subsequently increases them by 1.0/num_entities. For example, 0s become
+  # 1.0/num_entities and 1s become (1.0-label_smoothing)+1.0/num_entities.
+  #
+  # This form of label smoothing was used by ConvE
+  # ( https://github.com/TimDettmers/ConvE/blob/853d7010a4b569c3d24c9e6eeaf9dc3535d78832/main.py#L156) with a default value of 0.1.
+  label_smoothing: 0.0
+
+  # Query types used during training. Here _ indicates the prediction target.
+  # For example, sp_ means queries of form (s,p,?): predict all objects for each
+  # distinct subject-predicate pair (s,p).
+  query_types:
+    sp_: True
+    s_o: False
+    _po: True
+
+# Options for negative sampling training (train.type=="negative_sampling")
+negative_sampling:
+  class_name: TrainingJobNegativeSampling
+
+  # Negative sampler to use
+  # - uniform  : samples entities/relations for corruption uniformly from the set
+  #              of entities/relations
+  # - frequency: samples entities/relations for corruption based on their relative
+  #              frequency in the corresponding slot in the training data
+  sampling_type: uniform
+
+  # Options for sampling type frequency (negative_sampling.sampling_type=="frequency")
+  frequency:
+    # Smoothing constant to add to frequencies in training data (disable with
+    # 0). Corresponds to a symmetric Dirichlet prior.
+    smoothing: 1
+
+  # Number of times each slot of each positive triple is corrupted by the
+  # sampler to obtain negative triples.
+  num_samples:
+    s: 3
+    p: 0          # -1 means: same as s
+    o: -1         # -1 means: same as s
+
+  # Whether to resample corrupted triples that occur in the training data (and
+  # are hence positives). Can be set separately for each slot.
+  filtering:
+    s: False       # filter and resample for slot s
+    p: False       # as above
+    o: False       # as above
+
+    split: ''      # split containing the positives; default is train.split
+
+    # Implementation to use for filtering.
+    # standard: use slow generic implementation, available for all samplers
+    # fast: use specialized fast implementation, available for some samplers
+    # fast_if_available: use fast implementation if available, else standard
+    implementation: fast_if_available
+
+  # Whether to share the s/p/o corruptions for all triples in the batch. This
+  # can make training more efficient. Cannot be used with together with
+  # filtering, but it is ensured that each triple does not get itself as a
+  # negative.
+  shared: False
+
+  # Type of shared sampling implementation:
+  #
+  # - naive: Each positive triples uses exactly the same set of shared samples,
+  #          even if it's own positive entity is in the shared sample as a
+  #          negative. Very fast.
+  # - default: Avoid that a positive triple's entity occurs in its shared
+  #            negative samples. This is done by using a shared sample size that
+  #            is one sample larger then needed. The actual sample of a triple
+  #            is then obtained by dropping the sample corresponding to its
+  #            positive entity (or a random one if there is no such sample).
+  shared_type: 'default'
+
+  # Whether sampling should be performed with replacement. Without replacement
+  # sampling is currently only supported for shared sampling.
+  with_replacement: True
+
+  # Implementation to use for the negative sampling job. Possible values are:
+  # - triple: Scores every positive and negative triple in the batch separately.
+  # - all   : Scores against all possible targets and filters relevant scores
+  #           out of the resulting score matrix
+  # - batch : Scores against all targets contained in batch (or chunk) and
+  #           filters relevant scores out of the resulting score matrix.
+  # - auto  : Chooses best implementation heuristically. The heuristic may
+  #           change in the future.
+  #
+  # 'batch' is recommended (faster) for models which have efficient
+  # implementations to score many targets at once. For all other models, use
+  # 'triple' (e.g., for TransE or RotatE in the current implementation). 'auto'
+  # tries to do just this heuristically.
+  implementation: auto
+
+## VALIDATION AND EVALUATION ###################################################
+
+# Options used for all evaluation jobs (job.type=="eval"). Also used during
+# validation when training (unless overridden, see below). Right now, evaluation
+# jobs compute a fixed set of metrics: MRR, HITS@k.
+eval:
+  # Split used for evaluation (specified under 'dataset.files').
+  split: valid
+
+  # Type of evaluation job (see respective configuration key). LibKGE ships with
+  # the following jobs: entity_ranking, training_loss
+  type: entity_ranking
+
+  # Batch size used during evaluation
+  batch_size: 100
+
+  # Amount of tracing information being written. When set to "example", traces
+  # the rank of the correct answer for each example.
+  trace_level: epoch            # example, batch, epoch
+
+  # Number of workers used to construct batches. Leave at 0 for default (no
+  # separate workers). On Windows, only 0 is supported.
+  num_workers: 0
+
+  # Other options
+  pin_memory: False
+
+
+# Configuration options for model validation/selection during training. Applied
+# in addition to the options set under "eval" above.
+valid:
+  # Split used for validation. If '', use eval.split, else override eval.split
+  # during validation with this value.
+  split: 'valid'
+
+  # Validation is run every this many epochs during training (disable validation
+  # with 0).
+  every: 5
+
+  # Name of the trace entry that holds the validation metric (higher value is
+  # better). To add a custom metric, set this to a fresh name and define
+  # metric_expr below.
+  metric: mean_reciprocal_rank_filtered_with_test
+
+  # If the above metric is not present in trace (e.g., because a custom metric
+  # should be used), a Python expression to compute the metric. Can refer to
+  # trace entries directly and to configuration options via config.
+  #
+  # Example: 'math.sqrt(mean_reciprocal_rank) + config.get("user.par")'
+  metric_expr: 'float("nan")'
+
+  # Whether the metric should be maximized (True, large value is better) or
+  # minimized (False, small value is better). Affects things such as early
+  # abort, learning rate scheduling, or hyperparameter search.
+  metric_max: True
+
+  early_stopping:
+    # Grace period of validation runs before a training run is stopped early
+    # (disable early stopping with 0). If the value is set to n, then training is
+    # stopped when there has been no improvement (compared to the best overall
+    # result so far) in the validation metric during the last n validation runs.
+    patience: 5
+
+    # A target validation metric value that should be reached after n epochs,
+    # set to 0 epoch to turn off. Should be set very very conservatively and the
+    # main purpose is for pruning completely useless hyperparameter settings
+    # during hyper-parameter optimization.
+    threshold:
+      epochs: 0
+      metric_value: 0.0
+
+  # Amount of tracing information being written. When set to "example", traces
+  # the rank of the correct answer for each example.
+  trace_level: epoch
+
+# specific configuration options for entity ranking
+entity_ranking:
+  class_name: EntityRankingJob
+
+  # Splits used to filter for filtered metrics. The split using for evaluation
+  # (as set above) will be added automatically if not present.
+  filter_splits: [ 'train', 'valid' ]
+
+  # Whether test data should be used for filtering even if the current filter
+  # splits do not contain it (most notably: during validation). When this is set
+  # to True and "test" is not already a filter split, *additionally* produces
+  # "filtered_with_test" metrics (such as MRR or HITS@k). Apparently, many
+  # existing models have been trained with this set to True during model
+  # selection and using a metric such as
+  # mean_reciprocal_rank_filtered_with_test.
+  filter_with_test: True
+
+  # How to handle cases with ties between the correct answer and other answers, e.g.,
+  #  Query: (s, p, ?).
+  #  Answers and score: a:10, b:10, c:10, d:11, e:9
+  #  Correct: 'a'.
+  #
+  # Possible options are:
+  # - worst_rank:        Use the highest rank of all answers that have the same
+  #                      score as the correct answer. In example: 4.
+  # - best_rank:         Use the lowest rank of all answers that have the same
+  #                      score as the correct answer (competition scoring). In
+  #                      example: 2.
+  #                      DO NOT USE THIS OPTION, it leads to misleading evaluation
+  #                      results. See https://arxiv.org/pdf/1911.03903.pdf
+  # - rounded_mean_rank: Average between worst and best rank, rounded up
+  #                      (rounded fractional ranking). In example: 3.
+  tie_handling: rounded_mean_rank
+
+  # Compute Hits@K for these choices of K
+  hits_at_k_s: [1, 3, 10, 50, 100, 200, 300, 400, 500, 1000]
+
+  # Perform evaluation in chunks of the specified size. When set, score against
+  # at most this many entities simultaneouly during prediction. This reduces
+  # memory consumption but may increase runtime. Useful when there are many
+  # entities and/or memory-intensive models are used.
+  chunk_size: -1                  # default: no chunking
+
+  # Metrics are always computed over the entire evaluation data. Optionally,
+  # certain more specific metrics can be computed in addition.
+  metrics_per:
+    head_and_tail: False          # head, tail; also applied to relation_type below
+    relation_type: False          # 1-to-1, 1-to-N, N-to-1, N-to-N
+    argument_frequency: False     # 25%, 50%, 75%, top quantiles per argument
+
+
+# specific configuration options for evaluation via training loss
+training_loss:
+  class_name: TrainingLossEvaluationJob
+
+## EVALUATION ##################################################################
+
+
+## HYPERPARAMETER SEARCH #######################################################
+
+# Options of hyperparameter search jobs (job.type=="search").
+search:
+  # Type of search job (see respective configuration key). LibKGE ships with the
+  # following jobs: manual_search, grid_search, ax_search
+  type: ax_search
+
+  # Maximum number of parallel training jobs to run during a search.
+  num_workers: 1
+
+  # Device pool to use for training jobs. If this list is empty, `job.device` is
+  # used for all parallel searches. Otherwise, the first `search.num_workers`
+  # devices from this list are used. If the number of devices specified here is
+  # less than `search.num_workers`, the list wraps around so that devices are
+  # used by multiple jobs in parallel.
+  device_pool: [ ]
+
+  # What to do when an error occurs during a training job. Possible values:
+  # continue, abort
+  on_error: abort
+
+# Manually specify all configurations to try
+manual_search:
+  class_name: ManualSearchJob
+
+  # If false, only creates training job folders but does not run the jobs.
+  run: True
+
+  # List of configurations to search. Each entry is a record with a field
+  # 'folder' (where the training job is stored) and an arbitrary number of other
+  # fields that define the search configuration (e.g.
+  # 'train.optimizer_args.lr').
+  configurations: []
+
+
+# Metajob for a grid search. Creates a manual search job with all points on the
+# grid.
+grid_search:
+  class_name: GridSearchJob
+
+  # If false, only creates manual search job configuration file but does not run
+  # it. This may be useful to edit the configuration (e.g., change folder names)
+  # or to copy the created configurations to an existing manual search job.
+  run: True
+
+  # Define the grid. This is a dict where the key is a (flattened or nested)
+  # configuration option (e.g., "train.optimizer_args.lr") and the value is an
+  # array of grid-search values (e.g., [ 0.1, 0.01 ]). No default values
+  # specified.
+  parameters:
+    +++: +++
+
+# Dynamic search job that picks configurations using ax
+ax_search:
+  class_name: AxSearchJob
+
+  # Total number of trials to run. Can be increased when a search job is
+  # resumed.
+  num_trials: 10
+
+  # Number of sobol trials to run (-1: automatic); remaining trials are GP+EI.
+  # If equal or larger than num_trials, only Sobal trials will be run.
+  num_sobol_trials: -1
+
+  # Random seed for generating the sobol sequence. Has to be fixed for each
+  # experiment, or else resuming the sobol sequence is inconsistent.
+  sobol_seed: 0
+
+  # Search space definition passed to ax. See create_experiment in
+  # https://ax.dev/api/service.html#module-ax.service.ax_client
+  parameters: []
+  parameter_constraints: []
+
+
+## USER PARAMETERS #####################################################################
+
+# These parameters are not used by the kge framework itself. It can be used to
+# add additional configuration options or information to this config.
+user:
+  +++: +++
