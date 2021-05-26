@@ -1,0 +1,39 @@
+include:
+- rescal
+- complex
+- transe
+- conve
+- rotate
+- reciprocal_relations_model
+
+job.device: cpu
+job.type: search
+dataset.name: wordcraft_data
+
+train:
+  optimizer.default:
+    type: Adagrad
+  lr_scheduler: ReduceLROnPlateau
+  lr_scheduler_args:
+    mode: max
+    patience: 4
+  max_epochs: 400
+        
+search.type: ax
+ax_search:
+  num_trials: 1000
+  parameters:
+    - name: model
+      type: choice
+      values: [complex, rescal, rotate, transe, conve]
+    - name: train.optimizer.default.args.lr
+      type: range
+      bounds: [0.0, 1.0]
+    - name: train.optimizer.default.args.weight_decay
+      type: range
+      bounds: [1.0e-8, 1.0]
+      log_scale: True
+    - name: lookup_embedder.dim
+      type: choice
+      values: [50, 100, 150, 200, 250, 300]
+
