@@ -250,7 +250,7 @@ fi
 if [ ! -d "$BASEDIR/wn11" ]; then
     echo Downloading wn11
     cd $BASEDIR
-    curl -O https://www.uni-mannheim.de/media/Einrichtungen/dws/pi1/kge_datasets/wn11.tar.gz
+    curl -O http://web.informatik.uni-mannheim.de/pi1/kge-datasets/wn11.tar.gz
     tar xvf wn11.tar.gz
     mv wn11/dev.txt wn11/valid.txt
 else
