@@ -9,6 +9,7 @@ setup(
     author_email="rgemulla@uni-mannheim.de",
     packages=["kge"],
     install_requires=[
+        "numpy==1.19.*"
         "torch==1.7.1",
         "pyyaml",
         "pandas",
@@ -20,7 +21,7 @@ setup(
         "torchviz",
         # LibKGE uses numba typed-dicts which is part of the experimental numba API
         # see http://numba.pydata.org/numba-doc/0.50.1/reference/pysupported.html
-        "numba==0.53.1",
+        "numba==0.50.*",
     ],
     # Ax 0.1.10 requires python 3.7. Numba does not yet support for Python 3.9:
     # https://github.com/numba/numba/issues/6345
