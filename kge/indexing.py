@@ -81,12 +81,27 @@ class KvsAllIndex:
         self._index_of_key = self._create_index_of_key_dict(self._keys.numpy())
 
     def __getitem__(self, key, default_return_value=None) -> torch.Tensor:
+        key = self._convert_key_to_correct_type(key)
         key_index = self._index_of_key.get(key, self.default_index_of_key)
         if key_index < 0:
             if default_return_value is None:
                 return self.default_factory()
             return default_return_value
         return self._values_of(key_index)
+
+    @staticmethod
+    def _convert_key_to_correct_type(key):
+        """Numba dict expects np.int32. Ensure all inputs are converted correctly"""
+        key_type = type(key[0])
+        if key_type is np.int32:
+            return key
+        if key_type is np.int64:
+            return key[0].astype(np.int32), key[1].astype(np.int32)
+        if key_type is int:
+            return np.int32(key[0]), np.int32(key[1])
+        if key_type is torch.Tensor:
+            return np.int32(key[0].item()), np.int32(key[1].item())
+        raise ValueError("Input type for key attribute in KvsAllIndex needs to be Tuple[np.int32,np.int32]")
 
     def _values_of(self, key_index) -> torch.Tensor:
         start = self._values_offset[key_index]
