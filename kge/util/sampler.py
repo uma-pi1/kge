@@ -706,7 +706,7 @@ class KgeUniformSampler(KgeSampler):
             f"{self.filtering_split}_{pair_str}_to_{SLOT_STR[slot]}"
         )
         cols = [[P, O], [S, O], [S, P]][slot]
-        pairs = positive_triples[:, cols].numpy()
+        pairs = positive_triples[:, cols].numpy().astype(np.int32)
         batch_size = positive_triples.size(0)
         voc_size = self.vocabulary_size[slot]
         # filling a numba-dict here and then call the function was faster than 1. Using
