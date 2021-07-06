@@ -1,3 +1,5 @@
+import time
+
 import torch
 import torch.utils.data
 
@@ -53,25 +55,28 @@ class TrainingJob1vsAll(TrainingJob):
         batch_size = result.size
 
         # prepare
-        with result.timers["prepare_time"]:
-            triples = batch["triples"][subbatch_slice].to(self.device)
+        result.prepare_time -= time.time()
+        triples = batch["triples"][subbatch_slice].to(self.device)
+        result.prepare_time += time.time()
 
         # forward/backward pass (sp)
-        with result.timers["forward_time"]:
-            scores_sp = self.model.score_sp(triples[:, 0], triples[:, 1])
-            loss_value_sp = self.loss(scores_sp, triples[:, 2]) / batch_size
-            result.avg_loss += loss_value_sp.item()
-
+        result.forward_time -= time.time()
+        scores_sp = self.model.score_sp(triples[:, 0], triples[:, 1])
+        loss_value_sp = self.loss(scores_sp, triples[:, 2]) / batch_size
+        result.avg_loss += loss_value_sp.item()
+        result.forward_time += time.time()
+        result.backward_time = -time.time()
         if not self.is_forward_only:
-            with result.timers["backward_time"]:
-                loss_value_sp.backward()
+            loss_value_sp.backward()
+        result.backward_time += time.time()
 
         # forward/backward pass (po)
-        with result.timers["forward_time"]:
-            scores_po = self.model.score_po(triples[:, 1], triples[:, 2])
-            loss_value_po = self.loss(scores_po, triples[:, 0]) / batch_size
-            result.avg_loss += loss_value_po.item()
-
+        result.forward_time -= time.time()
+        scores_po = self.model.score_po(triples[:, 1], triples[:, 2])
+        loss_value_po = self.loss(scores_po, triples[:, 0]) / batch_size
+        result.avg_loss += loss_value_po.item()
+        result.forward_time += time.time()
+        result.backward_time -= time.time()
         if not self.is_forward_only:
-            with result.timers["backward_time"]:
-                loss_value_po.backward()
+            loss_value_po.backward()
+        result.backward_time += time.time()

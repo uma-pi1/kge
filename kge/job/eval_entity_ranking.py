@@ -1,4 +1,5 @@
 import math
+import time
 
 import torch
 import kge.job
@@ -135,7 +136,7 @@ class EntityRankingJob(EvaluationJob):
             f(self)
 
         # let's go
-        self.timers["epoch_time"].start()
+        epoch_time = -time.time()
         for batch_number, batch_coords in enumerate(self.loader):
             # create initial batch trace (yet incomplete)
             self.current_trace["batch"] = dict(
@@ -425,11 +426,11 @@ class EntityRankingJob(EvaluationJob):
                         hists_filt_test[key], suffix="_filtered_with_test" + name
                     )
                 )
-        self.timers["epoch_time"].stop()
+        epoch_time += time.time()
 
         # update trace with results
         self.current_trace["epoch"].update(
-            dict(epoch_time=self.timers["epoch_time"].elapsed, event="eval_completed", **metrics,)
+            dict(epoch_time=epoch_time, event="eval_completed", **metrics,)
         )
 
     def _densify_chunk_of_labels(

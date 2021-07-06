@@ -207,9 +207,10 @@ class TrainingJobKvsAll(TrainingJob):
     ):
         # move labels to GPU for entire batch (else somewhat costly, but this should be
         # reasonably small)
-        with result.timers["prepare_time"]:
-            batch["label_coords"] = batch["label_coords"].to(self.device)
-            result.size = len(batch["queries"])
+        result.prepare_time -= time.time()
+        batch["label_coords"] = batch["label_coords"].to(self.device)
+        result.size = len(batch["queries"])
+        result.prepare_time += time.time()
 
     def _process_subbatch(
         self,
@@ -221,71 +222,74 @@ class TrainingJobKvsAll(TrainingJob):
         batch_size = result.size
 
         # prepare
-        with result.timers["prepare_time"]:
-            queries_subbatch = batch["queries"][subbatch_slice].to(self.device)
-            subbatch_size = len(queries_subbatch)
-            label_coords_batch = batch["label_coords"]
-            query_type_indexes_subbatch = batch["query_type_indexes"][subbatch_slice]
+        result.prepare_time -= time.time()
+        queries_subbatch = batch["queries"][subbatch_slice].to(self.device)
+        subbatch_size = len(queries_subbatch)
+        label_coords_batch = batch["label_coords"]
+        query_type_indexes_subbatch = batch["query_type_indexes"][subbatch_slice]
 
-            # in this method, example refers to the index of an example in the batch, i.e.,
-            # it takes values in 0,1,...,batch_size-1
-            examples_for_query_type = {}
-            for query_type_index, query_type in enumerate(self.query_types):
-                examples_for_query_type[query_type] = (
-                    (query_type_indexes_subbatch == query_type_index)
-                    .nonzero(as_tuple=False)
-                    .to(self.device)
-                    .view(-1)
-                )
+        # in this method, example refers to the index of an example in the batch, i.e.,
+        # it takes values in 0,1,...,batch_size-1
+        examples_for_query_type = {}
+        for query_type_index, query_type in enumerate(self.query_types):
+            examples_for_query_type[query_type] = (
+                (query_type_indexes_subbatch == query_type_index)
+                .nonzero(as_tuple=False)
+                .to(self.device)
+                .view(-1)
+            )
 
-            labels_subbatch = kge.job.util.coord_to_sparse_tensor(
-                subbatch_size,
-                max(self.dataset.num_entities(), self.dataset.num_relations()),
-                label_coords_batch,
-                self.device,
-                row_slice=subbatch_slice,
-            ).to_dense()
-            labels_for_query_type = {}
-            for query_type, examples in examples_for_query_type.items():
-                if query_type == "s_o":
-                    labels_for_query_type[query_type] = labels_subbatch[
-                        examples, : self.dataset.num_relations()
-                    ]
-                else:
-                    labels_for_query_type[query_type] = labels_subbatch[
-                        examples, : self.dataset.num_entities()
-                    ]
+        labels_subbatch = kge.job.util.coord_to_sparse_tensor(
+            subbatch_size,
+            max(self.dataset.num_entities(), self.dataset.num_relations()),
+            label_coords_batch,
+            self.device,
+            row_slice=subbatch_slice,
+        ).to_dense()
+        labels_for_query_type = {}
+        for query_type, examples in examples_for_query_type.items():
+            if query_type == "s_o":
+                labels_for_query_type[query_type] = labels_subbatch[
+                    examples, : self.dataset.num_relations()
+                ]
+            else:
+                labels_for_query_type[query_type] = labels_subbatch[
+                    examples, : self.dataset.num_entities()
+                ]
 
-            if self.label_smoothing > 0.0:
-                # as in ConvE: https://github.com/TimDettmers/ConvE
-                for query_type, labels in labels_for_query_type.items():
-                    if query_type != "s_o":  # entity targets only for now
-                        labels_for_query_type[query_type] = (
-                            1.0 - self.label_smoothing
-                        ) * labels + 1.0 / labels.size(1)
+        if self.label_smoothing > 0.0:
+            # as in ConvE: https://github.com/TimDettmers/ConvE
+            for query_type, labels in labels_for_query_type.items():
+                if query_type != "s_o":  # entity targets only for now
+                    labels_for_query_type[query_type] = (
+                        1.0 - self.label_smoothing
+                    ) * labels + 1.0 / labels.size(1)
+
+        result.prepare_time += time.time()
 
         # forward/backward pass (sp)
         for query_type, examples in examples_for_query_type.items():
             if len(examples) > 0:
-                with result.timers["forward_time"]:
-                    if query_type == "sp_":
-                        scores = self.model.score_sp(
-                            queries_subbatch[examples, 0], queries_subbatch[examples, 1]
-                        )
-                    elif query_type == "s_o":
-                        scores = self.model.score_so(
-                            queries_subbatch[examples, 0], queries_subbatch[examples, 1]
-                        )
-                    else:
-                        scores = self.model.score_po(
-                            queries_subbatch[examples, 0], queries_subbatch[examples, 1]
-                        )
-                    # note: average on batch_size, not on subbatch_size
-                    loss_value = (
-                        self.loss(scores, labels_for_query_type[query_type]) / batch_size
+                result.forward_time -= time.time()
+                if query_type == "sp_":
+                    scores = self.model.score_sp(
+                        queries_subbatch[examples, 0], queries_subbatch[examples, 1]
                     )
-                    result.avg_loss += loss_value.item()
-
+                elif query_type == "s_o":
+                    scores = self.model.score_so(
+                        queries_subbatch[examples, 0], queries_subbatch[examples, 1]
+                    )
+                else:
+                    scores = self.model.score_po(
+                        queries_subbatch[examples, 0], queries_subbatch[examples, 1]
+                    )
+                # note: average on batch_size, not on subbatch_size
+                loss_value = (
+                    self.loss(scores, labels_for_query_type[query_type]) / batch_size
+                )
+                result.avg_loss += loss_value.item()
+                result.forward_time += time.time()
+                result.backward_time -= time.time()
                 if not self.is_forward_only:
-                    with result.timers["backward_time"]:
-                        loss_value.backward()
+                    loss_value.backward()
+                result.backward_time += time.time()

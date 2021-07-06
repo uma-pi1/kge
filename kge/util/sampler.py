@@ -1,12 +1,12 @@
 from kge import Config, Configurable, Dataset
 from kge.indexing import where_in
-from kge.util.timercollection import TimerCollection
 
 import random
 import torch
 from typing import Optional
 import numpy as np
 import numba
+import time
 
 SLOTS = [0, 1, 2]
 SLOT_STR = ["s", "p", "o"]
@@ -231,7 +231,8 @@ class BatchNegativeSample(Configurable):
         self._implementation = self.check_option(
             "implementation", ["triple", "batch", "all"]
         )
-        self.timers = TimerCollection()
+        self.forward_time = 0.0
+        self.prepare_time = 0.0
 
     def samples(self, indexes=None) -> torch.Tensor:
         """Returns a tensor holding the indexes of the negative samples.
@@ -269,17 +270,19 @@ class BatchNegativeSample(Configurable):
 
         Sets the `forward_time` and `prepare_time` attributes.
         """
-        self.timers.reset(["prepare_time", "forward_time"])
+        self.forward_time = 0.0
+        self.prepare_time = 0.0
 
         # the default implementation here is based on the set of all samples as provided
         # by self.samples(); get the relavant data
         slot = self.slot
-        with self.timers["prepare_time"]:
-            negative_samples = self.samples(indexes)
-            num_samples = self.num_samples
-            triples = (
-                self.positive_triples[indexes, :] if indexes else self.positive_triples
-            )
+        self.prepare_time -= time.time()
+        negative_samples = self.samples(indexes)
+        num_samples = self.num_samples
+        triples = (
+            self.positive_triples[indexes, :] if indexes else self.positive_triples
+        )
+        self.prepare_time += time.time()
 
         # go ahead and score
         device = self.positive_triples.device
@@ -287,48 +290,54 @@ class BatchNegativeSample(Configurable):
         scores = None
         if self._implementation == "triple":
             # construct triples
-            with self.timers["prepare_time"]:
-                triples_to_score = triples.repeat(1, num_samples).view(-1, 3)
-                triples_to_score[:, slot] = negative_samples.contiguous().view(-1)
+            self.prepare_time -= time.time()
+            triples_to_score = triples.repeat(1, num_samples).view(-1, 3)
+            triples_to_score[:, slot] = negative_samples.contiguous().view(-1)
+            self.prepare_time += time.time()
 
             # and score them
-            with self.timers["forward_time"]:
-                scores = model.score_spo(
-                    triples_to_score[:, S],
-                    triples_to_score[:, P],
-                    triples_to_score[:, O],
-                    direction=SLOT_STR[slot],
-                ).view(chunk_size, -1)
+            self.forward_time -= time.time()
+            scores = model.score_spo(
+                triples_to_score[:, S],
+                triples_to_score[:, P],
+                triples_to_score[:, O],
+                direction=SLOT_STR[slot],
+            ).view(chunk_size, -1)
+            self.forward_time += time.time()
         elif self._implementation in ["batch", "all"]:
             # Score each triples against all unique possible targets, then pick out the
             # actual scores.
-            with self.timers["prepare_time"]:
-                if self._implementation == "all":
-                    unique_targets = None  # means all
-                    column_indexes = negative_samples.contiguous().view(-1)
-                else:
-                    unique_targets, column_indexes = self.unique_samples(
-                        indexes, return_inverse=True
-                    )
+            self.prepare_time -= time.time()
+            if self._implementation == "all":
+                unique_targets = None  # means all
+                column_indexes = negative_samples.contiguous().view(-1)
+            else:
+                unique_targets, column_indexes = self.unique_samples(
+                    indexes, return_inverse=True
+                )
+            self.prepare_time += time.time()
 
             # compute all scores for slot
-            with self.timers["forward_time"]:
-                all_scores = self._score_unique_targets(
-                    model, slot, triples, unique_targets
-                )
+            self.forward_time -= time.time()
+            all_scores = self._score_unique_targets(
+                model, slot, triples, unique_targets
+            )
+            self.forward_time += time.time()
 
             # determine indexes of relevant scores in scoring matrix
-            with self.timers["prepare_time"]:
-                row_indexes = (
-                    torch.arange(chunk_size, device=device)
-                    .unsqueeze(1)
-                    .repeat(1, num_samples)
-                    .view(-1)
-                )  # 000 111 222; each num_samples times (here: 3)
+            self.prepare_time -= time.time()
+            row_indexes = (
+                torch.arange(chunk_size, device=device)
+                .unsqueeze(1)
+                .repeat(1, num_samples)
+                .view(-1)
+            )  # 000 111 222; each num_samples times (here: 3)
+            self.prepare_time += time.time()
 
             # and pick the scores we need
-            with self.timers["forward_time"]:
-                scores = all_scores[row_indexes, column_indexes].view(chunk_size, -1)
+            self.forward_time -= time.time()
+            scores = all_scores[row_indexes, column_indexes].view(chunk_size, -1)
+            self.forward_time += time.time()
         else:
             raise ValueError
 
@@ -422,7 +431,8 @@ class NaiveSharedNegativeSample(BatchNegativeSample):
 
         # for batch, we have a faster implementation that avoids creating the full
         # sample tensor
-        self.timers.reset(["prepare_time", "forward_time"])
+        self.prepare_time = 0.0
+        self.forward_time = 0.0
         slot = self.slot
         unique_targets = self._unique_samples
         num_unique = len(unique_targets)
@@ -434,20 +444,21 @@ class NaiveSharedNegativeSample(BatchNegativeSample):
         chunk_size = len(triples)
 
         # compute scores for all unique targets for slot
-        with self.timers["forward_time"]:
-            scores = self._score_unique_targets(model, slot, triples, unique_targets)
+        self.forward_time -= time.time()
+        scores = self._score_unique_targets(model, slot, triples, unique_targets)
 
-            # repeat scores as needed for WR sampling
-            if num_unique != self.num_samples:
-                scores = scores[
-                    :,
-                    torch.cat(
-                        (
-                            torch.arange(num_unique, device=scores.device),
-                            self._repeat_indexes,
-                        )
-                    ),
-                ]
+        # repeat scores as needed for WR sampling
+        if num_unique != self.num_samples:
+            scores = scores[
+                :,
+                torch.cat(
+                    (
+                        torch.arange(num_unique, device=scores.device),
+                        self._repeat_indexes,
+                    )
+                ),
+            ]
+        self.forward_time += time.time()
 
         return scores
 
@@ -529,7 +540,8 @@ class DefaultSharedNegativeSample(BatchNegativeSample):
 
         # for batch, we have a faster implementation that avoids creating the full
         # sample tensor
-        self.timers.reset(["prepare_time", "forward_time"])
+        self.prepare_time = 0.0
+        self.forward_time = 0.0
         slot = self.slot
         unique_targets = self._unique_samples
         num_unique = len(unique_targets) - 1
@@ -541,26 +553,27 @@ class DefaultSharedNegativeSample(BatchNegativeSample):
         chunk_size = len(triples)
 
         # compute scores for all unique targets for slot
-        with self.timers["forward_time"]:
-            all_scores = self._score_unique_targets(model, slot, triples, unique_targets)
+        self.forward_time -= time.time()
+        all_scores = self._score_unique_targets(model, slot, triples, unique_targets)
 
-            # create the complete scoring matrix
-            device = self.positive_triples.device
-            scores = torch.empty(chunk_size, num_unique, device=device)
+        # create the complete scoring matrix
+        device = self.positive_triples.device
+        scores = torch.empty(chunk_size, num_unique, device=device)
 
-            # fill in the unique negative scores. first column is left empty
-            # to hold positive scores
-            scores[:, :] = all_scores[:, :-1]
-            scores[drop_rows, drop_index[drop_rows]] = all_scores[drop_rows, -1]
+        # fill in the unique negative scores. first column is left empty
+        # to hold positive scores
+        scores[:, :] = all_scores[:, :-1]
+        scores[drop_rows, drop_index[drop_rows]] = all_scores[drop_rows, -1]
 
-            # repeat scores as needed for WR sampling
-            if num_unique != self.num_samples:
-                scores = scores[
-                    :,
-                    torch.cat(
-                        (torch.arange(num_unique, device=device), self._repeat_indexes)
-                    ),
-                ]
+        # repeat scores as needed for WR sampling
+        if num_unique != self.num_samples:
+            scores = scores[
+                :,
+                torch.cat(
+                    (torch.arange(num_unique, device=device), self._repeat_indexes)
+                ),
+            ]
+        self.forward_time += time.time()
 
         return scores
 

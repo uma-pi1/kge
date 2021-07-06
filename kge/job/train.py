@@ -1,6 +1,7 @@
 import itertools
 import os
 import math
+import time
 import traceback
 from collections import defaultdict
 
@@ -15,7 +16,6 @@ from kge.job import Job, TrainingOrEvaluationJob
 from kge.model import KgeModel
 
 from kge.util import KgeLoss, KgeOptimizer, KgeSampler, KgeLRScheduler
-from kge.util.timercollection import TimerCollection
 from kge.util.io import load_checkpoint
 from kge.job.trace import format_trace_entry
 from typing import Any, Callable, Dict, List, Optional
@@ -342,8 +342,12 @@ class TrainingJob(TrainingOrEvaluationJob):
         sum_loss = 0.0
         sum_penalty = 0.0
         sum_penalties = defaultdict(lambda: 0.0)
-        epoch_timers = TimerCollection()
-        epoch_timers["epoch_time"].start()
+        epoch_time = -time.time()
+        prepare_time = 0.0
+        forward_time = 0.0
+        backward_time = 0.0
+        optimizer_time = 0.0
+
         # process each batch
         for batch_index, batch in enumerate(self.loader):
             # create initial batch trace (yet incomplete)
@@ -408,23 +412,25 @@ class TrainingJob(TrainingOrEvaluationJob):
             sum_loss += batch_result.avg_loss * batch_result.size
 
             # determine penalty terms (forward pass)
-            with batch_result.timers["forward_time"]:
-                penalties_torch = self.model.penalty(
-                    epoch=self.epoch,
-                    batch_index=batch_index,
-                    num_batches=len(self.loader),
-                    batch=batch,
-                )
+            batch_forward_time = batch_result.forward_time - time.time()
+            penalties_torch = self.model.penalty(
+                epoch=self.epoch,
+                batch_index=batch_index,
+                num_batches=len(self.loader),
+                batch=batch,
+            )
+            batch_forward_time += time.time()
 
             # backward pass on penalties
-            with batch_result.timers["backward_time"]:
-                penalty = 0.0
-                for index, (penalty_key, penalty_value_torch) in enumerate(penalties_torch):
-                    if not self.is_forward_only:
-                        penalty_value_torch.backward()
-                    penalty += penalty_value_torch.item()
-                    sum_penalties[penalty_key] += penalty_value_torch.item()
-                sum_penalty += penalty
+            batch_backward_time = batch_result.backward_time - time.time()
+            penalty = 0.0
+            for index, (penalty_key, penalty_value_torch) in enumerate(penalties_torch):
+                if not self.is_forward_only:
+                    penalty_value_torch.backward()
+                penalty += penalty_value_torch.item()
+                sum_penalties[penalty_key] += penalty_value_torch.item()
+            sum_penalty += penalty
+            batch_backward_time += time.time()
 
             # determine full cost
             cost_value = batch_result.avg_loss + penalty
@@ -460,20 +466,25 @@ class TrainingJob(TrainingOrEvaluationJob):
                     )
 
             # update parameters
+            batch_optimizer_time = -time.time()
             if not self.is_forward_only:
-                with batch_result.timers["optimizer_time"]:
-                    self.optimizer.step()
+                self.optimizer.step()
+            batch_optimizer_time += time.time()
 
             # update batch trace with the results
             self.current_trace["batch"].update(
-                dict({
+                {
                     "size": batch_result.size,
                     "avg_loss": batch_result.avg_loss,
                     "penalties": [p.item() for k, p in penalties_torch],
                     "penalty": penalty,
                     "cost": cost_value,
+                    "prepare_time": batch_result.prepare_time,
+                    "forward_time": batch_forward_time,
+                    "backward_time": batch_backward_time,
+                    "optimizer_time": batch_optimizer_time,
                     "event": "batch_completed",
-                }, **batch_result.timers.elapsed())
+                }
             )
 
             # run the post-batch hooks (may modify the trace)
@@ -501,22 +512,27 @@ class TrainingJob(TrainingOrEvaluationJob):
                     batch_result.avg_loss,
                     penalty,
                     cost_value,
-                    sum(batch_result.timers.elapsed().values())
+                    batch_result.prepare_time
+                    + batch_forward_time
+                    + batch_backward_time
+                    + batch_optimizer_time,
                 ),
                 end="",
                 flush=True,
             )
 
             # update epoch times
-            epoch_timers.extend_all(batch_result.timers)
+            prepare_time += batch_result.prepare_time
+            forward_time += batch_forward_time
+            backward_time += batch_backward_time
+            optimizer_time += batch_optimizer_time
 
         # all done; now trace and log
-        epoch_timers["epoch_time"].stop()
+        epoch_time += time.time()
         self.config.print("\033[2K\r", end="", flush=True)  # clear line and go back
 
         other_time = (
-            epoch_timers["epoch_time"].elapsed - sum(epoch_timers.elapsed(["prepare_time", "forward_time",
-                                                                           "backward_time", "optimizer_time"]).values())
+            epoch_time - prepare_time - forward_time - backward_time - optimizer_time
         )
 
         # add results to trace entry
@@ -528,7 +544,11 @@ class TrainingJob(TrainingOrEvaluationJob):
                     k: p / len(self.loader) for k, p in sum_penalties.items()
                 },
                 avg_cost=sum_loss / self.num_examples + sum_penalty / len(self.loader),
-                **epoch_timers.elapsed(),
+                epoch_time=epoch_time,
+                prepare_time=prepare_time,
+                forward_time=forward_time,
+                backward_time=backward_time,
+                optimizer_time=optimizer_time,
                 other_time=other_time,
                 event="epoch_completed",
             )
@@ -566,7 +586,9 @@ class TrainingJob(TrainingOrEvaluationJob):
 
         avg_loss: float = 0.0
         size: int = 0
-        timers: TimerCollection = TimerCollection()
+        prepare_time: float = 0.0
+        forward_time: float = 0.0
+        backward_time: float = 0.0
 
     def _process_batch(self, batch_index, batch) -> _ProcessBatchResult:
         "Breaks a batch into subbatches and processes them in turn."

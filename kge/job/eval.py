@@ -1,11 +1,11 @@
 import torch
+import time
 
 from kge import Config, Dataset
 from kge.job import Job, TrainingOrEvaluationJob, TrainingJob
 from kge.model import KgeModel
 from kge.job.trace import format_trace_entry
 from kge.misc import init_from
-from kge.util.timercollection import TimerCollection
 
 from typing import Dict, Optional, Any
 
@@ -26,7 +26,6 @@ class EvaluationJob(TrainingOrEvaluationJob):
         )
         self.eval_split = self.config.get("eval.split")
         self.epoch = -1
-        self.timers = TimerCollection()
 
         # all done, run job_created_hooks if necessary
         if self.__class__ == EvaluationJob:
