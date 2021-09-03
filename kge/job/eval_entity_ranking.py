@@ -179,18 +179,18 @@ class EntityRankingJob(EvaluationJob):
 
             # compute true scores beforehand, since we can't get them from a chunked
             # score table
-            # here we use sp and po to stay consistent with scoring used for further
-            # evaluation. This way we avoid floating point issues influencing the
-            # tie handling.
+            # here we use score_sp and score_po to stay consistent with scoring used for
+            # further evaluation. This way we avoid floating point issues influencing
+            # the tie handling.
             unique_o, unique_o_inverse = torch.unique(o, return_inverse=True)
             o_true_scores = torch.gather(
-                self.model.score_sp(s, p, torch.unique(o)),
+                self.model.score_sp(s, p, unique_o),
                 1,
                 unique_o_inverse.view(-1, 1),
             ).view(-1)
             unique_s, unique_s_inverse = torch.unique(s, return_inverse=True)
             s_true_scores = torch.gather(
-                self.model.score_po(p, o, torch.unique(s)),
+                self.model.score_po(p, o, unique_s),
                 1,
                 unique_s_inverse.view(-1, 1),
             ).view(-1)
