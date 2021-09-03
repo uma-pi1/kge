@@ -47,7 +47,6 @@ class EntityRankingJob(EvaluationJob):
             for f in Job.job_created_hooks:
                 f(self)
 
-
     def _prepare(self):
         super()._prepare()
         """Construct all indexes needed to run."""
@@ -180,8 +179,21 @@ class EntityRankingJob(EvaluationJob):
 
             # compute true scores beforehand, since we can't get them from a chunked
             # score table
-            o_true_scores = self.model.score_spo(s, p, o, "o").view(-1)
-            s_true_scores = self.model.score_spo(s, p, o, "s").view(-1)
+            # here we use sp and po to stay consistent with scoring used for further
+            # evaluation. This way we avoid floating point issues influencing the
+            # tie handling.
+            unique_o, unique_o_inverse = torch.unique(o, return_inverse=True)
+            o_true_scores = torch.gather(
+                self.model.score_sp(s, p, torch.unique(o)),
+                1,
+                unique_o_inverse.view(-1, 1),
+            ).view(-1)
+            unique_s, unique_s_inverse = torch.unique(s, return_inverse=True)
+            s_true_scores = torch.gather(
+                self.model.score_po(p, o, torch.unique(s)),
+                1,
+                unique_s_inverse.view(-1, 1),
+            ).view(-1)
 
             # default dictionary storing rank and num_ties for each key in rankings
             # as list of len 2: [rank, num_ties]
@@ -577,7 +589,12 @@ num_ties for each true score.
         )
 
         hits_at_k = (
-            (torch.cumsum(rank_hist[: max(self.hits_at_k_s)], dim=0, dtype=torch.float64) / n).tolist()
+            (
+                torch.cumsum(
+                    rank_hist[: max(self.hits_at_k_s)], dim=0, dtype=torch.float64
+                )
+                / n
+            ).tolist()
             if n > 0.0
             else [0.0] * max(self.hits_at_k_s)
         )
@@ -586,6 +603,7 @@ num_ties for each true score.
             metrics["hits_at_{}{}".format(k, suffix)] = hits_at_k[k - 1]
 
         return metrics
+
 
 # HISTOGRAM COMPUTATION ###############################################################
 
