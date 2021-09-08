@@ -492,6 +492,10 @@ entity_ranking:
   # mean_reciprocal_rank_filtered_with_test.
   filter_with_test: True
 
+  # Tie detection tolerances i.e. how close should scores be to count them as ties, see torch.isclose for more details.
+  tie_detection_atol: 1e-08
+  tie_detection_rtol: 1e-05
+
   # How to handle cases with ties between the correct answer and other answers, e.g.,
   #  Query: (s, p, ?).
   #  Answers and score: a:10, b:10, c:10, d:11, e:9

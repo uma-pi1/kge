@@ -17,6 +17,9 @@ class EntityRankingJob(EvaluationJob):
             "entity_ranking.tie_handling",
             ["rounded_mean_rank", "best_rank", "worst_rank"],
         )
+
+        self.tie_atol = float(self.config.get("entity_ranking.tie_detection_atol"))
+        self.tie_rtol = float(self.config.get("entity_ranking.tie_detection_rtol"))
         self.tie_handling = self.config.get("entity_ranking.tie_handling")
 
         self.filter_with_test = config.get("entity_ranking.filter_with_test")
@@ -515,9 +518,8 @@ num_ties for each true score.
         s_rank, s_num_ties = self._get_ranks_and_num_ties(scores_po, s_true_scores)
         return s_rank, s_num_ties, o_rank, o_num_ties, scores_sp, scores_po
 
-    @staticmethod
     def _get_ranks_and_num_ties(
-        scores: torch.Tensor, true_scores: torch.Tensor
+        self, scores: torch.Tensor, true_scores: torch.Tensor
     ) -> (torch.Tensor, torch.Tensor):
         """Returns rank and number of ties of each true score in scores.
 
@@ -535,7 +537,7 @@ num_ties for each true score.
 
         # Determine how many scores are greater than / equal to each true answer (in its
         # corresponding row of scores
-        is_close = torch.isclose(scores, true_scores.view(-1, 1))
+        is_close = torch.isclose(scores, true_scores.view(-1, 1), rtol=self.tie_rtol, atol=self.tie_atol)
         is_greater = scores > true_scores.view(-1, 1)
         num_ties = torch.sum(is_close, dim=1, dtype=torch.long)
         rank = torch.sum(is_greater & ~is_close, dim=1, dtype=torch.long)
