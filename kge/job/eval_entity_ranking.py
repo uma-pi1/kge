@@ -14,13 +14,13 @@ class EntityRankingJob(EvaluationJob):
     def __init__(self, config: Config, dataset: Dataset, parent_job, model):
         super().__init__(config, dataset, parent_job, model)
         self.config.check(
-            "entity_ranking.tie_handling",
+            "entity_ranking.tie_handling.type",
             ["rounded_mean_rank", "best_rank", "worst_rank"],
         )
+        self.tie_handling = self.config.get("entity_ranking.tie_handling.type")
 
-        self.tie_atol = float(self.config.get("entity_ranking.tie_detection_atol"))
-        self.tie_rtol = float(self.config.get("entity_ranking.tie_detection_rtol"))
-        self.tie_handling = self.config.get("entity_ranking.tie_handling")
+        self.tie_atol = float(self.config.get("entity_ranking.tie_handling.atol"))
+        self.tie_rtol = float(self.config.get("entity_ranking.tie_handling.rtol"))
 
         self.filter_with_test = config.get("entity_ranking.filter_with_test")
         self.filter_splits = self.config.get("entity_ranking.filter_splits")

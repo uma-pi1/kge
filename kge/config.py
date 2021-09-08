@@ -746,6 +746,9 @@ def _process_deprecated_options(options: Dict[str, Any]):
                     renamed_keys.add(key)
         return renamed_keys
 
+    # 08.09.21
+    rename_key("entity_ranking.tie_handling", "entity_ranking.tie_handling.type")
+
     # 15.12.20
     rename_value("search.type", "ax", "ax_search")
     rename_value("search.type", "manual", "manual_search")
