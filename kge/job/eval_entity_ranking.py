@@ -534,9 +534,11 @@ num_ties for each true score.
         true_scores[torch.isnan(true_scores)] = float("-Inf")
 
         # Determine how many scores are greater than / equal to each true answer (in its
-        # corresponding row of scores)
-        rank = torch.sum(scores > true_scores.view(-1, 1), dim=1, dtype=torch.long)
-        num_ties = torch.sum(scores == true_scores.view(-1, 1), dim=1, dtype=torch.long)
+        # corresponding row of scores
+        is_close = torch.isclose(scores, true_scores.view(-1, 1))
+        is_greater = scores > true_scores.view(-1, 1)
+        num_ties = torch.sum(is_close, dim=1, dtype=torch.long)
+        rank = torch.sum(is_greater & ~is_close, dim=1, dtype=torch.long)
         return rank, num_ties
 
     def _get_ranks(self, rank: torch.Tensor, num_ties: torch.Tensor) -> torch.Tensor:
