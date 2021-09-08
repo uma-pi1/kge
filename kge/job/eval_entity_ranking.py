@@ -536,7 +536,7 @@ num_ties for each true score.
         true_scores[torch.isnan(true_scores)] = float("-Inf")
 
         # Determine how many scores are greater than / equal to each true answer (in its
-        # corresponding row of scores
+        # corresponding row of scores)
         is_close = torch.isclose(scores, true_scores.view(-1, 1), rtol=self.tie_rtol, atol=self.tie_atol)
         is_greater = scores > true_scores.view(-1, 1)
         num_ties = torch.sum(is_close, dim=1, dtype=torch.long)
