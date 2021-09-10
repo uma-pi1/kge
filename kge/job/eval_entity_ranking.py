@@ -227,8 +227,14 @@ class EntityRankingJob(EvaluationJob):
                 close_check &= torch.allclose(scores_po[s_in_chunk_mask, s_in_chunk], s_true_scores[s_in_chunk_mask],
                                               rtol=self.tie_rtol, atol=self.tie_atol)
                 if not close_check:
-                    raise ValueError("Tie-handling tolerances set too low! "
-                                     "The same triples scored twice did not fall within the configured tolerance.")
+                    diff_a = torch.abs(scores_sp[o_in_chunk_mask, o_in_chunk] - o_true_scores[o_in_chunk_mask])
+                    diff_b = torch.abs(scores_po[s_in_chunk_mask, s_in_chunk] - s_true_scores[s_in_chunk_mask])
+                    diff_all = torch.cat((diff_a, diff_b))
+                    self.config.log(f"Tie-handling: mean difference between scores was: {diff_all.mean()}.")
+                    self.config.log(f"Tie-handling: max difference between scores was: {diff_all.max()}.")
+                    raise ValueError("Tie-handling tolerances set too low! The same triples scored twice did not fall "
+                                     "within the configured tolerance. This may be because of a difference between the "
+                                     "SPO and SP_/_PO scoring implementations.")
 
                 # now compute the rankings (assumes order: None, _filt, _filt_test)
                 for ranking in rankings:

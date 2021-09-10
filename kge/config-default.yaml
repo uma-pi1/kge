@@ -512,8 +512,8 @@ entity_ranking:
     type: rounded_mean_rank
 
     # Tie detection tolerances i.e. how close should scores be to count them as ties, see torch.isclose for more details.
-    atol: 1e-08
-    rtol: 1e-05
+    atol: 1e-05
+    rtol: 1e-04
 
   # Compute Hits@K for these choices of K
   hits_at_k_s: [1, 3, 10, 50, 100, 200, 300, 400, 500, 1000]
