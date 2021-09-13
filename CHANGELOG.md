@@ -1,3 +1,6 @@
+#### September 2021
+- PR [#224](https://github.com/uma-pi1/kge/pull/224): Take floating point issues into account for tie calculation in entity-ranking (thanks @sfschouten)
+
 #### June 2021
 - [9a4f69a](https://github.com/uma-pi1/kge/commit/9a4f69a806ea775fed13657a3e3cd1c6711a2279): Refactor  time measurement with new timer class
 
