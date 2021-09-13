@@ -232,9 +232,10 @@ class EntityRankingJob(EvaluationJob):
                     diff_all = torch.cat((diff_a, diff_b))
                     self.config.log(f"Tie-handling: mean difference between scores was: {diff_all.mean()}.")
                     self.config.log(f"Tie-handling: max difference between scores was: {diff_all.max()}.")
-                    raise ValueError("Tie-handling tolerances set too low! The same triples scored twice did not fall "
-                                     "within the configured tolerance. This may be because of a difference between the "
-                                     "SPO and SP_/_PO scoring implementations.")
+                    raise ValueError("Error in tie-handling. The scores assigned to a triple by the SPO and SP_/_PO "
+                                     "scoring implementations were not 'equal' given the configured tolerances. "
+                                     "Verify the model's scoring implementations or consider increasing tie-handling "
+                                     "tolerances.")
 
                 # now compute the rankings (assumes order: None, _filt, _filt_test)
                 for ranking in rankings:

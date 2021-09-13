@@ -511,7 +511,8 @@ entity_ranking:
     #                      (rounded fractional ranking). In example: 3.
     type: rounded_mean_rank
 
-    # Tie detection tolerances i.e. how close should scores be to count them as ties, see torch.isclose for more details.
+    # Tie detection tolerances. These two values determine when scores are close enough to be counted as ties;
+    # see torch.isclose for details.
     atol: 1e-05
     rtol: 1e-04
 
