@@ -1,3 +1,6 @@
+#### October 2021
+- [5127cf2](https://github.com/uma-pi1/kge/commit/5127cf287488a3abfc2e8b698fad22085829a9aa): Fix differences in TransE scoring implementations
+
 #### September 2021
 - PR [#224](https://github.com/uma-pi1/kge/pull/224): Take floating point issues into account for tie calculation in entity-ranking (thanks @sfschouten)
 
