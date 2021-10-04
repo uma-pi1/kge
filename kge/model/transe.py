@@ -17,9 +17,21 @@ class TransEScorer(RelationalScorer):
         if combine == "spo":
             out = -F.pairwise_distance(s_emb + p_emb, o_emb, p=self._norm)
         elif combine == "sp_":
-            out = -torch.cdist(s_emb + p_emb, o_emb, p=self._norm)
+            # we do not use matrix multiplication due to this issue
+            # https://github.com/pytorch/pytorch/issues/42479
+            out = -torch.cdist(
+                s_emb + p_emb,
+                o_emb,
+                p=self._norm,
+                compute_mode="donot_use_mm_for_euclid_dist",
+            )
         elif combine == "_po":
-            out = -torch.cdist(o_emb - p_emb, s_emb, p=self._norm)
+            out = -torch.cdist(
+                o_emb - p_emb,
+                s_emb,
+                p=self._norm,
+                compute_mode="donot_use_mm_for_euclid_dist",
+            )
         else:
             return super().score_emb(s_emb, p_emb, o_emb, combine)
         return out.view(n, -1)
