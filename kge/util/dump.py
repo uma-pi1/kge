@@ -90,7 +90,8 @@ def _dump_checkpoint(args):
 
     # Dump it
     print(f"# Dump of checkpoint: {checkpoint_file}")
-    print(f"parameter_names: {list(checkpoint['model'][0].keys())}")
+    if "model" in checkpoint:
+        print(f"parameter_names: {list(checkpoint['model'][0].keys())}")
     excluded_keys = {"model", "optimizer_state_dict"}
     if args.keys is not None:
         excluded_keys = {key for key in excluded_keys if key not in args.keys}
