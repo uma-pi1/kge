@@ -1,5 +1,6 @@
 import math
 import time
+import sys
 
 import torch
 import kge.job
@@ -232,10 +233,11 @@ class EntityRankingJob(EvaluationJob):
                     diff_all = torch.cat((diff_a, diff_b))
                     self.config.log(f"Tie-handling: mean difference between scores was: {diff_all.mean()}.")
                     self.config.log(f"Tie-handling: max difference between scores was: {diff_all.max()}.")
-                    raise ValueError("Error in tie-handling. The scores assigned to a triple by the SPO and SP_/_PO "
-                                     "scoring implementations were not 'equal' given the configured tolerances. "
-                                     "Verify the model's scoring implementations or consider increasing tie-handling "
-                                     "tolerances.")
+                    error_message = "Error in tie-handling. The scores assigned to a triple by the SPO and SP_/_PO scoring implementations were not 'equal' given the configured tolerances. Verify the model's scoring implementations or consider increasing tie-handling tolerances."
+                    if self.config.get("entity_ranking.tie_handling.warn_only"):
+                        print(error_message, file=sys.stderr)
+                    else:
+                        raise ValueError(error_message)
 
                 # now compute the rankings (assumes order: None, _filt, _filt_test)
                 for ranking in rankings:
