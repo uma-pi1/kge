@@ -223,16 +223,34 @@ class EntityRankingJob(EvaluationJob):
 
                 # check that scoring is consistent up to configured tolerance
                 # if this is not the case, evaluation metrics may be artificially inflated
-                close_check = torch.allclose(scores_sp[o_in_chunk_mask, o_in_chunk], o_true_scores[o_in_chunk_mask],
-                                             rtol=self.tie_rtol, atol=self.tie_atol)
-                close_check &= torch.allclose(scores_po[s_in_chunk_mask, s_in_chunk], s_true_scores[s_in_chunk_mask],
-                                              rtol=self.tie_rtol, atol=self.tie_atol)
+                close_check = torch.allclose(
+                    scores_sp[o_in_chunk_mask, o_in_chunk],
+                    o_true_scores[o_in_chunk_mask],
+                    rtol=self.tie_rtol,
+                    atol=self.tie_atol,
+                )
+                close_check &= torch.allclose(
+                    scores_po[s_in_chunk_mask, s_in_chunk],
+                    s_true_scores[s_in_chunk_mask],
+                    rtol=self.tie_rtol,
+                    atol=self.tie_atol,
+                )
                 if not close_check:
-                    diff_a = torch.abs(scores_sp[o_in_chunk_mask, o_in_chunk] - o_true_scores[o_in_chunk_mask])
-                    diff_b = torch.abs(scores_po[s_in_chunk_mask, s_in_chunk] - s_true_scores[s_in_chunk_mask])
+                    diff_a = torch.abs(
+                        scores_sp[o_in_chunk_mask, o_in_chunk]
+                        - o_true_scores[o_in_chunk_mask]
+                    )
+                    diff_b = torch.abs(
+                        scores_po[s_in_chunk_mask, s_in_chunk]
+                        - s_true_scores[s_in_chunk_mask]
+                    )
                     diff_all = torch.cat((diff_a, diff_b))
-                    self.config.log(f"Tie-handling: mean difference between scores was: {diff_all.mean()}.")
-                    self.config.log(f"Tie-handling: max difference between scores was: {diff_all.max()}.")
+                    self.config.log(
+                        f"Tie-handling: mean difference between scores was: {diff_all.mean()}."
+                    )
+                    self.config.log(
+                        f"Tie-handling: max difference between scores was: {diff_all.max()}."
+                    )
                     error_message = "Error in tie-handling. The scores assigned to a triple by the SPO and SP_/_PO scoring implementations were not 'equal' given the configured tolerances. Verify the model's scoring implementations or consider increasing tie-handling tolerances."
                     if self.config.get("entity_ranking.tie_handling.warn_only"):
                         print(error_message, file=sys.stderr)
@@ -553,7 +571,9 @@ num_ties for each true score.
 
         # Determine how many scores are greater than / equal to each true answer (in its
         # corresponding row of scores)
-        is_close = torch.isclose(scores, true_scores.view(-1, 1), rtol=self.tie_rtol, atol=self.tie_atol)
+        is_close = torch.isclose(
+            scores, true_scores.view(-1, 1), rtol=self.tie_rtol, atol=self.tie_atol
+        )
         is_greater = scores > true_scores.view(-1, 1)
         num_ties = torch.sum(is_close, dim=1, dtype=torch.long)
         rank = torch.sum(is_greater & ~is_close, dim=1, dtype=torch.long)
@@ -597,7 +617,12 @@ num_ties for each true score.
         )
 
         hits_at_k = (
-            (torch.cumsum(rank_hist[: max(self.hits_at_k_s)], dim=0, dtype=torch.float64) / n).tolist()
+            (
+                torch.cumsum(
+                    rank_hist[: max(self.hits_at_k_s)], dim=0, dtype=torch.float64
+                )
+                / n
+            ).tolist()
             if n > 0.0
             else [0.0] * max(self.hits_at_k_s)
         )
@@ -606,6 +631,7 @@ num_ties for each true score.
             metrics["hits_at_{}{}".format(k, suffix)] = hits_at_k[k - 1]
 
         return metrics
+
 
 # HISTOGRAM COMPUTATION ###############################################################
 
