@@ -183,8 +183,24 @@ class EntityRankingJob(EvaluationJob):
 
             # compute true scores beforehand, since we can't get them from a chunked
             # score table
-            o_true_scores = self.model.score_spo(s, p, o, "o").view(-1)
-            s_true_scores = self.model.score_spo(s, p, o, "s").view(-1)
+            # o_true_scores = self.model.score_spo(s, p, o, "o").view(-1)
+            # s_true_scores = self.model.score_spo(s, p, o, "s").view(-1)
+            # scoring with spo vs sp and po can lead to slight differences for ties
+            # due to floating point issues.
+            # We use score_sp and score_po to stay consistent with scoring used for
+            # further evaluation.
+            unique_o, unique_o_inverse = torch.unique(o, return_inverse=True)
+            o_true_scores = torch.gather(
+                self.model.score_sp(s, p, unique_o),
+                1,
+                unique_o_inverse.view(-1, 1),
+            ).view(-1)
+            unique_s, unique_s_inverse = torch.unique(s, return_inverse=True)
+            s_true_scores = torch.gather(
+                self.model.score_po(p, o, unique_s),
+                1,
+                unique_s_inverse.view(-1, 1),
+            ).view(-1)
 
             # default dictionary storing rank and num_ties for each key in rankings
             # as list of len 2: [rank, num_ties]
