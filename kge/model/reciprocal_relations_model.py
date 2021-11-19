@@ -27,7 +27,7 @@ class ReciprocalRelationsModel(KgeModel):
         alt_dataset = dataset.shallow_copy()
         alt_dataset._num_relations = dataset.num_relations() * 2
         alt_dataset._meta = dataset._meta.copy()
-        alt_dataset._meta["relation_ids"] = dataset._meta["relation_ids"].copy()
+        alt_dataset._meta["relation_ids"] = dataset.relation_ids().copy()
         alt_dataset._meta["relation_ids"].extend([
             rel_id + "_reciprocal" for rel_id in dataset.relation_ids()
         ])
