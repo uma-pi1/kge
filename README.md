@@ -507,8 +507,8 @@ implementation `MyClass`, you need to:
 
 ## FAQ
 
-#### LibKGE runs out of memeory. What can I do?
-- For training, set `train.subbatch_auto_tune` to `True` (equivalent result, less memory but slower).
+#### LibKGE runs out of memory. What can I do?
+- For training, set `train.subbatch_auto_tune` to true (equivalent result, less memory but slower).
 - For evaluation, set `entity_ranking.chunk_size` to, say, 10000 (equivalent result, less memory but slightly slower, the more so the smaller the chunk size).
 - Change hyperparameters (non-equivalent result): e.g., decrease the batch size, use negative sampling, use less samples).
 
