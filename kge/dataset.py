@@ -107,7 +107,10 @@ class Dataset(Configurable):
                 raise ValueError(f"Dataset with name {name} could not be found.")
 
         config.log(f"Loading configuration of dataset {name} from {folder} ...")
-        config.load(os.path.join(folder, "dataset.yaml"))
+        config.load(
+            os.path.join(folder, "dataset.yaml"),
+            overwrite=Config.Overwrite.DefaultOnly
+        )
 
         dataset = Dataset(config, folder)
         if preload_data:

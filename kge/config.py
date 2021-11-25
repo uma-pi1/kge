@@ -9,6 +9,7 @@ import uuid
 import sys
 import re
 from enum import Enum
+from copy import deepcopy
 
 import yaml
 from typing import Any, List, Dict, Optional, Union
@@ -29,11 +30,13 @@ class Config:
 
             with open(filename_in_module(kge, "config-default.yaml"), "r") as file:
                 self.options: Dict[str, Any] = yaml.load(file, Loader=yaml.SafeLoader)
+                self.default_options: Dict[str, Any] = deepcopy(self.options)
 
             for m in self.get("import"):
                 self._import(m)
         else:
-            self.options = {}
+            self.options: Dict[str, Any] = dict()
+            self.default_options: Dict[str, Any] = dict()
 
         self.folder = folder  # main folder (config file, checkpoints, ...)
         self.log_folder: Optional[
@@ -143,7 +146,7 @@ class Config:
         except KeyError:
             return False
 
-    Overwrite = Enum("Overwrite", "Yes No Error")
+    Overwrite = Enum("Overwrite", "Yes No Error DefaultOnly")
 
     def set(
         self, key: str, value, create=False, overwrite=Overwrite.Yes, log=False
@@ -230,6 +233,11 @@ class Config:
                 )
             if overwrite == Config.Overwrite.No:
                 return current_value
+            if overwrite == Config.Overwrite.DefaultOnly:
+                if key not in self.default_options:
+                    return current_value
+                elif current_value != self.default_options[key]:
+                    return current_value
             if overwrite == Config.Overwrite.Error and value != current_value:
                 raise ValueError("key '{}' cannot be overwritten".format(key))
 
