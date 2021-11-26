@@ -50,19 +50,22 @@ class Config:
 
     # -- ACCESS METHODS ----------------------------------------------------------------
 
-    def get(self, key: str, remove_plusplusplus=True) -> Any:
-        """Obtain value of specified key.
+    @staticmethod
+    def _nested_get(key: str, lookup_dict: Dict, remove_plusplusplus=True, raise_keyerror=True):
+        """Nested dictionary lookup.
 
         Nested dictionary values can be accessed via "." (e.g., "job.type"). Strips all
         '+++' keys unless `remove_plusplusplus` is set to `False`.
 
         """
-        result = self.options
+        result = lookup_dict
         for name in key.split("."):
             try:
                 result = result[name]
             except KeyError:
-                raise KeyError(f"Error accessing {name} for key {key}")
+                if raise_keyerror:
+                    raise KeyError(f"Error accessing {name} for key {key}")
+                return None
 
         if remove_plusplusplus and isinstance(result, collections.abc.Mapping):
 
@@ -76,6 +79,15 @@ class Config:
             do_remove_plusplusplus(result)
 
         return result
+
+    def get(self, key: str, remove_plusplusplus=True) -> Any:
+        """Obtain value of specified key.
+
+        Nested dictionary values can be accessed via "." (e.g., "job.type"). Strips all
+        '+++' keys unless `remove_plusplusplus` is set to `False`.
+
+        """
+        return self._nested_get(key, self.options, remove_plusplusplus)
 
     def get_default(self, key: str) -> Any:
         """Returns the value of the key if present or default if not.
@@ -238,11 +250,16 @@ class Config:
             if overwrite == Config.Overwrite.No:
                 return current_value
             if overwrite == Config.Overwrite.DefaultOnly:
+                if current_value == value:
+                    return current_value
                 warning_message = f"Warning: Avoided overwrite of already set option {key}. Used {current_value} instead of {value}."
-                if key not in self.default_options:
+                default_value = self._nested_get(
+                    key, self.default_options, raise_keyerror=False
+                )
+                if default_value is None:
                     print(warning_message, file=sys.stderr)
                     return current_value
-                elif current_value != self.default_options[key]:
+                elif current_value != default_value:
                     print(warning_message, file=sys.stderr)
                     return current_value
             if overwrite == Config.Overwrite.Error and value != current_value:
