@@ -30,6 +30,10 @@ class Config:
 
             with open(filename_in_module(kge, "config-default.yaml"), "r") as file:
                 self.options: Dict[str, Any] = yaml.load(file, Loader=yaml.SafeLoader)
+
+                # Keeps track of the default options set by config-default.yaml.
+                # This allows to check whether a default value was already overwritten
+                # before overwriting this set option again with a new value
                 self.default_options: Dict[str, Any] = deepcopy(self.options)
 
             for m in self.get("import"):
@@ -234,9 +238,12 @@ class Config:
             if overwrite == Config.Overwrite.No:
                 return current_value
             if overwrite == Config.Overwrite.DefaultOnly:
+                warning_message = f"Warning: Avoided overwrite of already set option {key}. Used {current_value} instead of {value}."
                 if key not in self.default_options:
+                    print(warning_message, file=sys.stderr)
                     return current_value
                 elif current_value != self.default_options[key]:
+                    print(warning_message, file=sys.stderr)
                     return current_value
             if overwrite == Config.Overwrite.Error and value != current_value:
                 raise ValueError("key '{}' cannot be overwritten".format(key))
