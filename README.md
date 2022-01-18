@@ -533,6 +533,7 @@ Other KGE frameworks:
  - [OpenKE](https://github.com/thunlp/OpenKE)
  - [PyKEEN](https://github.com/SmartDataAnalytics/PyKEEN)
  - [Pykg2vec](https://github.com/Sujit-O/pykg2vec)
+ - [Dist-KGE](https://github.com/uma-pi1/dist-kge), a parallel variant of LibKGE
 
 KGE projects for publications that also implement a few models:
  - [ConvE](https://github.com/TimDettmers/ConvE)
