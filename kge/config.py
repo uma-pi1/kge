@@ -9,6 +9,7 @@ import uuid
 import sys
 import re
 from enum import Enum
+from copy import deepcopy
 
 import yaml
 from typing import Any, List, Dict, Optional, Union
@@ -30,10 +31,16 @@ class Config:
             with open(filename_in_module(kge, "config-default.yaml"), "r") as file:
                 self.options: Dict[str, Any] = yaml.load(file, Loader=yaml.SafeLoader)
 
+                # Keeps track of the default options set by config-default.yaml.
+                # This allows to check whether a default value was already overwritten
+                # before overwriting this set option again with a new value
+                self.default_options: Dict[str, Any] = deepcopy(self.options)
+
             for m in self.get("import"):
                 self._import(m)
         else:
-            self.options = {}
+            self.options: Dict[str, Any] = dict()
+            self.default_options: Dict[str, Any] = dict()
 
         self.folder = folder  # main folder (config file, checkpoints, ...)
         self.log_folder: Optional[
@@ -43,19 +50,22 @@ class Config:
 
     # -- ACCESS METHODS ----------------------------------------------------------------
 
-    def get(self, key: str, remove_plusplusplus=True) -> Any:
-        """Obtain value of specified key.
+    @staticmethod
+    def _nested_get(key: str, lookup_dict: Dict, remove_plusplusplus=True, raise_keyerror=True):
+        """Nested dictionary lookup.
 
         Nested dictionary values can be accessed via "." (e.g., "job.type"). Strips all
         '+++' keys unless `remove_plusplusplus` is set to `False`.
 
         """
-        result = self.options
+        result = lookup_dict
         for name in key.split("."):
             try:
                 result = result[name]
             except KeyError:
-                raise KeyError(f"Error accessing {name} for key {key}")
+                if raise_keyerror:
+                    raise KeyError(f"Error accessing {name} for key {key}")
+                return None
 
         if remove_plusplusplus and isinstance(result, collections.abc.Mapping):
 
@@ -69,6 +79,15 @@ class Config:
             do_remove_plusplusplus(result)
 
         return result
+
+    def get(self, key: str, remove_plusplusplus=True) -> Any:
+        """Obtain value of specified key.
+
+        Nested dictionary values can be accessed via "." (e.g., "job.type"). Strips all
+        '+++' keys unless `remove_plusplusplus` is set to `False`.
+
+        """
+        return self._nested_get(key, self.options, remove_plusplusplus)
 
     def get_default(self, key: str) -> Any:
         """Returns the value of the key if present or default if not.
@@ -143,7 +162,7 @@ class Config:
         except KeyError:
             return False
 
-    Overwrite = Enum("Overwrite", "Yes No Error")
+    Overwrite = Enum("Overwrite", "Yes No Error DefaultOnly")
 
     def set(
         self, key: str, value, create=False, overwrite=Overwrite.Yes, log=False
@@ -230,6 +249,19 @@ class Config:
                 )
             if overwrite == Config.Overwrite.No:
                 return current_value
+            if overwrite == Config.Overwrite.DefaultOnly:
+                if current_value == value:
+                    return current_value
+                warning_message = f"Warning: Avoided overwrite of already set option {key}. Used {current_value} instead of {value}."
+                default_value = self._nested_get(
+                    key, self.default_options, raise_keyerror=False
+                )
+                if default_value is None:
+                    print(warning_message, file=sys.stderr)
+                    return current_value
+                elif current_value != default_value:
+                    print(warning_message, file=sys.stderr)
+                    return current_value
             if overwrite == Config.Overwrite.Error and value != current_value:
                 raise ValueError("key '{}' cannot be overwritten".format(key))
 
