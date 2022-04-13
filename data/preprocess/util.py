@@ -8,6 +8,7 @@ import os
 
 ### DEFAULT PREPROCESS UTILS ##########################################################
 
+BUFFER_SIZE = 1000000
 
 @dataclass
 class RawSplit:
@@ -52,6 +53,7 @@ class RawSplit:
             for split in self.splits:
                 split.process_triple(t, entities, relations, n=n)
         for split in self.splits:
+            dump_buffer_to_file(split.file_buffer, split.file)
             split.file.close()
 
     def update_config(self, config: Dict) -> Dict:
@@ -80,11 +82,13 @@ class Split:
 
     def prepare(self, folder: str):
         self.file = open(path.join(folder, self.options["filename"]), "w")
+        self.file_buffer = ""
         self.options["size"] = 0
 
     def process_triple(self, triple: List, entities: Dict, relations: Dict, **kwargs):
-        write_triple(
+        self.file_buffer = write_triple(
             self.file,
+            self.file_buffer,
             entities,
             relations,
             triple,
@@ -252,10 +256,18 @@ def store_map(symbol_map: Dict, filename: str):
         for symbol, index in symbol_map.items():
             f.write(f"{index}\t{symbol}\n")
 
+def dump_buffer_to_file(buffer, fptr):
+    """Dump buffer to file."""
+    fptr.write(f"{buffer}")
 
-def write_triple(f, ent, rel, t, S, P, O):
+def write_triple(f, buffer, ent, rel, t, S, P, O):
     """Write a triple to a file. """
-    f.write(str(ent[t[S]]) + "\t" + str(rel[t[P]]) + "\t" + str(ent[t[O]]) + "\n")
+    buffer += f"{str(ent[t[S]])}\t{str(rel[t[P]])}\t{str(ent[t[O]])}\n"
+    if len(buffer) > BUFFER_SIZE:
+        dump_buffer_to_file(buffer, f)
+        buffer = ""
+    return buffer
+    # f.write(str(ent[t[S]]) + "\t" + str(rel[t[P]]) + "\t" + str(ent[t[O]]) + "\n")
 
 
 def write_dataset_yaml(config: Dict, folder: str):
