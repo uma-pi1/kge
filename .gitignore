@@ -19,5 +19,3 @@ docs/_build
 !/docs/examples/dump-example-search.csv
 /.projectile
 /tests/data/dataset_test/*.pckl
-**/desktop.ini
-.gitignore
