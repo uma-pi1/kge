@@ -419,7 +419,6 @@ class TrainingJob(TrainingOrEvaluationJob):
                 batch_index=batch_index,
                 num_batches=len(self.loader),
                 batch=batch,
-                is_reciprocal_model=isinstance(self.model, ReciprocalRelationsModel),
             )
             batch_forward_time += time.time()
 

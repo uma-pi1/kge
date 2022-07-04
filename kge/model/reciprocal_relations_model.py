@@ -56,7 +56,14 @@ class ReciprocalRelationsModel(KgeModel):
         self._base_model.prepare_job(job, **kwargs)
 
     def penalty(self, **kwargs):
-        return self._base_model.penalty(**kwargs)
+        penalty_result = self._base_model.penalty(**kwargs)
+        if "batch" in kwargs and "triples" in kwargs["batch"]:
+            triples = kwargs["batch"]["triples"].to(self.config.get("job.device"))
+            recriprocal_indexes = triples[:, 1] + int(self.dataset.num_relations() / 2)
+            penalty_result += self.get_p_embedder().penalty(
+                indexes=recriprocal_indexes, **kwargs
+            )
+        return penalty_result
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         if direction == "o":
