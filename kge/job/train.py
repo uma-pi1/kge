@@ -22,7 +22,6 @@ from typing import Any, Callable, Dict, List, Optional
 import kge.job.util
 from kge.util.metric import Metric
 from kge.misc import init_from
-from kge.model.reciprocal_relations_model import ReciprocalRelationsModel
 
 SLOTS = [0, 1, 2]
 S, P, O = SLOTS
