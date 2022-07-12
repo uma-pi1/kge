@@ -59,7 +59,7 @@ class ReciprocalRelationsModel(KgeModel):
         penalty_result = self._base_model.penalty(**kwargs)
         if "batch" in kwargs and "triples" in kwargs["batch"]:
             triples = kwargs["batch"]["triples"].to(self.config.get("job.device"))
-            recriprocal_indexes = triples[:, 1] + int(self.dataset.num_relations() / 2)
+            recriprocal_indexes = triples[:, 1] + self.dataset.num_relations()
             penalty_result += self.get_p_embedder().penalty(
                 indexes=recriprocal_indexes, **kwargs
             )
