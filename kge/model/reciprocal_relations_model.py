@@ -56,7 +56,20 @@ class ReciprocalRelationsModel(KgeModel):
         self._base_model.prepare_job(job, **kwargs)
 
     def penalty(self, **kwargs):
-        return self._base_model.penalty(**kwargs)
+        penalty_result = self._base_model.penalty(**kwargs)
+
+        # Penalize the reciprocal relations when performing weighted regularization
+        is_weighted = self.get_p_embedder().get_option("regularize_args.weighted")
+        regularize = self.get_p_embedder().regularize
+        regularize_weight = self.get_p_embedder().get_option("regularize_weight")
+
+        if is_weighted and (regularize != "") and (regularize_weight != 0.0):
+            triples = kwargs["batch"]["triples"].to(self.config.get("job.device"))
+            reciprocal_indexes = triples[:, 1] + self.dataset.num_relations()
+            penalty_result += self.get_p_embedder().penalty(
+                indexes=reciprocal_indexes, **kwargs
+            )
+        return penalty_result
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         if direction == "o":
