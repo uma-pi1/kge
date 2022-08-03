@@ -1,3 +1,4 @@
+from kge.model.complex import ComplEx
 import torch
 from torch import Tensor
 from kge import Config, Dataset
@@ -66,8 +67,12 @@ class ReciprocalRelationsModel(KgeModel):
         if is_weighted and (regularize != "") and (regularize_weight != 0.0):
             triples = kwargs["batch"]["triples"].to(self.config.get("job.device"))
             reciprocal_indexes = triples[:, 1] + self.dataset.num_relations()
+            # check if base model is ComplEx.
+            is_complex = True if isinstance(self._base_model, ComplEx) else False
             penalty_result += self.get_p_embedder().penalty(
-                indexes=reciprocal_indexes, **kwargs
+                indexes=reciprocal_indexes, 
+                is_complex=is_complex,
+                **kwargs
             )
         return penalty_result
 

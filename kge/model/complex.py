@@ -1,7 +1,8 @@
 import torch
 from kge import Config, Dataset
 from kge.model.kge_model import RelationalScorer, KgeModel
-
+from typing import List
+from torch import Tensor
 
 class ComplExScorer(RelationalScorer):
     r"""Implementation of the ComplEx KGE scorer.
@@ -60,3 +61,6 @@ class ComplEx(KgeModel):
             configuration_key=configuration_key,
             init_for_load_only=init_for_load_only,
         )
+    
+    def penalty(self, **kwargs) -> List[Tensor]:
+        return super().penalty(is_complex= True, **kwargs)

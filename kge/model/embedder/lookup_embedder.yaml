@@ -50,7 +50,9 @@ lookup_embedder:
     p: -1.                    # common choices: 1., 2.
 
   # Whether and how embeddings should be regularized. Possible values are '' (do
-  # not regularize) or lp (defaults to p=2; else set regularize_args.p)
+  # not regularize) or lp (defaults to p=2; else set regularize_args.p) or 
+  # n3 (which is l3 but the embedding vectors are treated as complex vector when
+  # performing penalty)
   regularize: 'lp'
 
   # Weight used for regularization. Interpreted w.r.t. to the empirical risk.
