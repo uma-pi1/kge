@@ -1,8 +1,6 @@
 import torch
 from kge import Config, Dataset
 from kge.model.kge_model import RelationalScorer, KgeModel
-from typing import List
-from torch import Tensor
 
 class ComplExScorer(RelationalScorer):
     r"""Implementation of the ComplEx KGE scorer.
