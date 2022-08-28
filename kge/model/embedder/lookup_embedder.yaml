@@ -6,6 +6,9 @@ lookup_embedder:
   # Dimensionality of the embedding
   dim: 100
 
+  # vector space of embedding: complex or real
+  vector_space: real
+
   # The initializer used to initialzed the embeddings. See
   # https://pytorch.org/docs/stable/nn.init.html for details. Example values
   # include xavier_uniform_, xavier_normal_, uniform_, and normal_.
@@ -51,8 +54,7 @@ lookup_embedder:
 
   # Whether and how embeddings should be regularized. Possible values are '' (do
   # not regularize) or lp (defaults to p=2; else set regularize_args.p) or 
-  # n3 (which is l3 but the embedding vectors are treated as complex vector when
-  # performing penalty)
+  # n3 (which is l3 applied to the element-wise absolute value of complex embeddings)
   regularize: 'lp'
 
   # Weight used for regularization. Interpreted w.r.t. to the empirical risk.

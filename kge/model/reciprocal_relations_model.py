@@ -68,10 +68,8 @@ class ReciprocalRelationsModel(KgeModel):
             triples = kwargs["batch"]["triples"].to(self.config.get("job.device"))
             reciprocal_indexes = triples[:, 1] + self.dataset.num_relations()
             # check if base model is ComplEx.
-            is_complex = True if isinstance(self._base_model, ComplEx) else False
             penalty_result += self.get_p_embedder().penalty(
-                indexes=reciprocal_indexes, 
-                is_complex=is_complex,
+                indexes=reciprocal_indexes,
                 **kwargs
             )
         return penalty_result

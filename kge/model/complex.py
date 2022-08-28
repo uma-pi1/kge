@@ -61,6 +61,3 @@ class ComplEx(KgeModel):
             configuration_key=configuration_key,
             init_for_load_only=init_for_load_only,
         )
-    
-    def penalty(self, **kwargs) -> List[Tensor]:
-        return super().penalty(is_complex= True, **kwargs)

@@ -29,6 +29,7 @@ class LookupEmbedder(KgeEmbedder):
         self.sparse = self.get_option("sparse")
         self.config.check("train.trace_level", ["batch", "epoch"])
         self.vocab_size = vocab_size
+        self.vector_space = self.check_option("vector_space", ["real", "complex"])
 
         round_embedder_dim_to = self.get_option("round_dim_to")
         if len(round_embedder_dim_to) > 0:
@@ -107,7 +108,7 @@ class LookupEmbedder(KgeEmbedder):
     def _get_regularize_weight(self) -> Tensor:
         return self.get_option("regularize_weight")
 
-    def normalize_complex(self, parameters) -> Tensor:
+    def _abs_complex(self, parameters) -> Tensor:
         parameters_re, parameters_im = (t.contiguous() for t in parameters.chunk(2, dim=1))
         parameters = torch.sqrt(parameters_re ** 2 + parameters_im ** 2 + 1e-14) # + 1e-14 to avoid NaN: https://github.com/lilanxiao/Rotated_IoU/issues/20
         return parameters
@@ -130,8 +131,8 @@ class LookupEmbedder(KgeEmbedder):
             if not self.get_option("regularize_args.weighted"):
                 # unweighted Lp regularization
                 parameters = self._embeddings_all()
-                if self.regularize == "n3" and "is_complex" in kwargs:
-                    parameters = self.normalize_complex(parameters) if kwargs["is_complex"] else parameters
+                if self.regularize == "n3" and self.vector_space == 'complex':
+                    parameters = self._abs_complex(parameters)
                 result += [
                     (
                         f"{self.configuration_key}.L{p}_penalty",
@@ -145,8 +146,8 @@ class LookupEmbedder(KgeEmbedder):
                 )
                 parameters = self._embeddings(unique_indexes)
 
-                if self.regularize == "n3" and "is_complex" in kwargs:
-                    parameters = self.normalize_complex(parameters) if kwargs["is_complex"] else parameters
+                if self.regularize == "n3" and self.vector_space == 'complex':
+                    parameters = self._abs_complex(parameters)
 
                 if p % 2 == 1:
                     parameters = torch.abs(parameters)
