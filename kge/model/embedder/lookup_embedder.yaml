@@ -6,8 +6,8 @@ lookup_embedder:
   # Dimensionality of the embedding
   dim: 100
 
-  # vector space of embedding: complex or real
-  vector_space: real
+  # vector space of embedding: complex or euclidean
+  space: euclidean
 
   # The initializer used to initialzed the embeddings. See
   # https://pytorch.org/docs/stable/nn.init.html for details. Example values

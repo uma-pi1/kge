@@ -25,11 +25,17 @@ class LookupEmbedder(KgeEmbedder):
 
         # read config
         self.normalize_p = self.get_option("normalize.p")
-        self.regularize = self.check_option("regularize", ["", "lp", "n3"])
+        self.space = self.check_option("space", ["euclidean", "complex"])
+
+        # n3 is only accepted when space is complex
+        if self.space == "complex":
+            self.regularize = self.check_option("regularize", ["", "lp", "n3"])
+        else:
+            self.regularize = self.check_option("regularize", ["", "lp"])
+
         self.sparse = self.get_option("sparse")
         self.config.check("train.trace_level", ["batch", "epoch"])
         self.vocab_size = vocab_size
-        self.vector_space = self.check_option("vector_space", ["real", "complex"])
 
         round_embedder_dim_to = self.get_option("round_dim_to")
         if len(round_embedder_dim_to) > 0:
@@ -131,7 +137,7 @@ class LookupEmbedder(KgeEmbedder):
             if not self.get_option("regularize_args.weighted"):
                 # unweighted Lp regularization
                 parameters = self._embeddings_all()
-                if self.regularize == "n3" and self.vector_space == 'complex':
+                if self.regularize == "n3" and self.space == 'complex':
                     parameters = self._abs_complex(parameters)
                 result += [
                     (
@@ -146,10 +152,10 @@ class LookupEmbedder(KgeEmbedder):
                 )
                 parameters = self._embeddings(unique_indexes)
 
-                if self.regularize == "n3" and self.vector_space == 'complex':
+                if self.regularize == "n3" and self.space == 'complex':
                     parameters = self._abs_complex(parameters)
 
-                if p % 2 == 1:
+                if (p % 2 == 1) and (self.regularize != "n3"):
                     parameters = torch.abs(parameters)
                 result += [
                     (
