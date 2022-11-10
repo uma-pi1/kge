@@ -53,7 +53,7 @@ class LookupEmbedder(KgeEmbedder):
         # TODO handling negative dropout because using it with ax searches for now
         dropout = self.get_option("dropout")
         if dropout < 0:
-            if config.get("train.auto_correct"):
+            if config.get("job.auto_correct"):
                 config.log(
                     "Setting {}.dropout to 0., "
                     "was set to {}.".format(configuration_key, dropout)

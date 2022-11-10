@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import uuid
+import copy
 
 import torch
 from torch import Tensor
@@ -69,6 +70,9 @@ class Dataset(Configurable):
         self.index_functions: Dict[str, Callable] = {}
         create_default_index_functions(self)
 
+        #: disable pickling for specific indexes
+        self._index_no_pickle = set()
+
     ## LOADING ##########################################################################
 
     def ensure_available(self, key):
@@ -88,7 +92,8 @@ class Dataset(Configurable):
             )
 
     @staticmethod
-    def create(config: Config, preload_data: bool = True, folder: Optional[str] = None):
+    def create(config: Config, preload_data: bool = True, folder: Optional[str] = None,
+               overwrite=Config.Overwrite.DefaultOnly):
         """Loads a dataset.
 
         If preload_data is set, loads entity and relation maps as well as all splits.
@@ -96,9 +101,9 @@ class Dataset(Configurable):
 
         """
         name = config.get("dataset.name")
-            
-        root_modules = list(set(m.split(".")[0] for m in config.get("modules")))
+
         if folder is None:
+            root_modules = list(set(m.split(".")[0] for m in config.get("modules")))
             for m in root_modules:
                 folder = os.path.join(module_base_dir(m), "data", name)
                 if os.path.isfile(os.path.join(folder, "dataset.yaml")):
@@ -109,7 +114,7 @@ class Dataset(Configurable):
         config.log(f"Loading configuration of dataset {name} from {folder} ...")
         config.load(
             os.path.join(folder, "dataset.yaml"),
-            overwrite=Config.Overwrite.DefaultOnly
+            overwrite=overwrite
         )
 
         dataset = Dataset(config, folder)
@@ -523,10 +528,12 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
         See `kge.indexing.create_default_index_functions()` for the indexes available by
         default.
 
+        We disable pickle usage for k-cores and thus check that "core" not in key.
+
         """
         if key not in self._indexes:
             use_pickle = self.config.get("dataset.pickle")
-            if use_pickle:
+            if use_pickle and key not in self._index_no_pickle:
                 pickle_filename = os.path.join(
                     self.folder, Dataset._to_valid_filename(f"index-{key}.pckl")
                 )
@@ -541,7 +548,7 @@ NOT RECOMMENDED: You can update the timestamp of all cached files using:
                     return self._indexes[key]
 
             self.index_functions[key](self)
-            if use_pickle:
+            if use_pickle and key not in self._index_no_pickle:
                 Dataset._pickle_dump_atomic(self._indexes[key], pickle_filename)
 
         return self._indexes[key]

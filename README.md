@@ -70,7 +70,7 @@ kge start examples/toy-complex-train.yaml --job.device cpu
    - Automatic memory management to support large batch sizes (see config key `train.subbatch_auto_tune`)
  - **Hyperparameter tuning**
    - Grid search, manual search, quasi-random search (using
-     [Ax](https://ax.dev/)), Bayesian optimization (using [Ax](https://ax.dev/))
+     [Ax](https://ax.dev/)), Bayesian optimization (using [Ax](https://ax.dev/)), [GraSH](https://arxiv.org/pdf/2207.04979.pdf)
    - Highly parallelizable (multiple CPUs/GPUs on single machine)
    - Stop and resume at any time
  - **Evaluation**

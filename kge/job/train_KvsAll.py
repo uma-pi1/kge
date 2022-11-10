@@ -35,7 +35,7 @@ class TrainingJobKvsAll(TrainingJob):
             "KvsAll.label_smoothing", float("-inf"), 1.0, max_inclusive=False
         )
         if self.label_smoothing < 0:
-            if config.get("train.auto_correct"):
+            if config.get("job.auto_correct"):
                 config.log(
                     "Setting label_smoothing to 0, "
                     "was set to {}.".format(self.label_smoothing)
@@ -49,7 +49,7 @@ class TrainingJobKvsAll(TrainingJob):
         elif self.label_smoothing > 0 and self.label_smoothing <= (
             1.0 / dataset.num_entities()
         ):
-            if config.get("train.auto_correct"):
+            if config.get("job.auto_correct"):
                 # just to be sure it's used correctly
                 config.log(
                     "Setting label_smoothing to 1/num_entities = {}, "

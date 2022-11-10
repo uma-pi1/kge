@@ -215,8 +215,10 @@ class TrainingJob(TrainingOrEvaluationJob):
             # validate
             lr_metric = None
             if (
-                self.config.get("valid.every") > 0
-                and self.epoch % self.config.get("valid.every") == 0
+                    (self.config.get("valid.every") > 0
+                     and self.epoch % self.config.get("valid.every") == 0)
+                    or (self.epoch == self.config.get("train.max_epochs")
+                        and self.config.get("valid.last"))
             ):
                 self.valid_job.epoch = self.epoch
                 trace_entry = self.valid_job.run()

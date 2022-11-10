@@ -47,6 +47,11 @@ class TestDataset(unittest.TestCase):
         )
         for index_key in dataset.index_functions.keys():
             dataset.index(index_key)
+
+            # exclude indexes with disabled pickling
+            if index_key in dataset._index_no_pickle:
+                continue
+
             pickle_filename = os.path.join(
                 self.dataset_folder,
                 Dataset._to_valid_filename(f"index-{index_key}.pckl"),
@@ -81,7 +86,13 @@ class TestDataset(unittest.TestCase):
             )
             indexes = []
             for index_key in data.index_functions.keys():
-                indexes.append(data.index(index_key))
+                index_object = data.index(index_key)
+
+                # exclude indexes with disabled pickling
+                if index_key in data._index_no_pickle:
+                    continue
+                    
+                indexes.append(index_object)
             return data, indexes
 
         # this will create new pickle files for train, valid, test

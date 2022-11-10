@@ -29,6 +29,11 @@ job:
 
   # Main device to use for this job (e.g., 'cpu', 'cuda', 'cuda:0')
   device: 'cuda'
+  
+  # When set, LibKGE automatically corrects certain invalid configuration
+  # options. Each such change is logged. When not set and the configuration is
+  # invalid, LibKGE raises an error.
+  auto_correct: False
 
 # The seeds of the PRNGs can be set manually for (increased) reproducibility.
 # Use -1 to disable explicit seeding.
@@ -282,11 +287,6 @@ train:
     # ('checkpoint_00000.pt') for reproducibility.
     keep_init: True
 
-  # When set, LibKGE automatically corrects certain invalid configuration
-  # options. Each such change is logged. When not set and the configuration is
-  # invalid, LibKGE raises an error.
-  auto_correct: False
-
   # Abort training (with an error) when the value of the cost function becomes
   # not a number.
   abort_on_nan: True
@@ -438,6 +438,10 @@ valid:
   # Validation is run every this many epochs during training (disable validation
   # with 0).
   every: 5
+  
+  # Whether to always run validation after train.max_epochs are reached. This
+  # only becomes relevant when train.max_epochs mod valid.every != 0.
+  last: True
 
   # Name of the trace entry that holds the validation metric (higher value is
   # better). To add a custom metric, set this to a fresh name and define
@@ -548,7 +552,7 @@ training_loss:
 # Options of hyperparameter search jobs (job.type=="search").
 search:
   # Type of search job (see respective configuration key). LibKGE ships with the
-  # following jobs: manual_search, grid_search, ax_search
+  # following jobs: manual_search, grid_search, ax_search, grash_search
   type: ax_search
 
   # Maximum number of parallel training jobs to run during a search.
@@ -616,7 +620,79 @@ ax_search:
   # https://ax.dev/api/service.html#module-ax.service.ax_client
   parameters: []
   parameter_constraints: []
+  
+# Dynamic search job that picks configurations using the resource-efficient GraSH
+# algorithm presented in https://arxiv.org/pdf/2207.04979.pdf . GraSH is based on
+# Successive Halving and able to evaluate a high number of randomly generated
+# hyperparameter configurations at low cost. GraSH utilizes approximations obtained by
+# using reduced training epochs and/or reduced graph datasets depending on the
+# user-specific variant choice.
+grash_search:
+  class_name: GraSHSearchJob
+  
+  # Possible options are:
+  # - 'combined': dynamically change epochs and graph size (50-50)
+  # - 'epoch': only change epochs and use full graph
+  # - 'graph': only change graph sizes and use static number of epochs
+  # We suggest using 'combined' as default because it showed the best performance in
+  # our experiments.
+  variant: 'combined'
 
+  # Reduction factor eta for size and/or epoch budget. Budget will be shared equally
+  # between size and epochs when 'combined' variant is used.
+  eta: 4
+
+  # Amount of trials to explore in the lowest fidelity round. This value needs to equal
+  # a positive integer power of eta because the trials get reduced by factor 1/eta in
+  # every round and we want to obtain a single selected trial in the end.
+  # E.g., with eta=4 and 3 rounds of GraSH: 4^3 = 64 trials.
+  num_trials: 64
+
+  # Maximal budget in terms of full train runs given for the complete search. This
+  # control is used to limit the total resource consumption of GraSH. A search budget
+  # of 1 roughly equals the resource consumption of training a model with the
+  # user-defined train.max_epochs on the whole graph dataset. We suggest to set the
+  # search budget to the number of GraSH rounds you want to have.
+  search_budget: 3
+
+  # Only relevant for the 'dataset' and 'combined' variant.
+  # Cost metric to select subgraphs for a given per-trial budget in each round.
+  # This per-trial budget is a relative value w.r.t the cost of using the whole graph.
+  # - triples: use relative amount of training triples in subgraph as cost metric
+  # - triples_and_entities:  use relative amount of training triples * relative amount
+  # of entities in subgraph as cost metric
+  cost_metric: "triples"
+  
+  # Only relevant for the 'dataset' and 'combined' variant.
+  # We cannot use the original validation set because it likely contains entities that
+  # are not present in subgraphs. To enable an evaluation of subgraph models, we
+  # generate a new validation set for each subgraph. Its size is generally specified as
+  # a relative fraction (valid_frac) of all triples contained in the subgraph. In
+  # addition, we use an absolute upperbound (valid_max) to limit the size.
+  # I.e., valid_set_size = min(valid_frac*num_triples, valid_max)
+  valid_frac: 0.2
+  valid_max: 5000
+
+  # Initialize the models with the same values in each round.
+  keep_initialization: false
+
+  # Only relevant for the 'dataset' and 'combined' variant.
+  # Keep pretrained embeddings of smaller cores in higher rounds.
+  keep_pretrained: false
+
+  # Only relevant for the 'dataset' and 'combined' variant.
+  # Number of negatives are scaled down based on the relative number of entities
+  # contained in the subgraph compared to the whole graph. To avoid too few negatives
+  # set a minimum percentage of negatives to use. To turn off scaling set
+  # min_negatives_percentage to 1.0.
+  min_negatives_percentage: 0.01
+  
+  # Random seed for generating the trial configs. Use -1 to disable explicit seeding.
+  seed: -1
+
+  # Search space definition from which to randomly generate initial trials. We use the
+  # same syntax as the above described ax_search here.
+  parameters: []
 
 ## USER PARAMETERS #####################################################################
 

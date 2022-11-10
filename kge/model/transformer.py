@@ -40,7 +40,7 @@ class TransformerScorer(RelationalScorer):
 
         dropout = self.get_option("encoder.dropout")
         if dropout < 0.0:
-            if config.get("train.auto_correct"):
+            if config.get("job.auto_correct"):
                 config.log(
                     "Setting {}.encoder.dropout to 0., "
                     "was set to {}.".format(configuration_key, dropout)
