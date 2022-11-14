@@ -23,6 +23,10 @@ For link prediction tasks, rule-based systems such as
 [AnyBURL](http://web.informatik.uni-mannheim.de/AnyBURL/) are a competitive
 alternative to KGE.
 
+**UPDATE**: LibKGE now includes [GraSH](https://arxiv.org/pdf/2207.04979.pdf), an
+efficient multi-fidelity hyperparameter optimization algorithm for large-scale
+KGE models. See [here](#hyperparameter-optimization) for an example on how to use it.
+
 ## Quick start
 
 ```sh
@@ -70,7 +74,8 @@ kge start examples/toy-complex-train.yaml --job.device cpu
    - Automatic memory management to support large batch sizes (see config key `train.subbatch_auto_tune`)
  - **Hyperparameter tuning**
    - Grid search, manual search, quasi-random search (using
-     [Ax](https://ax.dev/)), Bayesian optimization (using [Ax](https://ax.dev/)), [GraSH](https://arxiv.org/pdf/2207.04979.pdf)
+     [Ax](https://ax.dev/)), Bayesian optimization (using [Ax](https://ax.dev/))
+   - Resource-efficient multi-fidelity search for large graphs (using [GraSH](https://arxiv.org/pdf/2207.04979.pdf))
    - Highly parallelizable (multiple CPUs/GPUs on single machine)
    - Stop and resume at any time
  - **Evaluation**
@@ -168,28 +173,46 @@ documentation below on how to use checkpoints.
 | [ConvE](https://arxiv.org/abs/1707.01476)                                                             | 0.947 | 0.943  | 0.949  |   0.953 |    [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-conve.yaml) |    [1vsAll-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-conve.pt) |
 | [RotatE](https://openreview.net/pdf?id=HkgEQnRqYQ)                                                    | 0.946 | 0.943  | 0.948  |   0.953 |    [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-rotate.yaml) |     [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-rotate.pt) |
 
-#### Wikidata5M (Wikidata)
-
-LibKGE supports large datasets such as Wikidata5M (4.8M entities). The result
-given below was found by automatic hyperparameter search similar to the one used
-for the smaller datasets above, but with some values fixed (training with shared
-negative sampling, embedding dimension: 128, batch size: 1024, optimizer:
-Adagrad, regularization: weighted). We ran 30 pseudo-random configurations for
-20 epochs, and then reran the configuration that performed best on validation
-data for 200 epochs.
-
-|                                                             |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                    Config file |                                                                            Pretrained model |
-|-------------------------------------------------------------|------:|-------:|-------:|--------:|-----------------------------------------------------------------------------------------------:|--------------------------------------------------------------------------------------------:|
-| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.301 |  0.245 |  0.331 |   0.397 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wikidata5m-complex.yaml) | [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wikidata5m-complex.pt) |
-
 #### Yago3-10 (YAGO)
 
-The result given below was found by the same automatic hyperparameter search used for Wikidata5M. We reran the configuration that performed best on validation data for 400 epochs.
-
+LibKGE supports large datasets such as Yago3-10 (123k entities) and Wikidata5M (4.8M entities).
+The results given below were found by automatic hyperparameter search with a similar search
+space as above, but with some values fixed (training with shared negative sampling,
+embedding dimension: 128, batch size: 1024, optimizer: Adagrad,
+regularization: weighted). The Yago3-10 result was obtained by training 30 pseudo-random configurations for
+20 epochs, and then rerunning the configuration that performed best on validation
+data for 400 epochs. 
 
 |                                                             |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                    Config file |                                                                            Pretrained model |
 |-------------------------------------------------------------|------:|-------:|-------:|--------:|-----------------------------------------------------------------------------------------------:|--------------------------------------------------------------------------------------------:|
 | [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.551 |  0.476 |  0.596 |   0.682 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/yago3-10-complex.yaml) | [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/yago3-10-complex.pt) |
+
+
+#### Wikidata5M (Wikidata)
+
+We report two results for Wikidata5m. 
+The first result was found by the same automatic hyperparameter search as described for
+Yago3-10, but we limited the final training to 200 epochs. The second result was
+obtained with significantly less resource consumption by using
+the multi-fidelity GraSH search.
+
+|                                                             | Search + budget    | Final training  |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                    Config file |                                                                            Pretrained model |
+|-------------------------------------------------------------|--------------------|----------------:|------:|-------:|-------:|--------:|-----------------------------------------------------------------------------------------------:|--------------------------------------------------------------------------------------------:|
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | Random, 600 epochs | 200 epochs      | 0.301 |  0.245 |  0.331 |   0.397 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wikidata5m-complex.yaml) | [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wikidata5m-complex.pt) |
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | GraSH, 192 epochs  | 64 epochs       | 0.300 |  0.247 |  0.328  |   0.390 | [config.yaml](https://github.com/uma-pi1/GraSH/blob/main/examples/experiments/selected_trials/wikidata5m/complex-wikidata-combined.yaml) | - |
+
+#### Freebase
+
+GraSH was also applied to Freebase, one of the largest benchmarking datasets containing 86M entities.
+The reported results were obtained by combining GraSH with distributed training implemented in
+[Dist-KGE](https://github.com/uma-pi1/dist-kge).
+The respective config files can be found in the [GraSH repository](https://github.com/uma-pi1/GraSH) as their execution is not yet supported in LibKGE.
+
+|                                                                                                       |   MRR | Hits@1 | Hits@3 | Hits@10 |
+|-------------------------------------------------------------------------------------------------------|------:|-------:|-------:|--------:|
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)                                           | 0.594 |  0.511 |  0.667 |   0.726 |
+| [RotatE](https://openreview.net/pdf?id=HkgEQnRqYQ)                                                    | 0.613 |  0.578 |  0.637 |   0.669 |
+| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) | 0.553 |  0.520 |  0.571 |   0.614 |
 
 #### CoDEx
 
@@ -312,13 +335,13 @@ By default, the checkpoint file named ``checkpoint_best.pt`` (which stores the b
 
 #### Hyperparameter optimization
 
-LibKGE supports various forms of hyperparameter optimization such as grid search
-or Bayesian optimization. The search type and search space are specified in the
-configuration file. For example, you may use [Ax](https://ax.dev/) for SOBOL
-(pseudo-random) and Bayesian optimization.
+LibKGE supports various forms of hyperparameter optimization such as grid search,
+random search, Bayesian optimization, or resource-efficient multi-fidelity search. 
+The search type and search space are specified in the configuration file. 
 
-The following config file defines a search of 10 SOBOL trials (arms) followed by
-20 Bayesian optimization trials:
+For example, you may use [Ax](https://ax.dev/) for SOBOL
+(pseudo-random) and Bayesian optimization. The following config file defines a
+search of 10 SOBOL trials (arms) followed by 20 Bayesian optimization trials:
 
 ```yaml
 job.type: search
@@ -331,6 +354,40 @@ valid.metric: mean_reciprocal_rank_filtered
 ax_search:
   num_trials: 30
   num_sobol_trials: 10  # remaining trials are Bayesian
+  parameters:
+    - name: train.batch_size
+      type: choice
+      values: [256, 512, 1024]
+    - name: train.optimizer_args.lr
+      type: range
+      bounds: [0.0003, 1.0]
+    - name: train.type
+      type: fixed
+      value: 1vsAll
+```
+
+For large graph datasets such as Wikidata5m, you may use
+[GraSH](https://arxiv.org/pdf/2207.04979.pdf), which enables resource-efficient
+hyperparameter optimization. A full documentation of the GraSH functionality,
+useful search configs, and obtained results can
+be found in the [accompanying repository](https://github.com/uma-pi1/grash).
+The following example config defines a
+search of 64 randomly generated trials with a search budget equivalent
+to only 3 full training runs on the whole dataset:
+
+```yaml
+job.type: search
+search.type: grash_search
+
+dataset.name: wikidata5m
+model: complex
+valid.metric: mean_reciprocal_rank_filtered
+
+grash_search:
+  num_trials: 64 # initial number of randomly generated trials
+  search_budget: 3 # in terms of full training runs on the whole dataset
+  eta: 4 # reduction factor - only keep 1/eta best-performing trials per round
+  variant: combined # low-fidelity approximation technique - combined = epoch + graph reduction
   parameters:
     - name: train.batch_size
       type: choice
