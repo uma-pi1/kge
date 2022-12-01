@@ -2,11 +2,18 @@
 - [ef895f3](https://github.com/uma-pi1/kge/commit/ef895f3b2a62604db8d91d6a52e7bf13d04d0303): Include GraSH for hyperparameter tuning (thanks @fniesel). [Paper](https://arxiv.org/pdf/2207.04979.pdf), [original implementation](https://github.com/uma-pi1/GraSH).
 - [3ba5ef8](https://github.com/uma-pi1/kge/commit/3ba5ef85c2d00e7a7e2679bbce07b7f921a28736): Update versions of requirements (thanks @fniesel).
 
+#### October 2022
+- PR [#265](https://github.com/uma-pi1/kge/pull/265): implementation of regularization by N3 norm (thanks @Kenkoko)
+
+#### July 2022
+- PR [#263](https://github.com/uma-pi1/kge/pull/263): fixed bug in application of penalty to models with reciprocal relations (thanks @Kenkoko)
+
 #### October 2021
 - [5127cf2](https://github.com/uma-pi1/kge/commit/5127cf287488a3abfc2e8b698fad22085829a9aa): Fix differences in TransE scoring implementations
 
 #### September 2021
 - PR [#224](https://github.com/uma-pi1/kge/pull/224): Take floating point issues into account for tie calculation in entity-ranking (thanks @sfschouten)
+
 
 #### June 2021
 - [9a4f69a](https://github.com/uma-pi1/kge/commit/9a4f69a806ea775fed13657a3e3cd1c6711a2279): Refactor  time measurement with new timer class
