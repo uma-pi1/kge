@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name="libkge",
@@ -7,7 +7,7 @@ setup(
     url="https://github.com/uma-pi1/kge",
     author="Universität Mannheim",
     author_email="rgemulla@uni-mannheim.de",
-    packages=["kge"],
+    packages=find_packages(exclude=["tests"]),
     install_requires=[
         "numpy>=1.19.*",
         "torch>=1.7.1",
