@@ -17,6 +17,8 @@ setup(
         "path",
         # please check correct behaviour when updating ax platform version!!
         "ax-platform>=0.1.19", "botorch>=0.4.0", "gpytorch>=1.4.2",
+        # sqlalchemy version restricted until ax supports sqlachemy 2
+        # see https://github.com/uma-pi1/kge/pull/269
         "sqlalchemy<2.0.0",
         "torchviz",
         # LibKGE uses numba typed-dicts which is part of the experimental numba API
