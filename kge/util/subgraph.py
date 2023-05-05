@@ -281,8 +281,8 @@ class KCoreManager:
         new_entity_ids = np.arange(len(entities))
         new_relation_ids = np.arange(len(relations))
 
-        entity_mapper = np.empty(len(all_entity_ids), dtype=np.long)
-        relation_mapper = np.empty(len(all_relation_ids), dtype=np.long)
+        entity_mapper = np.empty(len(all_entity_ids), dtype=np.int64)
+        relation_mapper = np.empty(len(all_relation_ids), dtype=np.int64)
 
         entity_mapper[selected_entity_ids] = new_entity_ids
         relation_mapper[selected_relation_ids] = new_relation_ids
