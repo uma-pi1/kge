@@ -133,12 +133,12 @@ documentation below on how to use checkpoints.
 
 |                                                                                                       |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                      Config file |                                                                              Pretrained model |
 |-------------------------------------------------------------------------------------------------------|------:|-------:|-------:|--------:|-------------------------------------------------------------------------------------------------:|----------------------------------------------------------------------------------------------:|
-| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)                                           | 0.356 |  0.263 |  0.393 |   0.541 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-rescal.yaml)    | [1vsAll-kl](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-rescal.pt) |
-| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) | 0.313 |  0.221 |  0.347 |   0.497 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-transe.yaml)    | [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-transe.pt) |
-| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf)  | 0.343 |  0.250 |  0.378 |   0.531 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-distmult.yaml)  | [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-distmult.pt) |
-| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)                                           | 0.348 |  0.253 |  0.384 |   0.536 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-complex.yaml)   | [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-complex.pt) |
-| [ConvE](https://arxiv.org/abs/1707.01476)                                                             | 0.339 |  0.248 |  0.369 |   0.521 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-conve.yaml)     | [1vsAll-kl](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-conve.pt) |
-| [RotatE](https://openreview.net/pdf?id=HkgEQnRqYQ)                                                    | 0.333 |  0.240 |  0.368 |   0.522 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-237-rotate.yaml)      | [NegSamp-bce](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-237-rotate.pt) |
+| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)                                           | 0.356 |  0.263 |  0.393 |   0.541 |   [config.yaml](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-rescal.yaml) |    [1vsAll-kl](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-rescal.pt) |
+| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) | 0.313 |  0.221 |  0.347 |   0.497 |   [config.yaml](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-transe.yaml) |   [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-transe.pt) |
+| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf)  | 0.343 |  0.250 |  0.378 |   0.531 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-distmult.yaml) | [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-distmult.pt) |
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)                                           | 0.348 |  0.253 |  0.384 |   0.536 |  [config.yaml](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-complex.yaml) |  [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-complex.pt) |
+| [ConvE](https://arxiv.org/abs/1707.01476)                                                             | 0.339 |  0.248 |  0.369 |   0.521 |    [config.yaml](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-conve.yaml) |     [1vsAll-kl](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-conve.pt) |
+| [RotatE](https://openreview.net/pdf?id=HkgEQnRqYQ)                                                    | 0.333 |  0.240 |  0.368 |   0.522 |     [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-237-rotate.yaml) |    [NegSamp-bce](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-237-rotate.pt) |
 
 #### WN18RR (Wordnet)
 
@@ -149,29 +149,29 @@ documentation below on how to use checkpoints.
 | [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf)  | 0.452 |  0.413 |  0.466 |   0.530 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/wnrr-distmult.yaml) | [KvsAll-kl](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/wnrr-distmult.pt) |
 | [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)                                           | 0.475 |  0.438 |  0.490 |   0.547 |  [config.yaml](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/wnrr-complex.yaml) |  [1vsAll-kl](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/wnrr-complex.pt) |
 | [ConvE](https://arxiv.org/abs/1707.01476)                                                             | 0.442 |  0.411 |  0.451 |   0.504 |    [config.yaml](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/wnrr-conve.yaml) |    [KvsAll-kl](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/wnrr-conve.pt) |
-| [RotatE](https://openreview.net/pdf?id=HkgEQnRqYQ)                                                    | 0.478 |  0.439 |  0.494 |   0.553 |    [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wnrr-rotate.yaml) |     [NegSamp-bce](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wnrr-rotate.pt) |
+| [RotatE](https://openreview.net/pdf?id=HkgEQnRqYQ)                                                    | 0.478 |  0.439 |  0.494 |   0.553 |     [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wnrr-rotate.yaml) |   [NegSamp-bce](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wnrr-rotate.pt) |
 
 #### FB15K (Freebase)
 
-|                                                                                                       |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                      Config file |                                                                              Pretrained model |
-|-------------------------------------------------------------------------------------------------------|------:|-------:|-------:|--------:|-------------------------------------------------------------------------------------------------:|----------------------------------------------------------------------------------------------:|
-| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)                                           | 0.644 | 0.544  | 0.708  |   0.824 |    [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-rescal.yaml) |     [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-rescal.pt) |
-| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) | 0.676 | 0.542  | 0.787  |   0.875 |   [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-transe.yaml) |   [NegSamp-bce](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-transe.pt) |
-| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf)  | 0.841 | 0.806  | 0.863  |   0.903 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-distmult.yaml) | [1vsAll-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-distmult.pt) |
-| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)                                           | 0.838 | 0.807  | 0.856  |   0.893 |  [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-complex.yaml) |  [1vsAll-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-complex.pt) |
-| [ConvE](https://arxiv.org/abs/1707.01476)                                                             | 0.825 | 0.781  | 0.855  |   0.896 |    [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-conve.yaml) |     [KvsAll-bce](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-conve.pt) |
-| [RotatE](https://openreview.net/pdf?id=HkgEQnRqYQ)                                                    | 0.783 | 0.727  | 0.820  |   0.877 |    [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-rotate.yaml) |     [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-rotate.pt) |
+|                                                                                                       |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                Config file |                                                                       Pretrained model |
+|-------------------------------------------------------------------------------------------------------|------:|-------:|-------:|--------:|-------------------------------------------------------------------------------------------:|---------------------------------------------------------------------------------------:|
+| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)                                           | 0.644 |  0.544 |  0.708 |   0.824 |   [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-rescal.yaml) |  [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-rescal.pt) |
+| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) | 0.676 |  0.542 |  0.787 |   0.875 |   [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-transe.yaml) | [NegSamp-bce](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-transe.pt) |
+| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf)  | 0.841 |  0.806 |  0.863 |   0.903 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-distmult.yaml) | [1vsAll-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-distmult.pt) |
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)                                           | 0.838 |  0.807 |  0.856 |   0.893 |  [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-complex.yaml) |  [1vsAll-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-complex.pt) |
+| [ConvE](https://arxiv.org/abs/1707.01476)                                                             | 0.825 |  0.781 |  0.855 |   0.896 |    [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-conve.yaml) |   [KvsAll-bce](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-conve.pt) |
+| [RotatE](https://openreview.net/pdf?id=HkgEQnRqYQ)                                                    | 0.783 |  0.727 |  0.820 |   0.877 |   [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-rotate.yaml) |  [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-rotate.pt) |
 
 #### WN18 (Wordnet)
 
-|                                                                                                       |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                 Config file |                                                                        Pretrained model |
-|-------------------------------------------------------------------------------------------------------|------:|-------:|-------:|--------:|--------------------------------------------------------------------------------------------:|----------------------------------------------------------------------------------------:|
-| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)                                           | 0.948 | 0.943  | 0.951  |   0.956 |   [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-rescal.yaml) |   [1vsAll-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-rescal.pt) |
-| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) | 0.553 | 0.315  | 0.764  |   0.924 |   [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-transe.yaml) |  [NegSamp-bce](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-transe.pt) |
-| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf)  | 0.941 | 0.932  | 0.948  |   0.954 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-distmult.yaml) | [1vsAll-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-distmult.pt) |
-| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)                                           | 0.951 | 0.947  | 0.953  |   0.958 |  [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-complex.yaml) |  [KvsAll-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-complex.pt) |
-| [ConvE](https://arxiv.org/abs/1707.01476)                                                             | 0.947 | 0.943  | 0.949  |   0.953 |    [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-conve.yaml) |    [1vsAll-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-conve.pt) |
-| [RotatE](https://openreview.net/pdf?id=HkgEQnRqYQ)                                                    | 0.946 | 0.943  | 0.948  |   0.953 |    [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-rotate.yaml) |     [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-rotate.pt) |
+|                                                                                                       |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                               Config file |                                                                      Pretrained model |
+|-------------------------------------------------------------------------------------------------------|------:|-------:|-------:|--------:|------------------------------------------------------------------------------------------:|--------------------------------------------------------------------------------------:|
+| [RESCAL](http://www.icml-2011.org/papers/438_icmlpaper.pdf)                                           | 0.948 |  0.943 |  0.951 |   0.956 |   [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-rescal.yaml) |   [1vsAll-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-rescal.pt) |
+| [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) | 0.553 |  0.315 |  0.764 |   0.924 |   [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-transe.yaml) | [NegSamp-bce](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-transe.pt) |
+| [DistMult](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ICLR2015_updated.pdf)  | 0.941 |  0.932 |  0.948 |   0.954 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-distmult.yaml) | [1vsAll-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-distmult.pt) |
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf)                                           | 0.951 |  0.947 |  0.953 |   0.958 |  [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-complex.yaml) |  [KvsAll-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-complex.pt) |
+| [ConvE](https://arxiv.org/abs/1707.01476)                                                             | 0.947 |  0.943 |  0.949 |   0.953 |    [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-conve.yaml) |    [1vsAll-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-conve.pt) |
+| [RotatE](https://openreview.net/pdf?id=HkgEQnRqYQ)                                                    | 0.946 |  0.943 |  0.948 |   0.953 |   [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-rotate.yaml) |  [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-rotate.pt) |
 
 #### Yago3-10 (YAGO)
 
@@ -183,8 +183,8 @@ regularization: weighted). The Yago3-10 result was obtained by training 30 pseud
 20 epochs, and then rerunning the configuration that performed best on validation
 data for 400 epochs. 
 
-|                                                             |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                    Config file |                                                                            Pretrained model |
-|-------------------------------------------------------------|------:|-------:|-------:|--------:|-----------------------------------------------------------------------------------------------:|--------------------------------------------------------------------------------------------:|
+|                                                             |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                  Config file |                                                                          Pretrained model |
+|-------------------------------------------------------------|------:|-------:|-------:|--------:|---------------------------------------------------------------------------------------------:|------------------------------------------------------------------------------------------:|
 | [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | 0.551 |  0.476 |  0.596 |   0.682 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/yago3-10-complex.yaml) | [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/yago3-10-complex.pt) |
 
 
@@ -196,10 +196,10 @@ Yago3-10, but we limited the final training to 200 epochs. The second result was
 obtained with significantly less resource consumption by using
 the multi-fidelity GraSH search.
 
-|                                                             | Search + budget    | Final training  |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                    Config file |                                                                            Pretrained model |
-|-------------------------------------------------------------|--------------------|----------------:|------:|-------:|-------:|--------:|-----------------------------------------------------------------------------------------------:|--------------------------------------------------------------------------------------------:|
-| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | Random, 600 epochs | 200 epochs      | 0.301 |  0.245 |  0.331 |   0.397 | [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wikidata5m-complex.yaml) | [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wikidata5m-complex.pt) |
-| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | GraSH, 192 epochs  | 64 epochs       | 0.300 |  0.247 |  0.328  |   0.390 | [config.yaml](https://github.com/uma-pi1/GraSH/blob/main/examples/experiments/selected_trials/wikidata5m/complex-wikidata-combined.yaml) | - |
+|                                                             | Search + budget    | Final training |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                                                              Config file |                                                                            Pretrained model |
+|-------------------------------------------------------------|--------------------|---------------:|------:|-------:|-------:|--------:|-----------------------------------------------------------------------------------------------------------------------------------------:|--------------------------------------------------------------------------------------------:|
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | Random, 600 epochs |     200 epochs | 0.301 |  0.245 |  0.331 |   0.397 |                                           [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wikidata5m-complex.yaml) | [NegSamp-kl](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wikidata5m-complex.pt) |
+| [ComplEx](http://proceedings.mlr.press/v48/trouillon16.pdf) | GraSH, 192 epochs  |      64 epochs | 0.300 |  0.247 |  0.328 |   0.390 | [config.yaml](https://github.com/uma-pi1/GraSH/blob/main/examples/experiments/selected_trials/wikidata5m/complex-wikidata-combined.yaml) |                                                                                           - |
 
 #### Freebase
 
@@ -224,34 +224,34 @@ paper](https://arxiv.org/pdf/2009.07810.pdf) (EMNLP 2020) for details.
 
 ##### CoDEx-S
 
-|  | MRR | Hits@1 | Hits@3 | Hits@10 | Config file | Pretrained model |
-|---------|----:|----:|-------:|--------:|------------:|-----------------:|
-| RESCAL | 0.404 | 0.293 | 0.4494 | 0.623 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-s/rescal/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/v209jchl93mmeuv/codex-s-lp-rescal.pt?dl=0) |
-| TransE | 0.354 | 0.219 | 0.4218 | 0.634 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-s/transe/config.yaml) | [NegSamp-kl](https://www.dropbox.com/s/8brqhb4bd5gnktc/codex-s-lp-transe.pt?dl=0) |
-| ComplEx | 0.465 | 0.372 | 0.5038 | 0.646 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-s/complex/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/kk3pgdnyddsdzn9/codex-s-lp-complex.pt?dl=0) |
-| ConvE | 0.444 | 0.343 | 0.4926  | 0.635 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-s/conve/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/atvu77pzed6mcgh/codex-s-lp-conve.pt?dl=0) |
-| TuckER | 0.444 | 0.339 | 0.4975 | 0.638 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-s/tucker/config.yaml) | [KvsAll-kl](https://www.dropbox.com/s/f87xloe2g3f4fvy/codex-s-lp-tucker.pt?dl=0) 
+|         |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                                    Config file |
+|---------|------:|-------:|-------:|--------:|---------------------------------------------------------------------------------------------------------------:|
+| RESCAL  | 0.404 |  0.293 | 0.4494 |   0.623 |  [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-s/rescal/config.yaml) |
+| TransE  | 0.354 |  0.219 | 0.4218 |   0.634 |  [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-s/transe/config.yaml) |
+| ComplEx | 0.465 |  0.372 | 0.5038 |   0.646 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-s/complex/config.yaml) |
+| ConvE   | 0.444 |  0.343 | 0.4926 |   0.635 |   [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-s/conve/config.yaml) |
+| TuckER  | 0.444 |  0.339 | 0.4975 |   0.638 |  [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-s/tucker/config.yaml) |
 
 ##### CoDEx-M
 
-|  | MRR | Hits@1 | Hits@3 |Hits@10 | Config file | Pretrained model |
-|---------|----:|----:|-------:|--------:|------------:|-----------------:|
-| RESCAL | 0.317 | 0.244 | 0.3477 | 0.456 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-m/rescal/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/e3kp3eu4nnknn5b/codex-m-lp-rescal.pt?dl=0) |
-| TransE | 0.303 | 0.223 | 0.3363 | 0.454 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-m/transe/config.yaml) | [NegSamp-kl](https://www.dropbox.com/s/y8uucaajpofct3x/codex-m-lp-transe.pt?dl=0) |
-| ComplEx | 0.337 | 0.262 | 0.3701 | 0.476 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-m/complex/config.yaml) | [KvsAll-kl](https://www.dropbox.com/s/psy21fvbn5pbmw6/codex-m-lp-complex.pt?dl=0) |
-| ConvE | 0.318 | 0.239 | 0.3551 | 0.464 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-m/conve/config.yaml) | [NegSamp-kl](https://www.dropbox.com/s/awjhlrfjrgz9phi/codex-m-lp-conve.pt?dl=0) |
-| TuckER | 0.328 | 0.259 | 0.3599 | 0.458 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-m/tucker/config.yaml) | [KvsAll-kl](https://www.dropbox.com/s/so5l2owtx7wcos1/codex-m-lp-tucker.pt?dl=0) |
+|         |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                                    Config file |
+|---------|------:|-------:|-------:|--------:|---------------------------------------------------------------------------------------------------------------:|
+| RESCAL  | 0.317 |  0.244 | 0.3477 |   0.456 |  [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-m/rescal/config.yaml) |
+| TransE  | 0.303 |  0.223 | 0.3363 |   0.454 |  [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-m/transe/config.yaml) |
+| ComplEx | 0.337 |  0.262 | 0.3701 |   0.476 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-m/complex/config.yaml) |
+| ConvE   | 0.318 |  0.239 | 0.3551 |   0.464 |   [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-m/conve/config.yaml) |
+| TuckER  | 0.328 |  0.259 | 0.3599 |   0.458 |  [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-m/tucker/config.yaml) |
 
 
 ##### CoDEx-L
 
-|  | MRR | Hits@1 | Hits@3 | Hits@10 | Config file | Pretrained model |
-|---------|----:|----:|-------:|--------:|------------:|-----------------:|
-| RESCAL | 0.304 | 0.242 | 0.3313 | 0.419 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-l/rescal/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/wvbef9u98vmkbi8/codex-l-lp-rescal.pt?dl=0) |
-| TransE | 0.187 | 0.116 | 0.2188 | 0.317 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-l/transe/config.yaml) | [NegSamp-kl](https://www.dropbox.com/s/s9d682b49tuq5mc/codex-l-lp-transe.pt?dl=0) |
-| ComplEx | 0.294 | 0.237 | 0.3179 | 0.400 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-l/complex/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/jqubvr77og2pvzv/codex-l-lp-complex.pt?dl=0) |
-| ConvE | 0.303 | 0.240 | 0.3298 | 0.420 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-l/conve/config.yaml) | [1vsAll-kl](https://www.dropbox.com/s/qcfjy6i1sqbec0z/codex-l-lp-conve.pt?dl=0) |
-| TuckER | 0.309 | 0.244 | 0.3395 | 0.430 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-l/tucker/config.yaml) | [KvsAll-kl](https://www.dropbox.com/s/j8u4nqwzz3v7jw1/codex-l-lp-tucker.pt?dl=0) |
+|         |   MRR | Hits@1 | Hits@3 | Hits@10 |                                                                                                    Config file |
+|---------|------:|-------:|-------:|--------:|---------------------------------------------------------------------------------------------------------------:|
+| RESCAL  | 0.304 |  0.242 | 0.3313 |   0.419 |  [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-l/rescal/config.yaml) |
+| TransE  | 0.187 |  0.116 | 0.2188 |   0.317 |  [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-l/transe/config.yaml) |
+| ComplEx | 0.294 |  0.237 | 0.3179 |   0.400 | [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-l/complex/config.yaml) |
+| ConvE   | 0.303 |  0.240 | 0.3298 |   0.420 |   [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-l/conve/config.yaml) |
+| TuckER  | 0.309 |  0.244 | 0.3395 |   0.430 |  [config.yaml](https://github.com/tsafavi/codex/tree/master/models/link-prediction/codex-l/tucker/config.yaml) |
 
 ## Using LibKGE
 
