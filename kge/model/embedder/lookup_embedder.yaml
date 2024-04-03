@@ -81,8 +81,5 @@ lookup_embedder:
   # Sparse tensors might require special settings, e.g. SparseAdam instead of Adam
   sparse: False
 
-  # Psi parameter from Kazemi Out-of-sample paper https://arxiv.org/pdf/2004.13230.pdf
-  psi: 0.0
-
   # Will be deprecated.
   round_dim_to: []

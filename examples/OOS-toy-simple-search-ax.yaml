@@ -1,0 +1,28 @@
+import: [simple]
+
+job.type: search
+dataset.name: toy
+
+train.optimizer.default.type: Adagrad
+model: simple
+
+simple.psi: 0.5
+train.type: KvsAll
+
+search.type: ax
+ax_search:
+  num_trials: 2
+  parameters:
+    - name: train.optimizer.default.args.lr
+      type: range
+      bounds: [0.0, 1.0]
+    - name: train.optimizer.default.args.weight_decay
+      type: range
+      bounds: [1.0e-8, 1.0]
+      log_scale: True
+    - name: lookup_embedder.dim
+      type: fixed
+      value: 32
+    - name: train.max_epochs
+      type: fixed
+      value: 2

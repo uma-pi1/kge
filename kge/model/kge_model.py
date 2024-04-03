@@ -379,6 +379,14 @@ class KgeModel(KgeBase):
         #: Embedder used for relations
         self._relation_embedder: KgeEmbedder
 
+        # Kazemi OOS parameters and neighbour dict
+        self.psi = self.get_option("psi")
+        if self.psi <= 0:
+            self.psi = None
+        else:
+            self.half_psi = self.psi / 2
+            self.neighbours = {}
+
         if create_embedders:
             self._entity_embedder = KgeEmbedder.create(
                 config,
@@ -674,9 +682,16 @@ class KgeModel(KgeBase):
         score of triple :math:`(s_i, p_i, o_i)`.
 
         """
-        s = self.get_s_embedder().embed(s)
+
+        psi_roll = np.random.random()
+        s_agg_bool = psi_roll <= self.half_psi
+        o_agg_bool = self.half_psi < psi_roll <= self.psi
+        self.config.log(f'Psi check in score_spo: {s_agg_bool or o_agg_bool}')
+
+        s = self.get_s_embedder().embed(s, aggregate=s_agg_bool)
         p = self.get_p_embedder().embed(p)
-        o = self.get_o_embedder().embed(o)
+        o = self.get_o_embedder().embed(o, aggregate=o_agg_bool)
+
         return self._scorer.score_emb(s, p, o, combine="spo").view(-1)
 
     def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
@@ -692,12 +707,18 @@ class KgeModel(KgeBase):
         If `o` is not None, it is a vector holding the indexes of the objects to score.
 
         """
-        s = self.get_s_embedder().embed(s)
+        psi_roll = np.random.random()
+        s_agg_bool = psi_roll <= self.half_psi
+        o_agg_bool = self.half_psi < psi_roll <= self.psi
+        self.config.log(f'Psi check in score_sp: {s_agg_bool or o_agg_bool}')
+
+        s = self.get_s_embedder().embed(s, aggregate=s_agg_bool)
         p = self.get_p_embedder().embed(p)
         if o is None:
             o = self.get_o_embedder().embed_all()
         else:
-            o = self.get_o_embedder().embed(o)
+            # Only roll aggregation if using subset of obbjects, aggregating over ALL would take too long
+            o = self.get_o_embedder().embed(o, aggregate=o_agg_bool)
 
         return self._scorer.score_emb(s, p, o, combine="sp_")
 
@@ -714,12 +735,17 @@ class KgeModel(KgeBase):
         If `s` is not None, it is a vector holding the indexes of the objects to score.
 
         """
+        psi_roll = np.random.random()
+        s_agg_bool = psi_roll <= self.half_psi
+        o_agg_bool = self.half_psi < psi_roll <= self.psi
+        self.config.log(f'Psi check in score_po: {s_agg_bool or o_agg_bool}')
 
         if s is None:
             s = self.get_s_embedder().embed_all()
         else:
-            s = self.get_s_embedder().embed(s)
-        o = self.get_o_embedder().embed(o)
+            # Only roll aggregation if using subset of subjects, aggregating over ALL subjects would take too long
+            s = self.get_s_embedder().embed(s, aggregate=s_agg_bool)
+        o = self.get_o_embedder().embed(o, aggregate=o_agg_bool)
         p = self.get_p_embedder().embed(p)
 
         return self._scorer.score_emb(s, p, o, combine="_po")

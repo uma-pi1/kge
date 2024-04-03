@@ -10,3 +10,4 @@ simple:
   relation_embedder:
     type: lookup_embedder
     +++: +++
+  psi: 0.0

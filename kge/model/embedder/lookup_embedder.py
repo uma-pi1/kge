@@ -28,16 +28,6 @@ class LookupEmbedder(KgeEmbedder):
         self.normalize_p = self.get_option("normalize.p")
         self.space = self.check_option("space", ["euclidean", "complex"])
 
-        # Kazemi OOS parameters and neighbour dict
-        self.psi = self.get_option("psi")
-        if self.psi <= 0:
-            self.psi = None
-        else:
-            self.half_psi = self.psi / 2
-            self.neighbours = {}
-            print(dataset)
-            quit()
-
         # n3 is only accepted when space is complex
         if self.space == "complex":
             self.regularize = self.check_option("regularize", ["", "lp", "n3"])
@@ -107,6 +97,7 @@ class LookupEmbedder(KgeEmbedder):
     def embed(self, indexes: Tensor, aggregate=False) -> Tensor:
         if aggregate:
             # Lookup neighbours' embeds 
+            print('Pretending to aggregate (TODO remove me)')
             return self._postprocess(self._embeddings(indexes.long()))
         else:
             return self._postprocess(self._embeddings(indexes.long()))
