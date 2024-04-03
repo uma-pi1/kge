@@ -8,6 +8,7 @@ from kge.model import KgeEmbedder
 from kge.misc import round_to_points
 
 from typing import List
+from random import uniform
 
 
 class LookupEmbedder(KgeEmbedder):
@@ -26,6 +27,16 @@ class LookupEmbedder(KgeEmbedder):
         # read config
         self.normalize_p = self.get_option("normalize.p")
         self.space = self.check_option("space", ["euclidean", "complex"])
+
+        # Kazemi OOS parameters and neighbour dict
+        self.psi = self.get_option("psi")
+        if self.psi <= 0:
+            self.psi = None
+        else:
+            self.half_psi = self.psi / 2
+            self.neighbours = {}
+            print(dataset)
+            quit()
 
         # n3 is only accepted when space is complex
         if self.space == "complex":
@@ -93,8 +104,12 @@ class LookupEmbedder(KgeEmbedder):
             self._embeddings.weight.device
         )
 
-    def embed(self, indexes: Tensor) -> Tensor:
-        return self._postprocess(self._embeddings(indexes.long()))
+    def embed(self, indexes: Tensor, aggregate=False) -> Tensor:
+        if aggregate:
+            # Lookup neighbours' embeds 
+            return self._postprocess(self._embeddings(indexes.long()))
+        else:
+            return self._postprocess(self._embeddings(indexes.long()))
 
     def embed_all(self) -> Tensor:
         return self._postprocess(self._embeddings_all())

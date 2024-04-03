@@ -31,6 +31,7 @@ lookup_embedder:
   #    xavier_uniform_:
   #      gain: 1.0
   initialize_args:
+  
     +++: +++
 
   # Initialize the model with embeddings stored in a packaged model
@@ -79,6 +80,9 @@ lookup_embedder:
   # https://pytorch.org/docs/stable/nn.html#torch.nn.Embedding.
   # Sparse tensors might require special settings, e.g. SparseAdam instead of Adam
   sparse: False
+
+  # Psi parameter from Kazemi Out-of-sample paper https://arxiv.org/pdf/2004.13230.pdf
+  psi: 0.0
 
   # Will be deprecated.
   round_dim_to: []
