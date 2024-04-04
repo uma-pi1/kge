@@ -7,7 +7,7 @@ train.optimizer.default.type: Adagrad
 model: simple
 
 simple.psi: 0.5
-train.type: KvsAll
+train.type: 1vsAll
 
 search.type: ax
 ax_search:

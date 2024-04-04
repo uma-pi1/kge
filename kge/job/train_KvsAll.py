@@ -7,6 +7,8 @@ from kge.job import Job
 import kge.job.util
 from kge.job.train import TrainingJob, _generate_worker_init_fn
 
+from random import uniform
+
 SLOTS = [0, 1, 2]
 S, P, O = SLOTS
 SLOT_STR = ["s", "p", "o"]
@@ -222,6 +224,7 @@ class TrainingJobKvsAll(TrainingJob):
         batch_size = result.size
 
         # prepare
+        self.model.psi_roll = uniform(0, 1)
         result.prepare_time -= time.time()
         queries_subbatch = batch["queries"][subbatch_slice].to(self.device)
         subbatch_size = len(queries_subbatch)

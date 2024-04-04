@@ -94,13 +94,8 @@ class LookupEmbedder(KgeEmbedder):
             self._embeddings.weight.device
         )
 
-    def embed(self, indexes: Tensor, aggregate=False) -> Tensor:
-        if aggregate:
-            # Lookup neighbours' embeds 
-            print('Pretending to aggregate (TODO remove me)')
-            return self._postprocess(self._embeddings(indexes.long()))
-        else:
-            return self._postprocess(self._embeddings(indexes.long()))
+    def embed(self, indexes: Tensor) -> Tensor:
+        return self._postprocess(self._embeddings(indexes.long()))
 
     def embed_all(self) -> Tensor:
         return self._postprocess(self._embeddings_all())

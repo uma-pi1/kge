@@ -378,10 +378,10 @@ class KgeModel(KgeBase):
         else:
             self.half_psi = self.psi / 2
             from time import time
-            self.config.log('Getting sparse tensors for neighbour lookup.')
+            self.config.log("Getting sparse tensors for neighbour lookup.")
             start = time()
-            self.neighbour_triples = self.get_neighbour_doubles()
-            self.config.log(f'Got sparse neighbour tensors after {time()-start:.3f} seconds.')
+            self.neighbour_doubles = self.get_neighbour_doubles()
+            self.config.log(f"Got sparse neighbour tensors after {time()-start:.3f} seconds.")
 
         # TODO support different embedders for subjects and objects
 
@@ -673,21 +673,54 @@ class KgeModel(KgeBase):
         return self._scorer
     
     def get_neighbour_doubles(self) -> dict:
-        train_triples = self.dataset._triples['train']
+
+        # Get required data
+        train_triples = self.dataset._triples["train"].T
+        ones = torch.ones(train_triples.shape[-1])
+
+        # Move to correct device
+        train_triples = train_triples.to(self.config.get("job.device"))
+        ones = ones.to(self.config.get("job.device"))
+
+        # Create sparse adj tensors
         sparse_head = torch.sparse_coo_tensor(
-            train_triples.T, 
-            values=torch.ones(len(train_triples))
+            train_triples, 
+            values=ones
         )
         sparse_tail = torch.sparse_coo_tensor(
-            train_triples.T[[2, 1, 0]], 
-            values=torch.ones(len(train_triples))
+            torch.flip(train_triples, dims=[0]), # Flip tensor so we can index by tail node instead of head
+            values=ones
         )
         neighbours = {}
-        neighbours['head'] = sparse_head
-        neighbours['tail'] = sparse_tail
+        neighbours["head"] = sparse_head
+        neighbours["tail"] = sparse_tail
         return neighbours
     
-    def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
+
+    def neighbour_aggregation(self, entities: Tensor, triple_pos: str):
+        aggregates = []
+        for ent in entities:
+            # Lookup neighbours
+            part_triples = self.neighbour_doubles[triple_pos][ent]._indices()
+            p = part_triples[0]
+            e = part_triples[1]
+
+            # Get neighbour embeds
+            p = self.get_p_embedder().embed(p)
+            e = self.get_s_embedder().embed(e) if triple_pos == "head" else self.get_o_embedder().embed(e)
+
+            # Element-wise multiplication of relation vectors against corresponding entity vectors
+            pe = torch.mul(p, e)
+            
+            # Perform aggregation
+            agg_vec = pe.mean(dim=0)
+            aggregates.append(agg_vec)
+
+        # Return outputted neighbour aggregations as tensor
+        return torch.stack(aggregates)
+
+    
+    def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None, s_agg_bool=False, o_agg_bool=False) -> Tensor:
         r"""Compute scores for a set of triples.
 
         `s`, `p`, and `o` are vectors of common size :math:`n`, holding the indexes of
@@ -702,18 +735,19 @@ class KgeModel(KgeBase):
 
         """
 
-        psi_roll = np.random.random()
-        s_agg_bool = psi_roll <= self.half_psi
-        o_agg_bool = self.half_psi < psi_roll <= self.psi
-        self.config.log(f'Psi check in score_spo: {s_agg_bool or o_agg_bool}')
+        if self.psi:
+            psi_roll = self.psi_roll
+            s_agg_bool = psi_roll <= self.half_psi
+            o_agg_bool = self.half_psi < psi_roll <= self.psi
+            self.config.log(f'Subbatch psi roll = {psi_roll}. Psi threshold = {self.psi}, half psi = {self.half_psi}')
 
-        s = self.get_s_embedder().embed(s, aggregate=s_agg_bool)
+        s = self.get_s_embedder().embed(s) if not s_agg_bool else self.neighbour_aggregation(s, triple_pos="head")
         p = self.get_p_embedder().embed(p)
-        o = self.get_o_embedder().embed(o, aggregate=o_agg_bool)
+        o = self.get_o_embedder().embed(o) if not o_agg_bool else self.neighbour_aggregation(o, triple_pos="tail")
 
         return self._scorer.score_emb(s, p, o, combine="spo").view(-1)
 
-    def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
+    def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None, s_agg_bool=False, o_agg_bool=False) -> Tensor:
         r"""Compute scores for triples formed from a set of sp-pairs and all (or a subset of the) objects.
 
         `s` and `p` are vectors of common size :math:`n`, holding the indexes of the
@@ -726,22 +760,22 @@ class KgeModel(KgeBase):
         If `o` is not None, it is a vector holding the indexes of the objects to score.
 
         """
-        psi_roll = np.random.random()
-        s_agg_bool = psi_roll <= self.half_psi
-        o_agg_bool = self.half_psi < psi_roll <= self.psi
-        self.config.log(f'Psi check in score_sp: {s_agg_bool or o_agg_bool}')
+        if self.psi:
+            psi_roll = self.psi_roll
+            s_agg_bool = psi_roll <= self.half_psi
+            o_agg_bool = self.half_psi < psi_roll <= self.psi
 
-        s = self.get_s_embedder().embed(s, aggregate=s_agg_bool)
+        s = self.get_s_embedder().embed(s) if not s_agg_bool else self.neighbour_aggregation(s, triple_pos="head")
         p = self.get_p_embedder().embed(p)
         if o is None:
             o = self.get_o_embedder().embed_all()
         else:
-            # Only roll aggregation if using subset of obbjects, aggregating over ALL would take too long
-            o = self.get_o_embedder().embed(o, aggregate=o_agg_bool)
+            # Only roll aggregation if using subset of objects, aggregating over ALL would take too long
+            o = self.get_o_embedder().embed(o) if not o_agg_bool else self.neighbour_aggregation(o, triple_pos="tail")
 
         return self._scorer.score_emb(s, p, o, combine="sp_")
 
-    def score_po(self, p: Tensor, o: Tensor, s: Tensor = None) -> Tensor:
+    def score_po(self, p: Tensor, o: Tensor, s: Tensor = None, s_agg_bool=False, o_agg_bool=False) -> Tensor:
         r"""Compute scores for triples formed from a set of po-pairs and (or a subset of the) subjects.
 
         `p` and `o` are vectors of common size :math:`n`, holding the indexes of the
@@ -754,17 +788,17 @@ class KgeModel(KgeBase):
         If `s` is not None, it is a vector holding the indexes of the objects to score.
 
         """
-        psi_roll = np.random.random()
-        s_agg_bool = psi_roll <= self.half_psi
-        o_agg_bool = self.half_psi < psi_roll <= self.psi
-        self.config.log(f'Psi check in score_po: {s_agg_bool or o_agg_bool}')
+        if self.psi:
+            psi_roll = self.psi_roll
+            s_agg_bool = psi_roll <= self.half_psi
+            o_agg_bool = self.half_psi < psi_roll <= self.psi
 
         if s is None:
             s = self.get_s_embedder().embed_all()
         else:
             # Only roll aggregation if using subset of subjects, aggregating over ALL subjects would take too long
-            s = self.get_s_embedder().embed(s, aggregate=s_agg_bool)
-        o = self.get_o_embedder().embed(o, aggregate=o_agg_bool)
+            s = self.get_s_embedder().embed(s) if not s_agg_bool else self.neighbour_aggregation(s, triple_pos="head")
+        o = self.get_o_embedder().embed(o) if not o_agg_bool else self.neighbour_aggregation(o, triple_pos="tail")
         p = self.get_p_embedder().embed(p)
 
         return self._scorer.score_emb(s, p, o, combine="_po")
@@ -792,7 +826,7 @@ class KgeModel(KgeBase):
         return self._scorer.score_emb(s, p, o, combine="s_o")
 
     def score_sp_po(
-        self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None
+        self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None, s_agg_bool=False, o_agg_bool=False
     ) -> Tensor:
         r"""Combine `score_sp` and `score_po`.
 
@@ -811,10 +845,14 @@ class KgeModel(KgeBase):
         holds the score for triple :math:`(e_{j-E}, p_i, o_i)`.
 
         """
+        if self.psi:
+            psi_roll = self.psi_roll
+            s_agg_bool = psi_roll <= self.half_psi
+            o_agg_bool = self.half_psi < psi_roll <= self.psi
 
-        s = self.get_s_embedder().embed(s)
+        s = self.get_s_embedder().embed(s) if not s_agg_bool else self.neighbour_aggregation(s, triple_pos="head")
         p = self.get_p_embedder().embed(p)
-        o = self.get_o_embedder().embed(o)
+        o = self.get_o_embedder().embed(o) if not o_agg_bool else self.neighbour_aggregation(o, triple_pos="tail")
         if self.get_s_embedder() is self.get_o_embedder():
             if entity_subset is not None:
                 all_entities = self.get_s_embedder().embed(entity_subset)

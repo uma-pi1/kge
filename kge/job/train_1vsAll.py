@@ -6,6 +6,8 @@ import torch.utils.data
 from kge.job import Job
 from kge.job.train import TrainingJob, _generate_worker_init_fn
 
+from random import uniform
+
 
 class TrainingJob1vsAll(TrainingJob):
     """Samples SPO pairs and queries sp_ and _po, treating all other entities as negative."""
@@ -57,6 +59,7 @@ class TrainingJob1vsAll(TrainingJob):
         # prepare
         result.prepare_time -= time.time()
         triples = batch["triples"][subbatch_slice].to(self.device)
+        self.model.psi_roll = uniform(0, 1)
         result.prepare_time += time.time()
 
         # forward/backward pass (sp)

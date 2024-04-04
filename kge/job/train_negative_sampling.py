@@ -7,6 +7,8 @@ from kge.job.train import TrainingJob, _generate_worker_init_fn
 from kge.util import KgeSampler
 from kge.model.transe import TransEScorer
 
+from random import uniform
+
 SLOTS = [0, 1, 2]
 S, P, O = SLOTS
 SLOT_STR = ["s", "p", "o"]
@@ -114,6 +116,7 @@ class TrainingJobNegativeSampling(TrainingJob):
         triples = batch["triples"][subbatch_slice]
         batch_negative_samples = batch["negative_samples"]
         subbatch_size = len(triples)
+        self.model.psi_roll = uniform(0, 1)
         result.prepare_time += time.time()
         labels = batch["labels"]  # reuse b/w subbatches
 
