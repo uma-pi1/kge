@@ -371,6 +371,18 @@ class KgeModel(KgeBase):
     ):
         super().__init__(config, dataset, configuration_key)
 
+        # Kazemi OOS parameters and neighbour dict
+        self.psi = self.get_option("psi")
+        if self.psi <= 0:
+            self.psi = None
+        else:
+            self.half_psi = self.psi / 2
+            from time import time
+            self.config.log('Getting sparse tensors for neighbour lookup.')
+            start = time()
+            self.neighbour_triples = self.get_neighbour_doubles()
+            self.config.log(f'Got sparse neighbour tensors after {time()-start:.3f} seconds.')
+
         # TODO support different embedders for subjects and objects
 
         #: Embedder used for entities (both subject and objects)
@@ -378,14 +390,6 @@ class KgeModel(KgeBase):
 
         #: Embedder used for relations
         self._relation_embedder: KgeEmbedder
-
-        # Kazemi OOS parameters and neighbour dict
-        self.psi = self.get_option("psi")
-        if self.psi <= 0:
-            self.psi = None
-        else:
-            self.half_psi = self.psi / 2
-            self.neighbours = {}
 
         if create_embedders:
             self._entity_embedder = KgeEmbedder.create(
@@ -667,7 +671,22 @@ class KgeModel(KgeBase):
 
     def get_scorer(self) -> RelationalScorer:
         return self._scorer
-
+    
+    def get_neighbour_doubles(self) -> dict:
+        train_triples = self.dataset._triples['train']
+        sparse_head = torch.sparse_coo_tensor(
+            train_triples.T, 
+            values=torch.ones(len(train_triples))
+        )
+        sparse_tail = torch.sparse_coo_tensor(
+            train_triples.T[[2, 1, 0]], 
+            values=torch.ones(len(train_triples))
+        )
+        neighbours = {}
+        neighbours['head'] = sparse_head
+        neighbours['tail'] = sparse_tail
+        return neighbours
+    
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         r"""Compute scores for a set of triples.
 
