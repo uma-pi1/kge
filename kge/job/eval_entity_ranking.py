@@ -191,13 +191,13 @@ class EntityRankingJob(EvaluationJob):
             # further evaluation.
             unique_o, unique_o_inverse = torch.unique(o, return_inverse=True)
             o_true_scores = torch.gather(
-                self.model.score_sp(s, p, unique_o),
+                self.model.score_sp(s, p, unique_o, eval=True),
                 1,
                 unique_o_inverse.view(-1, 1),
             ).view(-1)
             unique_s, unique_s_inverse = torch.unique(s, return_inverse=True)
             s_true_scores = torch.gather(
-                self.model.score_po(p, o, unique_s),
+                self.model.score_po(p, o, unique_s, eval=True),
                 1,
                 unique_s_inverse.view(-1, 1),
             ).view(-1)
@@ -225,7 +225,7 @@ class EntityRankingJob(EvaluationJob):
 
                 # compute scores of chunk
                 scores = self.model.score_sp_po(
-                    s, p, o, torch.arange(chunk_start, chunk_end, device=self.device)
+                    s, p, o, torch.arange(chunk_start, chunk_end, device=self.device), eval=True
                 )
                 scores_sp = scores[:, : chunk_end - chunk_start]
                 scores_po = scores[:, chunk_end - chunk_start :]

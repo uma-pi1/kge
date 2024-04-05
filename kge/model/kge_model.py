@@ -683,14 +683,43 @@ class KgeModel(KgeBase):
         ones = ones.to(self.config.get("job.device"))
 
         # Create sparse adj tensors
+        num_ents = self.dataset.num_entities()
+        num_rels = self.dataset.num_relations()
+        adj_size = (num_ents, num_rels, num_ents)
         sparse_head = torch.sparse_coo_tensor(
             train_triples, 
-            values=ones
+            values=ones,
+            size=adj_size
         )
         sparse_tail = torch.sparse_coo_tensor(
             torch.flip(train_triples, dims=[0]), # Flip tensor so we can index by tail node instead of head
-            values=ones
+            values=ones,
+            size=adj_size
         )
+
+        # Find neighbourless entities
+        neighbourless_head = set()
+        for i in range(len(sparse_head)):
+            if len(sparse_head[i]._values()) == 0:
+                neighbourless_head.add(i)
+        if len(neighbourless_head):
+            self.config.log('Found neighbourless head nodes, i.e. entities that never act as head of triple:')
+            self.config.log(str(neighbourless_head))
+        
+        neighbourless_tail = set()
+        for j in range(len(sparse_tail)):
+            if len(sparse_tail[j]._values()) == 0:
+                neighbourless_tail.add(j)
+        if len(neighbourless_tail):
+            self.config.log('Found neighbourless tail nodes, i.e. entities that never act as tail of triple:')
+            self.config.log(str(neighbourless_tail))
+
+        neighbourless = {}
+        neighbourless['head'] = neighbourless_head
+        neighbourless['tail'] = neighbourless_tail
+        self.neighbourless = neighbourless
+
+        # Store adjacency tensors
         neighbours = {}
         neighbours["head"] = sparse_head
         neighbours["tail"] = sparse_tail
@@ -699,22 +728,28 @@ class KgeModel(KgeBase):
 
     def neighbour_aggregation(self, entities: Tensor, triple_pos: str):
         aggregates = []
+        neighbourless = self.neighbourless[triple_pos]
         for ent in entities:
-            # Lookup neighbours
-            part_triples = self.neighbour_doubles[triple_pos][ent]._indices()
-            p = part_triples[0]
-            e = part_triples[1]
+            if ent.item() in neighbourless:
+                # Can't aggregate if no neighbours, use real vector instead
+                actual_vec = self.get_s_embedder().embed(ent) if triple_pos == "head" else self.get_o_embedder().embed(ent)
+                aggregates.append(actual_vec)
+            else:
+                # Lookup neighbours
+                part_triples = self.neighbour_doubles[triple_pos][ent]._indices()
+                p = part_triples[0]
+                e = part_triples[1]
 
-            # Get neighbour embeds
-            p = self.get_p_embedder().embed(p)
-            e = self.get_s_embedder().embed(e) if triple_pos == "head" else self.get_o_embedder().embed(e)
-
-            # Element-wise multiplication of relation vectors against corresponding entity vectors
-            pe = torch.mul(p, e)
-            
-            # Perform aggregation
-            agg_vec = pe.mean(dim=0)
-            aggregates.append(agg_vec)
+                # Get neighbour embeds
+                p = self.get_p_embedder().embed(p)
+                e = self.get_s_embedder().embed(e) if triple_pos == "head" else self.get_o_embedder().embed(e)
+                
+                # Element-wise multiplication of relation vectors against corresponding entity vectors
+                pe = torch.mul(p, e)
+                
+                # Perform aggregation
+                agg_vec = pe.mean(dim=0)
+                aggregates.append(agg_vec)
 
         # Return outputted neighbour aggregations as tensor
         return torch.stack(aggregates)
@@ -739,7 +774,6 @@ class KgeModel(KgeBase):
             psi_roll = self.psi_roll
             s_agg_bool = psi_roll <= self.half_psi
             o_agg_bool = self.half_psi < psi_roll <= self.psi
-            self.config.log(f'Subbatch psi roll = {psi_roll}. Psi threshold = {self.psi}, half psi = {self.half_psi}')
 
         s = self.get_s_embedder().embed(s) if not s_agg_bool else self.neighbour_aggregation(s, triple_pos="head")
         p = self.get_p_embedder().embed(p)
@@ -747,7 +781,7 @@ class KgeModel(KgeBase):
 
         return self._scorer.score_emb(s, p, o, combine="spo").view(-1)
 
-    def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None, s_agg_bool=False, o_agg_bool=False) -> Tensor:
+    def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None, s_agg_bool=False, o_agg_bool=False, eval=False) -> Tensor:
         r"""Compute scores for triples formed from a set of sp-pairs and all (or a subset of the) objects.
 
         `s` and `p` are vectors of common size :math:`n`, holding the indexes of the
@@ -760,7 +794,7 @@ class KgeModel(KgeBase):
         If `o` is not None, it is a vector holding the indexes of the objects to score.
 
         """
-        if self.psi:
+        if self.psi and not eval:
             psi_roll = self.psi_roll
             s_agg_bool = psi_roll <= self.half_psi
             o_agg_bool = self.half_psi < psi_roll <= self.psi
@@ -775,7 +809,7 @@ class KgeModel(KgeBase):
 
         return self._scorer.score_emb(s, p, o, combine="sp_")
 
-    def score_po(self, p: Tensor, o: Tensor, s: Tensor = None, s_agg_bool=False, o_agg_bool=False) -> Tensor:
+    def score_po(self, p: Tensor, o: Tensor, s: Tensor = None, s_agg_bool=False, o_agg_bool=False, eval=False) -> Tensor:
         r"""Compute scores for triples formed from a set of po-pairs and (or a subset of the) subjects.
 
         `p` and `o` are vectors of common size :math:`n`, holding the indexes of the
@@ -788,7 +822,7 @@ class KgeModel(KgeBase):
         If `s` is not None, it is a vector holding the indexes of the objects to score.
 
         """
-        if self.psi:
+        if self.psi and not eval:
             psi_roll = self.psi_roll
             s_agg_bool = psi_roll <= self.half_psi
             o_agg_bool = self.half_psi < psi_roll <= self.psi
@@ -826,7 +860,7 @@ class KgeModel(KgeBase):
         return self._scorer.score_emb(s, p, o, combine="s_o")
 
     def score_sp_po(
-        self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None, s_agg_bool=False, o_agg_bool=False
+        self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None, s_agg_bool=False, o_agg_bool=False, eval=False
     ) -> Tensor:
         r"""Combine `score_sp` and `score_po`.
 
@@ -845,7 +879,7 @@ class KgeModel(KgeBase):
         holds the score for triple :math:`(e_{j-E}, p_i, o_i)`.
 
         """
-        if self.psi:
+        if self.psi and not eval:
             psi_roll = self.psi_roll
             s_agg_bool = psi_roll <= self.half_psi
             o_agg_bool = self.half_psi < psi_roll <= self.psi
