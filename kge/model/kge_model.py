@@ -689,12 +689,14 @@ class KgeModel(KgeBase):
         sparse_head = torch.sparse_coo_tensor(
             train_triples, 
             values=ones,
-            size=adj_size
+            size=adj_size,
+            dtype=int
         )
         sparse_tail = torch.sparse_coo_tensor(
             torch.flip(train_triples, dims=[0]), # Flip tensor so we can index by tail node instead of head
             values=ones,
-            size=adj_size
+            size=adj_size,
+            dtype=int
         )
 
         # Find neighbourless entities
