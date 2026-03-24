@@ -9,21 +9,18 @@ setup(
     author_email="rgemulla@uni-mannheim.de",
     packages=["kge"],
     install_requires=[
-        "numpy>=1.19.0",
-        "torch>=1.7.1",
+        "numpy==2.4.3",
+        "torch==2.10.0",
         "pyyaml",
-        "pandas",
+        "pandas==3.0.1",
         "argparse",
-        "path",
-        # please check correct behaviour when updating ax platform version!!
-        "ax-platform>=0.1.19", "botorch>=0.4.0", "gpytorch>=1.4.2",
-        # sqlalchemy version restricted until ax supports sqlachemy 2
-        # see https://github.com/uma-pi1/kge/pull/269
+        "path==17.1.1",
+        "ax-platform==1.2.4", "botorch==0.17.2", "gpytorch==1.15.2",
         "sqlalchemy<2.0.0",
-        "torchviz",
+        "torchviz==0.0.3",
         # LibKGE uses numba typed-dicts which is part of the experimental numba API
         # see http://numba.pydata.org/numba-doc/0.50.1/reference/pysupported.html
-        "numba>=0.50.0",
+        "numba==0.64.0",
         "hpbandster",
         "ConfigSpace",
         "pytest-shutil",

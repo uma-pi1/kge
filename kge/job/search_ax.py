@@ -1,7 +1,7 @@
 from math import ceil
 
-from ax import Models
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.generation_strategy.generation_strategy import GenerationStrategy, GenerationStep
+from ax.adapter.registry import Generators as Models
 
 from kge.job import AutoSearchJob, Job
 from kge import Config
