@@ -84,6 +84,10 @@ class Dataset(Configurable):
         filename = self.config.get(f"dataset.files.{key}.filename")
         if filename is None:
             raise IOError("Filename for key {} not specified in config".format(key))
+        if "_map" in filename: 
+            filename = filename.replace("_map", "_ids")  # HACK: deal with outdated naming in pretrained checkpoints #TODO: remove later?
+
+    
         if not os.path.exists(os.path.join(self.folder, filename)):
             raise IOError(
                 "File {} for key {} could not be found".format(
@@ -305,6 +309,8 @@ class Dataset(Configurable):
                     "Unexpected file type: "
                     f"dataset.files.{key}.type='{filetype}', expected {maptype}"
                 )
+            if "_map" in filename:
+                filename = filename.replace("_map", "_ids")  # HACK: deal with outdated naming in pretrained checkpoints #TODO: remove later?
             if filetype == "idmap" and as_list and ids_key:
                 map_, duplicates = Dataset._load_map(
                     os.path.join(self.folder, filename),
