@@ -117,7 +117,10 @@ class Job:
         # search jobs don't have a model
         if "model" in checkpoint and checkpoint["model"] is not None:
             model = KgeModel.create_from(
-                checkpoint, new_config=new_config, dataset=dataset
+                checkpoint,
+                new_config=new_config,
+                dataset=dataset,
+                use_tmp_log_folder=False
             )
             config = model.config
             dataset = model.dataset
